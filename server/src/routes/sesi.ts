@@ -69,7 +69,25 @@ function getNetworkBaseUrl(req: Request): string {
 sesiRouter.get('/token/:token', async (req: Request, res: Response) => {
   try {
     const token = req.params.token as string;
+    if (kerupukManager.dapatkanSesi(token)) {
+      return res.status(400).json({
+        valid: false,
+        pesan: 'Mode Solo tidak memakai kode PIN dan tidak menerima peserta siswa.',
+      });
+    }
     if (!token || token.length !== 6) {
+      if (token) {
+        const soloDb = await prisma.session.findUnique({
+          where: { id: token },
+          select: { mode: true, template: { select: { game: true } } },
+        });
+        if (soloDb?.template.game === 'makan_kerupuk' && soloDb.mode === 'solo') {
+          return res.status(400).json({
+            valid: false,
+            pesan: 'Mode Solo tidak memakai kode PIN dan tidak menerima peserta siswa.',
+          });
+        }
+      }
       return res.status(400).json({ valid: false, pesan: 'Kode token harus terdiri dari 6 angka.' });
     }
 
@@ -352,6 +370,7 @@ const buatSesiSchema = z.object({
   templateId: z.string().min(1, 'ID template wajib disertakan.'),
   mode: z.enum(['solo', 'multi']).optional(),
   playMode: z.enum(['SOLO', 'MULTIPLAYER']).optional(),
+  autoStart: z.boolean().optional(),
   game: z.enum(['tarik_tambang', 'makan_kerupuk', 'panjat_pinang', 'balap_karung']).optional(),
   kerupukConfig: konfigurasiKerupukSoloSchema.optional(),
   kerupukMultiConfig: konfigurasiKerupukMultiSchema.optional(),
@@ -621,6 +640,7 @@ sesiRouter.post('/', async (req: AuthRequest, res: Response) => {
       };
 
       const configSnapshot = bangunKonfigurasiKerupukSolo(mergedKerupukInput);
+      const shouldAutoStart = parsed.autoStart === true;
 
       const session = await prisma.session.create({
         data: {
@@ -628,7 +648,8 @@ sesiRouter.post('/', async (req: AuthRequest, res: Response) => {
           hostId: req.user!.id,
           mode: 'solo',
           token: null,
-          status: 'lobi',
+          status: shouldAutoStart ? 'jalan' : 'lobi',
+          mulaiPada: shouldAutoStart ? new Date() : null,
           konfigurasi: JSON.stringify({
             playMode: 'SOLO',
             config: configSnapshot,
@@ -653,8 +674,14 @@ sesiRouter.post('/', async (req: AuthRequest, res: Response) => {
         configSnapshot
       );
 
+      if (shouldAutoStart) {
+        kerupukManager.mulaiPermainan(session.id, req.user!.id);
+      }
+
       return res.status(201).json({
-        pesan: 'Sesi Mode Solo Makan Kerupuk Challenge siap dimulai.',
+        pesan: shouldAutoStart
+          ? 'Permainan Mode Solo Makan Kerupuk Challenge langsung dimulai.'
+          : 'Sesi Mode Solo Makan Kerupuk Challenge siap dimulai.',
         session: {
           id: session.id,
           ...kerupukManager.serialisasiSesiUntukClient(activeSession),
@@ -1408,12 +1435,13 @@ sesiRouter.post('/:id/ulang', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const sesiReset = kerupukManager.ulangPermainan(id, req.user!.id);
+    const autoStart = req.body?.autoStart === true;
+    const sesiReset = kerupukManager.ulangPermainan(id, req.user!.id, autoStart);
     await prisma.session.update({
       where: { id },
       data: {
-        status: 'lobi',
-        mulaiPada: null,
+        status: autoStart ? 'jalan' : 'lobi',
+        mulaiPada: autoStart ? new Date() : null,
         selesaiPada: null,
         konfigurasi: JSON.stringify(sesiReset.config),
       },
@@ -1720,6 +1748,7 @@ sesiRouter.post('/:id/main-lagi', async (req: AuthRequest, res: Response) => {
       }
 
       const configSnapshot = bangunKonfigurasiKerupukSolo(configSebelumnya);
+      const shouldAutoStart = req.body?.autoStart === true;
 
       const sessionBaru = await prisma.session.create({
         data: {
@@ -1727,7 +1756,8 @@ sesiRouter.post('/:id/main-lagi', async (req: AuthRequest, res: Response) => {
           hostId: req.user!.id,
           mode: 'solo',
           token: null,
-          status: 'lobi',
+          status: shouldAutoStart ? 'jalan' : 'lobi',
+          mulaiPada: shouldAutoStart ? new Date() : null,
           konfigurasi: JSON.stringify({
             playMode: 'SOLO',
             config: configSnapshot,
@@ -1752,8 +1782,14 @@ sesiRouter.post('/:id/main-lagi', async (req: AuthRequest, res: Response) => {
         configSnapshot
       );
 
+      if (shouldAutoStart) {
+        kerupukManager.mulaiPermainan(sessionBaru.id, req.user!.id);
+      }
+
       return res.status(201).json({
-        pesan: 'Sesi Mode Solo Makan Kerupuk baru siap dimulai.',
+        pesan: shouldAutoStart
+          ? 'Permainan Mode Solo Makan Kerupuk baru langsung dimulai.'
+          : 'Sesi Mode Solo Makan Kerupuk baru siap dimulai.',
         sessionId: sessionBaru.id,
         session: {
           id: sessionBaru.id,

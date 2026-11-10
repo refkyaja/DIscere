@@ -432,7 +432,7 @@ export default function DashboardGuru() {
                   allowLateJoin: config.allowLateJoin ?? true,
                 },
               }
-            : { kerupukConfig: baseCfg }),
+            : { autoStart: true, kerupukConfig: baseCfg }),
         }),
       });
       setModalKerupukTemplate(null);

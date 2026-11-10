@@ -241,7 +241,7 @@ export default function ModalKonfigurasiKerupuk({
               <div className="flex items-center justify-between gap-2 mb-1">
                 <div className="flex items-center gap-2 font-extrabold text-sm">
                   <Monitor className="w-4 h-4" />
-                  <span>Solo Mode (Guru)</span>
+                  <span>Solo Mode (Perangkat Guru)</span>
                 </div>
                 <span
                   className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
@@ -510,7 +510,7 @@ export default function ModalKonfigurasiKerupuk({
               ? 'Menyiapkan Sesi...'
               : playMode === 'MULTIPLAYER'
               ? 'Buat Sesi & Buka Lobi PIN'
-              : 'Buka Arena Solo Proyektor'}
+              : 'Mulai Permainan'}
           </button>
         </div>
       </form>

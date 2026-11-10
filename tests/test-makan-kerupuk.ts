@@ -166,6 +166,10 @@ function jalankanUnitTests() {
   assert.strictEqual(s.state, 'READY');
   assert.strictEqual(s.pemainState.skorTotal, 0);
   assert.strictEqual(s.pemainState.sisaKerupuk, 50);
+  kerupukManager.ulangPermainan(sid, 'guru-1', true);
+  assert.strictEqual(s.state, 'PLAYING');
+  const serializedAuto = kerupukManager.serialisasiSesiUntukClient(s);
+  assert.ok(serializedAuto.soalSaatIni && serializedAuto.soalSaatIni.pilihan.length === 3);
   kerupukManager.hapusSesi(sid);
 
   for (let i = 0; i < 20; i++) {
@@ -361,6 +365,114 @@ async function jalankanIntegrationDualModeDan40Siswa() {
     assert.strictEqual(soloLast.isFinished, true);
     assert.strictEqual(soloLast.skorTotal, 570);
     assert.strictEqual(await prisma.sessionPlayer.count({ where: { sessionId: soloId } }), 0, 'Solo tidak menyimpan SessionPlayer');
+
+    // 3b. Uji Alur Langsung SOLO Mode (autoStart: true) + Tolak Join Siswa/Socket.IO
+    console.log('3b. Menguji Solo Mode langsung PLAYING (autoStart), tolak PIN/QR/Socket.IO, & main lagi...');
+    const soloDirectRes = await fetch(`${baseUrl}/api/sesi`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: guruCookie },
+      body: JSON.stringify({
+        templateId: createdTemplateId,
+        game: 'makan_kerupuk',
+        mode: 'solo',
+        playMode: 'SOLO',
+        autoStart: true,
+        kerupukConfig: {
+          targetKerupuk: 50,
+          targetPreset: '50',
+          kesulitan: 'custom',
+          probabilitas: { besar: 100, sedang: 0, kecil: 0, sangat_kecil: 0, zonk: 0 },
+        },
+      }),
+    });
+    assert.strictEqual(soloDirectRes.status, 201);
+    const soloDirectJson: any = await soloDirectRes.json();
+    const soloDirectId: string = soloDirectJson.session.id;
+    createdSessionIds.push(soloDirectId);
+
+    assert.strictEqual(soloDirectJson.session.playMode, 'SOLO');
+    assert.strictEqual(soloDirectJson.session.state, 'PLAYING');
+    assert.strictEqual(soloDirectJson.session.token, undefined);
+    assert.strictEqual(soloDirectJson.session.qrDataUrl, undefined);
+    assert.ok(soloDirectJson.session.soalSaatIni?.presentationId, 'Soal #1 harus langsung tersedia saat Mulai Permainan');
+    assert.strictEqual(soloDirectJson.session.soalSaatIni.pilihan?.length, 3);
+
+    const soloDirectDb = await prisma.session.findUnique({ where: { id: soloDirectId } });
+    assert.strictEqual(soloDirectDb?.mode, 'solo');
+    assert.strictEqual(soloDirectDb?.token, null);
+    assert.strictEqual(soloDirectDb?.status, 'jalan');
+
+    // Verifikasi GET /api/sesi/token/:soloDirectId ditolak
+    const cekSoloTokRes = await fetch(`${baseUrl}/api/sesi/token/${soloDirectId}`);
+    assert.strictEqual(cekSoloTokRes.status, 400);
+    const cekSoloTokJson: any = await cekSoloTokRes.json();
+    assert.strictEqual(cekSoloTokJson.valid, false);
+
+    // Verifikasi Socket.IO menolak seluruh event Multiplayer terhadap sesi Solo
+    const guardSock = ioClient(baseUrl, { transports: ['websocket'] });
+    sockets.push(guardSock);
+    await waitForEvent(guardSock, 'connect');
+
+    const soloGabungAck = await emitWithAck(guardSock, 'sesi:gabung', { token: soloDirectId, nama: 'Penyusup' });
+    assert.strictEqual(soloGabungAck.success, false);
+
+    const hostErrP = waitForEvent(guardSock, 'sesi:error');
+    guardSock.emit('sesi:host_join', { sessionId: soloDirectId });
+    const hostErrEvt = await hostErrP;
+    assert.ok(hostErrEvt?.pesan);
+
+    const soloMulaiSockAck = await emitWithAck(guardSock, 'sesi:mulai', { sessionId: soloDirectId });
+    assert.strictEqual(soloMulaiSockAck.success, false);
+
+    const soloJawabSockAck = await emitWithAck(guardSock, 'jawab:kirim', {
+      sessionId: soloDirectId,
+      pesertaId: 'p1',
+      jawaban: 'A',
+    });
+    assert.strictEqual(soloJawabSockAck.success, false);
+
+    const soloStopSockAck = await emitWithAck(guardSock, 'sesi:akhiri_manual', { sessionId: soloDirectId });
+    assert.strictEqual(soloStopSockAck.success, false);
+    guardSock.disconnect();
+
+    // Ulang langsung ke PLAYING tanpa layar READY perantara
+    const ulangDirectRes = await fetch(`${baseUrl}/api/sesi/${soloDirectId}/ulang`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: guruCookie },
+      body: JSON.stringify({ autoStart: true }),
+    });
+    assert.strictEqual(ulangDirectRes.status, 200);
+    const ulangDirectJson: any = await ulangDirectRes.json();
+    assert.strictEqual(ulangDirectJson.session.state, 'PLAYING');
+    let soalDirect = ulangDirectJson.session.soalSaatIni;
+    assert.ok(soalDirect?.presentationId);
+
+    for (let k = 0; k < 3; k++) {
+      const benarC = soalDirect.pilihan.find((p: any) => p.teks === kunciTeksMap.get(soalDirect.questionId))!;
+      const rDirect = await fetch(`${baseUrl}/api/sesi/${soloDirectId}/jawab`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: guruCookie },
+        body: JSON.stringify({
+          presentationId: soalDirect.presentationId,
+          choiceId: benarC.choiceId,
+        }),
+      });
+      assert.strictEqual(rDirect.ok, true);
+      const dRes: any = await rDirect.json();
+      soalDirect = dRes.soalBerikutnya;
+    }
+
+    const mainLagiRes = await fetch(`${baseUrl}/api/sesi/${soloDirectId}/main-lagi`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: guruCookie },
+      body: JSON.stringify({ autoStart: true }),
+    });
+    assert.strictEqual(mainLagiRes.status, 201);
+    const mainLagiJson: any = await mainLagiRes.json();
+    createdSessionIds.push(mainLagiJson.sessionId);
+    assert.strictEqual(mainLagiJson.session.state, 'PLAYING');
+    assert.ok(mainLagiJson.session.soalSaatIni?.presentationId);
+    assert.strictEqual(await prisma.sessionPlayer.count({ where: { sessionId: soloDirectId } }), 0);
 
     // 4. Hubungkan Host + 40 SISWA bersamaan via Socket.IO ke Sesi Multiplayer!
     console.log('4. Menghubungkan Host + 40 siswa bersamaan ke Socket.IO Multiplayer...');

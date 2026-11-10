@@ -6,6 +6,7 @@ import { PesertaPanjatState } from '../games/panjatPinang.js';
 import { balapKarungManager } from '../games/balapKarungManager.js';
 import { PesertaBalapKarungState } from '../games/balapKarung.js';
 import { kerupukMultiManager } from '../games/kerupukMultiManager.js';
+import { kerupukManager } from '../games/kerupukManager.js';
 import { prisma } from '../db.js';
 
 const pendingNextSoalPanjatTimers = new Map<string, NodeJS.Timeout>();
@@ -98,6 +99,15 @@ export function setupMultiplayerSocket(io: Server) {
           }
           const { token, nama, pesertaId, pesertaSecret } = parsedGabung.data;
 
+          // Tolak eksplisit bila token atau ID merujuk pada sesi Solo Makan Kerupuk
+          if (kerupukManager.dapatkanSesi(token)) {
+            callback?.({
+              success: false,
+              pesan: 'Sesi Solo Makan Kerupuk tidak menggunakan ruang peserta maupun siswa.',
+            });
+            return;
+          }
+
           // Cek seluruh manager aktif di memori terlebih dahulu agar zero query SQLite saat 40+ siswa gabung paralel
           let sesiBalapCek = balapKarungManager.dapatkanSesiDariToken(token);
           let sesiPanjatCek = !sesiBalapCek ? panjatPinangManager.dapatkanSesiDariToken(token) : undefined;
@@ -116,6 +126,13 @@ export function setupMultiplayerSocket(io: Server) {
               where: { token, status: { in: ['lobi', 'jalan'] } },
               include: { template: { select: { game: true } } },
             });
+            if (dbSesi?.template.game === 'makan_kerupuk' && dbSesi.mode === 'solo') {
+              callback?.({
+                success: false,
+                pesan: 'Mode Solo dimainkan langsung oleh guru di perangkat utama dan tidak menerima siswa.',
+              });
+              return;
+            }
             if (dbSesi?.template.game === 'balap_karung') {
               sesiBalapCek = (await balapKarungManager.pulihkanSesiDariDb(dbSesi.id)) || undefined;
             } else if (dbSesi?.template.game === 'panjat_pinang') {
@@ -364,6 +381,13 @@ export function setupMultiplayerSocket(io: Server) {
       const { sessionId } = data || {};
       if (!sessionId) return;
 
+      if (kerupukManager.dapatkanSesi(sessionId)) {
+        socket.emit('sesi:error', {
+          pesan: 'Mode Solo Makan Kerupuk dijalankan lokal di perangkat guru tanpa ruang Socket.IO.',
+        });
+        return;
+      }
+
       // 0b. Cek sesi Balap Karung Challenge
       let sesiBalap = balapKarungManager.dapatkanSesi(sessionId);
       if (!sesiBalap) {
@@ -468,6 +492,14 @@ export function setupMultiplayerSocket(io: Server) {
       ) => {
         try {
           const { sessionId } = data || {};
+
+          if (kerupukManager.dapatkanSesi(sessionId)) {
+            callback?.({
+              success: false,
+              pesan: 'Sesi Solo Makan Kerupuk dikendalikan langsung oleh guru tanpa ruang tunggu Multiplayer.',
+            });
+            return;
+          }
 
           // 0b. Sesi Balap Karung Challenge
           const sesiBalapTarget = balapKarungManager.dapatkanSesi(sessionId);
@@ -679,6 +711,14 @@ export function setupMultiplayerSocket(io: Server) {
         try {
           const { sessionId, pesertaId, jawaban } = data || {};
           const rawQId = data?.questionId || data?.id;
+
+          if (kerupukManager.dapatkanSesi(sessionId)) {
+            callback?.({
+              success: false,
+              pesan: 'Sesi Solo Makan Kerupuk tidak menerima jawaban peserta melalui Socket.IO.',
+            });
+            return;
+          }
 
           // 0b. Sesi Balap Karung Challenge
           const sesiBalap = balapKarungManager.dapatkanSesi(sessionId);
@@ -1202,6 +1242,14 @@ export function setupMultiplayerSocket(io: Server) {
       async (data: { sessionId: string; hostId?: string }, callback?: (res: any) => void) => {
         try {
           const { sessionId } = data || {};
+
+          if (kerupukManager.dapatkanSesi(sessionId)) {
+            callback?.({
+              success: false,
+              pesan: 'Sesi Solo Makan Kerupuk dihentikan langsung melalui kontrol perangkat guru.',
+            });
+            return;
+          }
 
           // 0b. Sesi Balap Karung Challenge
           const sesiBalap = balapKarungManager.dapatkanSesi(sessionId);

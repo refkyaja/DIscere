@@ -399,7 +399,11 @@ export const kerupukManager = {
     return sesi;
   },
 
-  ulangPermainan(sessionId: string, hostId: string): SesiKerupukSoloActive {
+  ulangPermainan(
+    sessionId: string,
+    hostId: string,
+    autoStart: boolean = false
+  ): SesiKerupukSoloActive {
     const sesi = sesiKerupukMap.get(sessionId);
     if (!sesi) throw new Error('Sesi Makan Kerupuk Solo tidak ditemukan.');
     if (sesi.hostId !== hostId) {
@@ -415,6 +419,14 @@ export const kerupukManager = {
     sesi.pemainState = buatStateKerupukAwal(sesi.config.targetKerupuk);
     sesi.questionStatsMap = new Map();
     sesi.hasil = undefined;
+
+    if (autoStart) {
+      const now = Date.now();
+      sesi.state = 'PLAYING';
+      sesi.pemainState.waktuMulaiMs = now;
+      sesi.activePresentation = buatPresentasiSoalSolo(sesi, now);
+    }
+
     return sesi;
   },
 
@@ -683,13 +695,19 @@ export const kerupukManager = {
       return null;
     }
 
-    return this.inisialisasiSesi(
+    const restored = this.inisialisasiSesi(
       sessionDb.id,
       sessionDb.hostId,
       { id: sessionDb.template.id, judul: sessionDb.template.judul },
       questions,
       config
     );
+
+    if (sessionDb.status === 'jalan') {
+      return this.mulaiPermainan(sessionDb.id, sessionDb.hostId);
+    }
+
+    return restored;
   },
 
   hapusSesi(sessionId: string): void {
