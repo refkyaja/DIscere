@@ -10,12 +10,9 @@ import {
   GameModeCard,
   resolveGuruReturnUrl,
 } from '../../components';
-import type {
-  KesulitanTarik,
-  KonfigurasiTarikTambangPayload,
-} from './ModalKonfigurasiTarikTambang';
 import {
   AlertTriangle,
+  Bot,
   ChevronDown,
   ChevronUp,
   Clock,
@@ -25,14 +22,18 @@ import {
   Monitor,
   Play,
   QrCode,
-  Scale,
+  Shuffle,
   Sliders,
   Swords,
+  Timer,
   Users,
   Zap,
 } from 'lucide-react';
 
 export type PlayModeTarik = 'MULTIPLAYER' | 'SOLO';
+export type KesulitanTarik = 'semua' | 'mudah' | 'sedang' | 'sulit';
+export type TipeLawanSoloTarik = 'bot' | 'lokal';
+export type KesulitanBotTarik = 'mudah' | 'sedang' | 'sulit';
 export type PresetBatasTarik = '25' | '50' | '75' | '100' | 'custom';
 
 interface TemplateDetail {
@@ -52,7 +53,16 @@ const BATAS_PRESETS: Array<{ key: Exclude<PresetBatasTarik, 'custom'>; val: numb
   { key: '100', val: 100, label: 'Klasik (±100)' },
 ];
 
+const DURASI_LOMBA_PRESETS: Array<{ val: number; label: string }> = [
+  { val: 120, label: '2:00 (Cepat)' },
+  { val: 180, label: '3:00 (Standar)' },
+  { val: 300, label: '5:00 (Panjang)' },
+];
+
+const WAKTU_SOAL_PRESETS = [10, 15, 20, 30];
+
 const LABEL_KESULITAN: Record<KesulitanTarik, string> = {
+  semua: 'Semua Soal (Acak Berulang)',
   mudah: 'Mudah',
   sedang: 'Sedang',
   sulit: 'Sulit',
@@ -75,20 +85,28 @@ export default function PilihModeTarikTambang() {
     queryModeParam === 'multi' ? 'MULTIPLAYER' : 'SOLO'
   );
 
-  // Target Kemenangan Tali
+  // Target Garis Menang & Durasi Lomba
   const [presetBatas, setPresetBatas] = useState<PresetBatasTarik>('100');
   const [batasCustomInput, setBatasCustomInput] = useState<string>('80');
+  const [durasiLombaDetik, setDurasiLombaDetik] = useState<number>(180);
 
-  // Pengaturan Tim & Peserta
+  // Tim & Mode Lawan Solo / Kapasitas Multi (Maks 36 / Kelas)
+  const [tipeLawanSolo, setTipeLawanSolo] = useState<TipeLawanSoloTarik>('bot');
+  const [kesulitanBot, setKesulitanBot] = useState<KesulitanBotTarik>('sedang');
   const [namaTim1, setNamaTim1] = useState<string>('Tim Merah');
   const [namaTim2, setNamaTim2] = useState<string>('Tim Biru');
-  const [maxPeserta, setMaxPeserta] = useState<number>(60);
+  const [maxPeserta, setMaxPeserta] = useState<number>(36);
 
-  // Waktu Ronde, Kesulitan Soal Setara & Lanjutan
-  const [durasiRonde, setDurasiRonde] = useState<15 | 20 | 30>(20);
-  const [kesulitan, setKesulitan] = useState<KesulitanTarik>('sedang');
-  const [bonusAktif, setBonusAktif] = useState<boolean>(true);
-  const [powerUpAktif, setPowerUpAktif] = useState<boolean>(true);
+  // Skala Tarikan & Waktu Soal
+  const [waktuPerSoalDetik, setWaktuPerSoalDetik] = useState<number>(10);
+  const [tarikBenarSolo, setTarikBenarSolo] = useState<number>(10);
+  const [mundurSalahSolo, setMundurSalahSolo] = useState<number>(4);
+  const [kekuatanTimMulti, setKekuatanTimMulti] = useState<number>(40);
+  const [kesulitan, setKesulitan] = useState<KesulitanTarik>('semua');
+
+  // Aturan Tambahan Opsional
+  const [bonusAktif, setBonusAktif] = useState<boolean>(false);
+  const [powerUpAktif, setPowerUpAktif] = useState<boolean>(false);
   const [showAdvancedRules, setShowAdvancedRules] = useState<boolean>(false);
 
   useEffect(() => {
@@ -99,7 +117,7 @@ export default function PilihModeTarikTambang() {
       if (!queryTemplateId) {
         setSelectedTemplate(null);
         setErrorPesan(
-          'Template kuis belum dipilih. Silakan pilih kuis Tarik Tambang dari Dashboard atau Papan Tulis terlebih dahulu.'
+          'Template kuis belum dipilih. Silakan pilih kuis Tarik Tambang dari Dashboard terlebih dahulu.'
         );
         setLoadingTemplate(false);
         return;
@@ -117,22 +135,12 @@ export default function PilihModeTarikTambang() {
         if (tmpl.game && tmpl.game !== 'tarik_tambang') {
           setSelectedTemplate(null);
           setErrorPesan(
-            `Template "${tmpl.judul}" bukan diperuntukkan untuk Tarik Tambang Challenge.`
+            `Template "${tmpl.judul}" bukan diperuntukkan untuk Tarik Tambang Kuis.`
           );
           return;
         }
 
         setSelectedTemplate(tmpl);
-        const qs = tmpl.questions || [];
-        const counts: Record<KesulitanTarik, number> = { mudah: 0, sedang: 0, sulit: 0 };
-        for (const q of qs) {
-          const lvl = ((q.kesulitan || 'sedang').toLowerCase() as KesulitanTarik);
-          if (lvl in counts) counts[lvl] += 1;
-        }
-        const preferred = (['sedang', 'mudah', 'sulit'] as KesulitanTarik[]).find(
-          (k) => counts[k] >= 2
-        );
-        if (preferred) setKesulitan(preferred);
 
         if (!hasSyncedInitialMode.current) {
           hasSyncedInitialMode.current = true;
@@ -167,16 +175,23 @@ export default function PilihModeTarikTambang() {
     selectedTemplate?.questions?.length ?? selectedTemplate?._count?.questions ?? 0;
 
   const countsPerKesulitan = useMemo(() => {
-    const counts: Record<KesulitanTarik, number> = { mudah: 0, sedang: 0, sulit: 0 };
+    const counts = { semua: questions.length, mudah: 0, sedang: 0, sulit: 0 };
     for (const q of questions) {
-      const lvl = ((q.kesulitan || 'sedang').toLowerCase() as KesulitanTarik);
-      if (lvl in counts) counts[lvl] += 1;
+      const lvl = (q.kesulitan || 'sedang').toLowerCase();
+      if (lvl === 'mudah' || lvl === 'sedang' || lvl === 'sulit') {
+        counts[lvl] += 1;
+      }
     }
     return counts;
   }, [questions]);
 
-  const soalSetaraTerpilih = countsPerKesulitan[kesulitan];
-  const cukupSoal = questions.length === 0 ? jumlahSoal >= 2 : soalSetaraTerpilih >= 2;
+  const soalTerpilih =
+    questions.length === 0
+      ? jumlahSoal
+      : kesulitan === 'semua'
+        ? countsPerKesulitan.semua
+        : countsPerKesulitan[kesulitan];
+  const cukupSoal = soalTerpilih >= 2;
 
   const batasMenangFinal = useMemo(() => {
     if (presetBatas === 'custom') {
@@ -187,22 +202,41 @@ export default function PilihModeTarikTambang() {
   }, [presetBatas, batasCustomInput]);
 
   const batasValid =
-    Number.isInteger(batasMenangFinal) && batasMenangFinal >= 10 && batasMenangFinal <= 100;
+    Number.isInteger(batasMenangFinal) && batasMenangFinal >= 10 && batasMenangFinal <= 200;
+  const durasiValid = Number.isInteger(durasiLombaDetik) && durasiLombaDetik >= 30 && durasiLombaDetik <= 900;
   const timValid = namaTim1.trim().length >= 2 && namaTim2.trim().length >= 2;
 
   const canSubmit =
     Boolean(selectedTemplate) &&
     cukupSoal &&
     batasValid &&
+    durasiValid &&
     timValid &&
     !submitting;
 
+  const handleUbahLawanSolo = (nextType: TipeLawanSoloTarik) => {
+    setTipeLawanSolo(nextType);
+    if (nextType === 'bot' && (namaTim2 === 'Pemain 2' || namaTim2 === 'Tim Biru')) {
+      setNamaTim2('Lawan Bot');
+    } else if (nextType === 'lokal' && namaTim2 === 'Lawan Bot') {
+      setNamaTim2('Tim Biru');
+    }
+  };
+
+  const formatClockLabel = (detik: number) => {
+    const m = Math.floor(detik / 60);
+    const s = detik % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  };
+
   const statusLanjutan =
     bonusAktif && powerUpAktif
-      ? 'Aktif Semua'
-      : bonusAktif || powerUpAktif
-      ? 'Aktif Sebagian'
-      : 'Nonaktif';
+      ? 'Bonus Streak + Power-Up'
+      : bonusAktif
+        ? 'Bonus Streak Aktif'
+        : powerUpAktif
+          ? 'Power-Up Aktif'
+          : 'Murni Tarik Cepat (Standar)';
 
   const handleMulaiPermainan = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -213,14 +247,22 @@ export default function PilihModeTarikTambang() {
       setErrorPesan(null);
 
       const isMulti = playMode === 'MULTIPLAYER';
-      const tarikTambangConfig: KonfigurasiTarikTambangPayload = {
+      const tarikTambangConfig = {
         sumberSoal: 'bank_soal',
         kesulitan,
-        durasiRonde,
+        durasiLombaDetik,
+        waktuPerSoalDetik,
+        durasiRonde: Math.min(30, Math.max(15, waktuPerSoalDetik)),
+        tarikBenarSolo,
+        mundurSalahSolo,
+        kekuatanTimMulti,
+        rasioTerpeleset: 0.4,
+        tipeLawanSolo,
+        kesulitanBot,
         bonusAktif,
         powerUpAktif,
         namaTim1: namaTim1.trim() || 'Tim Merah',
-        namaTim2: namaTim2.trim() || 'Tim Biru',
+        namaTim2: namaTim2.trim() || (isMulti ? 'Tim Biru' : tipeLawanSolo === 'bot' ? 'Lawan Bot' : 'Tim Biru'),
         maxPeserta: isMulti ? maxPeserta : 2,
         batasMenang: batasMenangFinal,
       };
@@ -232,17 +274,14 @@ export default function PilihModeTarikTambang() {
           game: 'tarik_tambang',
           mode: isMulti ? 'multi' : 'solo',
           playMode,
-          autoStart: !isMulti,
+          autoStart: false,
           tarikTambangConfig,
         }),
       });
 
-      const backTarget = `/guru/tarik-tambang?templateId=${encodeURIComponent(
-        selectedTemplate.id
-      )}&kembali=${encodeURIComponent(queryKembali)}`;
-      navigate(`/guru/sesi/${res.session.id}?kembali=${encodeURIComponent(backTarget)}`);
+      navigate(`/guru/sesi/${res.session.id}?kembali=${encodeURIComponent(queryKembali)}`);
     } catch (err: unknown) {
-      setErrorPesan(extractApiErrorMessage(err, 'Gagal membuat sesi Tarik Tambang Challenge.'));
+      setErrorPesan(extractApiErrorMessage(err, 'Gagal membuat sesi Tarik Tambang Kuis.'));
     } finally {
       setSubmitting(false);
     }
@@ -252,8 +291,8 @@ export default function PilihModeTarikTambang() {
     <GameConfigPageShell
       loading={loadingTemplate}
       loadingText="Menyiapkan Pengaturan Tarik Tambang..."
-      title="Tarik Tambang Challenge"
-      subtitle="Atur mode permainan, batas kemenangan tali, nama tim, durasi ronde, dan kesetaraan soal sebelum lomba."
+      title="Tarik Tambang Kuis"
+      subtitle="Atur mode permainan, durasi lomba, target garis menang, dan aturan tarikan sebelum bertanding."
       errorMessage={errorPesan}
       templateTitle={selectedTemplate?.judul}
       isOfficialTemplate={Boolean(selectedTemplate?.resmi)}
@@ -264,7 +303,7 @@ export default function PilihModeTarikTambang() {
         {/* 1. Pilih Mode Permainan */}
         <GameConfigSection
           title="1. Pilih Mode Permainan"
-          description="Multiplayer membagi siswa ke 2 tim di HP masing-masing; Solo Mode menyajikan duel 1 vs 1 langsung di satu layar proyektor."
+          description="Multiplayer mengajak satu kelas bergabung ke Tim Merah vs Tim Biru di HP masing-masing; Solo Mode menyajikan duel 1 vs 1 real-time di layar guru."
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <GameModeCard
@@ -273,13 +312,13 @@ export default function PilihModeTarikTambang() {
               onClick={() => setPlayMode('MULTIPLAYER')}
               badgeIcon={<Users className="w-3.5 h-3.5" />}
               badgeLabel="Multiplayer Tim"
-              title="Siswa Bermain di HP • Adu Tarik 2 Tim"
-              description="Guru membuka PIN & QR Code lalu siswa otomatis masuk ke Tim Kiri atau Tim Kanan. Akurasi dan kekompakan menjawab menarik tambang setiap ronde."
+              title="Siswa Bermain di HP • Tarik Tambang 2 Tim"
+              description="Guru membuka PIN & QR Code untuk hingga 36 siswa dalam 1 kelas. Soal mengalir berurutan di HP tanpa henti, setiap jawaban benar menarik tali!"
               features={[
                 { icon: <QrCode className="w-3.5 h-3.5 text-[#f2c230]" />, label: 'PIN & QR Gabung' },
-                { icon: <Users className="w-3.5 h-3.5 text-[#f2c230]" />, label: '2 Tim Seimbang' },
-                { icon: <Scale className="w-3.5 h-3.5 text-[#f2c230]" />, label: 'Soal Setara Otomatis' },
-                { icon: <Zap className="w-3.5 h-3.5 text-[#f2c230]" />, label: 'Power-Up & Streak Tim' },
+                { icon: <Users className="w-3.5 h-3.5 text-[#f2c230]" />, label: 'Tim Merah vs Biru' },
+                { icon: <Timer className="w-3.5 h-3.5 text-[#f2c230]" />, label: 'Kuis Real-Time 10 dtk/Soal' },
+                { icon: <Zap className="w-3.5 h-3.5 text-[#f2c230]" />, label: 'Podium & Heatmap Analisis' },
               ]}
             />
 
@@ -289,50 +328,52 @@ export default function PilihModeTarikTambang() {
               onClick={() => setPlayMode('SOLO')}
               badgeIcon={<Monitor className="w-3.5 h-3.5" />}
               badgeLabel="Solo Mode (1 vs 1)"
-              title="Satu Perangkat Guru • Duel Kiri vs Kanan"
-              description="Tanpa HP siswa, PIN, atau QR Code. Dua pemain atau perwakilan tim langsung berhadapan di satu layar proyektor dengan soal setara tiap ronde."
+              title="Satu Layar Proyektor • Duel Cepat 1 vs 1"
+              description="Tanpa HP siswa atau PIN. Dua kartu soal tampil bersebelahan di layar guru — jawab cepat tanpa menunggu ronde melawan Bot AI atau Pemain 2 Lokal."
               features={[
                 { icon: <Monitor className="w-3.5 h-3.5" />, label: 'Tanpa PIN / QR Code' },
-                { icon: <Swords className="w-3.5 h-3.5" />, label: 'Duel 2 Sisi (1 vs 1)' },
-                { icon: <Scale className="w-3.5 h-3.5" />, label: 'Soal Setara Otomatis' },
+                { icon: <Bot className="w-3.5 h-3.5" />, label: 'Lawan Bot AI / Lokal' },
+                { icon: <Swords className="w-3.5 h-3.5" />, label: 'Duel Kiri vs Kanan Berkelanjutan' },
                 { icon: <Play className="w-3.5 h-3.5" />, label: 'Kontrol Jeda & Ulang' },
               ]}
             />
           </div>
         </GameConfigSection>
 
-        {/* 2. Pengaturan Aturan & Arena */}
+        {/* 2. Target Garis Menang & Tim */}
         <GameConfigSection
-          title="2. Pengaturan Aturan & Arena"
-          description="Sesuaikan batas kemenangan tali, nama kedua tim, durasi ronde, kesulitan soal setara, dan fitur bonus."
+          title="2. Target Lomba & Identitas Tim"
+          description="Atur target tarikan menang, durasi lomba, serta nama kedua kubu atau tingkat kecerdasan lawan."
         >
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* Kolom Kiri: Batas Kemenangan & Tim */}
-            <div className="lg:col-span-5 space-y-5">
-              {/* Batasan Menang Tali */}
-              <div className="portal-card p-5 space-y-4">
-                <GameConfigCardHeader
-                  icon={<Flag className="w-4 h-4 text-[#c8362f]" />}
-                  title="Batasan Menang Tali"
-                  tagLabel={batasValid ? `±${batasMenangFinal} pt` : 'Invalid'}
-                  tagColor="yellow"
-                />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Target Batas Menang & Jam Lomba */}
+            <div className="portal-card p-5 space-y-4">
+              <GameConfigCardHeader
+                icon={<Flag className="w-4 h-4 text-[#c8362f]" />}
+                title="Target Garis Menang & Durasi"
+                tagLabel={`Waktu ${formatClockLabel(durasiLombaDetik)}`}
+                tagColor="green"
+              />
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-2">
-                  {BATAS_PRESETS.map((opsi) => {
-                    const active = presetBatas === opsi.key;
+              <div>
+                <label className="text-xs font-bold text-[#6b7d6c] block mb-2">
+                  Batas Tarikan Menang (±10 sampai ±200)
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {BATAS_PRESETS.map((item) => {
+                    const active = presetBatas === item.key;
                     return (
                       <button
-                        key={opsi.key}
+                        key={item.key}
                         type="button"
-                        onClick={() => setPresetBatas(opsi.key)}
+                        onClick={() => setPresetBatas(item.key)}
                         className={`py-2.5 px-2 rounded-xl border-2 text-xs font-extrabold transition-all cursor-pointer ${
                           active
                             ? 'bg-[#c8362f] text-[#f4ecd8] border-[#c8362f] shadow-xs'
                             : 'bg-[#fffdf6] text-[#1d3b2e] border-[#e0d5b8] hover:border-[#1d3b2e]/50'
                         }`}
                       >
-                        {opsi.label}
+                        {item.label}
                       </button>
                     );
                   })}
@@ -350,197 +391,312 @@ export default function PilihModeTarikTambang() {
                 </div>
 
                 {presetBatas === 'custom' && (
-                  <div className="flex items-center gap-3 pt-1">
+                  <div className="flex items-center gap-3 pt-2">
                     <label className="text-xs font-bold text-[#6b7d6c] shrink-0">
-                      Batas (10–100 poin):
+                      Batas (10–200):
                     </label>
                     <input
                       type="number"
                       min={10}
-                      max={100}
+                      max={200}
                       value={batasCustomInput}
                       onChange={(e) => setBatasCustomInput(e.target.value)}
                       className="portal-input max-w-[120px] font-mono font-bold text-center"
                     />
                   </div>
                 )}
-
-                <div className="pt-3 border-t border-dashed border-[#e0d5b8] text-xs text-[#6b7d6c] space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span>Target kemenangan tali:</span>
-                    <strong className="text-[#1d3b2e] font-mono text-sm">
-                      {batasValid ? `±${batasMenangFinal} poin` : 'Tidak valid (10–100)'}
-                    </strong>
-                  </div>
-                  {batasValid && (
-                    <div className="text-[11px] font-semibold text-[#1d3b2e]/80">
-                      {namaTim1.trim() || 'Tim Merah'} menang di +{batasMenangFinal} ·{' '}
-                      {namaTim2.trim() || 'Tim Biru'} menang di -{batasMenangFinal}
-                    </div>
-                  )}
-                </div>
               </div>
 
-              {/* Pengaturan Tim & Peserta */}
-              <div className="portal-card p-5 space-y-4">
-                <GameConfigCardHeader
-                  icon={
-                    playMode === 'MULTIPLAYER' ? (
-                      <Users className="w-4 h-4 text-[#1d3b2e]" />
-                    ) : (
-                      <Swords className="w-4 h-4 text-[#c8362f]" />
-                    )
-                  }
-                  title="Pengaturan Tim & Peserta"
-                  tagLabel={playMode === 'MULTIPLAYER' ? '2 Tim Aktif' : 'Duel 1 vs 1'}
-                  tagColor={playMode === 'MULTIPLAYER' ? 'green' : 'red'}
-                />
-
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <label className="font-bold text-[#c8362f] block mb-1">
-                      Nama Tim 1 (Kiri)
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={32}
-                      value={namaTim1}
-                      onChange={(e) => setNamaTim1(e.target.value)}
-                      className="portal-input font-bold"
-                      placeholder="Tim Merah"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-bold text-[#1e40af] block mb-1">
-                      Nama Tim 2 (Kanan)
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={32}
-                      value={namaTim2}
-                      onChange={(e) => setNamaTim2(e.target.value)}
-                      className="portal-input font-bold"
-                      placeholder="Tim Biru"
-                    />
-                  </div>
-                </div>
-
-                {!timValid && (
-                  <p className="text-[11px] font-bold text-[#c8362f]">
-                    Nama masing-masing tim minimal 2 karakter.
-                  </p>
-                )}
-
-                {playMode === 'MULTIPLAYER' ? (
-                  <div>
-                    <label className="text-xs font-bold uppercase tracking-wider text-[#6b7d6c] block mb-1.5">
-                      Maksimal Peserta (2–200 siswa)
-                    </label>
-                    <select
-                      value={maxPeserta}
-                      onChange={(e) => setMaxPeserta(Number(e.target.value))}
-                      className="portal-select font-bold"
+              <div className="pt-3 border-t border-dashed border-[#e0d5b8] space-y-2">
+                <label className="text-xs font-bold text-[#6b7d6c] block">
+                  Durasi Pertandingan Keseluruhan
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {DURASI_LOMBA_PRESETS.map((d) => (
+                    <button
+                      key={d.val}
+                      type="button"
+                      onClick={() => setDurasiLombaDetik(d.val)}
+                      className={`py-2 px-2 rounded-xl border-2 text-xs font-extrabold cursor-pointer transition-all ${
+                        durasiLombaDetik === d.val
+                          ? 'bg-[#1d3b2e] text-[#f4ecd8] border-[#1d3b2e]'
+                          : 'bg-[#fffdf6] text-[#1d3b2e] border-[#e0d5b8] hover:border-[#1d3b2e]/50'
+                      }`}
                     >
-                      <option value={30}>Maksimal 30 Siswa</option>
-                      <option value={40}>Maksimal 40 Siswa</option>
-                      <option value={60}>Maksimal 60 Siswa (Standar)</option>
-                      <option value={100}>Maksimal 100 Siswa</option>
-                      <option value={200}>Maksimal 200 Siswa</option>
-                    </select>
-                  </div>
-                ) : (
-                  <div className="pt-3 border-t border-dashed border-[#e0d5b8] text-xs text-[#6b7d6c]">
-                    <div className="font-extrabold text-[#1d3b2e]">Duel Lokal Tanpa PIN</div>
-                    <p className="text-[11px] mt-0.5 leading-snug">
-                      Kedua sisi tampil bersamaan di satu layar proyektor dan menjawab pasangan soal setara secara adil.
-                    </p>
-                  </div>
-                )}
+                      {d.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Kolom Kanan: Waktu Ronde, Kesulitan Soal Setara & Lanjutan */}
-            <div className="lg:col-span-7 portal-card p-5 sm:p-6 space-y-5">
+            {/* Pengaturan Lawan Solo / Tim & Batas Kelas */}
+            <div className="portal-card p-5 space-y-4">
               <GameConfigCardHeader
-                icon={<Sliders className="w-4 h-4 text-[#c8362f]" />}
-                title="Waktu Ronde & Aturan Tarik"
-                tagLabel={`${durasiRonde} detik / ronde`}
-                tagColor="green"
+                icon={
+                  playMode === 'MULTIPLAYER' ? (
+                    <Users className="w-4 h-4 text-[#1d3b2e]" />
+                  ) : (
+                    <Swords className="w-4 h-4 text-[#c8362f]" />
+                  )
+                }
+                title={playMode === 'MULTIPLAYER' ? 'Tim & Kapasitas Kelas' : 'Pengaturan Duel 1 vs 1'}
+                tagLabel={playMode === 'MULTIPLAYER' ? `Maks ${maxPeserta} Siswa` : '2 Sisi Layar'}
+                tagColor={playMode === 'MULTIPLAYER' ? 'green' : 'red'}
               />
 
-              {/* Timer Per Ronde */}
-              <div className="space-y-2.5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs font-extrabold flex items-center gap-1.5 text-[#1d3b2e]">
-                    <Clock className="w-4 h-4 text-[#c8362f]" /> Durasi Timer per Ronde
-                  </span>
-                  <span className="text-[11px] font-bold text-[#6b7d6c]">
-                    Kedua tim menjawab serentak sebelum tali bergerak
-                  </span>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {([15, 20, 30] as const).map((detik) => {
-                    const active = durasiRonde === detik;
-                    return (
-                      <button
-                        key={detik}
-                        type="button"
-                        onClick={() => setDurasiRonde(detik)}
-                        className={`px-3 py-2.5 rounded-xl border-2 text-xs font-extrabold transition-all cursor-pointer ${
-                          active
-                            ? 'bg-[#1d3b2e] text-[#f4ecd8] border-[#1d3b2e]'
-                            : 'bg-[#fcf8ed] text-[#1d3b2e] border-[#e0d5b8] hover:border-[#1d3b2e]/50'
+              {playMode === 'SOLO' && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => handleUbahLawanSolo('bot')}
+                      className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+                        tipeLawanSolo === 'bot'
+                          ? 'bg-[#c8362f] text-[#f4ecd8] border-[#c8362f]'
+                          : 'bg-[#fffdf6] text-[#1d3b2e] border-[#e0d5b8] hover:border-[#c8362f]/50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 font-extrabold text-xs">
+                        <Bot className="w-4 h-4" /> Lawan Bot AI
+                      </div>
+                      <p
+                        className={`text-[11px] mt-1 leading-snug ${
+                          tipeLawanSolo === 'bot' ? 'text-[#f4ecd8]/85' : 'text-[#6b7d6c]'
                         }`}
                       >
-                        {detik} Detik
-                      </button>
-                    );
-                  })}
+                        1 pemain menjawab cepat melawan Bot otomatis.
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleUbahLawanSolo('lokal')}
+                      className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+                        tipeLawanSolo === 'lokal'
+                          ? 'bg-[#c8362f] text-[#f4ecd8] border-[#c8362f]'
+                          : 'bg-[#fffdf6] text-[#1d3b2e] border-[#e0d5b8] hover:border-[#c8362f]/50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 font-extrabold text-xs">
+                        <Users className="w-4 h-4" /> Pemain 2 (Lokal)
+                      </div>
+                      <p
+                        className={`text-[11px] mt-1 leading-snug ${
+                          tipeLawanSolo === 'lokal' ? 'text-[#f4ecd8]/85' : 'text-[#6b7d6c]'
+                        }`}
+                      >
+                        2 siswa adu cepat kiri vs kanan pada 1 layar bersama.
+                      </p>
+                    </button>
+                  </div>
+
+                  {tipeLawanSolo === 'bot' && (
+                    <div>
+                      <label className="text-xs font-bold text-[#6b7d6c] block mb-1.5">
+                        Tingkat Kesulitan Bot
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(['mudah', 'sedang', 'sulit'] as KesulitanBotTarik[]).map((lvl) => (
+                          <button
+                            key={lvl}
+                            type="button"
+                            onClick={() => setKesulitanBot(lvl)}
+                            className={`py-2 px-2 rounded-xl border-2 text-xs font-extrabold capitalize cursor-pointer ${
+                              kesulitanBot === lvl
+                                ? 'bg-[#1d3b2e] text-[#f4ecd8] border-[#1d3b2e]'
+                                : 'bg-[#fffdf6] text-[#1d3b2e] border-[#e0d5b8]'
+                            }`}
+                          >
+                            {lvl}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label className="font-bold text-[#c8362f] block mb-1">Nama Tim Kiri</label>
+                  <input
+                    type="text"
+                    maxLength={32}
+                    value={namaTim1}
+                    onChange={(e) => setNamaTim1(e.target.value)}
+                    className="portal-input font-bold"
+                    placeholder="Tim Merah"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-[#1e40af] block mb-1">Nama Tim Kanan</label>
+                  <input
+                    type="text"
+                    maxLength={32}
+                    value={namaTim2}
+                    onChange={(e) => setNamaTim2(e.target.value)}
+                    className="portal-input font-bold"
+                    placeholder="Tim Biru"
+                  />
                 </div>
               </div>
 
-              {/* Ringkasan Mekanika */}
-              <div className="border-l-4 border-[#d7caa7] pl-3.5 py-0.5 text-xs text-[#1d3b2e] leading-relaxed">
-                <strong>Mekanika Tarik Tambang:</strong> Setiap ronde, Tim Kiri dan Tim Kanan
-                mendapatkan <strong>2 soal berbeda dengan tingkat kesulitan setara</strong>.
-                Selisih akurasi &amp; kecepatan menarik posisi tali ke arah tim terkuat hingga
-                mencapai batas <strong className="font-mono">±{batasValid ? batasMenangFinal : 100}</strong>.
+              {!timValid && (
+                <p className="text-[11px] font-bold text-[#c8362f]">
+                  Nama masing-masing tim minimal 2 karakter.
+                </p>
+              )}
+
+              {playMode === 'MULTIPLAYER' && (
+                <div className="pt-2 border-t border-dashed border-[#e0d5b8]">
+                  <div className="flex items-center justify-between text-xs font-bold text-[#1d3b2e] mb-1.5">
+                    <span>Kapasitas Siswa per Ruang Kelas</span>
+                    <span className="font-mono">{maxPeserta} Siswa (Maks 36)</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={4}
+                    max={36}
+                    step={2}
+                    value={maxPeserta}
+                    onChange={(e) => setMaxPeserta(Number(e.target.value))}
+                    className="w-full accent-[#1d3b2e] cursor-pointer"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </GameConfigSection>
+
+        {/* 3. Skala Tarikan, Waktu Soal & Aturan Tambahan */}
+        <GameConfigSection
+          title="3. Skala Tarikan & Sumber Soal"
+          description="Sesuaikan kekuatan tarikan tali, filter tingkat kesulitan soal, dan opsi lanjutan permainan."
+        >
+          <div className="portal-card p-5 space-y-5">
+            <GameConfigCardHeader
+              icon={<Clock className="w-4 h-4 text-[#c8362f]" />}
+              title="Kecepatan Soal & Skala Tarikan"
+              tagLabel={
+                playMode === 'MULTIPLAYER'
+                  ? `${waktuPerSoalDetik} dtk/soal • Tim ${kekuatanTimMulti}`
+                  : `+${tarikBenarSolo} / -${mundurSalahSolo}`
+              }
+              tagColor="green"
+            />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Kiri: Waktu & Skala */}
+              <div className="space-y-4">
+                {playMode === 'MULTIPLAYER' ? (
+                  <>
+                    <div>
+                      <label className="text-xs font-bold text-[#6b7d6c] block mb-2">
+                        Batas Waktu per Soal di HP Siswa (detik)
+                      </label>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {WAKTU_SOAL_PRESETS.map((det) => (
+                          <button
+                            key={det}
+                            type="button"
+                            onClick={() => setWaktuPerSoalDetik(det)}
+                            className={`px-3.5 py-2 rounded-xl border-2 text-xs font-extrabold cursor-pointer ${
+                              waktuPerSoalDetik === det
+                                ? 'bg-[#1d3b2e] text-[#f4ecd8] border-[#1d3b2e]'
+                                : 'bg-[#fffdf6] text-[#1d3b2e] border-[#e0d5b8]'
+                            }`}
+                          >
+                            {det} detik
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-dashed border-[#e0d5b8]">
+                      <div className="flex items-center justify-between text-xs font-bold text-[#1d3b2e] mb-1">
+                        <span>Total Kekuatan Tarik Tim</span>
+                        <span className="font-mono">{kekuatanTimMulti} poin ÷ anggota</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={20}
+                        max={80}
+                        step={5}
+                        value={kekuatanTimMulti}
+                        onChange={(e) => setKekuatanTimMulti(Number(e.target.value))}
+                        className="w-full accent-[#c8362f] cursor-pointer"
+                      />
+                      <p className="text-[11px] text-[#6b7d6c] mt-1">
+                        Salah atau waktu habis otomatis mengurangi tarikan tim (terpeleset 40%).
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-bold text-[#1f9d55] block mb-1">
+                        Tarikan Benar (+)
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={50}
+                        value={tarikBenarSolo}
+                        onChange={(e) =>
+                          setTarikBenarSolo(Math.max(1, Math.min(50, Number(e.target.value) || 10)))
+                        }
+                        className="portal-input font-mono font-bold text-center"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-[#d63b3b] block mb-1">
+                        Mundur Terpeleset (−)
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={30}
+                        value={mundurSalahSolo}
+                        onChange={(e) =>
+                          setMundurSalahSolo(Math.max(0, Math.min(30, Number(e.target.value) || 0)))
+                        }
+                        className="portal-input font-mono font-bold text-center"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Tingkat Kesulitan Soal Setara */}
-              <div className="pt-4 border-t border-dashed border-[#e0d5b8] space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-extrabold text-[#1d3b2e]">
-                    Tingkat Kesulitan Soal Setara (Pool Soal)
-                  </span>
-                  <span className="text-[11px] font-bold text-[#6b7d6c]">
-                    {LABEL_KESULITAN[kesulitan]} ({soalSetaraTerpilih} soal)
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  {(['mudah', 'sedang', 'sulit'] as KesulitanTarik[]).map((lvl) => {
+              {/* Kanan: Filter Bank Soal */}
+              <div className="space-y-3">
+                <label className="text-xs font-bold text-[#6b7d6c] flex items-center gap-1.5">
+                  <Shuffle className="w-3.5 h-3.5 text-[#1d3b2e]" />
+                  Cakupan Soal dari Bank Soal ({jumlahSoal} tersedia)
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {(['semua', 'mudah', 'sedang', 'sulit'] as KesulitanTarik[]).map((lvl) => {
+                    const count = countsPerKesulitan[lvl];
                     const active = kesulitan === lvl;
-                    const cnt = countsPerKesulitan[lvl];
+                    const dis = questions.length > 0 && count < 2;
                     return (
                       <button
                         key={lvl}
                         type="button"
+                        disabled={dis}
                         onClick={() => setKesulitan(lvl)}
-                        className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer ${
-                          active
-                            ? 'bg-[#1d3b2e] text-[#f4ecd8] border-[#1d3b2e] shadow-xs'
-                            : 'bg-[#fffdf6] text-[#1d3b2e] border-[#e0d5b8] hover:border-[#1d3b2e]/50'
+                        className={`py-2 px-2 rounded-xl border-2 text-center transition-all ${
+                          dis
+                            ? 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                            : active
+                              ? 'bg-[#1d3b2e] text-[#f4ecd8] border-[#1d3b2e] cursor-pointer'
+                              : 'bg-[#fffdf6] text-[#1d3b2e] border-[#e0d5b8] hover:border-[#1d3b2e]/50 cursor-pointer'
                         }`}
                       >
-                        <div className="text-xs font-extrabold">{LABEL_KESULITAN[lvl]}</div>
-                        <div
-                          className={`text-[10px] mt-0.5 leading-tight ${
-                            active ? 'text-[#cfd9c3]' : 'text-[#6b7d6c]'
-                          }`}
-                        >
-                          {cnt} soal tersedia {cnt < 2 ? '(kurang)' : '(siap)'}
+                        <div className="text-xs font-extrabold capitalize">
+                          {lvl === 'semua' ? 'Semua' : lvl}
                         </div>
+                        <div className="text-[10px] opacity-80">{count} soal</div>
                       </button>
                     );
                   })}
@@ -548,18 +704,15 @@ export default function PilihModeTarikTambang() {
 
                 {!cukupSoal && (
                   <div className="p-3 rounded-2xl bg-red-50 border border-red-200 text-xs font-bold text-[#c8362f] flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-1.5">
                       <AlertTriangle className="w-4 h-4 shrink-0" />
-                      <span>
-                        Minimal dibutuhkan 2 soal tingkat {LABEL_KESULITAN[kesulitan]} agar Tim 1
-                        dan Tim 2 mendapat soal berbeda setiap ronde.
-                      </span>
-                    </div>
+                      Minimal butuh 2 soal ({LABEL_KESULITAN[kesulitan]}).
+                    </span>
                     {selectedTemplate && !selectedTemplate.resmi && (
                       <button
                         type="button"
                         onClick={() => navigate(`/guru/template/${selectedTemplate.id}/ubah`)}
-                        className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-white border border-red-300 text-[#c8362f] hover:bg-red-100 font-extrabold cursor-pointer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-red-300 text-[#c8362f] hover:bg-red-100 font-extrabold cursor-pointer"
                       >
                         Edit Soal <ExternalLink className="w-3 h-3" />
                       </button>
@@ -567,39 +720,38 @@ export default function PilihModeTarikTambang() {
                   </div>
                 )}
               </div>
+            </div>
 
-              {/* Pengaturan Lanjutan (Bonus Streak & Power-Up) */}
-              <div className="pt-3 border-t border-dashed border-[#e0d5b8]">
-                <button
-                  type="button"
-                  onClick={() => setShowAdvancedRules((prev) => !prev)}
-                  className="w-full py-1 text-xs font-extrabold text-[#1d3b2e] hover:text-[#c8362f] flex items-center justify-between gap-2 cursor-pointer transition-colors"
-                >
-                  <span className="flex items-center gap-2">
-                    <Sliders className="w-3.5 h-3.5 text-[#c8362f]" />
-                    Pengaturan Lanjutan (Bonus Streak &amp; Sistem Power-Up)
-                  </span>
-                  <span className="flex items-center gap-1 text-[11px] font-bold text-[#6b7d6c]">
-                    {statusLanjutan}
-                    {showAdvancedRules ? (
-                      <ChevronUp className="w-4 h-4" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4" />
-                    )}
-                  </span>
-                </button>
-              </div>
+            {/* Pengaturan Lanjutan (Opsional) */}
+            <div className="pt-3 border-t border-dashed border-[#e0d5b8]">
+              <button
+                type="button"
+                onClick={() => setShowAdvancedRules((prev) => !prev)}
+                className="w-full py-1 text-xs font-extrabold text-[#1d3b2e] hover:text-[#c8362f] flex items-center justify-between gap-2 cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  <Sliders className="w-3.5 h-3.5 text-[#c8362f]" />
+                  Opsi Tambahan (Bonus Streak &amp; Power-Up)
+                </span>
+                <span className="flex items-center gap-1 text-[11px] font-bold text-[#6b7d6c]">
+                  {statusLanjutan}
+                  {showAdvancedRules ? (
+                    <ChevronUp className="w-4 h-4" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4" />
+                  )}
+                </span>
+              </button>
 
               {showAdvancedRules && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3">
                   <label className="flex items-start justify-between gap-2.5 cursor-pointer py-1">
                     <div>
                       <span className="text-xs font-extrabold flex items-center gap-1.5 text-[#1d3b2e]">
                         <Flame className="w-3.5 h-3.5 text-orange-500" /> Bonus Streak
-                        {playMode === 'MULTIPLAYER' ? ' & Kekompakan' : ''}
                       </span>
                       <p className="text-[11px] text-[#6b7d6c] mt-0.5 leading-snug">
-                        Streak 3 memberi tarikan +5, Streak 5 memberi +10 poin tambahan.
+                        Streak 3 beruntun memberi +5 ekstra, Streak 5 memberi +10 ekstra.
                       </p>
                     </div>
                     <input
@@ -613,10 +765,10 @@ export default function PilihModeTarikTambang() {
                   <label className="flex items-start justify-between gap-2.5 cursor-pointer py-1">
                     <div>
                       <span className="text-xs font-extrabold flex items-center gap-1.5 text-[#1d3b2e]">
-                        <Zap className="w-3.5 h-3.5 text-sky-600" /> Sistem Power-Up
+                        <Zap className="w-3.5 h-3.5 text-sky-600" /> Power-Up Spesial
                       </span>
                       <p className="text-[11px] text-[#6b7d6c] mt-0.5 leading-snug">
-                        Semangat (+5), Pertahanan Tahan (-5 lawan), dan Tarikan Super (+10).
+                        Beri Semangat, Pertahanan Kuat, dan Tarikan Super saat streak tinggi.
                       </p>
                     </div>
                     <input
@@ -628,22 +780,21 @@ export default function PilihModeTarikTambang() {
                   </label>
                 </div>
               )}
-
-              <GameConfigFooter
-                canSubmit={canSubmit}
-                submitting={submitting}
-                isSolo={playMode === 'SOLO'}
-                submitLabel={
-                  playMode === 'MULTIPLAYER'
-                    ? 'Buat Sesi Multiplayer & Buka Lobi PIN'
-                    : 'Mulai Tarik Tambang Solo (1 vs 1)'
-                }
-              />
             </div>
+
+            <GameConfigFooter
+              canSubmit={canSubmit}
+              submitting={submitting}
+              isSolo={playMode === 'SOLO'}
+              submitLabel={
+                playMode === 'MULTIPLAYER'
+                  ? 'Buka Lobi & Kode PIN Kelas'
+                  : 'Buka Arena Solo (1 vs 1)'
+              }
+            />
           </div>
         </GameConfigSection>
       </form>
     </GameConfigPageShell>
   );
 }
-

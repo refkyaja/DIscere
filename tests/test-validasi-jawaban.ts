@@ -44,9 +44,9 @@ async function runValidasiJawabanTests() {
   ];
 
   // -------------------------------------------------------------------------
-  // UJI 1 & 2: Jawaban Benar & Salah dengan Isolasi Soal Tim (Tarik Tambang)
+  // UJI 1 & 2: Jawaban Benar & Salah dengan Isolasi Soal Individu Kontinu (Tarik Tambang)
   // -------------------------------------------------------------------------
-  console.log('1. Menguji pengenalan jawaban benar, salah, & isolasi soal antar tim (Tarik Tambang)...');
+  console.log('1. Menguji pengenalan jawaban benar, salah, & isolasi soal antar siswa (Tarik Tambang)...');
   const sessionMultiId = 'test-multi-validasi-' + Date.now();
   const tokenMulti = '991122';
 
@@ -58,7 +58,7 @@ async function runValidasiJawabanTests() {
     'host-guru-1',
     { id: 'tmpl-1', judul: 'Kuis Kemerdekaan' },
     soalKesulitanSama,
-    { kesulitan: 'sedang', durasiRonde: 20 }
+    { kesulitan: 'sedang', kekuatanTimMulti: 40, batasMenang: 200 }
   );
 
   // Daftarkan 2 siswa (Device A -> merah, Device B -> putih)
@@ -66,7 +66,6 @@ async function runValidasiJawabanTests() {
   const siswaB = multiManager.gabungPeserta(tokenMulti, 'Siti Siswa B', 'socket-b');
 
   multiManager.mulaiPermainan(sessionMultiId, 'host-guru-1');
-  multiManager.mulaiTimerSoal(sessionMultiId, 20);
 
   const pA = sesiMulti.peserta.get(siswaA.peserta.id)!;
   const pB = sesiMulti.peserta.get(siswaB.peserta.id)!;
@@ -74,15 +73,20 @@ async function runValidasiJawabanTests() {
   assert.ok(pB.tim, 'Siswa B harus memiliki tim');
   assert.notStrictEqual(pA.tim, pB.tim, 'Dua siswa pertama harus berada di tim berlawanan');
 
-  const presA = pA.tim === 'merah' ? sesiMulti.rondeAktif!.soalTim1 : sesiMulti.rondeAktif!.soalTim2;
-  const presB = pB.tim === 'merah' ? sesiMulti.rondeAktif!.soalTim1 : sesiMulti.rondeAktif!.soalTim2;
+  const clientSoalA = multiManager.dapatkanSoalAktifPeserta(sessionMultiId, pA.id)!;
+  const clientSoalB = multiManager.dapatkanSoalAktifPeserta(sessionMultiId, pB.id)!;
+  assert.ok(clientSoalA && clientSoalB, 'Setiap siswa langsung memiliki soal aktif independen saat mulai');
+  assert.strictEqual((clientSoalA as any).correctChoiceId, undefined, 'Payload siswa tidak boleh membocorkan kunci');
+
+  const presA = pA.presentasiAktif!;
+  const presB = pB.presentasiAktif!;
   assert.notStrictEqual(
-    presA.questionId,
-    presB.questionId,
-    'Tim 1 dan Tim 2 harus menerima pertanyaan yang berbeda pada ronde yang sama'
+    presA.presentationId,
+    presB.presentationId,
+    'PresentationId setiap siswa wajib unik'
   );
 
-  // Tolak jika Siswa A mencoba mengirim presentationId milik tim lawan
+  // Tolak jika Siswa A mencoba mengirim presentationId milik Siswa B
   assert.throws(
     () => {
       multiManager.prosesJawabanSiswa(sessionMultiId, pA.id, {
@@ -90,8 +94,8 @@ async function runValidasiJawabanTests() {
         choiceId: presB.correctChoiceId,
       });
     },
-    /tim lawan/i,
-    'Tidak boleh menjawab soal milik tim lawan'
+    /kedaluwarsa|salah|tidak cocok/i,
+    'Tidak boleh menjawab memakai presentationId milik siswa lain'
   );
 
   // Siswa A menjawab BENAR memakai choiceId miliknya
@@ -99,8 +103,9 @@ async function runValidasiJawabanTests() {
     presentationId: presA.presentationId,
     choiceId: presA.correctChoiceId,
   });
-  assert.strictEqual(hasilA.benar, true, 'Pilihan correctChoiceId Tim A harus dikenali sebagai benar');
-  console.log('   ✓ Jawaban benar tim A diakui benar & lintas tim ditolak');
+  assert.strictEqual(hasilA.benar, true, 'Pilihan correctChoiceId Siswa A harus dikenali sebagai benar');
+  assert.strictEqual(hasilA.deltaTali, pA.tim === 'merah' ? 40 : -40, 'Tarikan benar 40/1 = 40');
+  console.log('   ✓ Jawaban benar siswa A diakui benar & lintas-presentationId ditolak');
 
   // Siswa B menjawab SALAH memakai pilihan selain correctChoiceId
   const wrongChoiceB = presB.pilihanList.find((c) => c.choiceId !== presB.correctChoiceId)!;
@@ -108,82 +113,79 @@ async function runValidasiJawabanTests() {
     presentationId: presB.presentationId,
     choiceId: wrongChoiceB.choiceId,
   });
-  assert.strictEqual(hasilB.benar, false, 'Pilihan salah Tim B harus diakui salah');
-  console.log('   ✓ Jawaban salah tim B diakui salah (benar: false)');
+  assert.strictEqual(hasilB.benar, false, 'Pilihan salah Siswa B harus diakui salah');
+  assert.ok(hasilB.slipQuote && hasilB.slipQuote.length > 0, 'Terpeleset menyertakan kutipan slipQuote');
+  console.log('   ✓ Jawaban salah siswa B diakui salah (benar: false) dengan penalti terpeleset');
 
   // -------------------------------------------------------------------------
-  // UJI 3: Normalisasi Input (huruf kecil & spasi tambahan) pada Ronde Baru
+  // UJI 3: Normalisasi Input (huruf kecil & spasi tambahan) pada Soal Berikutnya
   // -------------------------------------------------------------------------
   console.log('2. Menguji normalisasi input (huruf kecil & spasi tambahan)...');
-  multiManager.selesaikanSoalAktif(sessionMultiId);
-  multiManager.mulaiRondeBaru(sessionMultiId);
-
-  const presA2 = pA.tim === 'merah' ? sesiMulti.rondeAktif!.soalTim1 : sesiMulti.rondeAktif!.soalTim2;
-  const presB2 = pB.tim === 'merah' ? sesiMulti.rondeAktif!.soalTim1 : sesiMulti.rondeAktif!.soalTim2;
+  multiManager.siapkanSoalBerikutnyaPeserta(sessionMultiId, pA.id);
+  multiManager.siapkanSoalBerikutnyaPeserta(sessionMultiId, pB.id);
+  const presA2 = pA.presentasiAktif!;
+  const presB2 = pB.presentasiAktif!;
 
   // Siswa A menjawab dengan huruf kecil + spasi label yang tepat (misal '  a  ')
   const hasilASoal2 = multiManager.prosesJawabanSiswa(sessionMultiId, pA.id, {
     presentationId: presA2.presentationId,
-    jawaban: `  ${presA2.jawabanBenarKode.toLowerCase()}  `,
+    jawabanDipilih: `  ${presA2.jawabanBenarKode.toLowerCase()}  `,
   });
   assert.strictEqual(hasilASoal2.benar, true, 'Input huruf kecil + spasi harus dinormalisasi benar');
 
   // Siswa B menjawab dengan teks persis opsi benar
   const hasilBSoal2 = multiManager.prosesJawabanSiswa(sessionMultiId, pB.id, {
     presentationId: presB2.presentationId,
-    jawaban: presB2.jawabanBenarTeks,
+    jawabanDipilih: presB2.jawabanBenarTeks,
   });
   assert.strictEqual(hasilBSoal2.benar, true, 'Input teks opsi benar harus diakui benar');
   console.log('   ✓ Huruf kecil, spasi tambahan, dan teks opsi berhasil dinormalisasi sebagai benar');
 
   // -------------------------------------------------------------------------
-  // UJI 4: Toleransi Fallback questionId undefined/missing saat memakai presentationId/jawaban
+  // UJI 4: Toleransi Fallback questionId undefined/missing saat memakai jawaban/choiceId
   // -------------------------------------------------------------------------
-  console.log('3. Menguji toleransi fallback questionId undefined/missing...');
-  multiManager.selesaikanSoalAktif(sessionMultiId);
-  multiManager.mulaiRondeBaru(sessionMultiId);
-
-  const presA3 = pA.tim === 'merah' ? sesiMulti.rondeAktif!.soalTim1 : sesiMulti.rondeAktif!.soalTim2;
-  const presB3 = pB.tim === 'merah' ? sesiMulti.rondeAktif!.soalTim1 : sesiMulti.rondeAktif!.soalTim2;
+  console.log('3. Menguji toleransi fallback jawabanDipilih tanpa presentationId...');
+  multiManager.siapkanSoalBerikutnyaPeserta(sessionMultiId, pA.id);
+  multiManager.siapkanSoalBerikutnyaPeserta(sessionMultiId, pB.id);
+  const presA3 = pA.presentasiAktif!;
+  const presB3 = pB.presentasiAktif!;
 
   const hasilASoal3 = multiManager.prosesJawabanSiswa(sessionMultiId, pA.id, {
-    questionId: undefined,
-    jawaban: presA3.jawabanBenarKode,
+    jawabanDipilih: presA3.jawabanBenarKode,
   });
-  assert.strictEqual(hasilASoal3.benar, true, 'Fallback questionId undefined harus berhasil');
+  assert.strictEqual(hasilASoal3.benar, true, 'Fallback tanpa presentationId harus berhasil');
 
   const hasilBSoal3 = multiManager.prosesJawabanSiswa(sessionMultiId, pB.id, {
-    questionId: 'undefined',
-    jawaban: presB3.jawabanBenarKode.toLowerCase(),
+    jawabanDipilih: presB3.jawabanBenarKode.toLowerCase(),
   });
-  assert.strictEqual(hasilBSoal3.benar, true, 'Fallback string "undefined" harus berhasil');
-  console.log('   ✓ Fallback backend bekerja mulus ketika frontend mengirim questionId undefined');
+  assert.strictEqual(hasilBSoal3.benar, true, 'Fallback huruf kecil harus berhasil');
+  console.log('   ✓ Normalisasi jawabanDipilih bekerja mulus');
 
   // -------------------------------------------------------------------------
-  // UJI 5: Backend Menolak Jawaban Ganda dari Siswa yang Sama
+  // UJI 5: Backend Menolak Jawaban Ganda Sebelum Soal Berikutnya Disiapkan
   // -------------------------------------------------------------------------
-  console.log('4. Menguji penolakan jawaban ganda (single submission enforcement)...');
+  console.log('4. Menguji penolakan jawaban ganda pada presentasi soal yang sama...');
   assert.throws(
     () => {
       multiManager.prosesJawabanSiswa(sessionMultiId, pA.id, {
+        presentationId: presA3.presentationId,
         choiceId: presA3.correctChoiceId,
       });
     },
-    /sudah mengirim jawaban/i,
-    'Siswa tidak boleh mengirim jawaban dua kali pada ronde yang sama'
+    /sudah|kedaluwarsa|berikutnya|tersedia/i,
+    'Siswa tidak boleh mengirim jawaban dua kali sebelum soal berikutnya disiapkan'
   );
   console.log('   ✓ Percobaan jawaban kedua ditolak dengan aman');
 
   // -------------------------------------------------------------------------
-  // UJI 6 & 7: Integritas Skor & Posisi Tali [-100..+100] Setelah Ronde Evaluasi
+  // UJI 6 & 7: Integritas Skor & Posisi Tali [-batas..+batas]
   // -------------------------------------------------------------------------
   console.log('5. Menguji integritas posisi tali dan skor tim...');
-  multiManager.selesaikanSoalAktif(sessionMultiId);
   const totalSkor = sesiMulti.skorMerah + sesiMulti.skorPutih;
   assert.ok(totalSkor > 0, 'Skor tim harus bertambah setelah jawaban benar');
   assert.ok(
-    sesiMulti.taliPosition >= -100 && sesiMulti.taliPosition <= 100,
-    'Posisi tali wajib berada di rentang [-100..+100]'
+    sesiMulti.taliPosition >= -200 && sesiMulti.taliPosition <= 200,
+    'Posisi tali wajib berada di rentang [-batasMenang..+batasMenang]'
   );
   console.log(`   ✓ Posisi tali: ${sesiMulti.taliPosition}, Skor Merah: ${sesiMulti.skorMerah}, Skor Putih: ${sesiMulti.skorPutih}`);
 
@@ -191,9 +193,8 @@ async function runValidasiJawabanTests() {
   // UJI 8: Isolasi Multi-Device (Device A tidak menginterferensi Device B)
   // -------------------------------------------------------------------------
   console.log('6. Menguji isolasi multi-device (Device A vs Device B)...');
-  assert.strictEqual(sesiMulti.rondeAktif!.jawabanMap.has(pA.id), true, 'Jawaban Device A tercatat mandiri');
-  assert.strictEqual(sesiMulti.rondeAktif!.jawabanMap.has(pB.id), true, 'Jawaban Device B tercatat mandiri');
-  assert.strictEqual(sesiMulti.rondeAktif!.jawabanMap.size, 2, 'Tepat 2 entri jawaban tercatat');
+  assert.strictEqual(pA.riwayatJawaban.length, 3, 'Riwayat jawaban Device A tercatat mandiri (3)');
+  assert.strictEqual(pB.riwayatJawaban.length, 3, 'Riwayat jawaban Device B tercatat mandiri (3)');
   multiManager.hapusSesi(sessionMultiId);
   console.log('   ✓ Data dan state setiap perangkat terisolasi sempurna');
 
@@ -259,9 +260,9 @@ async function runValidasiJawabanTests() {
   console.log('   ✓ Makan Kerupuk Mode Multiplayer memvalidasi choiceId benar secara presisi');
 
   // -------------------------------------------------------------------------
-  // UJI 10: Validasi Jawaban Game Solo 1 vs 1 Simultan
+  // UJI 10: Validasi Jawaban Game Solo 1 vs 1 Kontinu (Dek Independen)
   // -------------------------------------------------------------------------
-  console.log('8. Menguji validasi jawaban pada Game Solo 1 vs 1...');
+  console.log('8. Menguji validasi jawaban pada Game Solo 1 vs 1 Kontinu...');
   const sessionSoloId = 'test-solo-validasi-' + Date.now();
   const hostSoloId = 'guru-solo-1';
 
@@ -270,40 +271,56 @@ async function runValidasiJawabanTests() {
     hostSoloId,
     { id: 'tmpl-s', judul: 'Kuis Solo' },
     soalKesulitanSama,
-    { kesulitan: 'sedang', durasiRonde: 20 }
+    { kesulitan: 'sedang', tarikBenarSolo: 10, mundurSalahSolo: 4, batasMenang: 100 }
   );
 
   soloManager.mulaiSesi(sessionSoloId, hostSoloId);
-  const presSoloMerah = sesiSolo.rondeAktif!.soalTim1;
-  const presSoloPutih = sesiSolo.rondeAktif!.soalTim2;
+  const presSoloMerah = sesiSolo.pemain1.presentasiAktif!;
+  const presSoloPutih = sesiSolo.pemain2.presentasiAktif!;
   const wrongSoloPutih = presSoloPutih.pilihanList.find(
     (c) => c.choiceId !== presSoloPutih.correctChoiceId
   )!;
 
-  // Tim Merah menjawab benar dengan choiceId atau label huruf kecil berspasi
-  // Skor publik TIDAK boleh bertambah sebelum ronde selesai (anti bocor kunci)
+  // Tim Merah menjawab benar -> langsung memajukan skor & tali (+10) dan mengacak soal berikutnya
   const hasilSoloMerah = soloManager.prosesJawaban(sessionSoloId, hostSoloId, {
     presentationId: presSoloMerah.presentationId,
     tim: 'merah',
     jawabanDipilih: ` ${presSoloMerah.jawabanBenarKode.toLowerCase()} `,
   });
   assert.strictEqual(hasilSoloMerah.benar, true, 'Solo tim merah menjawab benar');
-  assert.strictEqual(hasilSoloMerah.rondeSelesai, false, 'Ronde belum selesai sebelum sisi lawan menjawab');
-  assert.strictEqual(hasilSoloMerah.sesi.skorMerah, 0, 'Skor merah tidak boleh bocor sebelum ronde ditutup');
+  assert.strictEqual(hasilSoloMerah.sesi.skorMerah, 1, 'Skor merah langsung bertambah +1');
+  assert.strictEqual(hasilSoloMerah.sesi.taliPosition, 10, 'Tim Merah langsung menarik +10');
+  assert.notStrictEqual(
+    sesiSolo.pemain1.presentasiAktif!.presentationId,
+    presSoloMerah.presentationId,
+    'Pemain 1 langsung mendapat soal berikutnya tanpa menunggu lawan'
+  );
 
-  // Tim Putih menjawab salah -> ronde ditutup -> skor merah terupdate +1 & tali +15
+  // Tim Putih menjawab salah -> terpeleset mundur (-1 * -4 = +4 menguntungkan Merah)
   const hasilSoloPutih = soloManager.prosesJawaban(sessionSoloId, hostSoloId, {
     presentationId: presSoloPutih.presentationId,
     tim: 'putih',
     choiceId: wrongSoloPutih.choiceId,
   });
   assert.strictEqual(hasilSoloPutih.benar, false, 'Solo tim putih menjawab salah');
-  assert.strictEqual(hasilSoloPutih.sesi.skorMerah, 1, 'Skor merah bertambah setelah ronde ditutup');
+  assert.strictEqual(hasilSoloPutih.sesi.skorMerah, 1);
   assert.strictEqual(hasilSoloPutih.sesi.skorPutih, 0, 'Skor putih tidak bertambah');
-  assert.strictEqual(hasilSoloPutih.rondeSelesai, true, 'Ronde selesai setelah kedua tim menjawab');
-  assert.strictEqual(sesiSolo.taliPosition, 15, 'Tim Merah menarik +15 poin pada ronde pertama');
+  assert.strictEqual(sesiSolo.taliPosition, 14, 'Tim Putih terpeleset -4 ke kanan (+4 mengarah ke kiri/Merah)');
+
+  // Percobaan replay presentationId lama ditolak
+  assert.throws(
+    () => {
+      soloManager.prosesJawaban(sessionSoloId, hostSoloId, {
+        presentationId: presSoloMerah.presentationId,
+        tim: 'merah',
+        choiceId: presSoloMerah.correctChoiceId,
+      });
+    },
+    /kedaluwarsa|sudah dijawab/i
+  );
+
   soloManager.hapusSesi(sessionSoloId);
-  console.log('   ✓ Validasi Solo 1 vs 1 konsisten dan akurat');
+  console.log('   ✓ Validasi Solo 1 vs 1 Kontinu konsisten dan akurat');
 
   console.log('\n=============================================================');
   console.log('🎉 SEMUA 10 UJI VALIDASI JAWABAN SISWA LULUS 100% TANPA REGRESI!');

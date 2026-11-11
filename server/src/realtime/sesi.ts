@@ -6,7 +6,6 @@ import {
   SesiMultiplayerActive,
 } from '../games/multiManager.js';
 import { soloManager } from '../games/soloManager.js';
-import { serialisasiSoalUntukClient } from '../games/tarikTambang.js';
 import { panjatPinangManager } from '../games/panjatPinangManager.js';
 import { PesertaPanjatState } from '../games/panjatPinang.js';
 import { balapKarungManager } from '../games/balapKarungManager.js';
@@ -57,6 +56,9 @@ const ubahJumlahTimPayloadSchema = z.object({
 const pendingNextSoalPanjatTimers = new Map<string, NodeJS.Timeout>();
 const pendingNextSoalBalapTimers = new Map<string, NodeJS.Timeout>();
 const pendingNextSoalKerupukTimers = new Map<string, NodeJS.Timeout>();
+const pendingNextSoalTarikTimers = new Map<string, NodeJS.Timeout>();
+const tarikQuestionTimeoutTimers = new Map<string, NodeJS.Timeout>();
+const tarikMatchTimers = new Map<string, NodeJS.Timeout>();
 
 function clearPendingTimersForPeserta(
   timerMap: Map<string, NodeJS.Timeout>,
@@ -86,6 +88,16 @@ export function bersihkanTimerSesi(sessionId: string): void {
   const sesiKerupuk = kerupukMultiManager.dapatkanSesi(sessionId);
   if (sesiKerupuk) {
     clearPendingTimersForPeserta(pendingNextSoalKerupukTimers, sesiKerupuk.peserta.keys());
+  }
+  const matchTimerTarik = tarikMatchTimers.get(sessionId);
+  if (matchTimerTarik) {
+    clearTimeout(matchTimerTarik);
+    tarikMatchTimers.delete(sessionId);
+  }
+  const sesiTarik = multiManager.dapatkanSesi(sessionId);
+  if (sesiTarik) {
+    clearPendingTimersForPeserta(pendingNextSoalTarikTimers, sesiTarik.peserta.keys());
+    clearPendingTimersForPeserta(tarikQuestionTimeoutTimers, sesiTarik.peserta.keys());
   }
 }
 
@@ -158,18 +170,7 @@ function sanitizePesertaPanjat(p: PesertaPanjatState) {
 }
 
 function formatDaftarPesertaTarik(sesi: SesiMultiplayerActive) {
-  return Array.from(sesi.peserta.values()).map((p) => ({
-    id: p.id,
-    nama: p.nama,
-    tim: p.tim,
-    connected: p.connected,
-    totalBenar: p.totalBenar,
-    totalSalah: p.totalSalah,
-    jumlahJawab: p.jumlahJawab,
-    akurasiPersen: p.jumlahJawab > 0 ? Math.round((p.totalBenar / p.jumlahJawab) * 100) : 0,
-    streakSaatIni: p.streakSaatIni,
-    streakTertinggi: p.streakTertinggi,
-  }));
+  return multiManager.dapatkanDaftarPeserta(sesi.sessionId);
 }
 
 async function sinkronkanRoomTimTarikTambang(io: Server, sesi: SesiMultiplayerActive) {
@@ -437,7 +438,6 @@ export function setupMultiplayerSocket(io: Server) {
             pesertaSecret
           );
 
-          // Masuk ke room socket sesi + room tim eksklusif (isolasi soal antar tim)
           const roomName = `session:${sesi.sessionId}`;
           socket.join(roomName);
           socket.leave(`session:${sesi.sessionId}:merah`);
@@ -448,14 +448,22 @@ export function setupMultiplayerSocket(io: Server) {
 
           const daftarPeserta = formatDaftarPesertaTarik(sesi);
 
-          const soalAktif =
-            sesi.status === 'jalan' && peserta.tim
-              ? multiManager.dapatkanSoalAktifUntukTim(sesi, peserta.tim)
-              : null;
-
-          const sudahJawabRondeAktif = Boolean(
-            sesi.rondeAktif && sesi.rondeAktif.jawabanMap.has(peserta.id)
-          );
+          let soalAktif = null;
+          if (sesi.status === 'jalan') {
+            armTarikMatchTimer(io, sesi);
+            soalAktif =
+              multiManager.dapatkanSoalAktifPeserta(sesi.sessionId, peserta.id) ||
+              multiManager.siapkanSoalBerikutnyaPeserta(sesi.sessionId, peserta.id);
+            if (soalAktif) {
+              armTarikQuestionTimeout(
+                io,
+                sesi,
+                peserta.id,
+                soalAktif.presentationId,
+                soalAktif.endsAt
+              );
+            }
+          }
 
           const powerUpTim =
             peserta.tim === 'merah'
@@ -476,7 +484,7 @@ export function setupMultiplayerSocket(io: Server) {
             playMode: 'MULTIPLAYER',
             isReconnect,
             pesertaId: peserta.id,
-            pesertaSecret: peserta.pesertaSecret,
+            pesertaSecret: peserta.secretToken,
             sessionId: sesi.sessionId,
             templateJudul: sesi.templateJudul,
             status: sesi.status,
@@ -487,9 +495,8 @@ export function setupMultiplayerSocket(io: Server) {
             taliPosition: sesi.taliPosition,
             skorMerah: sesi.skorMerah,
             skorPutih: sesi.skorPutih,
-            nomorRonde: sesi.rondeAktif?.nomorRonde ?? sesi.nomorRondeCounter,
-            currentQuestionIndex: sesi.currentQuestionIndex,
-            totalSoal: sesi.totalSoal,
+            matchEndsAt: sesi.matchEndsAtMs,
+            durasiLombaDetik: sesi.config.durasiLombaDetik,
             powerUpTim,
             pesertaStat: {
               totalBenar: peserta.totalBenar,
@@ -503,35 +510,24 @@ export function setupMultiplayerSocket(io: Server) {
               streakTertinggi: peserta.streakTertinggi,
             },
             soalAktif,
-            sudahJawabRondeAktif,
-            sudahJawabSoalAktif: sudahJawabRondeAktif,
             daftarPeserta,
-            powerUpTim1: {
-              bank: sesi.powerUpTim1.bank,
-              aktifBerikutnya: sesi.powerUpTim1.aktifBerikutnya,
-            },
-            powerUpTim2: {
-              bank: sesi.powerUpTim2.bank,
-              aktifBerikutnya: sesi.powerUpTim2.aktifBerikutnya,
-            },
-            riwayatTali: sesi.riwayatTali,
+            ...multiManager.serialisasiPowerUpInfo(sesi),
             hasil: sesi.status === 'selesai' ? sesi.hasil : undefined,
           });
 
           io.to(roomName).emit('lobi:update', {
             game: 'tarik_tambang',
             playMode: 'MULTIPLAYER',
+            status: sesi.status,
             totalPeserta: sesi.peserta.size,
             daftarPeserta,
+            taliPosition: sesi.taliPosition,
+            skorMerah: sesi.skorMerah,
+            skorPutih: sesi.skorPutih,
+            matchEndsAt: sesi.matchEndsAtMs,
+            durasiLombaDetik: sesi.config.durasiLombaDetik,
             config: sesi.config,
-            powerUpTim1: {
-              bank: sesi.powerUpTim1.bank,
-              aktifBerikutnya: sesi.powerUpTim1.aktifBerikutnya,
-            },
-            powerUpTim2: {
-              bank: sesi.powerUpTim2.bank,
-              aktifBerikutnya: sesi.powerUpTim2.aktifBerikutnya,
-            },
+            ...multiManager.serialisasiPowerUpInfo(sesi),
           });
         } catch (err: any) {
           callback?.({ success: false, pesan: err.message || 'Gagal bergabung ke sesi.' });
@@ -559,8 +555,37 @@ export function setupMultiplayerSocket(io: Server) {
           return;
         }
 
+        // Cek in-memory managers dulu sebelum DB recovery agar beban koneksi minim
+        let sesiBalap = balapKarungManager.dapatkanSesi(sessionId);
+        let sesiPanjat = panjatPinangManager.dapatkanSesi(sessionId);
+        let sesiKerupuk = kerupukMultiManager.dapatkanSesi(sessionId);
+        let sesi = multiManager.dapatkanSesi(sessionId);
+        let sesiSoloCek = soloManager.dapatkanSesi(sessionId);
+
+        if (!sesiBalap && !sesiPanjat && !sesiKerupuk && !sesi && !sesiSoloCek) {
+          const dbMeta = await prisma.session.findUnique({
+            where: { id: sessionId },
+            select: { mode: true, template: { select: { game: true } } },
+          });
+          const g = dbMeta?.template?.game || 'tarik_tambang';
+          const m = dbMeta?.mode || 'multi';
+          if (g === 'balap_karung' && m !== 'solo') {
+            sesiBalap = (await balapKarungManager.pulihkanSesiDariDb(sessionId)) || undefined;
+          } else if (g === 'panjat_pinang') {
+            sesiPanjat = (await panjatPinangManager.pulihkanSesiDariDb(sessionId)) || undefined;
+          } else if (g === 'makan_kerupuk' && m === 'multi') {
+            sesiKerupuk = (await kerupukMultiManager.pulihkanSesiDariDb(sessionId)) || undefined;
+          } else if (g === 'tarik_tambang') {
+            if (m === 'multi') {
+              sesi = (await multiManager.pulihkanSesiDariDb(sessionId)) || undefined;
+            } else {
+              sesiSoloCek = (await soloManager.pulihkanSesiDariDb(sessionId)) || undefined;
+            }
+          }
+        }
+
         // B. Cek sesi Solo Tarik Tambang (tolak keras jika session adalah mode SOLO)
-        if (soloManager.dapatkanSesi(sessionId) || (await soloManager.pulihkanSesiDariDb(sessionId))) {
+        if (sesiSoloCek) {
           const pesan = 'Mode Solo dimainkan langsung di perangkat guru tanpa ruang multiplayer.';
           socket.emit('sesi:error', { pesan });
           callback?.({ success: false, pesan });
@@ -568,10 +593,6 @@ export function setupMultiplayerSocket(io: Server) {
         }
 
         // 0b. Cek sesi Balap Karung Challenge
-        let sesiBalap = balapKarungManager.dapatkanSesi(sessionId);
-        if (!sesiBalap) {
-          sesiBalap = (await balapKarungManager.pulihkanSesiDariDb(sessionId)) || undefined;
-        }
         if (sesiBalap) {
           const auth = pastikanHostSesi(socket, sesiBalap.hostId);
           if (!auth.ok) {
@@ -604,10 +625,6 @@ export function setupMultiplayerSocket(io: Server) {
         }
 
         // 0. Cek sesi Panjat Pinang
-        let sesiPanjat = panjatPinangManager.dapatkanSesi(sessionId);
-        if (!sesiPanjat) {
-          sesiPanjat = (await panjatPinangManager.pulihkanSesiDariDb(sessionId)) || undefined;
-        }
         if (sesiPanjat) {
           const auth = pastikanHostSesi(socket, sesiPanjat.hostId);
           if (!auth.ok) {
@@ -636,10 +653,6 @@ export function setupMultiplayerSocket(io: Server) {
         }
 
         // 0c. Sesi Makan Kerupuk Multiplayer
-        let sesiKerupuk = kerupukMultiManager.dapatkanSesi(sessionId);
-        if (!sesiKerupuk) {
-          sesiKerupuk = (await kerupukMultiManager.pulihkanSesiDariDb(sessionId)) || undefined;
-        }
         if (sesiKerupuk) {
           const auth = pastikanHostSesi(socket, sesiKerupuk.hostId);
           if (!auth.ok) {
@@ -668,10 +681,6 @@ export function setupMultiplayerSocket(io: Server) {
           return;
         }
 
-        let sesi = multiManager.dapatkanSesi(sessionId);
-        if (!sesi) {
-          sesi = (await multiManager.pulihkanSesiDariDb(sessionId)) || undefined;
-        }
         if (sesi) {
           const auth = pastikanHostSesi(socket, sesi.hostId);
           if (!auth.ok) {
@@ -696,37 +705,20 @@ export function setupMultiplayerSocket(io: Server) {
             config: sesi.config,
             status: sesi.status,
             taliPosition: sesi.taliPosition,
-            powerUpTim1: {
-              bank: sesi.powerUpTim1.bank,
-              aktifBerikutnya: sesi.powerUpTim1.aktifBerikutnya,
-            },
-            powerUpTim2: {
-              bank: sesi.powerUpTim2.bank,
-              aktifBerikutnya: sesi.powerUpTim2.aktifBerikutnya,
-            },
-            riwayatTali: sesi.riwayatTali,
+            skorMerah: sesi.skorMerah,
+            skorPutih: sesi.skorPutih,
+            matchEndsAt: sesi.matchEndsAtMs,
+            durasiLombaDetik: sesi.config.durasiLombaDetik,
+            ...multiManager.serialisasiPowerUpInfo(sesi),
+            hasil: sesi.status === 'selesai' ? sesi.hasil : undefined,
           });
 
-          if (sesi.status === 'jalan' && sesi.rondeAktif) {
-            socket.emit('ronde:host_update', {
+          if (sesi.status === 'jalan') {
+            armTarikMatchTimer(io, sesi);
+          } else if (sesi.status === 'selesai' && sesi.hasil) {
+            socket.emit('sesi:selesai', {
               game: 'tarik_tambang',
-              nomorRonde: sesi.rondeAktif.nomorRonde,
-              endsAt: sesi.rondeAktif.berakhirPadaMs,
-              duration: sesi.config.durasiRonde,
-              soalTim1: serialisasiSoalUntukClient(
-                sesi.rondeAktif.soalTim1,
-                sesi.rondeAktif.nomorRonde,
-                sesi.rondeAktif.berakhirPadaMs,
-                sesi.config.durasiRonde
-              ),
-              soalTim2: serialisasiSoalUntukClient(
-                sesi.rondeAktif.soalTim2,
-                sesi.rondeAktif.nomorRonde,
-                sesi.rondeAktif.berakhirPadaMs,
-                sesi.config.durasiRonde
-              ),
-              powerUpTim1Dipakai: sesi.rondeAktif.powerUpTim1Dipakai,
-              powerUpTim2Dipakai: sesi.rondeAktif.powerUpTim2Dipakai,
+              hasil: sesi.hasil,
             });
           }
           callback?.({ success: true });
@@ -749,15 +741,14 @@ export function setupMultiplayerSocket(io: Server) {
             return callback?.({ success: false, pesan: parsed.error.issues[0]?.message || 'ID sesi wajib diisi.' });
           }
           const { sessionId } = parsed.data;
-          if (soloManager.dapatkanSesi(sessionId) || (await soloManager.pulihkanSesiDariDb(sessionId))) {
-            return callback?.({
-              success: false,
-              pesan: 'Mode Solo tidak memiliki lobi pembagian tim.',
-            });
-          }
-
           let sesiTarget = multiManager.dapatkanSesi(sessionId);
           if (!sesiTarget) {
+            if (soloManager.dapatkanSesi(sessionId) || (await soloManager.pulihkanSesiDariDb(sessionId))) {
+              return callback?.({
+                success: false,
+                pesan: 'Mode Solo tidak memiliki lobi pembagian tim.',
+              });
+            }
             sesiTarget = (await multiManager.pulihkanSesiDariDb(sessionId)) || undefined;
           }
           if (!sesiTarget) {
@@ -769,17 +760,18 @@ export function setupMultiplayerSocket(io: Server) {
             return callback?.({ success: false, pesan: auth.pesan });
           }
 
-          const sesi = multiManager.acakUlangTim(sessionId, auth.userId);
-          await sinkronkanRoomTimTarikTambang(io, sesi);
+          multiManager.acakUlangTim(sessionId, auth.userId);
+          await sinkronkanRoomTimTarikTambang(io, sesiTarget);
 
-          const daftarPeserta = formatDaftarPesertaTarik(sesi);
-          const roomName = `session:${sesi.sessionId}`;
+          const daftarPeserta = formatDaftarPesertaTarik(sesiTarget);
+          const roomName = `session:${sesiTarget.sessionId}`;
           io.to(roomName).emit('lobi:update', {
             game: 'tarik_tambang',
             playMode: 'MULTIPLAYER',
-            totalPeserta: sesi.peserta.size,
+            status: sesiTarget.status,
+            totalPeserta: sesiTarget.peserta.size,
             daftarPeserta,
-            config: sesi.config,
+            config: sesiTarget.config,
           });
           io.to(roomName).emit('teams_assigned', { daftarPeserta });
 
@@ -803,15 +795,14 @@ export function setupMultiplayerSocket(io: Server) {
             return callback?.({ success: false, pesan: 'Data pemindahan tim tidak lengkap.' });
           }
           const { sessionId, pesertaId, timTujuan } = parsed.data;
-          if (soloManager.dapatkanSesi(sessionId) || (await soloManager.pulihkanSesiDariDb(sessionId))) {
-            return callback?.({
-              success: false,
-              pesan: 'Mode Solo tidak memiliki fitur pindah tim.',
-            });
-          }
-
           let sesiTarget = multiManager.dapatkanSesi(sessionId);
           if (!sesiTarget) {
+            if (soloManager.dapatkanSesi(sessionId) || (await soloManager.pulihkanSesiDariDb(sessionId))) {
+              return callback?.({
+                success: false,
+                pesan: 'Mode Solo tidak memiliki fitur pindah tim.',
+              });
+            }
             sesiTarget = (await multiManager.pulihkanSesiDariDb(sessionId)) || undefined;
           }
           if (!sesiTarget) {
@@ -823,22 +814,34 @@ export function setupMultiplayerSocket(io: Server) {
             return callback?.({ success: false, pesan: auth.pesan });
           }
 
-          const sesi = multiManager.pindahTimPeserta(
+          const lowerTim = timTujuan.trim().toLowerCase();
+          const timNormal: 'merah' | 'putih' | null =
+            lowerTim === 'merah' || lowerTim === 'tim1' || lowerTim === 'tim_a'
+              ? 'merah'
+              : lowerTim === 'putih' || lowerTim === 'biru' || lowerTim === 'tim2' || lowerTim === 'tim_b'
+                ? 'putih'
+                : null;
+          if (!timNormal) {
+            return callback?.({ success: false, pesan: 'Tim tujuan tidak dikenali.' });
+          }
+
+          multiManager.pindahTimPeserta(
             sessionId,
             auth.userId,
             pesertaId,
-            timTujuan
+            timNormal
           );
-          await sinkronkanRoomTimTarikTambang(io, sesi);
+          await sinkronkanRoomTimTarikTambang(io, sesiTarget);
 
-          const daftarPeserta = formatDaftarPesertaTarik(sesi);
-          const roomName = `session:${sesi.sessionId}`;
+          const daftarPeserta = formatDaftarPesertaTarik(sesiTarget);
+          const roomName = `session:${sesiTarget.sessionId}`;
           io.to(roomName).emit('lobi:update', {
             game: 'tarik_tambang',
             playMode: 'MULTIPLAYER',
-            totalPeserta: sesi.peserta.size,
+            status: sesiTarget.status,
+            totalPeserta: sesiTarget.peserta.size,
             daftarPeserta,
-            config: sesi.config,
+            config: sesiTarget.config,
           });
           io.to(roomName).emit('teams_assigned', { daftarPeserta });
 
@@ -849,7 +852,7 @@ export function setupMultiplayerSocket(io: Server) {
       }
     );
 
-    // 2d. Aktivasi Power-Up Tim Tarik Tambang (berlaku pada ronde berikutnya)
+    // 2d. Aktivasi Power-Up Tim Tarik Tambang (berlaku pada tarikan berikutnya)
     socket.on(
       'powerup:aktifkan',
       (
@@ -865,26 +868,31 @@ export function setupMultiplayerSocket(io: Server) {
               pesan: 'Mode Solo menggunakan endpoint REST power-up.',
             });
           }
+          if (!pesertaId) {
+            return callback?.({
+              success: false,
+              pesan: 'Identitas peserta wajib diisi untuk mengaktifkan Power-Up.',
+            });
+          }
+          const sesiCheck = multiManager.dapatkanSesi(sessionId);
+          const pesertaCheck = sesiCheck?.peserta.get(pesertaId);
+          if (!pesertaCheck) {
+            return callback?.({ success: false, pesan: 'Peserta tidak ditemukan di sesi.' });
+          }
+          if (pesertaSecret && pesertaCheck.secretToken !== pesertaSecret) {
+            return callback?.({ success: false, pesan: 'Token autentikasi peserta tidak valid.' });
+          }
+          if (!pesertaSecret && pesertaCheck.socketId && pesertaCheck.socketId !== socket.id) {
+            return callback?.({ success: false, pesan: 'Socket peserta tidak sesuai.' });
+          }
 
-          const res = multiManager.aktifkanPowerUpTim(
-            sessionId,
-            tim || '',
-            pesertaId,
-            pesertaSecret
-          );
+          const res = multiManager.aktifkanPowerUpTim(sessionId, pesertaId, tim);
 
           io.to(`session:${sessionId}`).emit('powerup:update', {
             game: 'tarik_tambang',
             tim: res.tim,
             powerUpDiaktifkan: res.powerUp,
-            powerUpTim1: {
-              bank: res.sesi.powerUpTim1.bank,
-              aktifBerikutnya: res.sesi.powerUpTim1.aktifBerikutnya,
-            },
-            powerUpTim2: {
-              bank: res.sesi.powerUpTim2.bank,
-              aktifBerikutnya: res.sesi.powerUpTim2.aktifBerikutnya,
-            },
+            ...multiManager.serialisasiPowerUpInfo(res.sesi),
           });
 
           callback?.({ success: true, tim: res.tim, powerUp: res.powerUp });
@@ -1118,16 +1126,15 @@ export function setupMultiplayerSocket(io: Server) {
           }
 
           // B. Sesi Tarik Tambang (tolak jika sesi merupakan mode SOLO)
-          if (soloManager.dapatkanSesi(sessionId) || (await soloManager.pulihkanSesiDariDb(sessionId))) {
-            callback?.({
-              success: false,
-              pesan: 'Mode Solo tidak dijalankan melalui ruang multiplayer.',
-            });
-            return;
-          }
-
           let sesiTarget = multiManager.dapatkanSesi(sessionId);
           if (!sesiTarget) {
+            if (soloManager.dapatkanSesi(sessionId) || (await soloManager.pulihkanSesiDariDb(sessionId))) {
+              callback?.({
+                success: false,
+                pesan: 'Mode Solo tidak dijalankan melalui ruang multiplayer.',
+              });
+              return;
+            }
             sesiTarget = (await multiManager.pulihkanSesiDariDb(sessionId)) || undefined;
           }
           if (!sesiTarget) {
@@ -1147,22 +1154,35 @@ export function setupMultiplayerSocket(io: Server) {
           // Update status di database menjadi 'jalan'
           await prisma.session.update({
             where: { id: sessionId },
-            data: { status: 'jalan', mulaiPada: new Date() },
+            data: { status: 'jalan', mulaiPada: new Date(sesi.matchStartedAtMs || Date.now()) },
           });
 
           await sinkronkanRoomTimTarikTambang(io, sesi);
 
-          // Siarkan pembagian tim final sebelum ronde pertama dimulai
           const daftarPeserta = formatDaftarPesertaTarik(sesi);
 
           io.to(roomName).emit('teams_assigned', {
             daftarPeserta,
           });
 
-          // Mulai ronde pertama dengan pasangan soal setara terpisah per tim
-          await mulaiRondeTarikTambang(io, sesi);
+          io.to(roomName).emit('game:mulai', {
+            game: 'tarik_tambang',
+            playMode: 'MULTIPLAYER',
+            sessionId: sesi.sessionId,
+            status: 'jalan',
+            taliPosition: sesi.taliPosition,
+            skorMerah: sesi.skorMerah,
+            skorPutih: sesi.skorPutih,
+            matchEndsAt: sesi.matchEndsAtMs,
+            durasiLombaDetik: sesi.config.durasiLombaDetik,
+            daftarPeserta,
+            config: sesi.config,
+          });
 
-          callback?.({ success: true, pesan: 'Permainan dimulai!' });
+          // Mulai match continuous: kirimkan soal acak individual ke tiap siswa & nyalakan match timer 3:00
+          await mulaiMatchTarikTambang(io, sesi);
+
+          callback?.({ success: true, status: 'jalan', pesan: 'Permainan dimulai!' });
         } catch (err: any) {
           callback?.({ success: false, pesan: err.message || 'Gagal memulai permainan.' });
         }
@@ -1575,51 +1595,34 @@ export function setupMultiplayerSocket(io: Server) {
             return;
           }
 
-          const hasil = multiManager.prosesJawabanSiswa(sessionId, pesertaId, {
-            presentationId,
-            questionId: rawQId,
-            choiceId,
-            jawaban,
-            pesertaSecret,
-          });
-
-          const roomName = `session:${sesi.sessionId}`;
-
-          // Kunci jawaban & skor detail TIDAK diungkap sebelum ronde ditutup!
-          const feedbackPayload = {
-            success: true,
-            game: 'tarik_tambang',
-            terkunci: true,
-            tim: hasil.tim,
-            kodeDipilih: hasil.kodeDipilih,
-            pesan: 'Jawaban terkunci! Menunggu tim lawan dan akhir ronde.',
-          };
-
-          callback?.(feedbackPayload);
-          socket.emit('jawab:hasil', feedbackPayload);
-
-          const totalDijawab = hasil.progressTim1.dijawab + hasil.progressTim2.dijawab;
-          const totalTarget = hasil.progressTim1.total + hasil.progressTim2.total;
-
-          // Siarkan progres jawaban tiap tim ke seluruh ruangan tanpa menggeser tali sebelum evaluasi ronde
-          io.to(roomName).emit('tali:update', {
-            taliPosition: hasil.taliPosition,
-            skorMerah: hasil.skorMerah,
-            skorPutih: hasil.skorPutih,
-            progressTim1: hasil.progressTim1,
-            progressTim2: hasil.progressTim2,
-            answeredCount: totalDijawab,
-            totalCount: totalTarget,
-          });
-
-          // Jika seluruh peserta aktif sudah menjawab ronde ini, langsung evaluasi ronde
-          if (hasil.semuaSelesai) {
-            if (sesi.timerHandle) {
-              clearTimeout(sesi.timerHandle);
-              sesi.timerHandle = undefined;
-            }
-            await tutupRondeTarikTambang(io, sesi);
+          const peserta = sesi.peserta.get(pesertaId);
+          if (!peserta) {
+            callback?.({ success: false, pesan: 'Peserta tidak ditemukan di sesi.' });
+            return;
           }
+
+          if (pesertaSecret && peserta.secretToken !== pesertaSecret) {
+            callback?.({ success: false, pesan: 'Token autentikasi peserta tidak valid.' });
+            return;
+          }
+          if (!pesertaSecret && peserta.socketId && peserta.socketId !== socket.id) {
+            callback?.({ success: false, pesan: 'Identitas socket peserta tidak cocok.' });
+            return;
+          }
+
+          await eksekusiJawabSiswaTarik(
+            io,
+            sesi,
+            peserta,
+            {
+              presentationId: presentationId || rawQId,
+              choiceId,
+              jawaban,
+              timedOut: Boolean((data as any)?.timedOut),
+            },
+            socket,
+            callback
+          );
         } catch (err: any) {
           callback?.({ success: false, pesan: err.message || 'Gagal memproses jawaban.' });
         }
@@ -1712,6 +1715,40 @@ export function setupMultiplayerSocket(io: Server) {
               game: 'makan_kerupuk',
               ...nextSoal,
             });
+          }
+          return;
+        }
+
+        // B. Tarik Tambang Multiplayer
+        const sesiTarik = multiManager.dapatkanSesi(sessionId);
+        if (sesiTarik) {
+          if (sesiTarik.status !== 'jalan') return;
+          const pesertaTarik = sesiTarik.peserta.get(pesertaId);
+          if (!pesertaTarik) return;
+          if (pesertaSecret && pesertaTarik.secretToken !== pesertaSecret) return;
+          if (!pesertaSecret && pesertaTarik.socketId && pesertaTarik.socketId !== socket.id) return;
+
+          const existingTimer = pendingNextSoalTarikTimers.get(pesertaId);
+          if (existingTimer) {
+            clearTimeout(existingTimer);
+            pendingNextSoalTarikTimers.delete(pesertaId);
+            const nextSoal = multiManager.siapkanSoalBerikutnyaPeserta(sessionId, pesertaId);
+            if (nextSoal) {
+              socket.emit('soal:tampil', nextSoal);
+              armTarikQuestionTimeout(
+                io,
+                sesiTarik,
+                pesertaId,
+                nextSoal.presentationId,
+                nextSoal.endsAt
+              );
+            }
+            return;
+          }
+
+          const aktifSoal = multiManager.dapatkanSoalAktifPeserta(sessionId, pesertaId);
+          if (aktifSoal) {
+            socket.emit('soal:tampil', aktifSoal);
           }
           return;
         }
@@ -1831,16 +1868,15 @@ export function setupMultiplayerSocket(io: Server) {
           }
 
           // B. Sesi Tarik Tambang
-          if (soloManager.dapatkanSesi(sessionId) || (await soloManager.pulihkanSesiDariDb(sessionId))) {
-            callback?.({
-              success: false,
-              pesan: 'Mode Solo diakhiri langsung melalui layar guru.',
-            });
-            return;
-          }
-
           let sesiTarget = multiManager.dapatkanSesi(sessionId);
           if (!sesiTarget) {
+            if (soloManager.dapatkanSesi(sessionId) || (await soloManager.pulihkanSesiDariDb(sessionId))) {
+              callback?.({
+                success: false,
+                pesan: 'Mode Solo diakhiri langsung melalui layar guru.',
+              });
+              return;
+            }
             sesiTarget = (await multiManager.pulihkanSesiDariDb(sessionId)) || undefined;
           }
           if (!sesiTarget) {
@@ -1854,16 +1890,8 @@ export function setupMultiplayerSocket(io: Server) {
             return;
           }
 
-          const sesi = multiManager.akhiriPermainan(sessionId);
-          await multiManager.simpanHasilKeDatabase(sesi);
-
-          const roomName = `session:${sesi.sessionId}`;
-          io.to(roomName).emit('sesi:selesai', {
-            game: 'tarik_tambang',
-            hasil: sesi.hasil,
-          });
-
-          callback?.({ success: true, hasil: sesi.hasil });
+          const hasil = await akhiriMatchTarikTambang(io, sessionId, 'manual');
+          callback?.({ success: true, hasil });
         } catch (err: any) {
           callback?.({ success: false, pesan: err.message || 'Gagal mengakhiri permainan.' });
         }
@@ -1960,140 +1988,238 @@ export function setupMultiplayerSocket(io: Server) {
       }
 
       // Cek apakah socket berasal dari peserta Tarik Tambang
-      const { sessionId } = multiManager.putusKoneksiPeserta(socket.id);
-      if (sessionId) {
-        const sesi = multiManager.dapatkanSesi(sessionId);
-        if (sesi) {
-          const roomName = `session:${sesi.sessionId}`;
-          const daftarPeserta = formatDaftarPesertaTarik(sesi);
+      const dcTarik = multiManager.andaiTerputus(socket.id);
+      if (dcTarik) {
+        const { sesi } = dcTarik;
+        const roomName = `session:${sesi.sessionId}`;
+        const daftarPeserta = formatDaftarPesertaTarik(sesi);
 
-          io.to(roomName).emit('lobi:update', {
-            game: 'tarik_tambang',
-            playMode: 'MULTIPLAYER',
-            totalPeserta: sesi.peserta.size,
-            daftarPeserta,
-            config: sesi.config,
-          });
-        }
+        io.to(roomName).emit('lobi:update', {
+          game: 'tarik_tambang',
+          playMode: 'MULTIPLAYER',
+          status: sesi.status,
+          totalPeserta: sesi.peserta.size,
+          daftarPeserta,
+          config: sesi.config,
+        });
       }
     });
   });
 }
 
 // ---------------------------------------------------------------------------
-// HELPER TARIK TAMBANG MULTIPLAYER
+// HELPER TARIK TAMBANG MULTIPLAYER (CONTINUOUS REAL-TIME MATCH)
 // ---------------------------------------------------------------------------
 
-/**
- * Menyiapkan ronde baru Tarik Tambang dengan dua soal setara berbeda
- * yang dikirimkan secara terisolasi hanya ke masing-masing room tim.
- */
-async function mulaiRondeTarikTambang(io: Server, sesi: SesiMultiplayerActive) {
-  if (sesi.status !== 'jalan') return;
-
-  const ronde = multiManager.mulaiRondeBaru(sesi.sessionId);
-  await sinkronkanRoomTimTarikTambang(io, sesi);
-
-  const soalTim1Public = serialisasiSoalUntukClient(
-    ronde.soalTim1,
-    ronde.nomorRonde,
-    ronde.berakhirPadaMs,
-    sesi.config.durasiRonde
-  );
-  const soalTim2Public = serialisasiSoalUntukClient(
-    ronde.soalTim2,
-    ronde.nomorRonde,
-    ronde.berakhirPadaMs,
-    sesi.config.durasiRonde
-  );
-
-  // Kirim soal Tim 1 HANYA ke room Tim 1 (Merah), soal Tim 2 HANYA ke room Tim 2 (Biru)
-  io.to(`session:${sesi.sessionId}:merah`).emit('soal:tampil', {
-    game: 'tarik_tambang',
-    tim: 'merah',
-    ...soalTim1Public,
-    answeredCount: 0,
-    totalCount: ronde.anggotaAwalTim1 + ronde.anggotaAwalTim2,
-    progressTim1: { dijawab: 0, total: ronde.anggotaAwalTim1 },
-    progressTim2: { dijawab: 0, total: ronde.anggotaAwalTim2 },
-  });
-
-  io.to(`session:${sesi.sessionId}:putih`).emit('soal:tampil', {
-    game: 'tarik_tambang',
-    tim: 'putih',
-    ...soalTim2Public,
-    answeredCount: 0,
-    totalCount: ronde.anggotaAwalTim1 + ronde.anggotaAwalTim2,
-    progressTim1: { dijawab: 0, total: ronde.anggotaAwalTim1 },
-    progressTim2: { dijawab: 0, total: ronde.anggotaAwalTim2 },
-  });
-
-  // Kirim ringkasan ronde ke Host (tanpa kunci jawaban)
-  if (sesi.hostSocketId) {
-    io.to(sesi.hostSocketId).emit('ronde:host_update', {
-      game: 'tarik_tambang',
-      nomorRonde: ronde.nomorRonde,
-      endsAt: ronde.berakhirPadaMs,
-      duration: sesi.config.durasiRonde,
-      soalTim1: soalTim1Public,
-      soalTim2: soalTim2Public,
-      powerUpTim1Dipakai: ronde.powerUpTim1Dipakai,
-      powerUpTim2Dipakai: ronde.powerUpTim2Dipakai,
-      progressTim1: { dijawab: 0, total: ronde.anggotaAwalTim1 },
-      progressTim2: { dijawab: 0, total: ronde.anggotaAwalTim2 },
-    });
+function clearTarikStudentTimers(pesertaId: string): void {
+  const nextTimer = pendingNextSoalTarikTimers.get(pesertaId);
+  if (nextTimer) {
+    clearTimeout(nextTimer);
+    pendingNextSoalTarikTimers.delete(pesertaId);
   }
-
-  sesi.timerHandle = setTimeout(() => {
-    tutupRondeTarikTambang(io, sesi);
-  }, sesi.config.durasiRonde * 1000);
+  const timeoutTimer = tarikQuestionTimeoutTimers.get(pesertaId);
+  if (timeoutTimer) {
+    clearTimeout(timeoutTimer);
+    tarikQuestionTimeoutTimers.delete(pesertaId);
+  }
 }
 
-/**
- * Menutup ronde aktif, mengevaluasi tarikan [-100..+100] & bonus,
- * mengungkapkan hasil & kunci jawaban setelah ronde berakhir,
- * serta menyimpan ke DB bila permainan berakhir.
- */
-async function tutupRondeTarikTambang(io: Server, sesi: SesiMultiplayerActive) {
-  if (sesi.timerHandle) {
-    clearTimeout(sesi.timerHandle);
-    sesi.timerHandle = undefined;
-  }
+function armTarikQuestionTimeout(
+  io: Server,
+  sesi: SesiMultiplayerActive,
+  pesertaId: string,
+  presentationId: string,
+  questionEndsAtMs: number
+): void {
+  const existing = tarikQuestionTimeoutTimers.get(pesertaId);
+  if (existing) clearTimeout(existing);
 
-  const { hasilRonde, isGameFinished } = multiManager.selesaikanSoalAktif(sesi.sessionId);
-  const roomName = `session:${sesi.sessionId}`;
+  const delayMs = Math.max(1200, questionEndsAtMs - Date.now() + 900);
+  const timer = setTimeout(() => {
+    tarikQuestionTimeoutTimers.delete(pesertaId);
+    const sesiCheck = multiManager.dapatkanSesi(sesi.sessionId);
+    if (!sesiCheck || sesiCheck.status !== 'jalan') return;
+    const pCheck = sesiCheck.peserta.get(pesertaId);
+    if (!pCheck || pCheck.presentasiAktif?.presentationId !== presentationId) return;
 
-  const pesertaUpdated = formatDaftarPesertaTarik(sesi);
+    const targetSocket = pCheck.socketId ? io.sockets.sockets.get(pCheck.socketId) : undefined;
+    void eksekusiJawabSiswaTarik(
+      io,
+      sesiCheck,
+      pCheck,
+      { presentationId, timedOut: true },
+      targetSocket
+    ).catch((err) => {
+      console.error('[tarik_tambang timeout error]:', err);
+    });
+  }, delayMs);
 
-  io.to(roomName).emit('soal:selesai', {
+  tarikQuestionTimeoutTimers.set(pesertaId, timer);
+}
+
+async function akhiriMatchTarikTambang(
+  io: Server,
+  sessionId: string,
+  alasan: 'garis_menang' | 'waktu_habis' | 'manual'
+) {
+  const sesi = multiManager.dapatkanSesi(sessionId);
+  if (!sesi) return null;
+
+  bersihkanTimerSesi(sessionId);
+  const hasil = multiManager.akhiriPermainan(sessionId, alasan);
+  await multiManager.simpanHasilKeDatabase(sesi);
+
+  io.to(`session:${sessionId}`).emit('sesi:selesai', {
     game: 'tarik_tambang',
-    nomorRonde: hasilRonde.nomorRonde,
-    hasilRonde,
-    taliPosition: hasilRonde.posisiSesudah,
-    skorMerah: sesi.skorMerah,
-    skorPutih: sesi.skorPutih,
-    powerUpTim1: {
-      bank: sesi.powerUpTim1.bank,
-      aktifBerikutnya: sesi.powerUpTim1.aktifBerikutnya,
-    },
-    powerUpTim2: {
-      bank: sesi.powerUpTim2.bank,
-      aktifBerikutnya: sesi.powerUpTim2.aktifBerikutnya,
-    },
-    riwayatTali: sesi.riwayatTali,
-    daftarPeserta: pesertaUpdated,
-    isGameFinished,
+    hasil,
   });
 
-  if (isGameFinished) {
+  return hasil;
+}
+
+function armTarikMatchTimer(io: Server, sesi: SesiMultiplayerActive): void {
+  const existing = tarikMatchTimers.get(sesi.sessionId);
+  if (existing) clearTimeout(existing);
+  if (sesi.status !== 'jalan') return;
+
+  const endMs =
+    sesi.matchEndsAtMs || Date.now() + Math.max(30, sesi.config.durasiLombaDetik || 180) * 1000;
+  const remainingMs = endMs - Date.now();
+  if (remainingMs <= 0) {
+    void akhiriMatchTarikTambang(io, sesi.sessionId, 'waktu_habis');
+    return;
+  }
+
+  const timer = setTimeout(() => {
+    tarikMatchTimers.delete(sesi.sessionId);
+    void akhiriMatchTarikTambang(io, sesi.sessionId, 'waktu_habis');
+  }, remainingMs);
+  tarikMatchTimers.set(sesi.sessionId, timer);
+}
+
+async function eksekusiJawabSiswaTarik(
+  io: Server,
+  sesi: SesiMultiplayerActive,
+  peserta: PesertaMulti,
+  input: {
+    presentationId?: string;
+    choiceId?: string;
+    jawaban?: string;
+    timedOut?: boolean;
+  },
+  studentSocket?: Socket,
+  callback?: (res: any) => void
+): Promise<void> {
+  clearTarikStudentTimers(peserta.id);
+
+  const hasil = multiManager.prosesJawabanSiswa(sesi.sessionId, peserta.id, {
+    presentationId: input.presentationId,
+    choiceId: input.choiceId,
+    jawabanDipilih: input.jawaban,
+    timedOut: input.timedOut,
+  });
+
+  const feedbackPayload = {
+    success: true,
+    game: 'tarik_tambang' as const,
+    benar: hasil.benar,
+    timedOut: hasil.timedOut,
+    slipQuote: hasil.slipQuote,
+    deltaTali: hasil.deltaTali,
+    taliPosition: hasil.taliPosition,
+    skorMerah: hasil.skorMerah,
+    skorPutih: hasil.skorPutih,
+    jawabanBenarKode: hasil.jawabanBenarKode,
+    jawabanBenarTeks: hasil.jawabanBenarTeks,
+    penjelasan: hasil.penjelasan,
+    pesertaUpdated: {
+      id: hasil.peserta.id,
+      nama: hasil.peserta.nama,
+      tim: hasil.peserta.tim,
+      totalBenar: hasil.peserta.totalBenar,
+      totalSalah: hasil.peserta.totalSalah,
+      jumlahJawab: hasil.peserta.jumlahJawab,
+      streakSaatIni: hasil.peserta.streakSaatIni,
+      streakTertinggi: hasil.peserta.streakTertinggi,
+    },
+  };
+
+  callback?.(feedbackPayload);
+  if (studentSocket) {
+    studentSocket.emit('jawab:hasil', feedbackPayload);
+  } else if (peserta.socketId) {
+    io.to(peserta.socketId).emit('jawab:hasil', feedbackPayload);
+  }
+
+  const roomName = `session:${sesi.sessionId}`;
+  io.to(roomName).emit('tali:update', {
+    game: 'tarik_tambang',
+    taliPosition: hasil.taliPosition,
+    skorMerah: hasil.skorMerah,
+    skorPutih: hasil.skorPutih,
+    batasMenang: sesi.config.batasMenang,
+    daftarPeserta: formatDaftarPesertaTarik(sesi),
+    aksi: {
+      side: hasil.tim === 'merah' ? 'l' : 'r',
+      action: hasil.benar ? 'pull' : 'slip',
+      pullerIdx: hasil.pullerIdx,
+      playerId: hasil.peserta.id,
+      playerName: hasil.peserta.nama,
+      timedOut: hasil.timedOut,
+      quote: hasil.slipQuote,
+      deltaTali: hasil.deltaTali,
+    },
+    ...multiManager.serialisasiPowerUpInfo(sesi),
+  });
+
+  if (hasil.selesai) {
+    bersihkanTimerSesi(sesi.sessionId);
     await multiManager.simpanHasilKeDatabase(sesi);
     io.to(roomName).emit('sesi:selesai', {
       game: 'tarik_tambang',
-      hasil: sesi.hasil,
+      hasil: hasil.hasil,
     });
-  } else {
-    sesi.intermissionHandle = setTimeout(() => {
-      mulaiRondeTarikTambang(io, sesi);
-    }, 3200);
+    return;
+  }
+
+  const timer = setTimeout(() => {
+    pendingNextSoalTarikTimers.delete(peserta.id);
+    const sesiCheck = multiManager.dapatkanSesi(sesi.sessionId);
+    if (!sesiCheck || sesiCheck.status !== 'jalan') return;
+    const pNow = sesiCheck.peserta.get(peserta.id);
+    if (!pNow) return;
+
+    const nextSoal = multiManager.siapkanSoalBerikutnyaPeserta(sesiCheck.sessionId, pNow.id);
+    if (nextSoal) {
+      if (pNow.socketId) {
+        io.to(pNow.socketId).emit('soal:tampil', nextSoal);
+      }
+      armTarikQuestionTimeout(
+        io,
+        sesiCheck,
+        pNow.id,
+        nextSoal.presentationId,
+        nextSoal.endsAt
+      );
+    }
+  }, 900);
+
+  pendingNextSoalTarikTimers.set(peserta.id, timer);
+}
+
+async function mulaiMatchTarikTambang(io: Server, sesi: SesiMultiplayerActive): Promise<void> {
+  if (sesi.status !== 'jalan') return;
+  await sinkronkanRoomTimTarikTambang(io, sesi);
+  armTarikMatchTimer(io, sesi);
+
+  for (const p of sesi.peserta.values()) {
+    const soalData =
+      multiManager.dapatkanSoalAktifPeserta(sesi.sessionId, p.id) ||
+      multiManager.siapkanSoalBerikutnyaPeserta(sesi.sessionId, p.id);
+    if (!soalData) continue;
+    if (p.socketId) {
+      io.to(p.socketId).emit('soal:tampil', soalData);
+    }
+    armTarikQuestionTimeout(io, sesi, p.id, soalData.presentationId, soalData.endsAt);
   }
 }

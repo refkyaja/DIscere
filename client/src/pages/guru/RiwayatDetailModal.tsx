@@ -215,10 +215,24 @@ interface DetailData {
   totalSalah: number;
   totalSoalDimainkan: number;
   laporanTarikSolo?: {
-    konfigurasi?: { batasMenang?: number };
+    namaTim1?: string;
+    namaTim2?: string;
+    konfigurasi?: { batasMenang?: number; namaTim1?: string; namaTim2?: string };
   } | null;
   laporanTarikMulti?: {
-    konfigurasi?: { batasMenang?: number };
+    namaTim1?: string;
+    namaTim2?: string;
+    konfigurasi?: { batasMenang?: number; namaTim1?: string; namaTim2?: string };
+    ringkasanTim?: Array<{
+      id: 'merah' | 'putih';
+      nama: string;
+      warna: string;
+      jumlahAnggota: number;
+      totalBenar: number;
+      totalSalah: number;
+      akurasiPersen: number;
+    }>;
+    analisisHeatmap?: AnalisisHeatmapData;
   } | null;
   laporanPanjatPinang?: LaporanPanjatDetail | null;
   laporanBalapKarung?: LaporanBalapDetail | null;
@@ -904,17 +918,62 @@ export function RiwayatDetailModal({
                     <i style={{ left: `${ropeLeftPercent}%` }} />
                   </div>
                   <div className="portal-rl">
-                    <span className="text-[#c8362f]">Tim Merah (Kiri +{batasTali})</span>
-                    <span className="text-[#1d3b2e]">Tim Putih (Kanan -{batasTali})</span>
+                    <span className="text-[#c8362f]">
+                      {detail.laporanTarikMulti?.namaTim1 ||
+                        detail.laporanTarikSolo?.namaTim1 ||
+                        'Tim Merah'}{' '}
+                      (Kiri +{batasTali})
+                    </span>
+                    <span className="text-[#1e40af]">
+                      {detail.laporanTarikMulti?.namaTim2 ||
+                        detail.laporanTarikSolo?.namaTim2 ||
+                        'Tim Biru'}{' '}
+                      (Kanan -{batasTali})
+                    </span>
                   </div>
                 </div>
+              )}
+
+              {/* Ringkasan Tim + Heatmap Analisis Soal (Tarik Tambang Multiplayer) */}
+              {detail.laporanTarikMulti?.ringkasanTim &&
+                detail.laporanTarikMulti.ringkasanTim.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {detail.laporanTarikMulti.ringkasanTim.map((tim) => (
+                      <div
+                        key={tim.id}
+                        className={`p-3 rounded-xl border-2 text-xs ${
+                          detail.timMenang === tim.id
+                            ? 'border-[#ffb81c] bg-[#fff8dc]'
+                            : 'border-[#e0d5b8] bg-white'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between font-extrabold">
+                          <span style={{ color: tim.warna }}>{tim.nama}</span>
+                          <span className="font-mono text-[#1d3b2e]">{tim.akurasiPersen}%</span>
+                        </div>
+                        <div className="text-[11px] text-[#6b7d6c] mt-1">
+                          {tim.jumlahAnggota} anggota •{' '}
+                          <strong className="text-emerald-700">{tim.totalBenar}B</strong> /{' '}
+                          <strong className="text-rose-700">{tim.totalSalah}S</strong>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+              {detail.laporanTarikMulti?.analisisHeatmap && (
+                <BalapHeatmapMatrix heatmap={detail.laporanTarikMulti.analisisHeatmap} />
               )}
 
               {/* Kartu Skor & Pemenang */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
                 <div className="p-3 bg-[#f6d9d3] border border-[#d9544c]/30 rounded-xl">
                   <div className="text-xs font-bold text-[#c8362f]">
-                    {detail.game === 'makan_kerupuk' ? 'Skor Tertinggi' : 'Skor Merah'}
+                    {detail.game === 'makan_kerupuk'
+                      ? 'Skor Tertinggi'
+                      : detail.laporanTarikMulti?.namaTim1 ||
+                        detail.laporanTarikSolo?.namaTim1 ||
+                        'Skor Merah'}
                   </div>
                   <div className="portal-cv text-3xl text-[#c8362f]">
                     {detail.skorMerah}
@@ -923,7 +982,11 @@ export function RiwayatDetailModal({
 
                 <div className="p-3 bg-[#dbeafe] border border-blue-200 rounded-xl">
                   <div className="text-xs font-bold text-[#1e40af]">
-                    {detail.game === 'makan_kerupuk' ? 'Total Benar' : 'Skor Putih'}
+                    {detail.game === 'makan_kerupuk'
+                      ? 'Total Benar'
+                      : detail.laporanTarikMulti?.namaTim2 ||
+                        detail.laporanTarikSolo?.namaTim2 ||
+                        'Skor Biru'}
                   </div>
                   <div className="portal-cv text-3xl text-[#1e40af]">
                     {detail.game === 'makan_kerupuk' ? detail.totalBenar : detail.skorPutih}
@@ -936,10 +999,14 @@ export function RiwayatDetailModal({
                     {detail.game === 'makan_kerupuk'
                       ? detail.timMenang
                       : detail.timMenang === 'merah'
-                      ? '🔴 Merah'
-                      : detail.timMenang === 'putih'
-                      ? '⚪ Putih'
-                      : '🤝 Seri'}
+                        ? detail.laporanTarikMulti?.namaTim1 ||
+                          detail.laporanTarikSolo?.namaTim1 ||
+                          'Tim Merah'
+                        : detail.timMenang === 'putih'
+                          ? detail.laporanTarikMulti?.namaTim2 ||
+                            detail.laporanTarikSolo?.namaTim2 ||
+                            'Tim Biru'
+                          : 'Seri'}
                   </div>
                 </div>
 

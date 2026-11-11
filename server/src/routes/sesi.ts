@@ -15,10 +15,21 @@ import {
   filterBankSoalSetara,
   konfigurasiTarikTambangSchema,
   KonfigurasiTarikTambang,
-  normalisasiKodeTim,
-  serialisasiSoalUntukClient,
   SoalBankTarikTambang,
+  TimTarikTambang,
 } from '../games/tarikTambang.js';
+
+function normalisasiKodeTim(raw?: string | null): TimTarikTambang | null {
+  if (!raw) return null;
+  const cleaned = raw.trim().toLowerCase();
+  if (cleaned === 'merah' || cleaned === 'tim1' || cleaned === '1' || cleaned === 'kiri') {
+    return 'merah';
+  }
+  if (cleaned === 'putih' || cleaned === 'biru' || cleaned === 'tim2' || cleaned === '2' || cleaned === 'kanan') {
+    return 'putih';
+  }
+  return null;
+}
 import { kerupukManager } from '../games/kerupukManager.js';
 import { kerupukMultiManager } from '../games/kerupukMultiManager.js';
 import {
@@ -43,18 +54,83 @@ import { bersihkanTimerSesi } from '../realtime/sesi.js';
 
 export const sesiRouter = Router();
 
+type ResolvedSessionManager =
+  | { kind: 'balap_solo'; session: NonNullable<ReturnType<typeof balapKarungSoloManager.dapatkanSesi>> }
+  | { kind: 'balap_multi'; session: NonNullable<ReturnType<typeof balapKarungManager.dapatkanSesi>> }
+  | { kind: 'panjat_multi'; session: NonNullable<ReturnType<typeof panjatPinangManager.dapatkanSesi>> }
+  | { kind: 'kerupuk_multi'; session: NonNullable<ReturnType<typeof kerupukMultiManager.dapatkanSesi>> }
+  | { kind: 'kerupuk_solo'; session: NonNullable<ReturnType<typeof kerupukManager.dapatkanSesi>> }
+  | { kind: 'tarik_multi'; session: NonNullable<ReturnType<typeof multiManager.dapatkanSesi>> }
+  | { kind: 'tarik_solo'; session: NonNullable<ReturnType<typeof soloManager.dapatkanSesi>> };
+
+async function resolveSessionAnyManager(id: string): Promise<ResolvedSessionManager | null> {
+  // Cek semua manager in-memory terlebih dahulu agar bebas latency DB beruntun
+  const bSolo = balapKarungSoloManager.dapatkanSesi(id);
+  if (bSolo) return { kind: 'balap_solo', session: bSolo };
+  const bMulti = balapKarungManager.dapatkanSesi(id);
+  if (bMulti) return { kind: 'balap_multi', session: bMulti };
+  const pMulti = panjatPinangManager.dapatkanSesi(id);
+  if (pMulti) return { kind: 'panjat_multi', session: pMulti };
+  const kMulti = kerupukMultiManager.dapatkanSesi(id);
+  if (kMulti) return { kind: 'kerupuk_multi', session: kMulti };
+  const kSolo = kerupukManager.dapatkanSesi(id);
+  if (kSolo) return { kind: 'kerupuk_solo', session: kSolo };
+  const tMulti = multiManager.dapatkanSesi(id);
+  if (tMulti) return { kind: 'tarik_multi', session: tMulti };
+  const tSolo = soloManager.dapatkanSesi(id);
+  if (tSolo) return { kind: 'tarik_solo', session: tSolo };
+
+  // Fallback pemulihan DB: 1 query ringan untuk menentukan game & mode sesi
+  const dbMeta = await prisma.session.findUnique({
+    where: { id },
+    select: { mode: true, template: { select: { game: true } } },
+  });
+  if (!dbMeta) return null;
+
+  const g = dbMeta.template?.game || 'tarik_tambang';
+  const m = dbMeta.mode || 'solo';
+
+  if (g === 'balap_karung') {
+    if (m === 'solo') {
+      const s = await balapKarungSoloManager.pulihkanSesiDariDb(id);
+      return s ? { kind: 'balap_solo', session: s } : null;
+    }
+    const s = await balapKarungManager.pulihkanSesiDariDb(id);
+    return s ? { kind: 'balap_multi', session: s } : null;
+  }
+  if (g === 'panjat_pinang') {
+    const s = await panjatPinangManager.pulihkanSesiDariDb(id);
+    return s ? { kind: 'panjat_multi', session: s } : null;
+  }
+  if (g === 'makan_kerupuk') {
+    if (m === 'multi') {
+      const s = await kerupukMultiManager.pulihkanSesiDariDb(id);
+      return s ? { kind: 'kerupuk_multi', session: s } : null;
+    }
+    const s = await kerupukManager.pulihkanSesiDariDb(id);
+    return s ? { kind: 'kerupuk_solo', session: s } : null;
+  }
+
+  if (m === 'multi') {
+    const s = await multiManager.pulihkanSesiDariDb(id);
+    return s ? { kind: 'tarik_multi', session: s } : null;
+  }
+  const s = await soloManager.pulihkanSesiDariDb(id);
+  return s ? { kind: 'tarik_solo', session: s } : null;
+}
+
 async function cekMultiAtauPulihkanSoloTarik(
   sessionId: string,
   hostId: string
 ): Promise<'MULTI' | 'OK'> {
-  const multi =
-    multiManager.dapatkanSesi(sessionId) ||
-    (await multiManager.pulihkanSesiDariDb(sessionId));
-  if (multi) return 'MULTI';
-
-  if (!soloManager.dapatkanSesi(sessionId, hostId)) {
-    await soloManager.pulihkanSesiDariDb(sessionId);
+  if (soloManager.dapatkanSesi(sessionId, hostId)) {
+    return 'OK';
   }
+  if (multiManager.dapatkanSesi(sessionId)) {
+    return 'MULTI';
+  }
+  const resolved = await resolveSessionAnyManager(sessionId);
+  if (resolved?.kind === 'tarik_multi') return 'MULTI';
   return 'OK';
 }
 
@@ -94,35 +170,6 @@ function serializeMultiTarikSession(
   joinUrl: string,
   networkUrl: string
 ) {
-  const ronde = sesi.rondeAktif;
-  const soalTim1 =
-    ronde && sesi.status === 'jalan'
-      ? serialisasiSoalUntukClient(
-          ronde.soalTim1,
-          ronde.nomorRonde,
-          ronde.berakhirPadaMs,
-          sesi.config.durasiRonde
-        )
-      : null;
-  const soalTim2 =
-    ronde && sesi.status === 'jalan'
-      ? serialisasiSoalUntukClient(
-          ronde.soalTim2,
-          ronde.nomorRonde,
-          ronde.berakhirPadaMs,
-          sesi.config.durasiRonde
-        )
-      : null;
-
-  let dijawab1 = 0;
-  let dijawab2 = 0;
-  if (ronde) {
-    for (const j of ronde.jawabanMap.values()) {
-      if (j.tim === 'merah') dijawab1++;
-      else dijawab2++;
-    }
-  }
-
   return {
     sessionId: sesi.sessionId,
     game: 'tarik_tambang' as const,
@@ -136,12 +183,13 @@ function serializeMultiTarikSession(
     templateJudul: sesi.templateJudul,
     status: sesi.status,
     config: sesi.config,
-    nomorRonde: ronde?.nomorRonde ?? sesi.nomorRondeCounter,
-    currentQuestionIndex: sesi.currentQuestionIndex,
     totalSoal: sesi.totalSoal,
     taliPosition: sesi.taliPosition,
     skorMerah: sesi.skorMerah,
     skorPutih: sesi.skorPutih,
+    matchStartedAtMs: sesi.matchStartedAtMs,
+    matchEndsAt: sesi.matchEndsAtMs,
+    durasiLombaDetik: sesi.config.durasiLombaDetik,
     powerUpTim1: {
       bank: sesi.powerUpTim1.bank,
       aktifBerikutnya: sesi.powerUpTim1.aktifBerikutnya,
@@ -151,36 +199,7 @@ function serializeMultiTarikSession(
       aktifBerikutnya: sesi.powerUpTim2.aktifBerikutnya,
     },
     totalPeserta: sesi.peserta.size,
-    daftarPeserta: Array.from(sesi.peserta.values()).map((p) => ({
-      id: p.id,
-      nama: p.nama,
-      tim: p.tim,
-      connected: p.connected,
-      totalBenar: p.totalBenar,
-      totalSalah: p.totalSalah,
-      jumlahJawab: p.jumlahJawab,
-      akurasiPersen: p.jumlahJawab > 0 ? Math.round((p.totalBenar / p.jumlahJawab) * 100) : 0,
-      streakSaatIni: p.streakSaatIni,
-      streakTertinggi: p.streakTertinggi,
-    })),
-    rondeSaatIni:
-      ronde && sesi.status === 'jalan'
-        ? {
-            nomorRonde: ronde.nomorRonde,
-            dimulaiPadaMs: ronde.dimulaiPadaMs,
-            berakhirPadaMs: ronde.berakhirPadaMs,
-            ditutup: ronde.ditutup,
-            progressTim1: { dijawab: dijawab1, total: ronde.anggotaAwalTim1 },
-            progressTim2: { dijawab: dijawab2, total: ronde.anggotaAwalTim2 },
-            powerUpTim1Dipakai: ronde.powerUpTim1Dipakai,
-            powerUpTim2Dipakai: ronde.powerUpTim2Dipakai,
-            soalTim1,
-            soalTim2,
-            hasilRonde: ronde.ditutup ? ronde.hasilRonde : null,
-          }
-        : null,
-    soalSaatIni: soalTim1,
-    riwayatTali: sesi.riwayatTali,
+    daftarPeserta: multiManager.dapatkanDaftarPeserta(sesi.sessionId),
     isFinished: sesi.status === 'selesai',
     hasil: sesi.hasil || null,
   };
@@ -291,8 +310,11 @@ sesiRouter.get('/token/:token', async (req: Request, res: Response) => {
         sessionId: active.sessionId,
         templateJudul: active.templateJudul,
         game: 'tarik_tambang',
+        playMode: 'MULTIPLAYER',
         status: active.status,
         totalPeserta: active.peserta.size,
+        maxPeserta: active.config.maxPeserta,
+        allowLateJoin: active.config.allowLateJoin,
       });
     }
 
@@ -916,19 +938,8 @@ sesiRouter.post('/', async (req: AuthRequest, res: Response) => {
     };
 
     const mappedQuestions = mapQuestionsForTarikTambang(template.questions);
-    const kesulitanEksplisit = req.body?.tarikTambangConfig?.kesulitan;
-    if (!kesulitanEksplisit) {
-      const tersedia = (['sedang', 'mudah', 'sulit'] as const).find((lvl) => {
-        try {
-          filterBankSoalSetara(mappedQuestions, lvl);
-          return true;
-        } catch {
-          return false;
-        }
-      });
-      if (tersedia) {
-        rawTarikConfig.kesulitan = tersedia;
-      }
+    if (!req.body?.tarikTambangConfig?.kesulitan) {
+      rawTarikConfig.kesulitan = 'semua';
     }
 
     const configTarik = bangunKonfigurasiTarikTambang(rawTarikConfig);
@@ -1039,13 +1050,13 @@ sesiRouter.post('/', async (req: AuthRequest, res: Response) => {
 sesiRouter.get('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
-
-    // 0a. Cek Balap Karung Solo (1 vs 1) di memori atau DB
-    let activeBalapSolo = balapKarungSoloManager.dapatkanSesi(id);
-    if (!activeBalapSolo) {
-      activeBalapSolo = (await balapKarungSoloManager.pulihkanSesiDariDb(id)) || undefined;
+    const resolved = await resolveSessionAnyManager(id);
+    if (!resolved) {
+      return res.status(404).json({ pesan: 'Sesi permainan tidak ditemukan.' });
     }
-    if (activeBalapSolo) {
+
+    if (resolved.kind === 'balap_solo') {
+      const activeBalapSolo = resolved.session;
       if (activeBalapSolo.hostId !== req.user!.id) {
         return res.status(403).json({ pesan: 'Anda tidak memiliki hak akses ke sesi ini.' });
       }
@@ -1054,12 +1065,8 @@ sesiRouter.get('/:id', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // 0b. Cek di in-memory balapKarungManager atau pulihkan dari DB jika Balap Karung Multiplayer
-    let activeBalap = balapKarungManager.dapatkanSesi(id);
-    if (!activeBalap) {
-      activeBalap = (await balapKarungManager.pulihkanSesiDariDb(id)) || undefined;
-    }
-    if (activeBalap) {
+    if (resolved.kind === 'balap_multi') {
+      const activeBalap = resolved.session;
       if (activeBalap.hostId !== req.user!.id) {
         return res.status(403).json({ pesan: 'Anda tidak memiliki hak akses ke sesi ini.' });
       }
@@ -1094,12 +1101,8 @@ sesiRouter.get('/:id', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // 0. Cek di in-memory panjatPinangManager atau pulihkan dari DB jika Panjat Pinang
-    let activePanjat = panjatPinangManager.dapatkanSesi(id);
-    if (!activePanjat) {
-      activePanjat = (await panjatPinangManager.pulihkanSesiDariDb(id)) || undefined;
-    }
-    if (activePanjat) {
+    if (resolved.kind === 'panjat_multi') {
+      const activePanjat = resolved.session;
       if (activePanjat.hostId !== req.user!.id) {
         return res.status(403).json({ pesan: 'Anda tidak memiliki hak akses ke sesi ini.' });
       }
@@ -1131,12 +1134,8 @@ sesiRouter.get('/:id', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // A1. Cek di in-memory kerupukMultiManager atau pulihkan dari DB (Makan Kerupuk Multiplayer)
-    let activeKerupukMulti = kerupukMultiManager.dapatkanSesi(id);
-    if (!activeKerupukMulti) {
-      activeKerupukMulti = (await kerupukMultiManager.pulihkanSesiDariDb(id)) || undefined;
-    }
-    if (activeKerupukMulti) {
+    if (resolved.kind === 'kerupuk_multi') {
+      const activeKerupukMulti = resolved.session;
       if (activeKerupukMulti.hostId !== req.user!.id) {
         return res.status(403).json({ pesan: 'Anda tidak memiliki hak akses ke sesi ini.' });
       }
@@ -1170,12 +1169,8 @@ sesiRouter.get('/:id', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // A2. Cek di in-memory kerupukManager atau pulihkan dari DB (Makan Kerupuk Solo)
-    let activeKerupuk = kerupukManager.dapatkanSesi(id);
-    if (!activeKerupuk) {
-      activeKerupuk = (await kerupukManager.pulihkanSesiDariDb(id)) || undefined;
-    }
-    if (activeKerupuk) {
+    if (resolved.kind === 'kerupuk_solo') {
+      const activeKerupuk = resolved.session;
       if (activeKerupuk.hostId !== req.user!.id) {
         return res.status(403).json({ pesan: 'Anda tidak memiliki hak akses ke sesi ini.' });
       }
@@ -1184,12 +1179,8 @@ sesiRouter.get('/:id', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // B. Cek di in-memory multiManager atau pulihkan dari DB (Tarik Tambang Multiplayer)
-    let activeMulti = multiManager.dapatkanSesi(id);
-    if (!activeMulti) {
-      activeMulti = (await multiManager.pulihkanSesiDariDb(id)) || undefined;
-    }
-    if (activeMulti) {
+    if (resolved.kind === 'tarik_multi') {
+      const activeMulti = resolved.session;
       if (activeMulti.hostId !== req.user!.id) {
         return res.status(403).json({ pesan: 'Anda tidak memiliki hak akses ke sesi ini.' });
       }
@@ -1201,14 +1192,7 @@ sesiRouter.get('/:id', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // B2. Cek di in-memory soloManager atau pulihkan dari DB (Tarik Tambang Solo 1 vs 1)
-    let activeSession = soloManager.dapatkanSesi(id);
-    if (!activeSession) {
-      activeSession = (await soloManager.pulihkanSesiDariDb(id)) || undefined;
-    }
-    if (!activeSession) {
-      return res.status(404).json({ pesan: 'Sesi permainan tidak ditemukan.' });
-    }
+    const activeSession = resolved.session;
     if (activeSession.hostId !== req.user!.id) {
       return res.status(403).json({ pesan: 'Anda tidak memiliki hak akses ke sesi ini.' });
     }
@@ -1225,13 +1209,9 @@ sesiRouter.get('/:id', async (req: AuthRequest, res: Response) => {
 sesiRouter.post('/:id/mulai', async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
+    const resolved = await resolveSessionAnyManager(id);
 
-    // A0. Cek Balap Karung Challenge Solo (1 vs 1)
-    let activeBalapSolo = balapKarungSoloManager.dapatkanSesi(id);
-    if (!activeBalapSolo) {
-      activeBalapSolo = (await balapKarungSoloManager.pulihkanSesiDariDb(id)) || undefined;
-    }
-    if (activeBalapSolo) {
+    if (resolved?.kind === 'balap_solo') {
       const kesulitanBotReq = req.body?.kesulitanBot as 'santai' | 'sedang' | 'cepat' | 'mudah' | 'sulit' | undefined;
       const sesiBalapSolo = balapKarungSoloManager.mulaiSesi(id, req.user!.id, {
         kesulitanBot: kesulitanBotReq,
@@ -1253,12 +1233,7 @@ sesiRouter.post('/:id/mulai', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // A. Cek apakah sesi ini adalah Makan Kerupuk Challenge Solo
-    let activeKerupuk = kerupukManager.dapatkanSesi(id);
-    if (!activeKerupuk) {
-      activeKerupuk = (await kerupukManager.pulihkanSesiDariDb(id)) || undefined;
-    }
-    if (activeKerupuk) {
+    if (resolved?.kind === 'kerupuk_solo') {
       const sesiKerupuk = kerupukManager.mulaiPermainan(id, req.user!.id);
       await prisma.session.update({
         where: { id },
@@ -1270,14 +1245,12 @@ sesiRouter.post('/:id/mulai', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // B. Tarik Tambang Solo
-    const modeCheck = await cekMultiAtauPulihkanSoloTarik(id, req.user!.id);
-    if (modeCheck === 'MULTI') {
+    if (resolved?.kind === 'tarik_multi') {
       return res
         .status(400)
         .json({ pesan: 'Sesi Multiplayer harus dimulai melalui ruang lobi realtime.' });
     }
-    if (!soloManager.dapatkanSesi(id, req.user!.id)) {
+    if (resolved?.kind !== 'tarik_solo' || !soloManager.dapatkanSesi(id, req.user!.id)) {
       return res.status(404).json({ pesan: 'Sesi permainan tidak ditemukan.' });
     }
 
@@ -1372,11 +1345,9 @@ sesiRouter.post('/:id/state', async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
     const { state } = stateSchema.parse(req.body);
+    const resolved = await resolveSessionAnyManager(id);
 
-    const activeBalapSolo =
-      balapKarungSoloManager.dapatkanSesi(id) ||
-      (await balapKarungSoloManager.pulihkanSesiDariDb(id));
-    if (activeBalapSolo) {
+    if (resolved?.kind === 'balap_solo') {
       const sesiBalapSolo = balapKarungSoloManager.ubahStateSesi(id, req.user!.id, state);
       return res.json({
         pesan: `Permainan berhasil di-${state === 'PAUSED' ? 'jeda' : 'lanjutkan'}.`,
@@ -1385,9 +1356,7 @@ sesiRouter.post('/:id/state', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const activeKerupuk =
-      kerupukManager.dapatkanSesi(id) || (await kerupukManager.pulihkanSesiDariDb(id));
-    if (activeKerupuk) {
+    if (resolved?.kind === 'kerupuk_solo') {
       const sesiKerupuk = kerupukManager.ubahStatePermainan(id, req.user!.id, state);
       return res.json({
         pesan: `Permainan berhasil di-${state === 'PAUSED' ? 'jeda' : 'lanjutkan'}.`,
@@ -1396,7 +1365,7 @@ sesiRouter.post('/:id/state', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    if ((await cekMultiAtauPulihkanSoloTarik(id, req.user!.id)) === 'MULTI') {
+    if (resolved?.kind === 'tarik_multi') {
       return res
         .status(400)
         .json({ pesan: 'Sesi Multiplayer dikendalikan melalui ruang lobi realtime.' });
@@ -1427,6 +1396,7 @@ const jawabSchema = z.object({
   choiceId: z.string().optional(),
   questionId: z.string().optional(),
   jawabanDipilih: z.string().optional(),
+  timedOut: z.boolean().optional(),
 });
 
 const jawabBalapSoloSchema = z
@@ -1444,11 +1414,9 @@ const jawabBalapSoloSchema = z
 sesiRouter.post('/:id/jawab', async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
+    const resolved = await resolveSessionAnyManager(id);
 
-    const activeBalapSolo =
-      balapKarungSoloManager.dapatkanSesi(id) ||
-      (await balapKarungSoloManager.pulihkanSesiDariDb(id));
-    if (activeBalapSolo) {
+    if (resolved?.kind === 'balap_solo') {
       const inputBalap = jawabBalapSoloSchema.parse(req.body);
       const hasilBalap = balapKarungSoloManager.prosesJawaban(id, req.user!.id, {
         slot: inputBalap.slot,
@@ -1472,9 +1440,7 @@ sesiRouter.post('/:id/jawab', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const activeKerupuk =
-      kerupukManager.dapatkanSesi(id) || (await kerupukManager.pulihkanSesiDariDb(id));
-    if (activeKerupuk) {
+    if (resolved?.kind === 'kerupuk_solo') {
       const inputKerupuk = jawabKerupukSchema.parse(req.body);
       const hasilKerupuk = kerupukManager.prosesJawaban(id, req.user!.id, {
         presentationId: inputKerupuk.presentationId,
@@ -1514,7 +1480,7 @@ sesiRouter.post('/:id/jawab', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    if ((await cekMultiAtauPulihkanSoloTarik(id, req.user!.id)) === 'MULTI') {
+    if (resolved?.kind === 'tarik_multi') {
       return res
         .status(400)
         .json({ pesan: 'Sesi Multiplayer tidak dapat dijawab melalui endpoint Solo.' });
@@ -1532,9 +1498,10 @@ sesiRouter.post('/:id/jawab', async (req: AuthRequest, res: Response) => {
       choiceId: input.choiceId,
       questionId: input.questionId,
       jawabanDipilih: input.jawabanDipilih,
+      timedOut: Boolean(input.timedOut),
     });
 
-    const { sesi, tim, sudahMenjawab, rondeSelesai, hasilRonde, selesai } = hasilProses;
+    const { sesi, tim, benar, sudahMenjawab, rondeSelesai, hasilRonde, feedback, selesai } = hasilProses;
 
     if (selesai) {
       await soloManager.simpanHasilKeDatabase(sesi);
@@ -1543,10 +1510,11 @@ sesiRouter.post('/:id/jawab', async (req: AuthRequest, res: Response) => {
     return res.json({
       game: 'tarik_tambang',
       tim,
+      benar,
       sudahMenjawab,
       rondeSelesai,
-      // Kunci jawaban & penjelasan hanya diungkap setelah ronde ditutup
-      hasilRonde: rondeSelesai ? hasilRonde : null,
+      hasilRonde,
+      feedback,
       taliPosition: sesi.taliPosition,
       skorMerah: sesi.skorMerah,
       skorPutih: sesi.skorPutih,
@@ -1629,28 +1597,40 @@ sesiRouter.post('/:id/powerup', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// 7e. POST /api/sesi/:id/bot-langkah - Jalankan 1 langkah Bot AI pada Balap Karung Solo vs Bot
+// 7e. POST /api/sesi/:id/bot-langkah - Jalankan 1 langkah Bot AI pada Solo vs Bot (Balap Karung / Tarik Tambang)
 sesiRouter.post('/:id/bot-langkah', async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
-    let activeBalapSolo = balapKarungSoloManager.dapatkanSesi(id);
-    if (!activeBalapSolo) {
-      activeBalapSolo = (await balapKarungSoloManager.pulihkanSesiDariDb(id)) || undefined;
-    }
-    if (!activeBalapSolo) {
-      return res.status(404).json({ pesan: 'Sesi Balap Karung Solo tidak ditemukan.' });
+    const resolved = await resolveSessionAnyManager(id);
+    if (resolved?.kind === 'balap_solo') {
+      const resBot = balapKarungSoloManager.jalankanLangkahBot(id, req.user!.id);
+      if (resBot.selesai) {
+        await balapKarungSoloManager.simpanHasilKeDatabase(id);
+      }
+
+      return res.json({
+        executed: resBot.executed,
+        feedback: resBot.feedback,
+        isFinished: resBot.selesai,
+        session: balapKarungSoloManager.serialisasiUntukClient(resBot.sesi),
+      });
     }
 
-    const resBot = balapKarungSoloManager.jalankanLangkahBot(id, req.user!.id);
-    if (resBot.selesai) {
-      await balapKarungSoloManager.simpanHasilKeDatabase(id);
+    if (resolved?.kind !== 'tarik_solo' || resolved.session.hostId !== req.user!.id) {
+      return res.status(404).json({ pesan: 'Sesi Solo vs Bot tidak ditemukan.' });
+    }
+
+    const resBotTarik = soloManager.jalankanLangkahBot(id, req.user!.id);
+    if (resBotTarik.selesai) {
+      await soloManager.simpanHasilKeDatabase(resBotTarik.sesi);
     }
 
     return res.json({
-      executed: resBot.executed,
-      feedback: resBot.feedback,
-      isFinished: resBot.selesai,
-      session: balapKarungSoloManager.serialisasiUntukClient(resBot.sesi),
+      executed: resBotTarik.executed,
+      chosenChoiceId: resBotTarik.chosenChoiceId,
+      feedback: resBotTarik.feedback,
+      isFinished: resBotTarik.selesai,
+      session: soloManager.serialisasiUntukClient(resBotTarik.sesi),
     });
   } catch (err: any) {
     return res.status(400).json({ pesan: err.message || 'Gagal menjalankan langkah bot.' });
@@ -1661,11 +1641,9 @@ sesiRouter.post('/:id/bot-langkah', async (req: AuthRequest, res: Response) => {
 sesiRouter.post('/:id/selesai', async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
+    const resolved = await resolveSessionAnyManager(id);
 
-    const activeBalapSolo =
-      balapKarungSoloManager.dapatkanSesi(id) ||
-      (await balapKarungSoloManager.pulihkanSesiDariDb(id));
-    if (activeBalapSolo) {
+    if (resolved?.kind === 'balap_solo') {
       const sesiBalapSolo = balapKarungSoloManager.hentikanPermainan(id, req.user!.id);
       await balapKarungSoloManager.simpanHasilKeDatabase(id);
       return res.json({
@@ -1675,9 +1653,7 @@ sesiRouter.post('/:id/selesai', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const activeKerupuk =
-      kerupukManager.dapatkanSesi(id) || (await kerupukManager.pulihkanSesiDariDb(id));
-    if (activeKerupuk) {
+    if (resolved?.kind === 'kerupuk_solo') {
       const sesiKerupuk = kerupukManager.hentikanPermainan(id, req.user!.id);
       await kerupukManager.simpanHasilKeDatabase(id);
       return res.json({
@@ -1687,7 +1663,7 @@ sesiRouter.post('/:id/selesai', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    if ((await cekMultiAtauPulihkanSoloTarik(id, req.user!.id)) === 'MULTI') {
+    if (resolved?.kind === 'tarik_multi') {
       return res
         .status(400)
         .json({ pesan: 'Sesi Multiplayer harus diakhiri melalui ruang lobi realtime.' });
@@ -1711,11 +1687,10 @@ sesiRouter.post('/:id/selesai', async (req: AuthRequest, res: Response) => {
 sesiRouter.post('/:id/ulang', async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
+    const resolved = await resolveSessionAnyManager(id);
 
-    const activeBalapSolo =
-      balapKarungSoloManager.dapatkanSesi(id) ||
-      (await balapKarungSoloManager.pulihkanSesiDariDb(id));
-    if (activeBalapSolo) {
+    if (resolved?.kind === 'balap_solo') {
+      const activeBalapSolo = resolved.session;
       if (activeBalapSolo.state === 'FINISHED' || activeBalapSolo.state === 'STOPPED') {
         return res.status(400).json({
           pesan:
@@ -1739,12 +1714,34 @@ sesiRouter.post('/:id/ulang', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const activeKerupuk =
-      kerupukManager.dapatkanSesi(id) || (await kerupukManager.pulihkanSesiDariDb(id));
-
-    if (!activeKerupuk) {
-      return res.status(404).json({ pesan: 'Sesi Makan Kerupuk tidak ditemukan.' });
+    if (resolved?.kind !== 'kerupuk_solo') {
+      if (resolved?.kind !== 'tarik_solo' || resolved.session.hostId !== req.user!.id) {
+        return res.status(404).json({ pesan: 'Sesi Solo tidak ditemukan.' });
+      }
+      const activeTarikSolo = resolved.session;
+      if (activeTarikSolo.state === 'FINISHED') {
+        return res.status(400).json({
+          pesan:
+            'Sesi yang sudah selesai tidak dapat direset in-place agar riwayat tetap terjaga. Gunakan Main Lagi untuk membuat sesi baru.',
+        });
+      }
+      const autoStart = req.body?.autoStart === true;
+      const sesiReset = soloManager.ulangPermainan(id, req.user!.id, autoStart);
+      await prisma.session.update({
+        where: { id },
+        data: {
+          status: autoStart ? 'jalan' : 'lobi',
+          mulaiPada: autoStart ? new Date() : null,
+          selesaiPada: null,
+        },
+      });
+      return res.json({
+        pesan: 'Permainan Tarik Tambang Solo dikembalikan ke posisi awal.',
+        session: soloManager.serialisasiUntukClient(sesiReset),
+      });
     }
+
+    const activeKerupuk = resolved.session;
 
     if (activeKerupuk.state === 'FINISHED' || activeKerupuk.state === 'STOPPED') {
       return res.status(400).json({

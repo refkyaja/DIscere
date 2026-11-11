@@ -1,27 +1,13 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { apiRequest } from '../../lib/api';
-import { VisualisasiTali } from './VisualisasiTali';
-import KarakterTarikTambang, { EkspresiTarikTambang } from '../siswa/KarakterTarikTambang';
-import { Modal } from '../../components';
 import { soundEffects } from '../../lib/soundEffects';
+import { extractApiErrorMessage, resolveGuruReturnUrl } from '../../components';
 import {
-  ArrowLeft,
-  ArrowRight,
-  CheckCircle2,
-  Clock,
-  Flame,
-  Loader2,
-  Lock,
-  Pause,
-  Play,
-  StopCircle,
-  Trophy,
-  Volume2,
-  VolumeX,
-  XCircle,
-  Zap,
-} from 'lucide-react';
+  TarikActionPulse,
+  TarikTambangStadium,
+} from '../../components/TarikTambangStadium';
+import { Bot, CheckCircle2, Flame, Loader2, Play, RotateCcw, Settings2, Sparkles, Trophy, Users, XCircle } from 'lucide-react';
 
 interface PilihanSoalClient {
   choiceId: string;
@@ -29,386 +15,495 @@ interface PilihanSoalClient {
   teks: string;
 }
 
-interface SoalTimClient {
+interface SoalTarikClient {
   presentationId: string;
   id: string;
   questionId: string;
-  nomorRonde: number;
+  nomorSoal?: number;
   kesulitan: 'mudah' | 'sedang' | 'sulit';
   teks: string;
-  opsiA: string;
-  opsiB: string;
-  opsiC?: string | null;
-  opsiD?: string | null;
-  opsiE?: string | null;
   pilihan: PilihanSoalClient[];
-  endsAt?: number;
-  duration?: number;
 }
 
-interface StatistikSisiSolo {
+interface PemainSoloClient {
   tim: 'merah' | 'putih';
   nama: string;
+  isBot: boolean;
   totalBenar: number;
   totalSalah: number;
-  jumlahJawab: number;
+  totalDijawab: number;
   akurasiPersen: number;
   streakSaatIni: number;
   streakTertinggi: number;
-  totalBonusStreak: number;
-  powerUpTersedia: string | null;
-  powerUpAktifRondeBerikutnya: string | null;
-  jumlahPowerUpDipakai: number;
+  soalAktif: SoalTarikClient | null;
 }
 
-interface HasilRondeSolo {
-  nomorRonde: number;
-  tim1Benar: boolean;
-  tim2Benar: boolean;
-  tim1JawabanKode: string | null;
-  tim2JawabanKode: string | null;
-  tim1Kunci: string;
-  tim2Kunci: string;
-  tim1Penjelasan: string | null;
-  tim2Penjelasan: string | null;
+interface FeedbackSolo {
+  tim: 'merah' | 'putih';
+  nama: string;
+  benar: boolean;
+  timedOut: boolean;
+  slipQuote: string | null;
+  jawabanBenarKode: string;
+  jawabanBenarTeks: string;
+  penjelasan: string | null;
   posisiSebelum: number;
-  perubahanTali: number;
-  posisiSesudah: number;
-  selisihKekuatan: number;
-  bonusStreakNet: number;
-  bonusPowerUpNet: number;
-  powerUpTim1Dipakai: string | null;
-  powerUpTim2Dipakai: string | null;
+  posisiBaru: number;
+  deltaTali: number;
+  streakSaatIni: number;
+  bonusStreakDidapat: number;
+  selesaiBaru: boolean;
 }
 
-interface SesiSoloDetail {
+interface LaporanSoloClient {
   sessionId: string;
-  mode: 'solo' | 'multi';
-  playMode?: 'SOLO' | 'MULTIPLAYER';
+  templateId: string;
+  templateJudul: string;
+  alasanSelesai?: 'garis_menang' | 'waktu_habis' | 'manual';
+  timMenang: 'merah' | 'putih' | 'seri';
+  namaTim1: string;
+  namaTim2: string;
+  posisiAkhir: number;
+  skorMerah: number;
+  skorPutih: number;
+  totalSoalDijawab: number;
+  akurasiTim1Persen: number;
+  akurasiTim2Persen: number;
+  pemain1Stat?: {
+    nama: string;
+    isBot: boolean;
+    totalBenar: number;
+    totalSalah: number;
+    akurasiPersen: number;
+    streakTertinggi: number;
+  };
+  pemain2Stat?: {
+    nama: string;
+    isBot: boolean;
+    totalBenar: number;
+    totalSalah: number;
+    akurasiPersen: number;
+    streakTertinggi: number;
+  };
+  questionStats?: Array<{
+    questionId: string;
+    nomorSoal: number;
+    teksSoal: string;
+    jumlahBenar: number;
+    jumlahSalah: number;
+  }>;
+}
+
+interface SesiSoloPayload {
+  sessionId: string;
   templateId: string;
   templateJudul: string;
   state: 'READY' | 'PLAYING' | 'PAUSED' | 'FINISHED';
   config: {
-    kesulitan: 'mudah' | 'sedang' | 'sulit';
-    durasiRonde: 15 | 20 | 30;
-    bonusAktif: boolean;
-    powerUpAktif: boolean;
+    durasiLombaDetik: number;
+    tarikBenarSolo: number;
+    mundurSalahSolo: number;
+    tipeLawanSolo: 'lokal' | 'bot';
+    kesulitanBot: 'mudah' | 'sedang' | 'sulit';
     namaTim1: string;
     namaTim2: string;
-    batasMenang?: number;
+    batasMenang: number;
+    bonusAktif: boolean;
+    powerUpAktif: boolean;
   };
-  nomorRonde: number;
   taliPosition: number;
   skorMerah: number;
   skorPutih: number;
-  tim1: StatistikSisiSolo;
-  tim2: StatistikSisiSolo;
-  rondeSaatIni: {
-    nomorRonde: number;
-    dimulaiPadaMs: number;
-    berakhirPadaMs: number;
-    sisaWaktuMsSaatJeda?: number;
-    ditutup: boolean;
-    tim1SudahJawab: boolean;
-    tim2SudahJawab: boolean;
-    powerUpTim1Dipakai: string | null;
-    powerUpTim2Dipakai: string | null;
-    soalTim1: SoalTimClient | null;
-    soalTim2: SoalTimClient | null;
-    hasilRonde: HasilRondeSolo | null;
-  } | null;
-  riwayatTali: Array<{ ronde: number; posisi: number; perubahan: number }>;
+  durasiLombaDetik: number;
+  sisaWaktuDetik: number;
+  matchEndsAt: number | null;
+  pemain1: PemainSoloClient;
+  pemain2: PemainSoloClient;
+  powerUpTim1?: { bank: string | null; aktifBerikutnya: string | null };
+  powerUpTim2?: { bank: string | null; aktifBerikutnya: string | null };
   isFinished: boolean;
+  hasil: LaporanSoloClient | null;
 }
 
-const INFO_POWERUP: Record<string, { label: string; efek: string }> = {
-  semangat_tim: { label: 'Semangat Tim', efek: '+5 Tarikan' },
-  pertahanan_kuat: { label: 'Pertahanan Kuat', efek: '-5 Lawan' },
-  tarikan_super: { label: 'Tarikan Super', efek: '+10 Tarikan' },
+interface SideRevealState {
+  presentationId: string;
+  chosenChoiceId: string | null;
+  benar: boolean;
+  message: string;
+}
+
+const BOT_DELAY_RANGE: Record<'mudah' | 'sedang' | 'sulit', [number, number]> = {
+  mudah: [3500, 6500],
+  sedang: [2800, 5200],
+  sulit: [2200, 4200],
 };
+
+function formatClock(sec: number): string {
+  const s = Math.max(0, Math.floor(sec));
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return `${m}:${String(rem).padStart(2, '0')}`;
+}
 
 export default function LayarHostSolo() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const returnUrl = searchParams.get('kembali') || '/guru';
+  const returnUrl = resolveGuruReturnUrl(searchParams.get('kembali'));
 
-  const [sesi, setSesi] = useState<SesiSoloDetail | null>(null);
+  const [sesi, setSesi] = useState<SesiSoloPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorPesan, setErrorPesan] = useState<string | null>(null);
-  const [sisaDetik, setSisaDetik] = useState<number>(20);
+  const [busyAction, setBusyAction] = useState(false);
 
-  // Pilihan tombol yang baru diklik per sisi pada ronde berjalan
-  const [pickedChoiceTim1, setPickedChoiceTim1] = useState<string | null>(null);
-  const [pickedChoiceTim2, setPickedChoiceTim2] = useState<string | null>(null);
-  const [submittingTim, setSubmittingTim] = useState<'merah' | 'putih' | 'action' | null>(null);
-  const [reaksiTim, setReaksiTim] = useState<{
-    merah?: EkspresiTarikTambang;
-    putih?: EkspresiTarikTambang;
-  } | null>(null);
+  const [sisaDetik, setSisaDetik] = useState<number>(180);
+  const [muted, setMuted] = useState<boolean>(() => soundEffects.getMuted());
+  const [actionPulse, setActionPulse] = useState<TarikActionPulse | null>(null);
 
-  const [modalAkhiriOpen, setModalAkhiriOpen] = useState(false);
-  const [isEnding, setIsEnding] = useState(false);
-  const [isMuted, setIsMuted] = useState(soundEffects.getMuted());
+  const [revealLeft, setRevealLeft] = useState<SideRevealState | null>(null);
+  const [revealRight, setRevealRight] = useState<SideRevealState | null>(null);
+  const [frozenLeftQuestion, setFrozenLeftQuestion] = useState<SoalTarikClient | null>(null);
+  const [frozenRightQuestion, setFrozenRightQuestion] = useState<SoalTarikClient | null>(null);
 
-  const closingRoundRef = useRef<number | null>(null);
-  const nextRoundTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastRoundNumberRef = useRef<number>(0);
+  const leftTimerRef = useRef<number | null>(null);
+  const rightTimerRef = useRef<number | null>(null);
+  const botTimerRef = useRef<number | null>(null);
+  const expiryCalledRef = useRef<boolean>(false);
+  const fanfarePlayedRef = useRef<boolean>(false);
 
-  const clearNextTimeout = () => {
-    if (nextRoundTimeoutRef.current) {
-      clearTimeout(nextRoundTimeoutRef.current);
-      nextRoundTimeoutRef.current = null;
-    }
-  };
+  const triggerSideReveal = useCallback(
+    (
+      side: 'merah' | 'putih',
+      prevQuestion: SoalTarikClient | null,
+      chosenChoiceId: string | null,
+      fb: FeedbackSolo
+    ) => {
+      const msg = fb.benar
+        ? `Benar! ${fb.tim === 'merah' ? `+${Math.abs(fb.deltaTali)}` : `+${Math.abs(fb.deltaTali)}`}${
+            fb.bonusStreakDidapat > 0 ? ` (+${fb.bonusStreakDidapat} streak)` : ''
+          }`
+        : `Salah! ${fb.slipQuote || 'Terpeleset!'} • Kunci: ${fb.jawabanBenarKode}`;
 
-  const applySesiUpdate = useCallback(
-    (nextSesi: SesiSoloDetail) => {
-      if (nextSesi.state === 'FINISHED' || nextSesi.isFinished) {
-        clearNextTimeout();
-        soundEffects.playVictoryFanfare();
-        navigate(`/guru/sesi/${id}/hasil`, { replace: true });
-        return;
+      if (side === 'merah') {
+        if (leftTimerRef.current) window.clearTimeout(leftTimerRef.current);
+        setFrozenLeftQuestion(prevQuestion);
+        setRevealLeft({
+          presentationId: prevQuestion?.presentationId || '',
+          chosenChoiceId,
+          benar: fb.benar,
+          message: msg,
+        });
+        leftTimerRef.current = window.setTimeout(() => {
+          setFrozenLeftQuestion(null);
+          setRevealLeft(null);
+        }, 850);
+      } else {
+        if (rightTimerRef.current) window.clearTimeout(rightTimerRef.current);
+        setFrozenRightQuestion(prevQuestion);
+        setRevealRight({
+          presentationId: prevQuestion?.presentationId || '',
+          chosenChoiceId,
+          benar: fb.benar,
+          message: msg,
+        });
+        rightTimerRef.current = window.setTimeout(() => {
+          setFrozenRightQuestion(null);
+          setRevealRight(null);
+        }, 850);
       }
 
-      const rNum = nextSesi.rondeSaatIni?.nomorRonde ?? nextSesi.nomorRonde;
-      if (rNum !== lastRoundNumberRef.current) {
-        lastRoundNumberRef.current = rNum;
-        setPickedChoiceTim1(null);
-        setPickedChoiceTim2(null);
-        setReaksiTim(null);
-        closingRoundRef.current = null;
+      const oppositeSide = side === 'merah' ? 'r' : 'l';
+      setActionPulse({
+        id: `${Date.now()}-${Math.random()}`,
+        side: side === 'merah' ? 'l' : 'r',
+        kind: fb.benar ? 'heave' : 'slip',
+        pullerIdx: 0,
+        bubble: fb.benar ? 'TARIK!' : fb.slipQuote || 'ADUH!',
+      });
+      if (fb.benar) {
+        window.setTimeout(() => {
+          setActionPulse((prev) =>
+            prev?.side === oppositeSide
+              ? prev
+              : {
+                  id: `${Date.now()}-jerk`,
+                  side: oppositeSide,
+                  kind: 'jerk',
+                  pullerIdx: 0,
+                  bubble: null,
+                }
+          );
+        }, 90);
       }
-
-      setSesi(nextSesi);
     },
-    [id, navigate]
+    []
   );
 
-  const fetchSesi = useCallback(async () => {
+  const loadSesi = useCallback(async () => {
     if (!id) return;
     try {
-      const res = await apiRequest<{ session: SesiSoloDetail }>(`/sesi/${id}`);
-      if (res.session.mode === 'multi') {
-        navigate(`/guru/sesi/${id}`, { replace: true });
-        return;
-      }
-      applySesiUpdate(res.session);
-    } catch (err: any) {
-      setErrorPesan(err.pesan || 'Gagal memuat sesi Solo.');
+      setLoading(true);
+      setErrorPesan(null);
+      const res = await apiRequest<{ session: SesiSoloPayload }>(`/sesi/${id}`);
+      setSesi(res.session);
+      setSisaDetik(res.session.sisaWaktuDetik ?? res.session.durasiLombaDetik ?? 180);
+    } catch (err: unknown) {
+      setErrorPesan(extractApiErrorMessage(err, 'Gagal memuat arena Solo Tarik Tambang.'));
     } finally {
       setLoading(false);
     }
-  }, [id, navigate, applySesiUpdate]);
+  }, [id]);
 
   useEffect(() => {
-    fetchSesi();
+    void loadSesi();
     return () => {
-      clearNextTimeout();
+      if (leftTimerRef.current) window.clearTimeout(leftTimerRef.current);
+      if (rightTimerRef.current) window.clearTimeout(rightTimerRef.current);
+      if (botTimerRef.current) window.clearTimeout(botTimerRef.current);
     };
-  }, [fetchSesi]);
+  }, [loadSesi]);
 
-  // Tutup ronde otomatis saat timer habis & jadwalkan ronde berikutnya setelah evaluasi singkat
-  const triggerTutupRonde = useCallback(async () => {
-    if (!id || !sesi?.rondeSaatIni) return;
-    const rondeNum = sesi.rondeSaatIni.nomorRonde;
-    if (sesi.rondeSaatIni.ditutup || closingRoundRef.current === rondeNum) return;
-
-    closingRoundRef.current = rondeNum;
-    try {
-      const res = await apiRequest<{
-        hasilRonde: HasilRondeSolo;
-        isFinished: boolean;
-        session: SesiSoloDetail;
-      }>(`/sesi/${id}/tutup-ronde`, { method: 'POST' });
-
-      soundEffects.playRopeTug();
-      setReaksiTim({
-        merah: res.hasilRonde.tim1Benar ? 'bahagia' : 'sedih',
-        putih: res.hasilRonde.tim2Benar ? 'bahagia' : 'sedih',
-      });
-      applySesiUpdate(res.session);
-    } catch {
-      closingRoundRef.current = null;
-    }
-  }, [id, sesi, applySesiUpdate]);
-
-  // Sinkronisasi hitung mundur timer per 200ms
+  // Victory sound trigger
   useEffect(() => {
-    if (!sesi || !sesi.rondeSaatIni) return;
-    const ronde = sesi.rondeSaatIni;
+    if (sesi?.state === 'FINISHED' && !fanfarePlayedRef.current) {
+      fanfarePlayedRef.current = true;
+      soundEffects.playVictoryFanfare();
+    } else if (sesi?.state !== 'FINISHED') {
+      fanfarePlayedRef.current = false;
+    }
+  }, [sesi?.state]);
 
-    if (sesi.state === 'PAUSED') {
-      const sisaPaused = Math.ceil((ronde.sisaWaktuMsSaatJeda ?? 0) / 1000);
-      setSisaDetik(Math.max(0, sisaPaused));
+  // Countdown Jam Lomba (3:00 -> 0:00)
+  useEffect(() => {
+    if (!sesi) return;
+    setSisaDetik(sesi.sisaWaktuDetik);
+    if (sesi.state !== 'PLAYING' || !sesi.matchEndsAt) {
       return;
     }
 
-    if (ronde.ditutup || sesi.state !== 'PLAYING') {
-      return;
-    }
-
-    const updateTick = () => {
-      const sisa = Math.max(0, Math.ceil((ronde.berakhirPadaMs - Date.now()) / 1000));
-      setSisaDetik(sisa);
-      if (Date.now() >= ronde.berakhirPadaMs + 150) {
-        triggerTutupRonde();
+    expiryCalledRef.current = false;
+    const endAt = sesi.matchEndsAt;
+    const iv = window.setInterval(() => {
+      const rem = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
+      setSisaDetik(rem);
+      if (rem <= 0 && !expiryCalledRef.current && id) {
+        expiryCalledRef.current = true;
+        apiRequest<{ session: SesiSoloPayload }>(`/sesi/${id}/tutup-ronde`, {
+          method: 'POST',
+          body: JSON.stringify({}),
+        })
+          .then((res) => {
+            if (res.session) setSesi(res.session);
+          })
+          .catch(() => {});
       }
-    };
+    }, 250);
 
-    updateTick();
-    const timer = setInterval(updateTick, 200);
-    return () => clearInterval(timer);
-  }, [sesi, triggerTutupRonde]);
+    return () => window.clearInterval(iv);
+  }, [sesi?.state, sesi?.matchEndsAt, id]);
 
-  const handleLanjutRonde = useCallback(async () => {
-    if (!id) return;
-    clearNextTimeout();
-    try {
-      setSubmittingTim('action');
-      const res = await apiRequest<{ session: SesiSoloDetail }>(`/sesi/${id}/lanjut-ronde`, {
-        method: 'POST',
-      });
-      soundEffects.playWhistle();
-      applySesiUpdate(res.session);
-    } catch (err: any) {
-      setErrorPesan(err.pesan || 'Gagal melanjutkan ke ronde berikutnya.');
-    } finally {
-      setSubmittingTim(null);
-    }
-  }, [id, applySesiUpdate]);
-
-  // Auto-lanjut ke ronde berikutnya 2.8 detik setelah ronde selesai & dievaluasi
+  // Bot AI Autonomous Step Scheduler
   useEffect(() => {
+    if (!id || !sesi) return;
     if (
-      sesi?.state === 'PLAYING' &&
-      sesi.rondeSaatIni?.ditutup &&
-      !sesi.isFinished
+      sesi.state !== 'PLAYING' ||
+      sesi.config.tipeLawanSolo !== 'bot' ||
+      !sesi.pemain2.soalAktif ||
+      Boolean(revealRight)
     ) {
-      clearNextTimeout();
-      nextRoundTimeoutRef.current = setTimeout(() => {
-        handleLanjutRonde();
-      }, 2800);
+      return;
     }
-    return () => clearNextTimeout();
-  }, [sesi?.state, sesi?.rondeSaatIni?.ditutup, sesi?.rondeSaatIni?.nomorRonde, sesi?.isFinished, handleLanjutRonde]);
 
-  const handleMulai = async () => {
-    if (!id) return;
+    const [minMs, maxMs] =
+      BOT_DELAY_RANGE[sesi.config.kesulitanBot] || BOT_DELAY_RANGE.sedang;
+    const delayMs = minMs + Math.floor(Math.random() * (maxMs - minMs));
+    const currentRightQ = sesi.pemain2.soalAktif;
+
+    botTimerRef.current = window.setTimeout(async () => {
+      try {
+        const res = await apiRequest<{
+          executed: boolean;
+          chosenChoiceId: string | null;
+          feedback: FeedbackSolo | null;
+          session: SesiSoloPayload;
+        }>(`/sesi/${id}/bot-langkah`, {
+          method: 'POST',
+          body: JSON.stringify({}),
+        });
+
+        if (res.executed && res.feedback) {
+          if (res.feedback.benar) {
+            soundEffects.playRopeTug();
+          } else {
+            soundEffects.playIncorrect();
+          }
+          triggerSideReveal('putih', currentRightQ, res.chosenChoiceId, res.feedback);
+        }
+        if (res.session) {
+          setSesi(res.session);
+        }
+      } catch {
+        // Ignore transient poll error if session ended concurrently
+      }
+    }, delayMs);
+
+    return () => {
+      if (botTimerRef.current) window.clearTimeout(botTimerRef.current);
+    };
+  }, [
+    id,
+    sesi?.state,
+    sesi?.config.tipeLawanSolo,
+    sesi?.config.kesulitanBot,
+    sesi?.pemain2.soalAktif?.presentationId,
+    Boolean(revealRight),
+    triggerSideReveal,
+  ]);
+
+  const handleMulaiLomba = async () => {
+    if (!id || busyAction) return;
     try {
-      setSubmittingTim('action');
-      const res = await apiRequest<{ session: SesiSoloDetail }>(`/sesi/${id}/mulai`, {
-        method: 'POST',
-      });
+      setBusyAction(true);
       soundEffects.playWhistle();
-      applySesiUpdate(res.session);
-    } catch (err: any) {
-      setErrorPesan(err.pesan || 'Gagal memulai pertandingan Solo.');
+      const res = await apiRequest<{ session: SesiSoloPayload }>(`/sesi/${id}/mulai`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      setSesi(res.session);
+      setSisaDetik(res.session.sisaWaktuDetik);
+    } catch (err: unknown) {
+      setErrorPesan(extractApiErrorMessage(err, 'Gagal memulai pertandingan Solo.'));
     } finally {
-      setSubmittingTim(null);
+      setBusyAction(false);
     }
   };
 
   const handleTogglePause = async () => {
-    if (!id || !sesi) return;
-    const nextState = sesi.state === 'PAUSED' ? 'PLAYING' : 'PAUSED';
+    if (!id || !sesi || busyAction) return;
+    const targetState = sesi.state === 'PAUSED' ? 'PLAYING' : 'PAUSED';
     try {
-      setSubmittingTim('action');
-      const res = await apiRequest<{ session: SesiSoloDetail }>(`/sesi/${id}/state`, {
+      setBusyAction(true);
+      const res = await apiRequest<{ session: SesiSoloPayload }>(`/sesi/${id}/state`, {
         method: 'POST',
-        body: JSON.stringify({ state: nextState }),
+        body: JSON.stringify({ state: targetState }),
       });
-      applySesiUpdate(res.session);
-    } catch (err: any) {
-      setErrorPesan(err.pesan || 'Gagal mengubah jeda permainan.');
+      setSesi(res.session);
+      setSisaDetik(res.session.sisaWaktuDetik);
+    } catch (err: unknown) {
+      setErrorPesan(extractApiErrorMessage(err, 'Gagal mengubah status jeda.'));
     } finally {
-      setSubmittingTim(null);
-    }
-  };
-
-  const handleJawabSisi = async (
-    tim: 'merah' | 'putih',
-    soal: SoalTimClient,
-    choice: PilihanSoalClient
-  ) => {
-    if (!id || !sesi || sesi.state !== 'PLAYING' || !sesi.rondeSaatIni || sesi.rondeSaatIni.ditutup) {
-      return;
-    }
-    if (tim === 'merah' && sesi.rondeSaatIni.tim1SudahJawab) return;
-    if (tim === 'putih' && sesi.rondeSaatIni.tim2SudahJawab) return;
-
-    try {
-      if (tim === 'merah') setPickedChoiceTim1(choice.choiceId);
-      else setPickedChoiceTim2(choice.choiceId);
-
-      setSubmittingTim(tim);
-      const res = await apiRequest<{
-        rondeSelesai: boolean;
-        hasilRonde: HasilRondeSolo | null;
-        session: SesiSoloDetail;
-      }>(`/sesi/${id}/jawab`, {
-        method: 'POST',
-        body: JSON.stringify({
-          tim,
-          presentationId: soal.presentationId,
-          choiceId: choice.choiceId,
-          questionId: soal.questionId,
-        }),
-      });
-
-      if (res.rondeSelesai && res.hasilRonde) {
-        soundEffects.playRopeTug();
-        setReaksiTim({
-          merah: res.hasilRonde.tim1Benar ? 'bahagia' : 'sedih',
-          putih: res.hasilRonde.tim2Benar ? 'bahagia' : 'sedih',
-        });
-      }
-      applySesiUpdate(res.session);
-    } catch (err: any) {
-      if (tim === 'merah') setPickedChoiceTim1(null);
-      else setPickedChoiceTim2(null);
-      setErrorPesan(err.pesan || 'Gagal mengirim jawaban.');
-    } finally {
-      setSubmittingTim(null);
-    }
-  };
-
-  const handleAktifkanPowerUp = async (tim: 'merah' | 'putih') => {
-    if (!id || !sesi) return;
-    try {
-      setSubmittingTim('action');
-      const res = await apiRequest<{ session: SesiSoloDetail }>(`/sesi/${id}/powerup`, {
-        method: 'POST',
-        body: JSON.stringify({ tim }),
-      });
-      soundEffects.playBoost();
-      applySesiUpdate(res.session);
-    } catch (err: any) {
-      setErrorPesan(err.pesan || 'Gagal mengaktifkan power-up.');
-    } finally {
-      setSubmittingTim(null);
+      setBusyAction(false);
     }
   };
 
   const handleAkhiriManual = async () => {
-    if (!id) return;
+    if (!id || !sesi || busyAction) return;
     try {
-      setIsEnding(true);
-      await apiRequest(`/sesi/${id}/selesai`, { method: 'POST' });
-      soundEffects.playVictoryFanfare();
-      navigate(`/guru/sesi/${id}/hasil`, { replace: true });
-    } catch (err: any) {
-      setErrorPesan(err.pesan || 'Gagal mengakhiri permainan.');
-      setIsEnding(false);
+      setBusyAction(true);
+      const res = await apiRequest<{ session: SesiSoloPayload }>(`/sesi/${id}/selesai`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      setSesi(res.session);
+    } catch (err: unknown) {
+      setErrorPesan(extractApiErrorMessage(err, 'Gagal mengakhiri pertandingan.'));
+    } finally {
+      setBusyAction(false);
     }
+  };
+
+  const handleUlang = async () => {
+    if (!id || busyAction) return;
+    try {
+      setBusyAction(true);
+      setRevealLeft(null);
+      setRevealRight(null);
+      setFrozenLeftQuestion(null);
+      setFrozenRightQuestion(null);
+      if (sesi?.state === 'FINISHED') {
+        fanfarePlayedRef.current = false;
+        const res = await apiRequest<{ sessionId: string }>(`/sesi/${id}/main-lagi`, {
+          method: 'POST',
+          body: JSON.stringify({}),
+        });
+        navigate(`/guru/sesi/${res.sessionId}?kembali=${encodeURIComponent(returnUrl)}`);
+        return;
+      }
+      const res = await apiRequest<{ session: SesiSoloPayload }>(`/sesi/${id}/ulang`, {
+        method: 'POST',
+        body: JSON.stringify({ autoStart: false }),
+      });
+      setSesi(res.session);
+      setSisaDetik(res.session.sisaWaktuDetik);
+    } catch (err: unknown) {
+      setErrorPesan(extractApiErrorMessage(err, 'Gagal mereset arena permainan.'));
+    } finally {
+      setBusyAction(false);
+    }
+  };
+
+  const handleJawab = async (tim: 'merah' | 'putih', choice: PilihanSoalClient) => {
+    if (!id || !sesi || sesi.state !== 'PLAYING') return;
+    if (tim === 'merah' && revealLeft) return;
+    if (tim === 'putih' && (revealRight || sesi.pemain2.isBot)) return;
+
+    const currentQ = tim === 'merah' ? sesi.pemain1.soalAktif : sesi.pemain2.soalAktif;
+    if (!currentQ) return;
+
+    try {
+      const res = await apiRequest<{
+        feedback: FeedbackSolo;
+        session: SesiSoloPayload;
+      }>(`/sesi/${id}/jawab`, {
+        method: 'POST',
+        body: JSON.stringify({
+          tim,
+          presentationId: currentQ.presentationId,
+          choiceId: choice.choiceId,
+        }),
+      });
+
+      if (res.feedback) {
+        if (res.feedback.benar) {
+          soundEffects.playCorrect();
+          soundEffects.playRopeTug();
+        } else {
+          soundEffects.playIncorrect();
+        }
+        triggerSideReveal(tim, currentQ, choice.choiceId, res.feedback);
+      }
+      if (res.session) {
+        setSesi(res.session);
+      }
+    } catch (err: unknown) {
+      setErrorPesan(extractApiErrorMessage(err, 'Gagal mengirim jawaban.'));
+    }
+  };
+
+  const handlePakaiPowerUp = async (tim: 'merah' | 'putih') => {
+    if (!id || !sesi || sesi.state !== 'PLAYING') return;
+    try {
+      const res = await apiRequest<{ session: SesiSoloPayload }>(`/sesi/${id}/powerup`, {
+        method: 'POST',
+        body: JSON.stringify({ tim }),
+      });
+      setSesi(res.session);
+    } catch {
+      // ignore if empty
+    }
+  };
+
+  const handleToggleMute = () => {
+    const nextMuted = soundEffects.toggleMute();
+    setMuted(nextMuted);
   };
 
   if (loading) {
     return (
-      <div className="portal-bg relative">
-        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-[#f4ecd8]">
-          <Loader2 className="w-10 h-10 animate-spin text-[#f2c230] mb-3" />
-          <p className="portal-cv text-3xl">Menyiapkan Arena Duel 1 vs 1...</p>
+      <div className="tt-festival flex items-center justify-center min-h-screen p-6 text-center">
+        <div className="tt-panel max-w-md w-full flex flex-col items-center gap-3">
+          <Loader2 className="w-10 h-10 animate-spin text-[#e2312d]" />
+          <h2 className="text-xl text-[#2b2a4a]">Menyiapkan Arena Tarik Tambang...</h2>
         </div>
       </div>
     );
@@ -416,451 +511,360 @@ export default function LayarHostSolo() {
 
   if (!sesi) {
     return (
-      <div className="portal-bg min-h-screen flex items-center justify-center p-6">
-        <div className="bg-[#fbf6e9] rounded-3xl p-8 border-2 border-[#e0d5b8] max-w-md w-full text-center">
-          <h2 className="portal-cv text-3xl text-[#1d3b2e] mb-2">Sesi Tidak Ditemukan</h2>
-          <p className="text-sm text-[#6b7d6c] mb-6">{errorPesan}</p>
-          <button
-            type="button"
-            onClick={() => navigate(returnUrl)}
-            className="portal-btn red w-full justify-center"
-          >
-            {returnUrl.includes('tarik-tambang') ? 'Kembali ke Pengaturan' : 'Kembali ke Dashboard'}
+      <div className="tt-festival flex items-center justify-center min-h-screen p-6 text-center">
+        <div className="tt-panel max-w-md w-full space-y-4">
+          <h2 className="text-xl text-[#e2312d]">Sesi Tidak Tersedia</h2>
+          <p className="text-sm text-[#6b6a85]">{errorPesan || 'Sesi tidak ditemukan.'}</p>
+          <button type="button" onClick={() => navigate(returnUrl)} className="tt-btn">
+            Kembali
           </button>
         </div>
       </div>
     );
   }
 
-  const r = sesi.rondeSaatIni;
-  const hasilRonde = r?.hasilRonde || null;
+  const isPlaying = sesi.state === 'PLAYING';
+  const isPaused = sesi.state === 'PAUSED';
+  const isFinished = sesi.state === 'FINISHED';
+  const winnerSide = isFinished ? sesi.hasil?.timMenang || 'seri' : null;
+  const namaTim1 = sesi.config.namaTim1 || sesi.pemain1.nama;
+  const namaTim2 = sesi.config.namaTim2 || sesi.pemain2.nama;
 
-  const renderPanelTim = (side: 'merah' | 'putih') => {
-    const isTim1 = side === 'merah';
-    const stats = isTim1 ? sesi.tim1 : sesi.tim2;
-    const soal = isTim1 ? r?.soalTim1 : r?.soalTim2;
-    const sudahJawab = isTim1 ? r?.tim1SudahJawab : r?.tim2SudahJawab;
-    const pickedChoiceId = isTim1 ? pickedChoiceTim1 : pickedChoiceTim2;
-    const isBenarRonde = hasilRonde ? (isTim1 ? hasilRonde.tim1Benar : hasilRonde.tim2Benar) : null;
-    const kunciRonde = hasilRonde ? (isTim1 ? hasilRonde.tim1Kunci : hasilRonde.tim2Kunci) : null;
-    const penjelasanRonde = hasilRonde
-      ? isTim1
-        ? hasilRonde.tim1Penjelasan
-        : hasilRonde.tim2Penjelasan
-      : null;
-
-    const accentBorder = isTim1 ? 'border-[#c8362f]' : 'border-[#2563eb]';
-    const accentHeaderBg = isTim1
-      ? 'bg-gradient-to-r from-[#c8362f] to-[#a8241e] text-white'
-      : 'bg-gradient-to-r from-[#2563eb] to-[#1d4ed8] text-white';
-    const activeBtnBg = isTim1
-      ? 'hover:border-[#c8362f] hover:bg-[#fde8e7]'
-      : 'hover:border-[#2563eb] hover:bg-[#dbeafe]';
+  const renderDuelCard = (
+    side: 'merah' | 'putih',
+    pemain: PemainSoloClient,
+    frozenQ: SoalTarikClient | null,
+    reveal: SideRevealState | null,
+    powerUp?: { bank: string | null; aktifBerikutnya: string | null }
+  ) => {
+    const activeQ = frozenQ || pemain.soalAktif;
+    const accent = side === 'merah' ? '#e2312d' : '#1d8fe0';
+    const isBotCard = side === 'putih' && pemain.isBot;
+    const cardDisabled =
+      !isPlaying || Boolean(reveal) || !activeQ;
 
     return (
-      <section
-        className={`bg-[#fbf6e9] rounded-3xl border-4 ${accentBorder} shadow-[0_8px_0_rgba(0,0,0,0.22)] overflow-hidden flex flex-col`}
+      <div
+        className={`tt-tp ${cardDisabled && !isBotCard ? 'dis' : ''} ${
+          isBotCard ? 'nop' : ''
+        }`}
+        style={{ ['--c' as any]: accent }}
       >
-        {/* Header Sisi Tim */}
-        <div className={`px-5 py-3.5 flex flex-wrap items-center justify-between gap-2 ${accentHeaderBg}`}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/95 flex items-center justify-center overflow-hidden">
-              <KarakterTarikTambang
-                tim={side}
-                pose="siap"
-                ekspresi={
-                  hasilRonde
-                    ? isBenarRonde
-                      ? 'bahagia'
-                      : 'sedih'
-                    : sudahJawab
-                    ? 'semangat'
-                    : 'netral'
-                }
-                size="xs"
-              />
-            </div>
-            <div>
-              <h2 className="font-black text-lg leading-tight">{stats.nama}</h2>
-              <div className="text-xs font-bold opacity-90 flex items-center gap-2">
-                <span>
-                  Benar {stats.totalBenar} / Salah {stats.totalSalah}
-                </span>
-                <span>• Akurasi {stats.akurasiPersen}%</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {sesi.config.bonusAktif && stats.streakSaatIni > 0 && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#f2c230] text-[#1d3b2e] text-xs font-black">
-                <Flame className="w-3.5 h-3.5" /> Streak {stats.streakSaatIni}
+        <div className="tt-th">
+          <span className="flex items-center gap-1.5">
+            {isBotCard ? <Bot className="w-4 h-4" /> : <Users className="w-4 h-4" />}
+            {pemain.nama}
+          </span>
+          <div className="flex items-center gap-1.5">
+            {pemain.streakSaatIni >= 2 && (
+              <span className="tt-chip gold flex items-center gap-1 text-xs">
+                <Flame className="w-3 h-3" /> {pemain.streakSaatIni}x
               </span>
             )}
-            {sudahJawab && !r?.ditutup && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/25 text-white text-xs font-extrabold">
-                <Lock className="w-3.5 h-3.5" /> Terkunci
-              </span>
+            {sesi.config.powerUpAktif && !isBotCard && powerUp?.bank && (
+              <button
+                type="button"
+                onClick={() => handlePakaiPowerUp(side)}
+                className="tt-btn y sm"
+              >
+                <Sparkles className="w-3.5 h-3.5" /> Pakai Power-Up
+              </button>
             )}
+            <span className="text-xs font-extrabold text-[#6b6a85]">
+              {pemain.totalBenar} Benar
+            </span>
           </div>
         </div>
 
-        {/* Bar Power-Up Sisi */}
-        {sesi.config.powerUpAktif && (stats.powerUpTersedia || stats.powerUpAktifRondeBerikutnya) && (
-          <div className="px-5 py-2.5 bg-[#f4ecd9] border-b border-[#e0d5b8] flex items-center justify-between gap-2">
-            {stats.powerUpAktifRondeBerikutnya ? (
-              <div className="text-xs font-black text-[#b45309] flex items-center gap-1.5">
-                <span>
-                  Aktif Ronde Depan:{' '}
-                  {INFO_POWERUP[stats.powerUpAktifRondeBerikutnya]?.label ||
-                    stats.powerUpAktifRondeBerikutnya}
-                </span>
-              </div>
-            ) : (
-              <>
-                <div className="text-xs font-extrabold text-[#1d3b2e] flex items-center gap-1.5">
-                  <Zap className="w-4 h-4 text-[#b45309]" />
-                  <span>
-                    Power-Up Tersedia: {INFO_POWERUP[stats.powerUpTersedia!]?.label} (
-                    {INFO_POWERUP[stats.powerUpTersedia!]?.efek})
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  disabled={submittingTim !== null}
-                  onClick={() => handleAktifkanPowerUp(side)}
-                  className="px-3 py-1 rounded-lg bg-[#b45309] hover:bg-[#92400e] text-white text-xs font-black shadow"
-                >
-                  Aktifkan
-                </button>
-              </>
-            )}
+        {activeQ ? (
+          <>
+            <div className="tt-q">{activeQ.teks}</div>
+            <div>
+              {activeQ.pilihan.map((opt) => {
+                let stateClass = '';
+                if (reveal && reveal.chosenChoiceId === opt.choiceId) {
+                  stateClass = reveal.benar ? 'ok' : 'no';
+                }
+                return (
+                  <button
+                    key={opt.choiceId}
+                    type="button"
+                    disabled={cardDisabled || isBotCard}
+                    onClick={() => handleJawab(side, opt)}
+                    className={`tt-op ${stateClass}`}
+                    style={{ ['--c' as any]: accent }}
+                  >
+                    <b>{opt.label}</b>
+                    <span>{opt.teks}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div
+              className="tt-fb"
+              style={{
+                color: reveal ? (reveal.benar ? '#1f9d55' : '#d63b3b') : '#6b6a85',
+              }}
+            >
+              {reveal
+                ? reveal.message
+                : isBotCard && isPlaying
+                  ? 'Bot sedang berpikir menghitung jawaban...'
+                  : ''}
+            </div>
+          </>
+        ) : (
+          <div className="py-8 text-center text-sm text-[#6b6a85]">
+            Menyiapkan soal berikutnya...
           </div>
         )}
-
-        {/* Area Soal & Pilihan Jawaban */}
-        <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-          {soal ? (
-            <>
-              <div className="bg-white rounded-2xl p-4 sm:p-5 border-2 border-[#e0d5b8] shadow-sm">
-                <div className="flex items-center justify-between text-[11px] font-extrabold uppercase tracking-wider text-[#6b7d6c] mb-1.5">
-                  <span>
-                    Soal {isTim1 ? 'Kiri' : 'Kanan'} — Ronde #{r?.nomorRonde}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full bg-[#f4ecd9] text-[#1d3b2e]">
-                    {soal.kesulitan}
-                  </span>
-                </div>
-                <p className="text-base sm:text-xl font-black text-[#1d3b2e] leading-snug">
-                  {soal.teks}
-                </p>
-              </div>
-
-              {/* Pilihan Jawaban */}
-              <div className="space-y-2.5">
-                {soal.pilihan.map((opt) => {
-                  const isPicked = pickedChoiceId === opt.choiceId;
-                  const isCorrectOption = r?.ditutup && kunciRonde === opt.label;
-                  let btnStyle = `bg-white border-2 border-[#d6c8a4] text-[#1d3b2e] ${activeBtnBg}`;
-
-                  if (r?.ditutup) {
-                    if (isCorrectOption) {
-                      btnStyle = 'bg-emerald-100 border-2 border-emerald-600 text-emerald-950';
-                    } else if (isPicked && !isBenarRonde) {
-                      btnStyle = 'bg-red-100 border-2 border-red-600 text-red-950';
-                    } else {
-                      btnStyle = 'bg-white/60 border border-[#e0d5b8] text-[#6b7d6c] opacity-75';
-                    }
-                  } else if (isPicked || (sudahJawab && isPicked)) {
-                    btnStyle = isTim1
-                      ? 'bg-[#c8362f] border-2 border-[#7f1d1d] text-white shadow-md'
-                      : 'bg-[#2563eb] border-2 border-[#1e3a8a] text-white shadow-md';
-                  } else if (sudahJawab) {
-                    btnStyle = 'bg-slate-100 border border-slate-200 text-slate-400 opacity-70';
-                  }
-
-                  return (
-                    <button
-                      key={opt.choiceId}
-                      type="button"
-                      disabled={
-                        sesi.state !== 'PLAYING' ||
-                        Boolean(sudahJawab) ||
-                        Boolean(r?.ditutup) ||
-                        submittingTim !== null
-                      }
-                      onClick={() => handleJawabSisi(side, soal, opt)}
-                      className={`w-full text-left p-3.5 sm:p-4 rounded-2xl transition-all flex items-center gap-3 font-bold active:scale-[0.99] disabled:cursor-not-allowed ${btnStyle}`}
-                    >
-                      <span
-                        className={`w-9 h-9 rounded-xl font-black text-base flex items-center justify-center shrink-0 ${
-                          isPicked && !r?.ditutup
-                            ? 'bg-white/25 text-white'
-                            : isTim1
-                            ? 'bg-[#fde8e7] text-[#c8362f]'
-                            : 'bg-[#dbeafe] text-[#2563eb]'
-                        }`}
-                      >
-                        {opt.label}
-                      </span>
-                      <span className="text-sm sm:text-base leading-snug flex-1">{opt.teks}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          ) : (
-            <div className="py-12 text-center text-sm font-bold text-[#6b7d6c]">
-              Menunggu soal ronde...
-            </div>
-          )}
-
-          {/* Status Sisi Saat Terkunci atau Setelah Ronde Ditutup */}
-          {sudahJawab && !r?.ditutup && (
-            <div className="p-3 rounded-xl bg-[#f1e7ce] border border-[#d6c8a4] text-center text-xs font-extrabold text-[#1d3b2e]">
-              Jawaban {stats.nama} terkunci! Menunggu sisi lawan atau timer selesai...
-            </div>
-          )}
-
-          {r?.ditutup && hasilRonde && (
-            <div
-              className={`p-3.5 rounded-2xl border-2 text-xs sm:text-sm space-y-1 ${
-                isBenarRonde
-                  ? 'bg-emerald-50 border-emerald-500 text-emerald-950'
-                  : 'bg-red-50 border-red-400 text-red-950'
-              }`}
-            >
-              <div className="font-black flex items-center gap-1.5">
-                {isBenarRonde ? (
-                  <>
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Benar! (+15 kekuatan tarik)</span>
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="w-4 h-4 text-red-600 shrink-0" />
-                    <span>Belum Tepat — Kunci Jawaban: {kunciRonde}</span>
-                  </>
-                )}
-              </div>
-              {penjelasanRonde && <p className="font-medium opacity-90">{penjelasanRonde}</p>}
-            </div>
-          )}
-        </div>
-      </section>
+      </div>
     );
   };
 
   return (
-    <div className="portal-bg min-h-screen px-3 py-4 sm:px-6 sm:py-6">
-      <div className="max-w-7xl mx-auto space-y-4">
-        {/* Top Bar Kontrol Guru */}
-        <header className="bg-[#fbf6e9] rounded-2xl px-4 py-3 border-2 border-[#e0d5b8] shadow-[0_4px_0_rgba(0,0,0,0.2)] flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => navigate(returnUrl)}
-              className="p-2 rounded-xl bg-[#f1e7ce] hover:bg-[#e5d8b8] text-[#1d3b2e] border border-[#d6c8a4]"
-              title={returnUrl.includes('tarik-tambang') ? 'Kembali ke Pengaturan' : 'Kembali ke Dashboard'}
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            <div>
-              <div className="text-[11px] font-black uppercase tracking-wider text-[#c8362f]">
-                Mode Solo • Local 1 vs 1
-              </div>
-              <h1 className="font-black text-base sm:text-lg text-[#1d3b2e] leading-tight">
-                {sesi.templateJudul} — Ronde #{r?.nomorRonde ?? sesi.nomorRonde}
-              </h1>
-            </div>
-          </div>
+    <div className="tt-festival">
+      <TarikTambangStadium
+        title={sesi.templateJudul || 'Tarik Tambang Kuis'}
+        subtitle="SOLO MODE • 1 VS 1"
+        modeChip={
+          sesi.config.tipeLawanSolo === 'bot'
+            ? 'Solo vs Bot AI'
+            : 'Duel 2 Pemain Lokal'
+        }
+        statusLabel={
+          sesi.state === 'READY'
+            ? 'SIAP'
+            : sesi.state === 'PLAYING'
+              ? 'BERLANGSUNG'
+              : sesi.state === 'PAUSED'
+                ? 'DIJEDA'
+                : 'SELESAI'
+        }
+        timeText={formatClock(sisaDetik)}
+        timeWarning={isPlaying && sisaDetik <= 15}
+        taliPosition={sesi.taliPosition}
+        batasMenang={sesi.config.batasMenang}
+        namaTim1={namaTim1}
+        namaTim2={namaTim2}
+        skorMerah={sesi.skorMerah}
+        skorPutih={sesi.skorPutih}
+        leftPullerCount={1}
+        rightPullerCount={1}
+        variant="solo"
+        isPlaying={isPlaying}
+        isPaused={isPaused}
+        winnerSide={winnerSide}
+        actionPulse={actionPulse}
+        isMuted={muted}
+        onToggleMute={handleToggleMute}
+        onTogglePause={isPlaying || isPaused ? handleTogglePause : undefined}
+        onStop={isPlaying || isPaused ? handleAkhiriManual : undefined}
+        onBack={() => navigate(returnUrl)}
+      />
 
-          {/* Timer Sinkron Tengah */}
-          {sesi.state !== 'READY' && (
-            <div
-              className={`px-4 py-2 rounded-2xl font-black text-lg sm:text-xl flex items-center gap-2 border-2 ${
-                sisaDetik <= 5 && !r?.ditutup
-                  ? 'bg-[#fde8e7] text-[#c8362f] border-[#c8362f] animate-pulse'
-                  : 'bg-[#244a39] text-[#f2c230] border-[#1d3b2e]'
-              }`}
-            >
-              <Clock className="w-5 h-5" />
-              <span>{r?.ditutup ? 'Evaluasi' : `${sisaDetik}d`}</span>
-            </div>
-          )}
-
-          {/* Tombol Kontrol Aksi */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsMuted(soundEffects.toggleMute())}
-              className="p-2.5 rounded-xl bg-[#f1e7ce] text-[#1d3b2e] border border-[#d6c8a4]"
-              title={isMuted ? 'Nyalakan Suara' : 'Bisukan Suara'}
-            >
-              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-            </button>
-
-            {(sesi.state === 'PLAYING' || sesi.state === 'PAUSED') && (
-              <button
-                type="button"
-                disabled={submittingTim !== null}
-                onClick={handleTogglePause}
-                className="px-3.5 py-2 rounded-xl bg-[#f2c230] hover:bg-[#e0b222] text-[#1d3b2e] font-black text-xs sm:text-sm inline-flex items-center gap-1.5 shadow"
-              >
-                {sesi.state === 'PAUSED' ? (
-                  <>
-                    <Play className="w-4 h-4 fill-current" /> <span>Lanjut</span>
-                  </>
-                ) : (
-                  <>
-                    <Pause className="w-4 h-4" /> <span>Jeda</span>
-                  </>
-                )}
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={() => setModalAkhiriOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-[#c8362f] hover:bg-[#a8241e] text-white font-black text-xs sm:text-sm inline-flex items-center gap-1.5 shadow"
-            >
-              <StopCircle className="w-4 h-4" />
-              <span>Akhiri</span>
-            </button>
-          </div>
-        </header>
-
+      <main className="tt-wrap">
         {errorPesan && (
-          <div className="p-3 rounded-xl bg-[#fde8e7] border border-[#c8362f] text-[#961e19] font-bold text-sm">
-            {errorPesan}
+          <div className="tt-panel border-[#d63b3b] text-sm font-bold text-[#b81f1c] flex items-center justify-between gap-2">
+            <span>{errorPesan}</span>
+            <button type="button" onClick={() => setErrorPesan(null)} className="underline">
+              Tutup
+            </button>
           </div>
         )}
 
-        {/* Arena Visualisasi Tali */}
-        <VisualisasiTali
-          posisi={sesi.taliPosition}
-          batasMenang={sesi.config.batasMenang ?? 100}
-          skorMerah={sesi.skorMerah}
-          skorPutih={sesi.skorPutih}
-          namaTim1={sesi.config.namaTim1}
-          namaTim2={sesi.config.namaTim2}
-          streakTim1={sesi.tim1.streakSaatIni}
-          streakTim2={sesi.tim2.streakSaatIni}
-          powerUpTim1Aktif={
-            r?.powerUpTim1Dipakai || sesi.tim1.powerUpAktifRondeBerikutnya || undefined
-          }
-          powerUpTim2Aktif={
-            r?.powerUpTim2Dipakai || sesi.tim2.powerUpAktifRondeBerikutnya || undefined
-          }
-          reaksiTim={reaksiTim || undefined}
-          theme="chalk"
-        />
-
-        {/* Bila sesi READY (belum dimulai) */}
-        {sesi.state === 'READY' ? (
-          <div className="bg-[#fbf6e9] rounded-3xl p-8 border-2 border-[#e0d5b8] text-center space-y-4">
-            <Trophy className="w-12 h-12 text-[#f2c230] mx-auto" />
-            <h2 className="portal-cv text-3xl text-[#1d3b2e]">
-              Arena Duel 1 vs 1 Siap Dimulai!
+        {/* READY Screen */}
+        {sesi.state === 'READY' && (
+          <div className="tt-panel text-center space-y-4">
+            <span className="tt-chip inline-block">
+              Target ±{sesi.config.batasMenang} • Benar +{sesi.config.tarikBenarSolo} • Salah −
+              {sesi.config.mundurSalahSolo}
+            </span>
+            <h2 className="text-2xl text-[#2b2a4a]">
+              {namaTim1} vs {namaTim2}
             </h2>
-            <p className="text-sm font-semibold text-[#4a6252] max-w-lg mx-auto">
-              Siswa {sesi.config.namaTim1} di sisi kiri dan {sesi.config.namaTim2} di sisi kanan
-              menjawab soal berbeda secara bersamaan pada perangkat ini.
+            <p className="text-sm text-[#6b6a85] max-w-xl mx-auto">
+              {sesi.config.tipeLawanSolo === 'bot'
+                ? `Jawab soal secepat mungkin di sisi kiri untuk menarik tali melewati zona menang sebelum waktu ${formatClock(sesi.durasiLombaDetik)} habis!`
+                : `Dua pemain langsung beradu cepat kiri vs kanan pada satu layar hingga garis kemenangan tercapai atau waktu ${formatClock(sesi.durasiLombaDetik)} habis!`}
             </p>
-            <button
-              type="button"
-              disabled={submittingTim !== null}
-              onClick={handleMulai}
-              className="px-8 py-4 rounded-2xl bg-[#c8362f] hover:bg-[#b02b24] text-white font-black text-lg shadow-[0_5px_0_#7f1d1d] inline-flex items-center gap-2"
-            >
-              <Play className="w-5 h-5 fill-current" />
-              <span>Mulai Ronde Pertama</span>
-            </button>
+            <div>
+              <button
+                type="button"
+                disabled={busyAction}
+                onClick={handleMulaiLomba}
+                className="tt-btn text-lg px-8 py-3"
+              >
+                <Play className="w-5 h-5" />
+                Mulai lomba
+              </button>
+            </div>
           </div>
-        ) : (
+        )}
+
+        {/* PLAYING / PAUSED Duel Cards */}
+        {(isPlaying || isPaused) && (
           <>
-            {/* Banner Rekap Evaluasi Ronde */}
-            {r?.ditutup && hasilRonde && (
-              <div className="bg-[#244a39] text-[#fbf6e9] rounded-2xl px-5 py-3.5 border-2 border-[#f2c230] flex flex-wrap items-center justify-between gap-3 shadow-lg">
-                <div className="text-sm sm:text-base font-extrabold">
-                  <span>Hasil Ronde #{hasilRonde.nomorRonde}: </span>
-                  <span className="text-[#f2c230]">
-                    {hasilRonde.perubahanTali > 0
-                      ? `Tali tertarik ke ${sesi.config.namaTim1} (+${hasilRonde.perubahanTali})`
-                      : hasilRonde.perubahanTali < 0
-                      ? `Tali tertarik ke ${sesi.config.namaTim2} (${hasilRonde.perubahanTali})`
-                      : 'Tarik-menarik seimbang (0 perubahan)'}
-                  </span>
-                  <span className="text-xs ml-2 opacity-80">
-                    (Posisi: {hasilRonde.posisiSesudah > 0 ? `+${hasilRonde.posisiSesudah}` : hasilRonde.posisiSesudah})
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleLanjutRonde}
-                  className="px-4 py-2 rounded-xl bg-[#f2c230] hover:bg-[#e0b222] text-[#1d3b2e] font-black text-xs sm:text-sm inline-flex items-center gap-1.5"
-                >
-                  <span>Ronde Berikutnya</span>
-                  <ArrowRight className="w-4 h-4" />
+            {isPaused && (
+              <div className="tt-panel text-center space-y-2 border-[#ffb81c] bg-[#fff8dc]">
+                <h2 className="text-xl text-[#7a5200]">Permainan Dijeda</h2>
+                <p className="text-xs text-[#6b6a85]">
+                  Jam lomba berhenti sementara. Tekan Lanjut untuk meneruskan tarik tambang.
+                </p>
+                <button type="button" onClick={handleTogglePause} className="tt-btn g sm">
+                  <Play className="w-4 h-4" /> Lanjut Lomba
                 </button>
               </div>
             )}
 
-            {/* Split Screen 2 Siswa: Tim 1 Merah (Kiri) vs Tim 2 Biru (Kanan) */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 relative">
-              {sesi.state === 'PAUSED' && (
-                <div className="absolute inset-0 z-30 rounded-3xl bg-[#1d3b2e]/80 backdrop-blur-xs flex flex-col items-center justify-center text-white p-6">
-                  <Pause className="w-12 h-12 text-[#f2c230] mb-2" />
-                  <h3 className="portal-cv text-3xl">Permainan Dijeda</h3>
-                  <button
-                    type="button"
-                    onClick={handleTogglePause}
-                    className="mt-4 px-6 py-3 rounded-2xl bg-[#f2c230] text-[#1d3b2e] font-black"
-                  >
-                    Lanjutkan Pertandingan
-                  </button>
-                </div>
-              )}
-
-              {renderPanelTim('merah')}
-              {renderPanelTim('putih')}
+            <div className="tt-duel">
+              {renderDuelCard('merah', sesi.pemain1, frozenLeftQuestion, revealLeft, sesi.powerUpTim1)}
+              {renderDuelCard('putih', sesi.pemain2, frozenRightQuestion, revealRight, sesi.powerUpTim2)}
             </div>
           </>
         )}
-      </div>
 
-      {/* Modal Konfirmasi Akhiri Permainan Manual */}
-      <Modal
-        isOpen={modalAkhiriOpen}
-        onClose={() => setModalAkhiriOpen(false)}
-        title="Akhiri Pertandingan Solo?"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-[#4a6252] font-medium">
-            Pertandingan akan dihentikan sekarang, pemenang ditentukan dari posisi tali terakhir (
-            {sesi.taliPosition > 0 ? `+${sesi.taliPosition}` : sesi.taliPosition}), dan laporan
-            lengkap akan disimpan.
-          </p>
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setModalAkhiriOpen(false)}
-              className="px-4 py-2 rounded-xl bg-slate-100 font-bold text-sm text-slate-700"
-            >
-              Batal
-            </button>
-            <button
-              type="button"
-              disabled={isEnding}
-              onClick={handleAkhiriManual}
-              className="px-5 py-2 rounded-xl bg-[#c8362f] text-white font-black text-sm inline-flex items-center gap-1.5"
-            >
-              {isEnding && <Loader2 className="w-4 h-4 animate-spin" />}
-              <span>Ya, Akhiri Sekarang</span>
-            </button>
+        {/* FINISHED Result Panel */}
+        {isFinished && (
+          <div className="tt-panel space-y-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <span className="tt-chip gold inline-flex items-center gap-1.5 mb-2">
+                  <Trophy className="w-3.5 h-3.5" />
+                  {sesi.hasil?.alasanSelesai === 'garis_menang'
+                    ? 'Menang Garis Batas'
+                    : sesi.hasil?.alasanSelesai === 'waktu_habis'
+                      ? 'Waktu Lomba Habis'
+                      : 'Dihentikan Guru'}
+                </span>
+                <h2 className="text-2xl sm:text-3xl text-[#2b2a4a]">
+                  {winnerSide === 'merah'
+                    ? `${namaTim1} Memenangkan Lomba!`
+                    : winnerSide === 'putih'
+                      ? `${namaTim2} Memenangkan Lomba!`
+                      : 'Pertandingan Berakhir Seri!'}
+                </h2>
+                <p className="text-sm text-[#6b6a85] mt-1">
+                  Posisi akhir tali:{' '}
+                  <strong>
+                    {sesi.taliPosition > 0 ? `+${sesi.taliPosition}` : sesi.taliPosition}
+                  </strong>{' '}
+                  • Total {sesi.hasil?.totalSoalDijawab ?? 0} soal terjawab
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5">
+                <button
+                  type="button"
+                  disabled={busyAction}
+                  onClick={handleUlang}
+                  className="tt-btn sm"
+                >
+                  <RotateCcw className="w-4 h-4" /> Main lagi
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(
+                      `/guru/tarik-tambang?templateId=${encodeURIComponent(
+                        sesi.templateId
+                      )}&mode=solo&kembali=${encodeURIComponent(returnUrl)}`
+                    )
+                  }
+                  className="tt-btn y sm"
+                >
+                  <Settings2 className="w-4 h-4" /> Ubah pengaturan
+                </button>
+                <button type="button" onClick={() => navigate(returnUrl)} className="tt-btn s sm">
+                  Selesai
+                </button>
+              </div>
+            </div>
+
+            {/* Podium Perbandingan 2 Pemain */}
+            <div className="tt-cards">
+              <div className={`tt-rc ${winnerSide === 'merah' ? 'w' : ''}`}>
+                <span className="tt-pl2">{winnerSide === 'merah' ? 'JUARA 1' : 'POSISI 2'}</span>
+                <h3 className="text-lg text-[#e2312d] mt-1.5">{namaTim1}</h3>
+                <div className="tt-big text-[#2b2a4a]">{sesi.pemain1.akurasiPersen}%</div>
+                <small className="text-xs font-bold text-[#6b6a85]">Akurasi Jawaban</small>
+                <ul className="tt-mt">
+                  <li>
+                    <span>Benar</span>
+                    <strong className="text-[#1f9d55]">{sesi.pemain1.totalBenar}</strong>
+                  </li>
+                  <li>
+                    <span>Salah</span>
+                    <strong className="text-[#d63b3b]">{sesi.pemain1.totalSalah}</strong>
+                  </li>
+                  <li>
+                    <span>Streak Tertinggi</span>
+                    <strong>{sesi.pemain1.streakTertinggi}x</strong>
+                  </li>
+                </ul>
+              </div>
+
+              <div className={`tt-rc ${winnerSide === 'putih' ? 'w' : ''}`}>
+                <span className="tt-pl2">{winnerSide === 'putih' ? 'JUARA 1' : 'POSISI 2'}</span>
+                <h3 className="text-lg text-[#1d8fe0] mt-1.5">{namaTim2}</h3>
+                <div className="tt-big text-[#2b2a4a]">{sesi.pemain2.akurasiPersen}%</div>
+                <small className="text-xs font-bold text-[#6b6a85]">Akurasi Jawaban</small>
+                <ul className="tt-mt">
+                  <li>
+                    <span>Benar</span>
+                    <strong className="text-[#1f9d55]">{sesi.pemain2.totalBenar}</strong>
+                  </li>
+                  <li>
+                    <span>Salah</span>
+                    <strong className="text-[#d63b3b]">{sesi.pemain2.totalSalah}</strong>
+                  </li>
+                  <li>
+                    <span>Streak Tertinggi</span>
+                    <strong>{sesi.pemain2.streakTertinggi}x</strong>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Tabel Evaluasi Soal */}
+            {sesi.hasil?.questionStats && sesi.hasil.questionStats.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-base text-[#2b2a4a]">Ringkasan Performa Soal</h3>
+                <div className="overflow-x-auto border-2 border-[#f0dfb4] rounded-2xl bg-[#fffdf6]">
+                  <table className="w-full text-left text-xs sm:text-sm">
+                    <thead className="bg-[#fff3d6] text-[#2b2a4a] font-extrabold">
+                      <tr>
+                        <th className="p-3">#</th>
+                        <th className="p-3">Pertanyaan</th>
+                        <th className="p-3 text-center">Benar</th>
+                        <th className="p-3 text-center">Salah</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sesi.hasil.questionStats.map((q) => (
+                        <tr key={q.questionId} className="border-t border-[#f0dfb4]">
+                          <td className="p-3 font-extrabold">{q.nomorSoal}</td>
+                          <td className="p-3 font-semibold">{q.teksSoal}</td>
+                          <td className="p-3 text-center font-extrabold text-[#1f9d55]">
+                            <span className="inline-flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> {q.jumlahBenar}
+                            </span>
+                          </td>
+                          <td className="p-3 text-center font-extrabold text-[#d63b3b]">
+                            <span className="inline-flex items-center gap-1">
+                              <XCircle className="w-3.5 h-3.5" /> {q.jumlahSalah}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      </Modal>
+        )}
+      </main>
     </div>
   );
 }

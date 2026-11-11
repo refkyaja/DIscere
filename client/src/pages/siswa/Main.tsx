@@ -1,59 +1,15 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router';
 import { getSocket } from '../../lib/socket';
-import { bindStudentReconnect } from '../../lib/socketReconnect';
-import { soundEffects } from '../../lib/soundEffects';
 import MainKerupuk from './MainKerupuk';
 import MainPanjatPinang from './MainPanjatPinang';
 import MainBalapKarung from './MainBalapKarung';
-import KarakterTarikTambang, { EkspresiTarikTambang } from './KarakterTarikTambang';
-import { VisualisasiTali } from '../game/VisualisasiTali';
+import MainTarikTambang from './MainTarikTambang';
 import {
-  Users,
-  Trophy,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  LogOut,
   ShieldAlert,
   Loader2,
   ArrowLeft,
-  Flame,
-  Lock,
-  Zap,
 } from 'lucide-react';
-
-interface SoalData {
-  presentationId?: string;
-  id: string;
-  questionId?: string;
-  nomorSoal: number;
-  nomorRonde?: number;
-  totalSoal: number;
-  teks: string;
-  opsiA: string;
-  opsiB: string;
-  opsiC?: string | null;
-  opsiD?: string | null;
-  opsiE?: string | null;
-  pilihan?: Array<{ choiceId: string; label: 'A' | 'B' | 'C' | 'D' | 'E'; teks: string }>;
-  endsAt?: number;
-  duration?: number;
-}
-
-interface SelesaiResult {
-  timMenang: 'merah' | 'putih' | 'seri';
-  konfigurasi?: { namaTim1?: string; namaTim2?: string; batasMenang?: number };
-  namaTim1?: string;
-  namaTim2?: string;
-  posisiAkhir: number;
-  skorMerah: number;
-  skorPutih: number;
-  akurasiTim1?: number;
-  akurasiTim2?: number;
-  akurasiTim1Persen?: number;
-  akurasiTim2Persen?: number;
-}
 
 export default function MainSiswa() {
   const [searchParams] = useSearchParams();
@@ -73,7 +29,6 @@ export default function MainSiswa() {
   const [panjatSecret, setPanjatSecret] = useState<string>('');
   const [namaPeserta, setNamaPeserta] = useState<string>('');
   const [templateJudul, setTemplateJudul] = useState<string>('');
-  const [tim, setTim] = useState<'merah' | 'putih' | null>(null);
   const [gameType, setGameType] = useState<'tarik_tambang' | 'makan_kerupuk' | 'panjat_pinang' | 'balap_karung'>('tarik_tambang');
   const [kerupukState, setKerupukState] = useState<any>(undefined);
   const [kerupukLeaderboard, setKerupukLeaderboard] = useState<any[]>([]);
@@ -87,116 +42,20 @@ export default function MainSiswa() {
   const [balapLeaderboard, setBalapLeaderboard] = useState<any[]>([]);
   const [balapTeams, setBalapTeams] = useState<any[]>([]);
   const [balapSoalAktif, setBalapSoalAktif] = useState<any>(null);
+  const [tarikJoinData, setTarikJoinData] = useState<{
+    config?: any;
+    tim?: 'merah' | 'putih' | null;
+    taliPosition?: number;
+    skorMerah?: number;
+    skorPutih?: number;
+    matchEndsAt?: number | null;
+    daftarPeserta?: any[];
+    soalAktif?: any;
+    powerUpTim?: any;
+    pesertaStat?: any;
+    hasil?: any;
+  } | undefined>(undefined);
   const [stage, setStage] = useState<'GABUNG' | 'LOBBY' | 'PLAYING' | 'SELESAI'>('GABUNG');
-
-  // Lobby states
-  const [totalPeserta, setTotalPeserta] = useState<number>(0);
-  const [daftarPeserta, setDaftarPeserta] = useState<Array<{ id: string; nama: string; tim: 'merah' | 'putih' | null }>>([]);
-
-  // In-Game states
-  const [tarikConfig, setTarikConfig] = useState<{
-    namaTim1: string;
-    namaTim2: string;
-    durasiRonde: number;
-    bonusAktif: boolean;
-    powerUpAktif: boolean;
-    batasMenang?: number;
-  }>({
-    namaTim1: 'Tim Merah',
-    namaTim2: 'Tim Biru',
-    durasiRonde: 20,
-    bonusAktif: true,
-    powerUpAktif: true,
-    batasMenang: 100,
-  });
-  const [powerUpTim, setPowerUpTim] = useState<{
-    bank: string | null;
-    aktifBerikutnya: string | null;
-  }>({ bank: null, aktifBerikutnya: null });
-  const [pesertaStat, setPesertaStat] = useState<{
-    totalBenar: number;
-    totalSalah: number;
-    jumlahJawab: number;
-    akurasiPersen: number;
-    streakSaatIni: number;
-    streakTertinggi: number;
-  }>({
-    totalBenar: 0,
-    totalSalah: 0,
-    jumlahJawab: 0,
-    akurasiPersen: 0,
-    streakSaatIni: 0,
-    streakTertinggi: 0,
-  });
-  const [soalAktif, setSoalAktif] = useState<SoalData | null>(null);
-  const [sisaDetik, setSisaDetik] = useState<number>(20);
-  const [jawabanDipilih, setJawabanDipilih] = useState<'A' | 'B' | 'C' | 'D' | 'E' | null>(null);
-  const [pickedChoiceId, setPickedChoiceId] = useState<string | null>(null);
-  const [sudahKirim, setSudahKirim] = useState(false);
-  const [feedback, setFeedback] = useState<{
-    tampil: boolean;
-    benar?: boolean;
-    jawabanBenar?: string;
-    penjelasan?: string | null;
-    infoRonde?: string;
-  } | null>(null);
-
-  // Score & Rope states
-  const [taliPosition, setTaliPosition] = useState<number>(0);
-  const [skorMerah, setSkorMerah] = useState<number>(0);
-  const [skorPutih, setSkorPutih] = useState<number>(0);
-  const [powerUpKeduaTim, setPowerUpKeduaTim] = useState<{
-    tim1: string | null;
-    tim2: string | null;
-  }>({ tim1: null, tim2: null });
-  const [reaksiTarik, setReaksiTarik] = useState<{
-    merah?: EkspresiTarikTambang;
-    putih?: EkspresiTarikTambang;
-  } | null>(null);
-
-  // Final Result state
-  const [hasilAkhir, setHasilAkhir] = useState<SelesaiResult | null>(null);
-
-  // Timer reference
-  const countdownIntervalRef = useRef<any>(null);
-
-  // Sinkronisasi countdown timer lokal terhadap endsAt dari server
-  const startCountdown = useCallback((endsAtTimestamp?: number) => {
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
-    }
-
-    if (!endsAtTimestamp) {
-      setSisaDetik(15);
-      return;
-    }
-
-    const hitungSisa = () => {
-      const now = Date.now();
-      const diffMs = endsAtTimestamp - now;
-      const detik = Math.max(0, Math.ceil(diffMs / 1000));
-      setSisaDetik(detik);
-      if (detik <= 0) {
-        if (countdownIntervalRef.current) {
-          clearInterval(countdownIntervalRef.current);
-          countdownIntervalRef.current = null;
-        }
-      }
-    };
-
-    hitungSisa();
-    countdownIntervalRef.current = setInterval(hitungSisa, 200);
-  }, []);
-
-  // Cleanup interval on unmount
-  useEffect(() => {
-    return () => {
-      if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current);
-      }
-    };
-  }, []);
 
   const terapkanHasilGabung = useCallback(
     (res: any, namaDipakai: string, tokenDipakai: string, fallbackSecret?: string) => {
@@ -238,53 +97,37 @@ export default function MainSiswa() {
         setBalapSoalAktif(res.soalAktif || null);
       } else {
         setGameType('tarik_tambang');
-      }
-
-      if (res.tim) setTim(res.tim);
-      if (res.config) setTarikConfig((prev) => ({ ...prev, ...res.config }));
-      if (res.daftarPeserta) {
-        setDaftarPeserta(res.daftarPeserta);
-        setTotalPeserta(res.daftarPeserta.length);
-      }
-      if (res.powerUpTim1 || res.powerUpTim2) {
-        setPowerUpKeduaTim({
-          tim1: res.powerUpTim1?.aktifBerikutnya ?? null,
-          tim2: res.powerUpTim2?.aktifBerikutnya ?? null,
+        setTarikJoinData({
+          config: res.config,
+          tim: res.tim ?? null,
+          taliPosition: res.taliPosition ?? 0,
+          skorMerah: res.skorMerah ?? 0,
+          skorPutih: res.skorPutih ?? 0,
+          matchEndsAt: res.matchEndsAt ?? null,
+          daftarPeserta: res.daftarPeserta || [],
+          soalAktif: res.soalAktif || null,
+          powerUpTim: res.powerUpTim || { bank: null, aktifBerikutnya: null },
+          pesertaStat: res.pesertaStat || {
+            totalBenar: 0,
+            totalSalah: 0,
+            jumlahJawab: 0,
+            akurasiPersen: 0,
+            streakSaatIni: 0,
+            streakTertinggi: 0,
+          },
+          hasil: res.hasil || null,
         });
       }
-      if (res.powerUpTim) setPowerUpTim(res.powerUpTim);
-      if (res.pesertaStat) setPesertaStat(res.pesertaStat);
-      setTaliPosition(res.taliPosition ?? 0);
-      setSkorMerah(res.skorMerah ?? 0);
-      setSkorPutih(res.skorPutih ?? 0);
 
       if (res.status === 'jalan') {
         setStage('PLAYING');
-        if (
-          res.game !== 'makan_kerupuk' &&
-          res.game !== 'panjat_pinang' &&
-          res.game !== 'balap_karung' &&
-          res.soalAktif
-        ) {
-          const resolvedId = res.soalAktif.id || res.soalAktif.questionId || '';
-          setSoalAktif({
-            ...res.soalAktif,
-            id: resolvedId,
-            questionId: resolvedId,
-          });
-          startCountdown(res.soalAktif.endsAt);
-          if (res.sudahJawabRondeAktif || res.sudahJawabSoalAktif) {
-            setSudahKirim(true);
-          }
-        }
       } else if (res.status === 'selesai') {
-        if (res.hasil) setHasilAkhir(res.hasil);
         setStage('SELESAI');
       } else {
         setStage('LOBBY');
       }
     },
-    [startCountdown]
+    []
   );
 
   // Otomatis Reconnect jika ada session tersimpan di sessionStorage
@@ -305,222 +148,6 @@ export default function MainSiswa() {
       );
     }
   }, [terapkanHasilGabung]);
-
-  // Re-join room Tarik Tambang secara otomatis ketika Socket.IO putus lalu tersambung kembali
-  useEffect(() => {
-    if (
-      gameType !== 'tarik_tambang' ||
-      stage === 'GABUNG' ||
-      stage === 'SELESAI' ||
-      !pesertaId ||
-      !tokenInput ||
-      !namaPeserta
-    ) {
-      return;
-    }
-
-    const socket = getSocket();
-    return bindStudentReconnect(socket, {
-      token: tokenInput,
-      nama: namaPeserta,
-      pesertaId,
-      pesertaSecret: panjatSecret || undefined,
-      onReconnectSuccess: (res) => {
-        if (res?.success) {
-          terapkanHasilGabung(res, namaPeserta, tokenInput, panjatSecret || undefined);
-        }
-      },
-    });
-  }, [gameType, stage, pesertaId, tokenInput, namaPeserta, panjatSecret, terapkanHasilGabung]);
-
-  // Setup Socket listeners (khusus Tarik Tambang; game lain ditangani komponennya masing-masing)
-  useEffect(() => {
-    if (gameType !== 'tarik_tambang') return;
-    const socket = getSocket();
-
-    // 1. Pembaruan Peserta di Lobi
-    const handleLobiUpdate = (data: {
-      totalPeserta: number;
-      daftarPeserta: any[];
-      config?: any;
-      powerUpTim1?: { aktifBerikutnya?: string | null };
-      powerUpTim2?: { aktifBerikutnya?: string | null };
-    }) => {
-      setTotalPeserta(data.totalPeserta);
-      setDaftarPeserta(data.daftarPeserta);
-      if (data.config) setTarikConfig((prev) => ({ ...prev, ...data.config }));
-      if (data.powerUpTim1 || data.powerUpTim2) {
-        setPowerUpKeduaTim({
-          tim1: data.powerUpTim1?.aktifBerikutnya ?? null,
-          tim2: data.powerUpTim2?.aktifBerikutnya ?? null,
-        });
-      }
-      const me = data.daftarPeserta?.find((p) => p.id === pesertaId);
-      if (me?.tim) setTim(me.tim);
-    };
-
-    // 2. Pembagian Tim dari Server
-    const handleTeamsAssigned = (data: { daftarPeserta: any[] }) => {
-      setDaftarPeserta(data.daftarPeserta);
-      const current = data.daftarPeserta.find((p) => p.id === pesertaId);
-      if (current?.tim) {
-        setTim(current.tim);
-      }
-    };
-
-    // 3. Soal Baru Ditampilkan (khusus tim sendiri)
-    const handleSoalTampil = (data: any) => {
-      setStage('PLAYING');
-      setReaksiTarik(null);
-      const resolvedId = data.id || data.questionId || '';
-      const resolvedQuestionId = data.questionId || data.id || '';
-      setSoalAktif({
-        ...data,
-        id: resolvedId,
-        questionId: resolvedQuestionId,
-      });
-      setJawabanDipilih(null);
-      setPickedChoiceId(null);
-      setSudahKirim(false);
-      setFeedback(null);
-      startCountdown(data.endsAt);
-    };
-
-    // 4. Update Progres & Tali Real-Time
-    const handleTaliUpdate = (data: {
-      taliPosition: number;
-      skorMerah: number;
-      skorPutih: number;
-    }) => {
-      setTaliPosition(data.taliPosition);
-      setSkorMerah(data.skorMerah);
-      setSkorPutih(data.skorPutih);
-    };
-
-    // 4b. Pembaruan Status Power-Up Tim
-    const handlePowerUpUpdate = (data: any) => {
-      if (data.powerUpTim1 || data.powerUpTim2) {
-        setPowerUpKeduaTim((prev) => ({
-          tim1: data.powerUpTim1 ? (data.powerUpTim1.aktifBerikutnya ?? null) : prev.tim1,
-          tim2: data.powerUpTim2 ? (data.powerUpTim2.aktifBerikutnya ?? null) : prev.tim2,
-        }));
-      }
-      if (tim === 'merah' && data.powerUpTim1) {
-        setPowerUpTim(data.powerUpTim1);
-      } else if (tim === 'putih' && data.powerUpTim2) {
-        setPowerUpTim(data.powerUpTim2);
-      }
-    };
-
-    // 5. Ronde Berakhir (ungkap kunci, evaluasi tim, power-up & statistik)
-    const handleSoalSelesai = (data: any) => {
-      setTaliPosition(data.taliPosition ?? 0);
-      setSkorMerah(data.skorMerah ?? 0);
-      setSkorPutih(data.skorPutih ?? 0);
-
-      if (data.powerUpTim1 || data.powerUpTim2) {
-        setPowerUpKeduaTim((prev) => ({
-          tim1: data.powerUpTim1 ? (data.powerUpTim1.aktifBerikutnya ?? null) : prev.tim1,
-          tim2: data.powerUpTim2 ? (data.powerUpTim2.aktifBerikutnya ?? null) : prev.tim2,
-        }));
-      }
-      if (tim === 'merah' && data.powerUpTim1) setPowerUpTim(data.powerUpTim1);
-      if (tim === 'putih' && data.powerUpTim2) setPowerUpTim(data.powerUpTim2);
-
-      if (data.daftarPeserta) {
-        setDaftarPeserta(data.daftarPeserta);
-      }
-      const me = data.daftarPeserta?.find((p: any) => p.id === pesertaId);
-      if (me) {
-        setPesertaStat({
-          totalBenar: me.totalBenar ?? 0,
-          totalSalah: me.totalSalah ?? 0,
-          jumlahJawab: me.jumlahJawab ?? 0,
-          akurasiPersen: me.akurasiPersen ?? 0,
-          streakSaatIni: me.streakSaatIni ?? 0,
-          streakTertinggi: me.streakTertinggi ?? 0,
-        });
-      }
-
-      const hr = data.hasilRonde;
-      const isTim1 = tim === 'merah';
-      const kunciTim = hr ? (isTim1 ? hr.tim1Kunci : hr.tim2Kunci) : data.jawabanBenar;
-      const penjelasanTim = hr
-        ? isTim1
-          ? hr.tim1Penjelasan
-          : hr.tim2Penjelasan
-        : data.penjelasan;
-      const akurasiTimRonde = hr ? (isTim1 ? hr.akurasiTim1 : hr.akurasiTim2) : null;
-
-      const siswaBenar =
-        Boolean(sudahKirim && jawabanDipilih && kunciTim && jawabanDipilih === kunciTim);
-
-      if (siswaBenar) soundEffects.playCorrect();
-      else soundEffects.playIncorrect();
-
-      if (hr && typeof hr.perubahanTali === 'number') {
-        if (hr.perubahanTali > 0) setReaksiTarik({ merah: 'bahagia', putih: 'sedih' });
-        else if (hr.perubahanTali < 0) setReaksiTarik({ merah: 'sedih', putih: 'bahagia' });
-      }
-
-      setFeedback({
-        tampil: true,
-        benar: siswaBenar,
-        jawabanBenar: kunciTim,
-        penjelasan: penjelasanTim,
-        infoRonde:
-          hr && akurasiTimRonde !== null
-            ? `Akurasi timmu ronde ini: ${akurasiTimRonde}% • Perubahan tali: ${
-                hr.perubahanTali > 0 ? `+${hr.perubahanTali}` : hr.perubahanTali
-              }`
-            : undefined,
-      });
-    };
-
-    // 5b. Konfirmasi Kunci Jawaban (TIDAK ada kunci sebelum ronde berakhir)
-    const handleJawabHasil = (data: {
-      success: boolean;
-      terkunci?: boolean;
-      benar?: boolean;
-      jawabanBenar?: string;
-      penjelasan?: string;
-    }) => {
-      if (data?.success && data.terkunci) {
-        setSudahKirim(true);
-      }
-    };
-
-    // 6. Seluruh Permainan Selesai
-    const handleSesiSelesai = (data: { hasil: SelesaiResult }) => {
-      setHasilAkhir(data.hasil);
-      setStage('SELESAI');
-      soundEffects.playVictoryFanfare();
-      sessionStorage.removeItem('discere_multi_token');
-      sessionStorage.removeItem('discere_multi_peserta_id');
-      sessionStorage.removeItem('discere_multi_nama');
-      sessionStorage.removeItem('discere_multi_peserta_secret');
-    };
-
-    socket.on('lobi:update', handleLobiUpdate);
-    socket.on('teams_assigned', handleTeamsAssigned);
-    socket.on('soal:tampil', handleSoalTampil);
-    socket.on('tali:update', handleTaliUpdate);
-    socket.on('powerup:update', handlePowerUpUpdate);
-    socket.on('soal:selesai', handleSoalSelesai);
-    socket.on('jawab:hasil', handleJawabHasil);
-    socket.on('sesi:selesai', handleSesiSelesai);
-
-    return () => {
-      socket.off('lobi:update', handleLobiUpdate);
-      socket.off('teams_assigned', handleTeamsAssigned);
-      socket.off('soal:tampil', handleSoalTampil);
-      socket.off('tali:update', handleTaliUpdate);
-      socket.off('powerup:update', handlePowerUpUpdate);
-      socket.off('soal:selesai', handleSoalSelesai);
-      socket.off('jawab:hasil', handleJawabHasil);
-      socket.off('sesi:selesai', handleSesiSelesai);
-    };
-  }, [pesertaId, startCountdown, gameType, tim, sudahKirim, jawabanDipilih]);
 
   // Handler: Siswa Submit PIN (Langkah 1)
   const handleNextToName = (e: React.FormEvent) => {
@@ -571,7 +198,7 @@ export default function MainSiswa() {
         taliPosition?: number;
         skorMerah?: number;
         skorPutih?: number;
-        soalAktif?: SoalData & { endsAt?: number };
+        soalAktif?: any;
       }) => {
         setIsJoining(false);
         if (!res?.success) {
@@ -580,62 +207,6 @@ export default function MainSiswa() {
         }
 
         terapkanHasilGabung(res, cleanNama, cleanToken);
-      }
-    );
-  };
-
-  // Handler: Siswa Mengirim Jawaban (choiceId / A-E)
-  const handlePilihJawaban = (opsi: 'A' | 'B' | 'C' | 'D' | 'E', choiceId?: string) => {
-    if (sudahKirim || !sessionId || !pesertaId || !soalAktif) return;
-
-    setJawabanDipilih(opsi);
-    if (choiceId) setPickedChoiceId(choiceId);
-    setSudahKirim(true);
-
-    const targetId = soalAktif.questionId || soalAktif.id || '';
-
-    const socket = getSocket();
-    socket.emit(
-      'jawab:kirim',
-      {
-        sessionId,
-        pesertaId,
-        pesertaSecret: panjatSecret || undefined,
-        presentationId: soalAktif.presentationId,
-        choiceId,
-        questionId: targetId,
-        id: targetId,
-        jawaban: opsi,
-      },
-      (res: { success: boolean; terkunci?: boolean; pesan?: string }) => {
-        if (!res?.success) {
-          setSudahKirim(false);
-          setJawabanDipilih(null);
-          setPickedChoiceId(null);
-          setFormError(res?.pesan || 'Gagal mengirim jawaban.');
-        } else {
-          setFormError(null);
-        }
-      }
-    );
-  };
-
-  const handleAktifkanPowerUp = () => {
-    if (!sessionId || !pesertaId || !tim || !powerUpTim.bank) return;
-    getSocket().emit(
-      'powerup:aktifkan',
-      {
-        sessionId,
-        tim,
-        pesertaId,
-        pesertaSecret: panjatSecret || undefined,
-      },
-      (res: any) => {
-        if (res?.success) {
-          soundEffects.playBoost();
-        } else if (res?.pesan) {
-          setFormError(res.pesan);
-        }
       }
     );
   };
@@ -649,20 +220,6 @@ export default function MainSiswa() {
     setStage('GABUNG');
     setSessionId(null);
     setPesertaId(null);
-    setPickedChoiceId(null);
-    setJawabanDipilih(null);
-    setSudahKirim(false);
-    setFeedback(null);
-    setHasilAkhir(null);
-    setPowerUpTim({ bank: null, aktifBerikutnya: null });
-    setPesertaStat({
-      totalBenar: 0,
-      totalSalah: 0,
-      jumlahJawab: 0,
-      akurasiPersen: 0,
-      streakSaatIni: 0,
-      streakTertinggi: 0,
-    });
     setPanjatSecret('');
     setPanjatConfig(undefined);
     setPanjatState(undefined);
@@ -673,10 +230,7 @@ export default function MainSiswa() {
     setBalapLeaderboard([]);
     setBalapTeams([]);
     setBalapSoalAktif(null);
-    setTim(null);
-    setSoalAktif(null);
-    setFeedback(null);
-    setHasilAkhir(null);
+    setTarikJoinData(undefined);
   };
 
   // ==========================================
@@ -1336,536 +890,31 @@ export default function MainSiswa() {
   }
 
   // ==========================================
-  // RENDER STAGE 2: LOBI MENUNGGU GURU (TARIK TAMBANG)
+  // RENDER TARIK TAMBANG FESTIVAL (JIKA SESI ADALAH TARIK TAMBANG)
   // ==========================================
-  if (stage === 'LOBBY') {
+  if (gameType === 'tarik_tambang' && sessionId && pesertaId) {
     return (
-      <div className="portal-bg min-h-screen flex flex-col justify-between select-none">
-        <div className="max-w-lg mx-auto w-full p-4 sm:p-6 flex-1 flex flex-col justify-between">
-          {/* Header */}
-          <header className="portal-card flex justify-between items-center p-4 rounded-2xl border-2 border-[#e0d5b8] shadow-[0_4px_0_rgba(0,0,0,0.16)]">
-            <div className="min-w-0">
-              <span className="inline-block text-[11px] font-black text-[#f2c230] bg-[#1d3b2e] px-2.5 py-0.5 rounded-full tracking-wider uppercase mb-1">
-                PIN SESI: {tokenInput}
-              </span>
-              <h2 className="text-base font-extrabold text-[#1d3b2e] truncate max-w-[220px] sm:max-w-sm">
-                {templateJudul || 'Tarik Tambang Discere'}
-              </h2>
-            </div>
-            <button
-              type="button"
-              onClick={handleKeluar}
-              className="p-2.5 rounded-xl bg-[#f4ecd9] border border-[#e0d5b8] text-[#1d3b2e] hover:bg-[#fde8e7] hover:text-[#c8362f] transition-colors cursor-pointer shrink-0"
-              title="Keluar"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
-          </header>
-
-          {/* Content Lobi */}
-          <main className="my-auto py-6 text-center w-full">
-            <div className="portal-card p-6 sm:p-7 rounded-3xl border-2 border-[#e0d5b8] shadow-[0_8px_0_rgba(0,0,0,0.18)] space-y-5">
-              {/* Karakter 2D Duel Merah vs Putih Siap Berlomba */}
-              <div className="flex items-center justify-center gap-4 bg-gradient-to-r from-[#fbf0ee] via-[#fffdf6] to-[#edf4fb] border border-[#e0d5b8] rounded-2xl py-4 px-3">
-                <KarakterTarikTambang tim="merah" pose="siap" ekspresi="semangat" size="md" />
-                <span className="px-3 py-1 rounded-full bg-[#1d3b2e] text-[#f2c230] font-black text-xs shadow-xs">
-                  VS
-                </span>
-                <KarakterTarikTambang tim="putih" pose="siap" ekspresi="semangat" size="md" />
-              </div>
-
-              <div>
-                <h3 className="portal-cv text-3xl sm:text-4xl text-[#1d3b2e] mb-1">
-                  Halo, {namaPeserta}! 👋
-                </h3>
-                <p className="text-[#6b7d6c] text-sm leading-relaxed">
-                  Kamu sudah masuk ke ruang permainan. Tunggu Bapak/Ibu Guru memulai lomba di layar utama kelas.
-                </p>
-              </div>
-
-              {/* Status Pemain Terhubung */}
-              <div className="p-4 bg-[#f4ecd9] border border-[#e0d5b8] rounded-2xl space-y-3">
-                <div className="flex items-center justify-center gap-2 text-[#1d3b2e] font-extrabold text-sm">
-                  <Users className="w-4 h-4 text-[#c8362f]" />
-                  <span>{totalPeserta} Siswa Bergabung</span>
-                  {tim && (
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase ${
-                        tim === 'merah'
-                          ? 'bg-[#c8362f] text-white'
-                          : 'bg-[#2563eb] text-white'
-                      }`}
-                    >
-                      Kamu di {tim === 'merah' ? tarikConfig.namaTim1 : tarikConfig.namaTim2}
-                    </span>
-                  )}
-                </div>
-                <div className="flex flex-wrap justify-center gap-2 max-h-36 overflow-y-auto p-1">
-                  {daftarPeserta.map((p) => (
-                    <span
-                      key={p.id}
-                      className={`text-xs px-3 py-1 rounded-full font-bold border ${
-                        p.id === pesertaId
-                          ? p.tim === 'merah'
-                            ? 'bg-[#c8362f] border-[#961e19] text-white shadow-xs'
-                            : 'bg-[#2563eb] border-[#1e3a8a] text-white shadow-xs'
-                          : p.tim === 'merah'
-                          ? 'bg-[#fde8e7] border-[#f5c2c0] text-[#961e19]'
-                          : 'bg-[#eff6ff] border-[#bfdbfe] text-[#1e3a8a]'
-                      }`}
-                    >
-                      {p.nama} {p.id === pesertaId && '(Kamu)'}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div className="text-xs font-semibold text-[#6b7d6c]">
-                Pembagian tim dapat disesuaikan oleh Bapak/Ibu Guru di layar depan sebelum lomba
-                dimulai.
-              </div>
-            </div>
-          </main>
-
-          <footer className="text-center text-xs font-bold text-[#f4ecd8]/75 py-1">
-            Discere • Belajar Sambil Berlomba
-          </footer>
-        </div>
-
-        <div className="portal-ledge" aria-hidden="true">
-          <svg viewBox="0 0 1440 80" preserveAspectRatio="none">
-            <path d="M0 34C240 6 480 62 720 34S1200 6 1440 34V80H0z" fill="#a6783c" />
-            <path d="M0 56C260 34 520 80 760 56S1220 36 1440 58V80H0z" fill="#8d6444" />
-          </svg>
-        </div>
-      </div>
-    );
-  }
-
-  // ==========================================
-  // RENDER STAGE 3: IN-GAME (MENJAWAB SOAL)
-  // ==========================================
-  if (stage === 'PLAYING') {
-    const isMerah = tim === 'merah';
-    const namaTimSaya = isMerah ? tarikConfig.namaTim1 : tarikConfig.namaTim2;
-    const selectedTeamColor = isMerah
-      ? 'bg-[#c8362f] border-[#8f1e19]'
-      : 'bg-[#2563eb] border-[#1e3a8a]';
-    const batasMenang = Math.max(10, Math.min(100, Math.round(tarikConfig.batasMenang ?? 100)));
-    const durasiTotal = soalAktif?.duration || tarikConfig.durasiRonde || 20;
-    const jumlahPemainMerah =
-      daftarPeserta.length > 0
-        ? daftarPeserta.filter((p) => p.tim === 'merah').length
-        : undefined;
-    const jumlahPemainPutih =
-      daftarPeserta.length > 0
-        ? daftarPeserta.filter((p) => p.tim === 'putih').length
-        : undefined;
-
-    return (
-      <div className="portal-bg min-h-screen flex flex-col justify-between p-4 sm:p-6 select-none">
-        <div className="max-w-4xl mx-auto w-full flex-1 flex flex-col justify-between space-y-4">
-          {/* Top Bar: Karakter & Tim Badge, Ronde, Timer */}
-          <header className="portal-card rounded-2xl p-3.5 sm:p-4 border-2 border-[#e0d5b8] shadow-[0_4px_0_rgba(0,0,0,0.16)] space-y-2.5">
-            <div className="flex justify-between items-center gap-2">
-              <div className="flex items-center gap-2">
-                <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden border ${
-                    isMerah
-                      ? 'bg-[#fbf0ee] border-[#d9544c]/60'
-                      : 'bg-[#eff6ff] border-[#3b82f6]/60'
-                  }`}
-                >
-                  <KarakterTarikTambang
-                    tim={isMerah ? 'merah' : 'putih'}
-                    pose="siap"
-                    ekspresi={
-                      feedback?.tampil
-                        ? feedback.benar
-                          ? 'bahagia'
-                          : 'sedih'
-                        : 'semangat'
-                    }
-                    size="xs"
-                  />
-                </div>
-                <div>
-                  <span
-                    className={`text-xs sm:text-sm font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full inline-block ${
-                      isMerah
-                        ? 'bg-[#fde8e7] text-[#c8362f]'
-                        : 'bg-[#dbeafe] text-[#2563eb]'
-                    }`}
-                  >
-                    {namaTimSaya}
-                  </span>
-                  {pesertaStat.streakSaatIni > 0 && (
-                    <span className="ml-1.5 inline-flex items-center gap-0.5 text-[11px] font-black text-[#b45309]">
-                      <Flame className="w-3 h-3" /> {pesertaStat.streakSaatIni}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="text-xs sm:text-sm font-extrabold text-[#1d3b2e] bg-[#f4ecd9] px-3 py-1.5 rounded-full border border-[#e0d5b8]">
-                Ronde #{soalAktif?.nomorRonde ?? soalAktif?.nomorSoal ?? '-'}
-              </div>
-
-              <div
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-2xl font-black text-sm sm:text-base border-2 ${
-                  sisaDetik <= 5
-                    ? 'bg-[#fde8e7] text-[#c8362f] border-[#c8362f] animate-pulse'
-                    : 'bg-[#244a39] text-[#f2c230] border-[#1d3b2e]'
-                }`}
-              >
-                <Clock className="w-4 h-4" />
-                <span>{sisaDetik}d</span>
-              </div>
-            </div>
-
-            {/* Timer Progress Bar */}
-            <div className="w-full bg-[#e0d5b8] h-2 rounded-full overflow-hidden">
-              <div
-                className={`h-full transition-all duration-300 ease-linear ${
-                  sisaDetik <= 5 ? 'bg-[#c8362f]' : isMerah ? 'bg-[#c8362f]' : 'bg-[#2563eb]'
-                }`}
-                style={{ width: `${Math.min(100, (sisaDetik / durasiTotal) * 100)}%` }}
-              />
-            </div>
-
-            {/* Banner Power-Up Tim */}
-            {tarikConfig.powerUpAktif && (powerUpTim.bank || powerUpTim.aktifBerikutnya) && (
-              <div className="pt-1 flex items-center justify-between gap-2 text-xs font-bold">
-                {powerUpTim.aktifBerikutnya ? (
-                  <span className="text-amber-700 inline-flex items-center gap-1">
-                    Power-up {powerUpTim.aktifBerikutnya} aktif ronde berikutnya!
-                  </span>
-                ) : (
-                  <>
-                    <span className="text-[#1d3b2e] inline-flex items-center gap-1">
-                      <Zap className="w-3.5 h-3.5 text-[#b45309]" />
-                      Power-Up Tim: {powerUpTim.bank}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleAktifkanPowerUp}
-                      className="px-3 py-1 rounded-lg bg-[#b45309] text-white font-black text-xs shadow"
-                    >
-                      Aktifkan!
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-          </header>
-
-          {/* Arena Visualisasi Tali (sama dengan tampilan guru) */}
-          <VisualisasiTali
-            posisi={taliPosition}
-            batasMenang={batasMenang}
-            skorMerah={skorMerah}
-            skorPutih={skorPutih}
-            namaTim1={tarikConfig.namaTim1}
-            namaTim2={tarikConfig.namaTim2}
-            timAktif={tim ?? undefined}
-            jumlahPemainMerah={jumlahPemainMerah}
-            jumlahPemainPutih={jumlahPemainPutih}
-            powerUpTim1Aktif={powerUpKeduaTim.tim1}
-            powerUpTim2Aktif={powerUpKeduaTim.tim2}
-            reaksiTim={reaksiTarik || undefined}
-            theme="chalk"
-          />
-
-          {/* Question Area */}
-          <main className="my-auto space-y-4">
-            <div className="portal-card p-5 sm:p-6 rounded-3xl border-2 border-[#e0d5b8] shadow-[0_6px_0_rgba(0,0,0,0.18)]">
-              <div className="text-xs font-extrabold uppercase tracking-wider text-[#6b7d6c] mb-1.5">
-                Pertanyaan Tim Kamu
-              </div>
-              <p className="portal-cv text-2xl sm:text-3xl text-[#1d3b2e] leading-snug">
-                {soalAktif?.teks}
-              </p>
-            </div>
-
-            {/* Opsi Jawaban */}
-            <div className="space-y-3">
-              {(soalAktif?.pilihan && soalAktif.pilihan.length > 0
-                ? soalAktif.pilihan
-                : (['A', 'B', 'C', 'D', 'E'] as const)
-                    .map((k) => ({
-                      choiceId: k,
-                      label: k,
-                      teks:
-                        (k === 'A'
-                          ? soalAktif?.opsiA
-                          : k === 'B'
-                          ? soalAktif?.opsiB
-                          : k === 'C'
-                          ? soalAktif?.opsiC
-                          : k === 'D'
-                          ? soalAktif?.opsiD
-                          : soalAktif?.opsiE) || '',
-                    }))
-                    .filter(
-                      (item) =>
-                        item.label === 'A' || item.label === 'B' || item.teks.trim().length > 0
-                    )
-              ).map((opsiItem) => {
-                const isSelected =
-                  (pickedChoiceId && pickedChoiceId === opsiItem.choiceId) ||
-                  jawabanDipilih === opsiItem.label;
-                const isLocked = sudahKirim || Boolean(feedback?.tampil);
-
-                return (
-                  <button
-                    key={opsiItem.choiceId}
-                    disabled={isLocked}
-                    onClick={() =>
-                      handlePilihJawaban(
-                        opsiItem.label,
-                        soalAktif?.pilihan ? opsiItem.choiceId : undefined
-                      )
-                    }
-                    className={`w-full text-left p-4 rounded-2xl border-2 font-bold transition-all duration-150 flex items-center justify-between cursor-pointer ${
-                      isSelected
-                        ? `${selectedTeamColor} text-white shadow-[0_4px_0_rgba(0,0,0,0.2)] scale-[1.01]`
-                        : isLocked
-                        ? 'bg-[#f0e7d0] border-[#d8cbb0] text-[#8c8270] opacity-60 cursor-not-allowed'
-                        : 'bg-[#fbf6e9] border-[#e0d5b8] text-[#1d3b2e] hover:bg-white hover:border-[#1d3b2e] shadow-[0_4px_0_rgba(0,0,0,0.14)] active:translate-y-0.5'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 pr-2">
-                      <span
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0 ${
-                          isSelected
-                            ? 'bg-white/25 text-white'
-                            : 'bg-[#e8dfc8] text-[#1d3b2e]'
-                        }`}
-                      >
-                        {opsiItem.label}
-                      </span>
-                      <span className="text-base sm:text-lg leading-snug">{opsiItem.teks}</span>
-                    </div>
-                    {isSelected && <Lock className="w-5 h-5 shrink-0 text-white" />}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Status Terkunci Menunggu Evaluasi Ronde */}
-            {sudahKirim && !feedback?.tampil && (
-              <div className="p-3.5 bg-[#fbf6e9] border-2 border-[#f2c230] rounded-2xl text-center text-[#1d3b2e] font-bold text-sm shadow-sm flex items-center justify-center gap-2">
-                <Lock className="w-4 h-4 text-[#b45309]" />
-                <span>Jawaban terkunci! Menunggu tim lawan dan evaluasi ronde...</span>
-              </div>
-            )}
-
-            {/* Feedback Setelah Ronde Ditutup */}
-            {feedback?.tampil && (
-              <div
-                className={`p-4 rounded-2xl border-2 text-sm space-y-1.5 shadow-sm ${
-                  feedback.benar
-                    ? 'bg-[#e8f5e9] border-[#2e7d32] text-[#1b5e20]'
-                    : 'bg-[#fde8e7] border-[#c8362f] text-[#8e1d18]'
-                }`}
-              >
-                <div className="flex items-center gap-2 font-extrabold text-base">
-                  {feedback.benar ? (
-                    <>
-                      <CheckCircle2 className="w-5 h-5 text-[#2e7d32] shrink-0" />
-                      <span>Tepat Sekali! Kontribusi Tim Meningkat</span>
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="w-5 h-5 text-[#c8362f] shrink-0" />
-                      <span>Jawaban Belum Tepat / Belum Menjawab</span>
-                    </>
-                  )}
-                </div>
-
-                {feedback.infoRonde && (
-                  <div className="text-xs font-extrabold opacity-90">{feedback.infoRonde}</div>
-                )}
-
-                {feedback.jawabanBenar && (
-                  <div className="text-xs font-semibold">
-                    Kunci Jawaban:{' '}
-                    <span className="font-extrabold uppercase">Opsi {feedback.jawabanBenar}</span>
-                  </div>
-                )}
-
-                {feedback.penjelasan && (
-                  <div className="text-xs opacity-90 pt-1.5 border-t border-black/10">
-                    {feedback.penjelasan}
-                  </div>
-                )}
-              </div>
-            )}
-          </main>
-
-          <footer className="text-center text-xs font-bold text-[#f4ecd8]/75 py-1">
-            Discere • Mode Tarik Tambang Siswa
-          </footer>
-        </div>
-      </div>
-    );
-  }
-
-  // ==========================================
-  // RENDER STAGE 4: PERMAINAN SELESAI
-  // ==========================================
-  if (stage === 'SELESAI') {
-    const isMerah = tim === 'merah';
-    const isMenang =
-      (hasilAkhir?.timMenang === 'merah' && isMerah) ||
-      (hasilAkhir?.timMenang === 'putih' && !isMerah);
-    const isSeri = hasilAkhir?.timMenang === 'seri';
-    const batasMenangAkhir =
-      hasilAkhir?.konfigurasi?.batasMenang ?? tarikConfig.batasMenang ?? 100;
-
-    return (
-      <div className="portal-bg min-h-screen flex flex-col justify-between select-none">
-        <div className="max-w-2xl mx-auto w-full p-4 sm:p-6 my-auto space-y-5">
-          <div className="portal-card p-6 sm:p-8 rounded-[30px] border-2 border-[#e0d5b8] shadow-[0_10px_0_rgba(0,0,0,0.22)] text-center space-y-5">
-            {/* Karakter 2D Hasil Akhir (Mahkota Emas jika menang) */}
-            <div className="flex flex-col items-center">
-              <KarakterTarikTambang
-                tim={isMerah ? 'merah' : 'putih'}
-                pose="podium"
-                ekspresi={isMenang ? 'menang' : isSeri ? 'bahagia' : 'kalah'}
-                podiumRank={isMenang ? 1 : isSeri ? undefined : 2}
-                size="lg"
-              />
-              <span
-                className={`mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase ${
-                  isMenang
-                    ? 'bg-[#f8e7b0] text-[#8a6a00]'
-                    : isSeri
-                    ? 'bg-[#d8e3cf] text-[#1b432a]'
-                    : 'bg-[#f4ecd9] text-[#6b7d6c]'
-                }`}
-              >
-                <Trophy className="w-3.5 h-3.5" />
-                {isMenang ? 'Tim Pemenang' : isSeri ? 'Hasil Imbang' : 'Tetap Semangat'}
-              </span>
-            </div>
-
-            <div>
-              <h2 className="portal-cv text-3xl sm:text-4xl text-[#1d3b2e] mb-1">
-                {isMenang
-                  ? '🎉 TIM KAMU MENANG! 🎉'
-                  : isSeri
-                  ? '🤝 HASIL PERTANDINGAN SERI!'
-                  : '💪 TETAP SEMANGAT!'}
-              </h2>
-              <p className="text-[#6b7d6c] text-sm">
-                {isMenang
-                  ? 'Luar biasa! Kerja sama dan kecepatan timmu berhasil menarik tali kemenangan!'
-                  : isSeri
-                  ? 'Kedua tim sama-sama kuat dan seimbang sampai akhir pertandingan!'
-                  : 'Perjuangan yang hebat! Terus belajar dan raih kemenangan di lomba berikutnya!'}
-              </p>
-            </div>
-
-            {/* Detail Hasil Skor */}
-            <div className="p-4 bg-[#f4ecd9] border border-[#e0d5b8] rounded-2xl space-y-3">
-              <div className="text-[11px] uppercase font-extrabold text-[#6b7d6c] tracking-wider">
-                Hasil Akhir Lomba
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3.5 rounded-xl bg-[#fbf0ee] border border-[#d9544c]/60">
-                  <div className="text-xs font-extrabold text-[#c8362f] uppercase">
-                    {hasilAkhir?.konfigurasi?.namaTim1 || hasilAkhir?.namaTim1 || tarikConfig.namaTim1}
-                  </div>
-                  <div className="text-3xl font-black text-[#1d3b2e] mt-0.5">
-                    {hasilAkhir?.skorMerah ?? skorMerah}
-                  </div>
-                  {(hasilAkhir?.akurasiTim1 ?? hasilAkhir?.akurasiTim1Persen) !== undefined && (
-                    <div className="text-[11px] font-bold text-[#6b7d6c]">
-                      Akurasi {hasilAkhir?.akurasiTim1 ?? hasilAkhir?.akurasiTim1Persen}%
-                    </div>
-                  )}
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-[#eff6ff] border border-[#3b82f6]/60">
-                  <div className="text-xs font-extrabold text-[#2563eb] uppercase">
-                    {hasilAkhir?.konfigurasi?.namaTim2 || hasilAkhir?.namaTim2 || tarikConfig.namaTim2}
-                  </div>
-                  <div className="text-3xl font-black text-[#1d3b2e] mt-0.5">
-                    {hasilAkhir?.skorPutih ?? skorPutih}
-                  </div>
-                  {(hasilAkhir?.akurasiTim2 ?? hasilAkhir?.akurasiTim2Persen) !== undefined && (
-                    <div className="text-[11px] font-bold text-[#6b7d6c]">
-                      Akurasi {hasilAkhir?.akurasiTim2 ?? hasilAkhir?.akurasiTim2Persen}%
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="p-3 rounded-xl bg-white/80 border border-[#e0d5b8] text-xs font-bold text-[#1d3b2e] flex justify-around">
-                <span>Benar: {pesertaStat.totalBenar}</span>
-                <span>Salah: {pesertaStat.totalSalah}</span>
-                <span>Akurasi: {pesertaStat.akurasiPersen}%</span>
-                <span>Streak Max: {pesertaStat.streakTertinggi}</span>
-              </div>
-
-              <div className="text-xs text-[#6b7d6c] pt-2 border-t border-dashed border-[#e0d5b8]">
-                Posisi Akhir Tali:{' '}
-                <strong className="text-[#1d3b2e]">
-                  {hasilAkhir?.posisiAkhir !== undefined
-                    ? hasilAkhir.posisiAkhir > 0
-                      ? `${hasilAkhir?.namaTim1 || tarikConfig.namaTim1} (+${hasilAkhir.posisiAkhir})`
-                      : hasilAkhir.posisiAkhir < 0
-                      ? `${hasilAkhir?.namaTim2 || tarikConfig.namaTim2} (${hasilAkhir.posisiAkhir})`
-                      : 'Tepat di Tengah (0)'
-                    : '-'}
-                </strong>
-              </div>
-            </div>
-
-            <VisualisasiTali
-              posisi={hasilAkhir?.posisiAkhir ?? taliPosition}
-              batasMenang={batasMenangAkhir}
-              skorMerah={hasilAkhir?.skorMerah ?? skorMerah}
-              skorPutih={hasilAkhir?.skorPutih ?? skorPutih}
-              namaTim1={
-                hasilAkhir?.konfigurasi?.namaTim1 || hasilAkhir?.namaTim1 || tarikConfig.namaTim1
-              }
-              namaTim2={
-                hasilAkhir?.konfigurasi?.namaTim2 || hasilAkhir?.namaTim2 || tarikConfig.namaTim2
-              }
-              jumlahPemainMerah={
-                daftarPeserta.length > 0
-                  ? daftarPeserta.filter((p) => p.tim === 'merah').length
-                  : undefined
-              }
-              jumlahPemainPutih={
-                daftarPeserta.length > 0
-                  ? daftarPeserta.filter((p) => p.tim === 'putih').length
-                  : undefined
-              }
-              pemenang={hasilAkhir?.timMenang ?? null}
-              theme="chalk"
-            />
-
-            <button
-              type="button"
-              onClick={handleKeluar}
-              className="portal-btn red w-full py-3.5 text-sm font-black cursor-pointer"
-            >
-              Kembali ke Halaman Awal
-            </button>
-          </div>
-        </div>
-
-        <div className="portal-ledge" aria-hidden="true">
-          <svg viewBox="0 0 1440 80" preserveAspectRatio="none">
-            <path d="M0 34C240 6 480 62 720 34S1200 6 1440 34V80H0z" fill="#a6783c" />
-            <path d="M0 56C260 34 520 80 760 56S1220 36 1440 58V80H0z" fill="#8d6444" />
-          </svg>
-        </div>
-      </div>
+      <MainTarikTambang
+        token={tokenInput}
+        nama={namaPeserta}
+        sessionId={sessionId}
+        pesertaId={pesertaId}
+        pesertaSecret={panjatSecret}
+        templateJudul={templateJudul}
+        config={tarikJoinData?.config}
+        initialStatus={stage === 'PLAYING' ? 'jalan' : stage === 'SELESAI' ? 'selesai' : 'lobi'}
+        initialTim={tarikJoinData?.tim}
+        initialTaliPosition={tarikJoinData?.taliPosition}
+        initialSkorMerah={tarikJoinData?.skorMerah}
+        initialSkorPutih={tarikJoinData?.skorPutih}
+        initialMatchEndsAt={tarikJoinData?.matchEndsAt}
+        initialDaftarPeserta={tarikJoinData?.daftarPeserta}
+        initialSoalAktif={tarikJoinData?.soalAktif}
+        initialPowerUpTim={tarikJoinData?.powerUpTim}
+        initialPesertaStat={tarikJoinData?.pesertaStat}
+        initialHasil={tarikJoinData?.hasil}
+        onKeluar={handleKeluar}
+      />
     );
   }
 

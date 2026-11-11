@@ -1,18 +1,13 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router';
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
 import { apiRequest } from '../../lib/api';
-import { VisualisasiTali } from './VisualisasiTali';
-import KarakterTarikTambang from '../siswa/KarakterTarikTambang';
+import { extractApiErrorMessage } from '../../components';
 import {
-  Clock,
-  Flame,
-  HelpCircle,
-  Home,
-  Loader2,
-  RotateCcw,
-  Trophy,
-  Zap,
-} from 'lucide-react';
+  AnalisisHeatmapData,
+  BalapHeatmapMatrix,
+} from '../../components/BalapKarungStadium';
+import { TarikTambangStadium } from '../../components/TarikTambangStadium';
+import { CheckCircle2, HelpCircle, Home, Loader2, RotateCcw, Trophy, XCircle } from 'lucide-react';
 
 interface PemainStat {
   id?: string;
@@ -20,12 +15,19 @@ interface PemainStat {
   tim: 'merah' | 'putih';
   totalBenar: number;
   totalSalah: number;
-  jumlahJawab: number;
   akurasiPersen: number;
   streakTertinggi: number;
-  totalBonusStreak: number;
-  rataRataWaktuJawabMs: number;
-  jumlahPowerUpDipakai?: number;
+  rataRataWaktuJawabMs?: number;
+}
+
+interface RingkasanTim {
+  id: 'merah' | 'putih';
+  nama: string;
+  warna: string;
+  jumlahAnggota: number;
+  totalBenar: number;
+  totalSalah: number;
+  akurasiPersen: number;
 }
 
 interface HasilTarikLaporan {
@@ -38,38 +40,35 @@ interface HasilTarikLaporan {
   namaTim1?: string;
   namaTim2?: string;
   posisiAkhir: number;
-  jumlahRonde?: number;
   skorMerah: number;
   skorPutih: number;
-  akurasiTim1?: number;
-  akurasiTim2?: number;
   akurasiTim1Persen?: number;
   akurasiTim2Persen?: number;
-  totalBenar: number;
-  totalSalah: number;
-  bonusStreakTim1?: number;
-  bonusStreakTim2?: number;
-  totalBonusStreakTim1?: number;
-  totalBonusStreakTim2?: number;
-  totalBonusKekompakanTim1?: number;
-  totalBonusKekompakanTim2?: number;
-  penggunaanPowerUp?: {
-    tim1: Array<{ ronde: number; tipe: string; nama?: string }>;
-    tim2: Array<{ ronde: number; tipe: string; nama?: string }>;
+  totalSoalDijawab?: number;
+  ringkasanTim?: RingkasanTim[];
+  laporanSiswa?: PemainStat[];
+  pemain1Stat?: {
+    nama: string;
+    totalBenar: number;
+    totalSalah: number;
+    akurasiPersen: number;
+    streakTertinggi: number;
   };
-  penggunaanPowerUpTim1?: Array<{ ronde: number; tipe: string }>;
-  penggunaanPowerUpTim2?: Array<{ ronde: number; tipe: string }>;
-  durasiPermainanMs?: number;
-  riwayatTali?: Array<{ ronde: number; posisi: number; perubahan: number }>;
-  statistikPemain?: PemainStat[];
-}
-
-function formatDurasi(ms?: number): string {
-  if (!ms || ms <= 0) return '0d';
-  const totalDetik = Math.round(ms / 1000);
-  const menit = Math.floor(totalDetik / 60);
-  const detik = totalDetik % 60;
-  return menit > 0 ? `${menit}m ${detik}d` : `${detik}d`;
+  pemain2Stat?: {
+    nama: string;
+    totalBenar: number;
+    totalSalah: number;
+    akurasiPersen: number;
+    streakTertinggi: number;
+  };
+  questionStats?: Array<{
+    questionId: string;
+    nomorSoal: number;
+    teksSoal: string;
+    jumlahBenar: number;
+    jumlahSalah: number;
+  }>;
+  analisisHeatmap?: AnalisisHeatmapData;
 }
 
 export default function HasilSolo() {
@@ -86,13 +85,13 @@ export default function HasilSolo() {
       try {
         const res = await apiRequest<{ hasil: HasilTarikLaporan }>(`/sesi/${id}/hasil`);
         setHasil(res.hasil);
-      } catch (err: any) {
-        setErrorPesan(err.pesan || 'Gagal memuat hasil pertandingan.');
+      } catch (err: unknown) {
+        setErrorPesan(extractApiErrorMessage(err, 'Gagal memuat hasil pertandingan.'));
       } finally {
         setLoading(false);
       }
     }
-    loadHasil();
+    void loadHasil();
   }, [id]);
 
   const handleMainLagi = async () => {
@@ -101,21 +100,21 @@ export default function HasilSolo() {
       setIsMainLagiLoading(true);
       const res = await apiRequest<{ sessionId: string }>(`/sesi/${id}/main-lagi`, {
         method: 'POST',
-        body: JSON.stringify({ autoStart: hasil?.playMode === 'SOLO' }),
+        body: JSON.stringify({ autoStart: false }),
       });
       navigate(`/guru/sesi/${res.sessionId}`);
-    } catch (err: any) {
-      alert(err.pesan || 'Gagal membuat sesi main lagi.');
+    } catch (err: unknown) {
+      setErrorPesan(extractApiErrorMessage(err, 'Gagal membuat sesi main lagi.'));
       setIsMainLagiLoading(false);
     }
   };
 
   if (loading) {
     return (
-      <div className="portal-bg relative">
-        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-[#f4ecd8]">
-          <Loader2 className="w-10 h-10 animate-spin text-[#f2c230] mb-4" />
-          <p className="portal-cv text-3xl text-[#f4ecd8]">Menyusun Laporan Pertandingan...</p>
+      <div className="tt-festival flex items-center justify-center min-h-screen p-6 text-center">
+        <div className="tt-panel max-w-md w-full flex flex-col items-center gap-3">
+          <Loader2 className="w-10 h-10 animate-spin text-[#e2312d]" />
+          <h2 className="text-xl text-[#2b2a4a]">Menyusun Laporan Pertandingan...</h2>
         </div>
       </div>
     );
@@ -123,16 +122,12 @@ export default function HasilSolo() {
 
   if (errorPesan || !hasil) {
     return (
-      <div className="portal-bg min-h-screen flex flex-col items-center justify-center p-6 text-center">
-        <div className="portal-card p-8 max-w-md w-full border-2 border-[#e0d5b8] shadow-[0_6px_0_rgba(0,0,0,0.2)] rounded-3xl">
-          <HelpCircle className="w-12 h-12 text-[#c8362f] mx-auto mb-4" />
-          <h2 className="portal-cv text-3xl text-[#1d3b2e] mb-2">Laporan Tidak Tersedia</h2>
-          <p className="text-sm text-[#6b7d6c] mb-6">{errorPesan}</p>
-          <button
-            type="button"
-            className="portal-btn red w-full"
-            onClick={() => navigate('/guru')}
-          >
+      <div className="tt-festival flex items-center justify-center min-h-screen p-6 text-center">
+        <div className="tt-panel max-w-md w-full space-y-4">
+          <HelpCircle className="w-12 h-12 text-[#e2312d] mx-auto" />
+          <h2 className="text-xl text-[#2b2a4a]">Laporan Tidak Tersedia</h2>
+          <p className="text-sm text-[#6b6a85]">{errorPesan}</p>
+          <button type="button" className="tt-btn" onClick={() => navigate('/guru')}>
             Kembali ke Dashboard
           </button>
         </div>
@@ -143,255 +138,139 @@ export default function HasilSolo() {
   const namaTim1 = hasil.konfigurasi?.namaTim1 || hasil.namaTim1 || 'Tim Merah';
   const namaTim2 = hasil.konfigurasi?.namaTim2 || hasil.namaTim2 || 'Tim Biru';
   const batasMenang = hasil.konfigurasi?.batasMenang ?? 100;
-  const akurasi1 = hasil.akurasiTim1 ?? hasil.akurasiTim1Persen ?? 0;
-  const akurasi2 = hasil.akurasiTim2 ?? hasil.akurasiTim2Persen ?? 0;
-  const streak1 = hasil.totalBonusStreakTim1 ?? hasil.bonusStreakTim1 ?? 0;
-  const streak2 = hasil.totalBonusStreakTim2 ?? hasil.bonusStreakTim2 ?? 0;
-  const powerUp1Count =
-    hasil.penggunaanPowerUp?.tim1?.length ?? hasil.penggunaanPowerUpTim1?.length ?? 0;
-  const powerUp2Count =
-    hasil.penggunaanPowerUp?.tim2?.length ?? hasil.penggunaanPowerUpTim2?.length ?? 0;
   const labelPemenang =
     hasil.timMenang === 'merah'
-      ? `${namaTim1} Menang!`
+      ? `${namaTim1} Memenangkan Lomba!`
       : hasil.timMenang === 'putih'
-      ? `${namaTim2} Menang!`
-      : 'Pertandingan Seri!';
-
-  const bannerBg =
-    hasil.timMenang === 'merah'
-      ? 'bg-gradient-to-br from-[#c8362f] to-[#961e19] text-white'
-      : hasil.timMenang === 'putih'
-      ? 'bg-gradient-to-br from-[#2563eb] to-[#1e3a8a] text-white'
-      : 'bg-gradient-to-br from-[#b45309] to-[#78350f] text-white';
+        ? `${namaTim2} Memenangkan Lomba!`
+        : 'Pertandingan Berakhir Seri!';
 
   return (
-    <div className="portal-bg min-h-screen px-4 py-6 sm:px-8 sm:py-8">
-      <div className="max-w-5xl mx-auto space-y-6">
-        {/* Banner Pemenang */}
-        <div className={`rounded-3xl p-6 sm:p-8 shadow-[0_8px_0_rgba(0,0,0,0.22)] ${bannerBg}`}>
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+    <div className="tt-festival">
+      <TarikTambangStadium
+        title={hasil.templateJudul || 'Tarik Tambang Kuis'}
+        subtitle={hasil.playMode === 'MULTIPLAYER' ? 'LAPORAN MULTIPLAYER' : 'LAPORAN SOLO 1 VS 1'}
+        statusLabel="SELESAI"
+        timeText="0:00"
+        taliPosition={hasil.posisiAkhir}
+        batasMenang={batasMenang}
+        namaTim1={namaTim1}
+        namaTim2={namaTim2}
+        skorMerah={hasil.skorMerah}
+        skorPutih={hasil.skorPutih}
+        leftPullerCount={
+          hasil.playMode === 'MULTIPLAYER'
+            ? Math.max(1, hasil.ringkasanTim?.find((t) => t.id === 'merah')?.jumlahAnggota || 1)
+            : 1
+        }
+        rightPullerCount={
+          hasil.playMode === 'MULTIPLAYER'
+            ? Math.max(1, hasil.ringkasanTim?.find((t) => t.id === 'putih')?.jumlahAnggota || 1)
+            : 1
+        }
+        variant={hasil.playMode === 'MULTIPLAYER' ? 'multi' : 'solo'}
+        winnerSide={hasil.timMenang}
+        onBack={() => navigate('/guru')}
+      />
+
+      <main className="tt-wrap">
+        <div className="tt-panel space-y-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-xs font-extrabold uppercase tracking-wider mb-2">
-                <Trophy className="w-4 h-4 text-[#f2c230]" />
-                <span>
-                  Hasil Akhir {hasil.playMode === 'MULTIPLAYER' ? 'Team Multiplayer' : 'Solo 1 vs 1'}
-                </span>
-              </div>
-              <h1 className="portal-cv text-4xl sm:text-5xl text-white">{labelPemenang}</h1>
-              <p className="text-sm sm:text-base font-bold opacity-90 mt-1">
-                {hasil.templateJudul} • Posisi Akhir Tali:{' '}
-                {hasil.posisiAkhir > 0 ? `+${hasil.posisiAkhir}` : hasil.posisiAkhir} (Skala -
-                {batasMenang}..+{batasMenang})
+              <span className="tt-chip gold inline-flex items-center gap-1.5 mb-2">
+                <Trophy className="w-3.5 h-3.5" /> Hasil Pertandingan
+              </span>
+              <h2 className="text-2xl sm:text-3xl text-[#2b2a4a]">{labelPemenang}</h2>
+              <p className="text-sm text-[#6b6a85] mt-1">
+                Posisi Akhir Tali:{' '}
+                <strong>{hasil.posisiAkhir > 0 ? `+${hasil.posisiAkhir}` : hasil.posisiAkhir}</strong>{' '}
+                • Target ±{batasMenang}
               </p>
             </div>
 
-            <div className="flex items-end gap-3 bg-white/15 px-5 py-3 rounded-2xl">
-              <KarakterTarikTambang
-                tim="merah"
-                pose="podium"
-                ekspresi={
-                  hasil.timMenang === 'merah'
-                    ? 'menang'
-                    : hasil.timMenang === 'seri'
-                    ? 'bahagia'
-                    : 'kalah'
-                }
-                podiumRank={hasil.timMenang === 'merah' ? 1 : 2}
-                size="md"
-              />
-              <KarakterTarikTambang
-                tim="putih"
-                pose="podium"
-                ekspresi={
-                  hasil.timMenang === 'putih'
-                    ? 'menang'
-                    : hasil.timMenang === 'seri'
-                    ? 'bahagia'
-                    : 'kalah'
-                }
-                podiumRank={hasil.timMenang === 'putih' ? 1 : 2}
-                size="md"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Arena Posisi Tali Akhir */}
-        <VisualisasiTali
-          posisi={hasil.posisiAkhir}
-          batasMenang={batasMenang}
-          skorMerah={hasil.skorMerah}
-          skorPutih={hasil.skorPutih}
-          namaTim1={namaTim1}
-          namaTim2={namaTim2}
-          pemenang={hasil.timMenang}
-          theme="chalk"
-        />
-
-        {/* Ringkasan Statistik Pertandingan */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-[#fbf6e9] rounded-2xl p-4 border-2 border-[#e0d5b8]">
-            <div className="text-xs font-bold text-[#6b7d6c]">Jumlah Ronde</div>
-            <div className="text-2xl font-black text-[#1d3b2e] mt-1">
-              {hasil.jumlahRonde ?? Math.max(1, (hasil.riwayatTali?.length || 1) - 1)}
-            </div>
-          </div>
-
-          <div className="bg-[#fbf6e9] rounded-2xl p-4 border-2 border-[#e0d5b8]">
-            <div className="text-xs font-bold text-[#6b7d6c] flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5" /> Durasi
-            </div>
-            <div className="text-2xl font-black text-[#1d3b2e] mt-1">
-              {formatDurasi(hasil.durasiPermainanMs)}
-            </div>
-          </div>
-
-          <div className="bg-[#fbf6e9] rounded-2xl p-4 border-2 border-[#d9544c]/60">
-            <div className="text-xs font-bold text-[#c8362f]">Akurasi {namaTim1}</div>
-            <div className="text-2xl font-black text-[#c8362f] mt-1">{akurasi1}%</div>
-            <div className="text-[11px] font-bold text-[#6b7d6c]">
-              Bonus Streak: +{streak1}
-              {hasil.playMode === 'MULTIPLAYER'
-                ? ` • Kompak: +${hasil.totalBonusKekompakanTim1 ?? 0}`
-                : ''}
-            </div>
-          </div>
-
-          <div className="bg-[#fbf6e9] rounded-2xl p-4 border-2 border-[#3b82f6]/60">
-            <div className="text-xs font-bold text-[#2563eb]">Akurasi {namaTim2}</div>
-            <div className="text-2xl font-black text-[#2563eb] mt-1">{akurasi2}%</div>
-            <div className="text-[11px] font-bold text-[#6b7d6c]">
-              Bonus Streak: +{streak2}
-              {hasil.playMode === 'MULTIPLAYER'
-                ? ` • Kompak: +${hasil.totalBonusKekompakanTim2 ?? 0}`
-                : ''}
-            </div>
-          </div>
-        </div>
-
-        {/* Power-Up & Riwayat Pergerakan Tali */}
-        <div className="bg-[#fbf6e9] rounded-3xl p-6 border-2 border-[#e0d5b8] space-y-4">
-          <h2 className="text-lg font-black text-[#1d3b2e] flex items-center gap-2">
-            <span>Riwayat Pergerakan Tali &amp; Power-Up</span>
-          </h2>
-
-          <div className="flex flex-wrap gap-2">
-            {(hasil.riwayatTali || []).map((item, idx) => (
-              <div
-                key={idx}
-                className="px-3 py-1.5 rounded-xl bg-[#f4ecd9] border border-[#d6c8a4] text-xs font-extrabold text-[#1d3b2e]"
+            <div className="flex flex-wrap gap-2.5">
+              <button
+                type="button"
+                disabled={isMainLagiLoading}
+                onClick={handleMainLagi}
+                className="tt-btn sm"
               >
-                R{item.ronde}:{' '}
-                <span
-                  className={
-                    item.posisi > 0
-                      ? 'text-[#c8362f]'
-                      : item.posisi < 0
-                      ? 'text-[#2563eb]'
-                      : 'text-[#b45309]'
-                  }
-                >
-                  {item.posisi > 0 ? `+${item.posisi}` : item.posisi}
-                </span>
-                {item.perubahan !== 0 && (
-                  <span className="ml-1 text-[10px] opacity-75">
-                    ({item.perubahan > 0 ? `+${item.perubahan}` : item.perubahan})
-                  </span>
-                )}
+                <RotateCcw className="w-4 h-4" /> Main lagi
+              </button>
+              <button type="button" onClick={() => navigate('/guru')} className="tt-btn s sm">
+                <Home className="w-4 h-4" /> Dashboard
+              </button>
+            </div>
+          </div>
+
+          <div className="tt-cards">
+            <div className={`tt-rc ${hasil.timMenang === 'merah' ? 'w' : ''}`}>
+              <span className="tt-pl2">{hasil.timMenang === 'merah' ? 'JUARA 1' : 'POSISI 2'}</span>
+              <h3 className="text-lg text-[#e2312d] mt-1.5">{namaTim1}</h3>
+              <div className="tt-big text-[#2b2a4a]">
+                {hasil.pemain1Stat?.akurasiPersen ??
+                  hasil.ringkasanTim?.find((t) => t.id === 'merah')?.akurasiPersen ??
+                  hasil.akurasiTim1Persen ??
+                  0}
+                %
               </div>
-            ))}
+              <small className="text-xs font-bold text-[#6b6a85]">Akurasi Tim</small>
+            </div>
+
+            <div className={`tt-rc ${hasil.timMenang === 'putih' ? 'w' : ''}`}>
+              <span className="tt-pl2">{hasil.timMenang === 'putih' ? 'JUARA 1' : 'POSISI 2'}</span>
+              <h3 className="text-lg text-[#1d8fe0] mt-1.5">{namaTim2}</h3>
+              <div className="tt-big text-[#2b2a4a]">
+                {hasil.pemain2Stat?.akurasiPersen ??
+                  hasil.ringkasanTim?.find((t) => t.id === 'putih')?.akurasiPersen ??
+                  hasil.akurasiTim2Persen ??
+                  0}
+                %
+              </div>
+              <small className="text-xs font-bold text-[#6b6a85]">Akurasi Tim</small>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-bold">
-            <div className="p-3 rounded-xl bg-[#fde8e7] text-[#961e19] flex items-center gap-2">
-              <Zap className="w-4 h-4 shrink-0" />
-              <span>
-                Power-Up {namaTim1}: {powerUp1Count}x digunakan
-              </span>
+          {hasil.analisisHeatmap && (
+            <div className="pt-2 border-t border-dashed border-[#f0dfb4]">
+              <BalapHeatmapMatrix heatmap={hasil.analisisHeatmap} />
             </div>
-            <div className="p-3 rounded-xl bg-[#dbeafe] text-[#1e3a8a] flex items-center gap-2">
-              <Zap className="w-4 h-4 shrink-0" />
-              <span>
-                Power-Up {namaTim2}: {powerUp2Count}x digunakan
-              </span>
-            </div>
-          </div>
-        </div>
+          )}
 
-        {/* Tabel Statistik Pemain */}
-        {hasil.statistikPemain && hasil.statistikPemain.length > 0 && (
-          <div className="bg-[#fbf6e9] rounded-3xl p-6 border-2 border-[#e0d5b8] overflow-x-auto">
-            <h2 className="text-lg font-black text-[#1d3b2e] mb-4 flex items-center gap-2">
-              <Flame className="w-5 h-5 text-[#c8362f]" />
-              <span>Statistik Siswa</span>
-            </h2>
-            <table className="w-full text-sm text-left">
-              <thead>
-                <tr className="border-b-2 border-[#e0d5b8] text-xs font-extrabold uppercase text-[#6b7d6c]">
-                  <th className="py-2 pr-3">Nama</th>
-                  <th className="py-2 pr-3">Tim</th>
-                  <th className="py-2 pr-3">Benar / Salah</th>
-                  <th className="py-2 pr-3">Akurasi</th>
-                  <th className="py-2 pr-3">Streak Tertinggi</th>
-                  <th className="py-2">Bonus Streak</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#e0d5b8] font-bold text-[#1d3b2e]">
-                {hasil.statistikPemain.map((p, idx) => (
-                  <tr key={p.id || idx}>
-                    <td className="py-2.5 pr-3">{p.nama}</td>
-                    <td className="py-2.5 pr-3">
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-xs font-black ${
-                          p.tim === 'merah'
-                            ? 'bg-[#fde8e7] text-[#c8362f]'
-                            : 'bg-[#dbeafe] text-[#2563eb]'
-                        }`}
-                      >
-                        {p.tim === 'merah' ? namaTim1 : namaTim2}
-                      </span>
-                    </td>
-                    <td className="py-2.5 pr-3">
-                      <span className="text-emerald-700">{p.totalBenar}</span> /{' '}
-                      <span className="text-red-600">{p.totalSalah}</span>
-                    </td>
-                    <td className="py-2.5 pr-3">{p.akurasiPersen}%</td>
-                    <td className="py-2.5 pr-3">{p.streakTertinggi}</td>
-                    <td className="py-2.5">+{p.totalBonusStreak}</td>
+          {hasil.questionStats && hasil.questionStats.length > 0 && (
+            <div className="overflow-x-auto border-2 border-[#f0dfb4] rounded-2xl bg-[#fffdf6]">
+              <table className="w-full text-left text-xs sm:text-sm">
+                <thead className="bg-[#fff3d6] text-[#2b2a4a] font-extrabold">
+                  <tr>
+                    <th className="p-3">#</th>
+                    <th className="p-3">Pertanyaan</th>
+                    <th className="p-3 text-center">Benar</th>
+                    <th className="p-3 text-center">Salah</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Tombol Navigasi Bawah */}
-        <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
-          <button
-            type="button"
-            disabled={isMainLagiLoading}
-            onClick={handleMainLagi}
-            className="px-6 py-3.5 rounded-2xl bg-[#c8362f] hover:bg-[#b02b24] text-white font-black inline-flex items-center gap-2 shadow-[0_4px_0_#7f1d1d]"
-          >
-            {isMainLagiLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <RotateCcw className="w-4 h-4" />
-            )}
-            <span>Main Lagi (Aturan Sama)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate('/guru')}
-            className="px-6 py-3.5 rounded-2xl bg-[#fbf6e9] hover:bg-white text-[#1d3b2e] font-black border-2 border-[#d6c8a4] inline-flex items-center gap-2 shadow"
-          >
-            <Home className="w-4 h-4" />
-            <span>Kembali ke Dashboard</span>
-          </button>
+                </thead>
+                <tbody>
+                  {hasil.questionStats.map((q) => (
+                    <tr key={q.questionId} className="border-t border-[#f0dfb4]">
+                      <td className="p-3 font-extrabold">{q.nomorSoal}</td>
+                      <td className="p-3 font-semibold">{q.teksSoal}</td>
+                      <td className="p-3 text-center font-extrabold text-[#1f9d55]">
+                        <span className="inline-flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> {q.jumlahBenar}
+                        </span>
+                      </td>
+                      <td className="p-3 text-center font-extrabold text-[#d63b3b]">
+                        <span className="inline-flex items-center gap-1">
+                          <XCircle className="w-3.5 h-3.5" /> {q.jumlahSalah}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      </div>
+      </main>
     </div>
   );
 }
