@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router';
 import { getSocket } from '../../lib/socket';
-import { Button, Card } from '../../components';
 import { soundEffects } from '../../lib/soundEffects';
 import MainKerupuk from './MainKerupuk';
 import MainPanjatPinang from './MainPanjatPinang';
 import MainBalapKarung from './MainBalapKarung';
+import KarakterTarikTambang from './KarakterTarikTambang';
 import {
   Users,
   Trophy,
@@ -1198,73 +1198,89 @@ export default function MainSiswa() {
   // ==========================================
   if (stage === 'LOBBY') {
     return (
-      <div className="min-h-screen bg-slate-900 text-white flex flex-col justify-between p-4 sm:p-6">
-        {/* Header */}
-        <header className="flex justify-between items-center pb-4 border-b border-slate-800">
-          <div>
-            <span className="text-xs font-bold text-indigo-400 tracking-wider uppercase">
-              PIN SESI: {tokenInput}
-            </span>
-            <h2 className="text-lg font-bold text-white truncate max-w-[220px] sm:max-w-md">
-              {templateJudul || 'Tarik Tambang Discere'}
-            </h2>
-          </div>
-          <button
-            onClick={handleKeluar}
-            className="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition-colors"
-            title="Keluar"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
-        </header>
-
-        {/* Content Lobi */}
-        <main className="my-auto py-8 text-center max-w-md mx-auto w-full">
-          {/* Avatar / Icon Animasi */}
-          <div className="relative inline-block mb-6">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-indigo-600 to-indigo-400 flex items-center justify-center shadow-xl shadow-indigo-500/20 mx-auto animate-pulse">
-              <Users className="w-12 h-12 text-white" />
+      <div className="portal-bg min-h-screen flex flex-col justify-between select-none">
+        <div className="max-w-lg mx-auto w-full p-4 sm:p-6 flex-1 flex flex-col justify-between">
+          {/* Header */}
+          <header className="portal-card flex justify-between items-center p-4 rounded-2xl border-2 border-[#e0d5b8] shadow-[0_4px_0_rgba(0,0,0,0.16)]">
+            <div className="min-w-0">
+              <span className="inline-block text-[11px] font-black text-[#f2c230] bg-[#1d3b2e] px-2.5 py-0.5 rounded-full tracking-wider uppercase mb-1">
+                PIN SESI: {tokenInput}
+              </span>
+              <h2 className="text-base font-extrabold text-[#1d3b2e] truncate max-w-[220px] sm:max-w-sm">
+                {templateJudul || 'Tarik Tambang Discere'}
+              </h2>
             </div>
-            <span className="absolute bottom-0 right-0 w-6 h-6 bg-emerald-500 border-4 border-slate-900 rounded-full"></span>
-          </div>
+            <button
+              type="button"
+              onClick={handleKeluar}
+              className="p-2.5 rounded-xl bg-[#f4ecd9] border border-[#e0d5b8] text-[#1d3b2e] hover:bg-[#fde8e7] hover:text-[#c8362f] transition-colors cursor-pointer shrink-0"
+              title="Keluar"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          </header>
 
-          <h3 className="text-2xl font-black text-white mb-2">
-            Halo, {namaPeserta}! 👋
-          </h3>
-          <p className="text-slate-400 text-sm mb-6">
-            Kamu sudah masuk ke ruang permainan. Tunggu Bapak/Ibu Guru memulai lomba di layar utama kelas.
-          </p>
-
-          {/* Status Pemain Terhubung */}
-          <div className="p-4 bg-slate-800/80 border border-slate-700 rounded-2xl mb-6">
-            <div className="flex items-center justify-center gap-2 text-indigo-400 font-semibold mb-3">
-              <Sparkles className="w-5 h-5" />
-              <span>{totalPeserta} Siswa Sudah Bergabung</span>
-            </div>
-            <div className="flex flex-wrap justify-center gap-2 max-h-36 overflow-y-auto p-1">
-              {daftarPeserta.map((p) => (
-                <span
-                  key={p.id}
-                  className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                    p.id === pesertaId
-                      ? 'bg-indigo-600 text-white font-bold ring-2 ring-indigo-400'
-                      : 'bg-slate-700 text-slate-300'
-                  }`}
-                >
-                  {p.nama} {p.id === pesertaId && '(Kamu)'}
+          {/* Content Lobi */}
+          <main className="my-auto py-6 text-center w-full">
+            <div className="portal-card p-6 sm:p-7 rounded-3xl border-2 border-[#e0d5b8] shadow-[0_8px_0_rgba(0,0,0,0.18)] space-y-5">
+              {/* Karakter 2D Duel Merah vs Putih Siap Berlomba */}
+              <div className="flex items-center justify-center gap-4 bg-gradient-to-r from-[#fbf0ee] via-[#fffdf6] to-[#edf4fb] border border-[#e0d5b8] rounded-2xl py-4 px-3">
+                <KarakterTarikTambang tim="merah" pose="siap" ekspresi="semangat" size="md" />
+                <span className="px-3 py-1 rounded-full bg-[#1d3b2e] text-[#f2c230] font-black text-xs shadow-xs">
+                  VS
                 </span>
-              ))}
+                <KarakterTarikTambang tim="putih" pose="siap" ekspresi="semangat" size="md" />
+              </div>
+
+              <div>
+                <h3 className="portal-cv text-3xl sm:text-4xl text-[#1d3b2e] mb-1">
+                  Halo, {namaPeserta}! 👋
+                </h3>
+                <p className="text-[#6b7d6c] text-sm leading-relaxed">
+                  Kamu sudah masuk ke ruang permainan. Tunggu Bapak/Ibu Guru memulai lomba di layar utama kelas.
+                </p>
+              </div>
+
+              {/* Status Pemain Terhubung */}
+              <div className="p-4 bg-[#f4ecd9] border border-[#e0d5b8] rounded-2xl space-y-3">
+                <div className="flex items-center justify-center gap-2 text-[#1d3b2e] font-extrabold text-sm">
+                  <Users className="w-4 h-4 text-[#c8362f]" />
+                  <Sparkles className="w-4 h-4 text-[#b45309]" />
+                  <span>{totalPeserta} Siswa Sudah Bergabung</span>
+                </div>
+                <div className="flex flex-wrap justify-center gap-2 max-h-36 overflow-y-auto p-1">
+                  {daftarPeserta.map((p) => (
+                    <span
+                      key={p.id}
+                      className={`text-xs px-3 py-1 rounded-full font-bold ${
+                        p.id === pesertaId
+                          ? 'bg-[#c8362f] text-white shadow-xs'
+                          : 'bg-white border border-[#e0d5b8] text-[#1d3b2e]'
+                      }`}
+                    >
+                      {p.nama} {p.id === pesertaId && '(Kamu)'}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="text-xs font-semibold text-[#6b7d6c]">
+                Tim Merah atau Tim Putih akan dibagi otomatis dan adil saat lomba dimulai.
+              </div>
             </div>
-          </div>
+          </main>
 
-          <div className="text-xs text-slate-500">
-            Tim akan ditentukan secara otomatis dan adil saat lomba dimulai.
-          </div>
-        </main>
+          <footer className="text-center text-xs font-bold text-[#f4ecd8]/75 py-1">
+            Discere • Belajar Sambil Berlomba
+          </footer>
+        </div>
 
-        <footer className="text-center text-xs text-slate-600 py-2">
-          Discere • Belajar Sambil Berlomba
-        </footer>
+        <div className="portal-ledge" aria-hidden="true">
+          <svg viewBox="0 0 1440 80" preserveAspectRatio="none">
+            <path d="M0 34C240 6 480 62 720 34S1200 6 1440 34V80H0z" fill="#a6783c" />
+            <path d="M0 56C260 34 520 80 760 56S1220 36 1440 58V80H0z" fill="#8d6444" />
+          </svg>
+        </div>
       </div>
     );
   }
@@ -1274,179 +1290,200 @@ export default function MainSiswa() {
   // ==========================================
   if (stage === 'PLAYING') {
     const isMerah = tim === 'merah';
-    const timColor = isMerah ? 'bg-red-600' : 'bg-blue-600';
-    const timTextColor = isMerah ? 'text-red-400' : 'text-blue-400';
+    const selectedTeamColor = isMerah
+      ? 'bg-[#c8362f] border-[#8f1e19]'
+      : 'bg-[#1f4a6b] border-[#122e44]';
+    const ropePersen = Math.max(0, Math.min(100, ((taliPosition + 8) / 16) * 100));
 
     return (
-      <div className="min-h-screen bg-slate-900 text-white flex flex-col justify-between p-4 sm:p-6">
-        {/* Top Bar: Tim Badge, Soal Number, Timer */}
-        <header className="space-y-3">
-          <div className="flex justify-between items-center">
-            {/* Tim Badge */}
-            <div className="flex items-center gap-2">
-              <span
-                className={`w-3.5 h-3.5 rounded-full ${
-                  isMerah ? 'bg-red-500 ring-4 ring-red-500/20' : 'bg-blue-500 ring-4 ring-blue-500/20'
-                }`}
-              />
-              <span className={`text-sm font-black uppercase tracking-wider ${timTextColor}`}>
-                TIM {tim?.toUpperCase()}
-              </span>
-            </div>
-
-            {/* Soal Progress */}
-            <div className="text-xs font-semibold text-slate-400 bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700">
-              Soal {soalAktif ? soalAktif.nomorSoal : '-'} / {soalAktif ? soalAktif.totalSoal : '-'}
-            </div>
-
-            {/* Timer 15s */}
-            <div
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-black text-sm ${
-                sisaDetik <= 5
-                  ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-bounce'
-                  : 'bg-slate-800 text-indigo-400 border border-slate-700'
-              }`}
-            >
-              <Clock className="w-4 h-4" />
-              <span>{sisaDetik}s</span>
-            </div>
-          </div>
-
-          {/* Timer Progress Bar */}
-          <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-            <div
-              className={`h-full transition-all duration-300 ease-linear ${
-                sisaDetik <= 5 ? 'bg-rose-500' : isMerah ? 'bg-red-500' : 'bg-blue-500'
-              }`}
-              style={{ width: `${Math.min(100, (sisaDetik / 15) * 100)}%` }}
-            />
-          </div>
-        </header>
-
-        {/* Question Area */}
-        <main className="my-auto py-4 max-w-lg mx-auto w-full space-y-5">
-          {/* Teks Pertanyaan */}
-          <Card className="p-5 sm:p-6 bg-slate-800/90 border-slate-700 rounded-2xl shadow-xl">
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-              Pertanyaan:
-            </div>
-            <p className="text-lg sm:text-xl font-bold text-white leading-snug">
-              {soalAktif?.teks}
-            </p>
-          </Card>
-
-          {/* Opsi Jawaban (A, B, C) */}
-          <div className="space-y-3">
-            {(['A', 'B', 'C'] as const).map((opsiKey) => {
-              const teksOpsi =
-                opsiKey === 'A'
-                  ? soalAktif?.opsiA
-                  : opsiKey === 'B'
-                  ? soalAktif?.opsiB
-                  : soalAktif?.opsiC;
-
-              const isSelected = jawabanDipilih === opsiKey;
-              const isLocked = sudahKirim;
-
-              return (
-                <button
-                  key={opsiKey}
-                  disabled={isLocked}
-                  onClick={() => handlePilihJawaban(opsiKey)}
-                  className={`w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-150 flex items-center justify-between ${
-                    isSelected
-                      ? `${timColor} border-white text-white shadow-lg scale-[1.01]`
-                      : isLocked
-                      ? 'bg-slate-800/50 border-slate-800 text-slate-500 opacity-60 cursor-not-allowed'
-                      : 'bg-slate-800 border-slate-700 text-white hover:border-indigo-500 hover:bg-slate-750 active:scale-[0.99]'
+      <div className="portal-bg min-h-screen flex flex-col justify-between p-4 sm:p-6 select-none">
+        <div className="max-w-lg mx-auto w-full flex-1 flex flex-col justify-between space-y-4">
+          {/* Top Bar: Karakter & Tim Badge, Soal Number, Timer */}
+          <header className="portal-card rounded-2xl p-3.5 sm:p-4 border-2 border-[#e0d5b8] shadow-[0_4px_0_rgba(0,0,0,0.16)] space-y-2.5">
+            <div className="flex justify-between items-center gap-2">
+              <div className="flex items-center gap-2">
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden border ${
+                    isMerah
+                      ? 'bg-[#fbf0ee] border-[#d9544c]/60'
+                      : 'bg-[#edf4fb] border-[#2b6cb0]/60'
                   }`}
                 >
-                  <div className="flex items-center gap-3 pr-2">
-                    <span
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm shrink-0 ${
-                        isSelected
-                          ? 'bg-white text-slate-900'
-                          : 'bg-slate-700 text-slate-300'
-                      }`}
-                    >
-                      {opsiKey}
-                    </span>
-                    <span className="text-base sm:text-lg">{teksOpsi}</span>
-                  </div>
-                  {isSelected && <CheckCircle2 className="w-6 h-6 shrink-0 text-white" />}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Status Setelah Mengirim Jawaban */}
-          {sudahKirim && !feedback?.tampil && (
-            <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-center text-indigo-300 text-sm animate-pulse">
-              Jawabanmu telah tersimpan! Menunggu waktu soal berakhir...
-            </div>
-          )}
-
-          {/* Feedback Hasil Jawaban Setelah Waktu Habis */}
-          {feedback?.tampil && (
-            <div
-              className={`p-4 rounded-2xl border text-sm space-y-1.5 transition-all ${
-                feedback.benar
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                  : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
-              }`}
-            >
-              <div className="flex items-center gap-2 font-bold text-base">
-                {feedback.benar ? (
-                  <>
-                    <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                    Hebat! Jawabanmu Tepat! (+1 Poin Tim)
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="w-5 h-5 text-rose-400" />
-                    Jawabanmu Belum Tepat
-                  </>
-                )}
+                  <KarakterTarikTambang
+                    tim={isMerah ? 'merah' : 'putih'}
+                    pose="siap"
+                    ekspresi={
+                      feedback?.tampil
+                        ? feedback.benar
+                          ? 'bahagia'
+                          : 'sedih'
+                        : 'semangat'
+                    }
+                    size="xs"
+                  />
+                </div>
+                <span
+                  className={`text-xs sm:text-sm font-black uppercase tracking-wider px-2.5 py-1 rounded-full ${
+                    isMerah
+                      ? 'bg-[#fde8e7] text-[#c8362f]'
+                      : 'bg-[#e3eef9] text-[#1f4a6b]'
+                  }`}
+                >
+                  TIM {tim?.toUpperCase() || '-'}
+                </span>
               </div>
 
-              {!feedback.benar && feedback.jawabanBenar && (
-                <div className="text-xs text-slate-300">
-                  Jawaban benar:{' '}
-                  <span className="font-bold text-white uppercase">
-                    Opsi {feedback.jawabanBenar}
-                  </span>
-                </div>
-              )}
+              <div className="text-xs font-extrabold text-[#1d3b2e] bg-[#f4ecd9] px-3 py-1.5 rounded-full border border-[#e0d5b8]">
+                Soal {soalAktif ? soalAktif.nomorSoal : '-'} / {soalAktif ? soalAktif.totalSoal : '-'}
+              </div>
 
-              {feedback.penjelasan && (
-                <div className="text-xs text-slate-400 pt-1 border-t border-slate-700/50">
-                  💡 {feedback.penjelasan}
-                </div>
-              )}
+              <div
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-black text-sm border-2 ${
+                  sisaDetik <= 5
+                    ? 'bg-[#fde8e7] text-[#c8362f] border-[#c8362f] animate-bounce'
+                    : 'bg-[#f4ecd9] text-[#1d3b2e] border-[#e0d5b8]'
+                }`}
+              >
+                <Clock className="w-4 h-4" />
+                <span>{sisaDetik}s</span>
+              </div>
             </div>
-          )}
-        </main>
 
-        {/* Footer Scoreboard */}
-        <footer className="pt-3 border-t border-slate-800 flex justify-between items-center text-xs">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-            <span className="font-semibold text-slate-300">
-              Merah: <strong className="text-white">{skorMerah}</strong>
-            </span>
+            {/* Timer Progress Bar */}
+            <div className="w-full bg-[#e0d5b8] h-2 rounded-full overflow-hidden">
+              <div
+                className={`h-full transition-all duration-300 ease-linear ${
+                  sisaDetik <= 5 ? 'bg-[#c8362f]' : isMerah ? 'bg-[#c8362f]' : 'bg-[#1f4a6b]'
+                }`}
+                style={{ width: `${Math.min(100, (sisaDetik / 15) * 100)}%` }}
+              />
+            </div>
+          </header>
+
+          {/* Mini Bar Posisi Tali Live */}
+          <div className="portal-card rounded-2xl px-4 py-2.5 border-2 border-[#e0d5b8] shadow-xs">
+            <div className="flex justify-between items-center text-xs font-extrabold mb-1">
+              <span className="text-[#c8362f]">Merah: {skorMerah}</span>
+              <span className="text-[#6b7d6c]">
+                {taliPosition < 0
+                  ? `Merah +${Math.abs(taliPosition)}`
+                  : taliPosition > 0
+                  ? `Putih +${taliPosition}`
+                  : 'Tengah (0)'}
+              </span>
+              <span className="text-[#1f4a6b]">Putih: {skorPutih}</span>
+            </div>
+            <div className="portal-rope" style={{ margin: '6px 4px 2px' }}>
+              <i style={{ left: `${ropePersen}%` }} />
+            </div>
           </div>
 
-          <div className="text-slate-500 font-medium">
-            Tali: {taliPosition < 0 ? `Merah +${Math.abs(taliPosition)}` : taliPosition > 0 ? `Putih +${taliPosition}` : 'Imbang'}
-          </div>
+          {/* Question Area */}
+          <main className="my-auto space-y-4">
+            {/* Teks Pertanyaan */}
+            <div className="portal-card p-5 sm:p-6 rounded-3xl border-2 border-[#e0d5b8] shadow-[0_6px_0_rgba(0,0,0,0.18)]">
+              <div className="text-xs font-extrabold uppercase tracking-wider text-[#6b7d6c] mb-1.5">
+                Pertanyaan
+              </div>
+              <p className="portal-cv text-2xl sm:text-3xl text-[#1d3b2e] leading-snug">
+                {soalAktif?.teks}
+              </p>
+            </div>
 
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-slate-300">
-              Putih: <strong className="text-white">{skorPutih}</strong>
-            </span>
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
-          </div>
-        </footer>
+            {/* Opsi Jawaban (A, B, C) */}
+            <div className="space-y-3">
+              {(['A', 'B', 'C'] as const).map((opsiKey) => {
+                const teksOpsi =
+                  opsiKey === 'A'
+                    ? soalAktif?.opsiA
+                    : opsiKey === 'B'
+                    ? soalAktif?.opsiB
+                    : soalAktif?.opsiC;
+
+                const isSelected = jawabanDipilih === opsiKey;
+                const isLocked = sudahKirim;
+
+                return (
+                  <button
+                    key={opsiKey}
+                    disabled={isLocked}
+                    onClick={() => handlePilihJawaban(opsiKey)}
+                    className={`w-full text-left p-4 rounded-2xl border-2 font-bold transition-all duration-150 flex items-center justify-between cursor-pointer ${
+                      isSelected
+                        ? `${selectedTeamColor} text-white shadow-[0_4px_0_rgba(0,0,0,0.2)] scale-[1.01]`
+                        : isLocked
+                        ? 'bg-[#f0e7d0] border-[#d8cbb0] text-[#8c8270] opacity-60 cursor-not-allowed'
+                        : 'bg-[#fbf6e9] border-[#e0d5b8] text-[#1d3b2e] hover:bg-white hover:border-[#1d3b2e] shadow-[0_4px_0_rgba(0,0,0,0.14)] active:translate-y-0.5'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 pr-2">
+                      <span
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0 ${
+                          isSelected
+                            ? 'bg-white/25 text-white'
+                            : 'bg-[#e8dfc8] text-[#1d3b2e]'
+                        }`}
+                      >
+                        {opsiKey}
+                      </span>
+                      <span className="text-base sm:text-lg leading-snug">{teksOpsi}</span>
+                    </div>
+                    {isSelected && <CheckCircle2 className="w-6 h-6 shrink-0 text-white" />}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Status Setelah Mengirim Jawaban */}
+            {sudahKirim && !feedback?.tampil && (
+              <div className="p-3.5 bg-[#fbf6e9] border-2 border-[#f2c230] rounded-2xl text-center text-[#1d3b2e] font-bold text-sm shadow-sm">
+                Jawabanmu telah tersimpan! Menunggu waktu soal berakhir...
+              </div>
+            )}
+
+            {/* Feedback Hasil Jawaban Setelah Waktu Habis */}
+            {feedback?.tampil && (
+              <div
+                className={`p-4 rounded-2xl border-2 text-sm space-y-1.5 shadow-sm ${
+                  feedback.benar
+                    ? 'bg-[#e8f5e9] border-[#2e7d32] text-[#1b5e20]'
+                    : 'bg-[#fde8e7] border-[#c8362f] text-[#8e1d18]'
+                }`}
+              >
+                <div className="flex items-center gap-2 font-extrabold text-base">
+                  {feedback.benar ? (
+                    <>
+                      <CheckCircle2 className="w-5 h-5 text-[#2e7d32] shrink-0" />
+                      <span>Hebat! Jawabanmu Tepat! (+1 Poin Tim)</span>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-5 h-5 text-[#c8362f] shrink-0" />
+                      <span>Jawabanmu Belum Tepat</span>
+                    </>
+                  )}
+                </div>
+
+                {!feedback.benar && feedback.jawabanBenar && (
+                  <div className="text-xs font-semibold">
+                    Jawaban benar:{' '}
+                    <span className="font-extrabold uppercase">Opsi {feedback.jawabanBenar}</span>
+                  </div>
+                )}
+
+                {feedback.penjelasan && (
+                  <div className="text-xs opacity-90 pt-1.5 border-t border-black/10">
+                    💡 {feedback.penjelasan}
+                  </div>
+                )}
+              </div>
+            )}
+          </main>
+
+          <footer className="text-center text-xs font-bold text-[#f4ecd8]/75 py-1">
+            Discere • Mode Tarik Tambang Siswa
+          </footer>
+        </div>
       </div>
     );
   }
@@ -1462,80 +1499,100 @@ export default function MainSiswa() {
     const isSeri = hasilAkhir?.timMenang === 'seri';
 
     return (
-      <div className="min-h-screen bg-slate-900 text-white flex flex-col justify-center items-center p-4">
-        <div className="w-full max-w-md text-center">
-          {/* Trophy Icon */}
-          <div
-            className={`w-24 h-24 rounded-full mx-auto mb-6 flex items-center justify-center shadow-2xl ${
-              isMenang
-                ? 'bg-gradient-to-tr from-amber-500 to-yellow-300 text-slate-900 ring-8 ring-amber-500/20 animate-bounce'
-                : isSeri
-                ? 'bg-slate-700 text-amber-300'
-                : 'bg-slate-800 text-slate-400'
-            }`}
-          >
-            <Trophy className="w-12 h-12" />
+      <div className="portal-bg min-h-screen flex flex-col justify-between select-none">
+        <div className="max-w-md mx-auto w-full p-4 sm:p-6 my-auto">
+          <div className="portal-card p-6 sm:p-8 rounded-[30px] border-2 border-[#e0d5b8] shadow-[0_10px_0_rgba(0,0,0,0.22)] text-center space-y-5">
+            {/* Karakter 2D Hasil Akhir (Mahkota Emas jika menang) */}
+            <div className="flex flex-col items-center">
+              <KarakterTarikTambang
+                tim={isMerah ? 'merah' : 'putih'}
+                pose="podium"
+                ekspresi={isMenang ? 'menang' : isSeri ? 'bahagia' : 'kalah'}
+                podiumRank={isMenang ? 1 : isSeri ? undefined : 2}
+                size="lg"
+              />
+              <span
+                className={`mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase ${
+                  isMenang
+                    ? 'bg-[#f8e7b0] text-[#8a6a00]'
+                    : isSeri
+                    ? 'bg-[#d8e3cf] text-[#1b432a]'
+                    : 'bg-[#f4ecd9] text-[#6b7d6c]'
+                }`}
+              >
+                <Trophy className="w-3.5 h-3.5" />
+                {isMenang ? 'Tim Pemenang' : isSeri ? 'Hasil Imbang' : 'Tetap Semangat'}
+              </span>
+            </div>
+
+            <div>
+              <h2 className="portal-cv text-3xl sm:text-4xl text-[#1d3b2e] mb-1">
+                {isMenang
+                  ? '🎉 TIM KAMU MENANG! 🎉'
+                  : isSeri
+                  ? '🤝 HASIL PERTANDINGAN SERI!'
+                  : '💪 TETAP SEMANGAT!'}
+              </h2>
+              <p className="text-[#6b7d6c] text-sm">
+                {isMenang
+                  ? 'Luar biasa! Kerja sama dan kecepatan timmu berhasil menarik tali kemenangan!'
+                  : isSeri
+                  ? 'Kedua tim sama-sama kuat dan seimbang sampai akhir pertandingan!'
+                  : 'Perjuangan yang hebat! Terus belajar dan raih kemenangan di lomba berikutnya!'}
+              </p>
+            </div>
+
+            {/* Detail Hasil Skor */}
+            <div className="p-4 bg-[#f4ecd9] border border-[#e0d5b8] rounded-2xl space-y-3">
+              <div className="text-[11px] uppercase font-extrabold text-[#6b7d6c] tracking-wider">
+                Hasil Akhir Lomba
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3.5 rounded-xl bg-[#fbf0ee] border border-[#d9544c]/60">
+                  <div className="text-xs font-extrabold text-[#c8362f] uppercase">TIM MERAH</div>
+                  <div className="text-3xl font-black text-[#1d3b2e] mt-0.5">
+                    {hasilAkhir?.skorMerah ?? skorMerah}
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-[#edf4fb] border border-[#2b6cb0]/60">
+                  <div className="text-xs font-extrabold text-[#1f4a6b] uppercase">TIM PUTIH</div>
+                  <div className="text-3xl font-black text-[#1d3b2e] mt-0.5">
+                    {hasilAkhir?.skorPutih ?? skorPutih}
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-xs text-[#6b7d6c] pt-2 border-t border-dashed border-[#e0d5b8]">
+                Posisi Akhir Tali:{' '}
+                <strong className="text-[#1d3b2e]">
+                  {hasilAkhir?.posisiAkhir !== undefined
+                    ? hasilAkhir.posisiAkhir < 0
+                      ? `Tim Merah (${hasilAkhir.posisiAkhir})`
+                      : hasilAkhir.posisiAkhir > 0
+                      ? `Tim Putih (+${hasilAkhir.posisiAkhir})`
+                      : 'Tepat di Tengah (0)'
+                    : '-'}
+                </strong>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleKeluar}
+              className="portal-btn red w-full py-3.5 text-sm font-black cursor-pointer"
+            >
+              Kembali ke Halaman Awal
+            </button>
           </div>
+        </div>
 
-          <h2 className="text-3xl font-black mb-2">
-            {isMenang
-              ? '🎉 TIM KAMU MENANG! 🎉'
-              : isSeri
-              ? '🤝 HASIL PERTANDINGAN SERI!'
-              : '💪 TETAP SEMANGAT!'}
-          </h2>
-
-          <p className="text-slate-400 text-sm mb-6">
-            {isMenang
-              ? 'Luar biasa! Kerja sama dan kecepatan timmu berhasil menarik tali kemenangan!'
-              : isSeri
-              ? 'Kedua tim sama-sama kuat dan seimbang sampai akhir pertandingan!'
-              : 'Perjuangan yang hebat! Terus belajar dan raih kemenangan di lomba berikutnya!'}
-          </p>
-
-          {/* Detail Hasil Skor */}
-          <Card className="p-6 bg-slate-800 border-slate-700 rounded-2xl mb-6 space-y-4">
-            <div className="text-xs uppercase font-bold text-slate-400 tracking-wider">
-              Hasil Akhir Lomba
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30">
-                <div className="text-xs font-bold text-red-400 uppercase">TIM MERAH</div>
-                <div className="text-3xl font-black text-white mt-1">
-                  {hasilAkhir?.skorMerah ?? skorMerah}
-                </div>
-              </div>
-
-              <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30">
-                <div className="text-xs font-bold text-blue-400 uppercase">TIM PUTIH</div>
-                <div className="text-3xl font-black text-white mt-1">
-                  {hasilAkhir?.skorPutih ?? skorPutih}
-                </div>
-              </div>
-            </div>
-
-            <div className="text-xs text-slate-400 pt-2 border-t border-slate-700">
-              Posisi Akhir Tali:{' '}
-              <strong className="text-white">
-                {hasilAkhir?.posisiAkhir !== undefined
-                  ? hasilAkhir.posisiAkhir < 0
-                    ? `Tim Merah (${hasilAkhir.posisiAkhir})`
-                    : hasilAkhir.posisiAkhir > 0
-                    ? `Tim Putih (+${hasilAkhir.posisiAkhir})`
-                    : 'Tepat di Tengah (0)'
-                  : '-'}
-              </strong>
-            </div>
-          </Card>
-
-          <Button
-            variant="sekunder"
-            onClick={handleKeluar}
-            className="w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl border border-slate-700 font-semibold"
-          >
-            Kembali ke Halaman Awal
-          </Button>
+        <div className="portal-ledge" aria-hidden="true">
+          <svg viewBox="0 0 1440 80" preserveAspectRatio="none">
+            <path d="M0 34C240 6 480 62 720 34S1200 6 1440 34V80H0z" fill="#a6783c" />
+            <path d="M0 56C260 34 520 80 760 56S1220 36 1440 58V80H0z" fill="#8d6444" />
+          </svg>
         </div>
       </div>
     );

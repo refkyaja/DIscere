@@ -46,18 +46,19 @@ export default function LayarHost() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+      <div className="portal-bg min-h-screen flex flex-col items-center justify-center text-[#f4ecd8]">
+        <Loader2 className="w-10 h-10 animate-spin text-[#f2c230] mb-3" />
+        <p className="portal-cv text-2xl">Memuat sesi permainan...</p>
       </div>
     );
   }
 
   if (errorPesan) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-        <Card className="max-w-md p-6 bg-slate-800 border-slate-700 text-center">
-          <h2 className="text-xl font-bold text-white mb-2">Terjadi Kesalahan</h2>
-          <p className="text-slate-400 text-sm mb-6">{errorPesan}</p>
+      <div className="portal-bg min-h-screen flex items-center justify-center p-4">
+        <Card className="max-w-md w-full p-8 bg-[#fbf6e9] border-2 border-[#e0d5b8] text-center rounded-3xl shadow-xl">
+          <h2 className="portal-cv text-3xl text-[#1d3b2e] mb-2">Terjadi Kesalahan</h2>
+          <p className="text-[#6b7d6c] text-sm mb-6">{errorPesan}</p>
           <Button variant="utama" onClick={() => navigate('/guru')} className="w-full">
             Kembali ke Dashboard
           </Button>
