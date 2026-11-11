@@ -99,7 +99,7 @@ export default function LayarHostKerupukMulti({
   const [isMuted, setIsMuted] = useState(soundEffects.getMuted());
   const [copied, setCopied] = useState(false);
 
-  const modeSelectUrl = `/guru/makan-kerupuk?templateId=${encodeURIComponent(initialSession.templateId)}&kembali=${encodeURIComponent('/guru')}`;
+  const modeSelectUrl = `/guru/makan-kerupuk?templateId=${encodeURIComponent(initialSession.templateId)}&kembali=${encodeURIComponent('/guru?tab=template')}`;
 
   useEffect(() => {
     const socket = getSocket();

@@ -1115,7 +1115,7 @@ export default function LayarHostBalapKarungSolo() {
                         isWinnerCard ? 'text-[#d98a00]' : 'text-[#1f9d55]'
                       }`}
                     >
-                      {Math.min(Math.round(p.jarak), targetJarak)} m
+                      {Math.round(p.jarak)} m
                     </div>
 
                     <div className="grid grid-cols-3 gap-2 border-t-2 border-[#f0dfb4] pt-3 mt-3 text-xs text-[#6b6a85]">

@@ -280,7 +280,8 @@ function jalankanUnitTests() {
     gameMulaiPadaMs: 0,
     nowMs: 2800,
   });
-  assert.strictEqual(resFinis.jarakBaru, 100, 'Jarak tidak boleh melebihi target 100m');
+  assert.strictEqual(resFinis.jarakBaru, 106, '96m + 10m = 106m (melewati garis target 100m apa adanya)');
+  assert.strictEqual(resFinis.perubahanJarak, 10, 'Perubahan jarak tetap penuh +10m walau melewati target');
   assert.strictEqual(resFinis.selesaiBaru, true);
   assert.strictEqual(resFinis.pesertaUpdated.status, 'selesai');
   assert.strictEqual(resFinis.pesertaUpdated.waktuSelesaiMs, 2800);
@@ -297,7 +298,7 @@ function jalankanUnitTests() {
       }),
     /garis finis/i
   );
-  console.log('   OK Batas [0, targetJarak], finis tepat target, & penolakan setelah finis akurat');
+  console.log('   OK Batas min 0m, lolos overshoot melewati target, & penolakan setelah finis akurat');
 
   // Test 9, 10, 11, 12, 13: Keseimbangan min 0%, jatuh (jarak -5m, pulih 50%, contoh 35m/15%->30m/50%), Perisai menahan jatuh!
   console.log('5. Menguji mekanisme jatuh keseimbangan 0%, pemulihan 50%, & perlindungan Perisai...');

@@ -9,6 +9,15 @@ import {
 } from 'lucide-react';
 import { PortalLedge } from './PortalLedge';
 
+/** Menentukan rute kembali dari halaman pengaturan agar menuju tab Template Game saat dari dasbor. */
+export function resolveGuruReturnUrl(raw?: string | null): string {
+  const cleaned = typeof raw === 'string' ? raw.trim() : '';
+  if (!cleaned || cleaned === '/guru' || cleaned === '/guru/') {
+    return '/guru?tab=template';
+  }
+  return cleaned;
+}
+
 /** Mengambil pesan kesalahan yang aman dibaca pengguna dari nilai error bertipe unknown. */
 export function extractApiErrorMessage(err: unknown, fallback: string): string {
   if (typeof err === 'object' && err !== null && 'pesan' in err) {

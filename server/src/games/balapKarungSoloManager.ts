@@ -1000,7 +1000,7 @@ export const balapKarungSoloManager = {
       });
 
       const pemenangNama = hasil.podium.juara1?.nama || sesi.pemain1.nama;
-      const jarakTertinggi = hasil.podium.juara1?.jarak ?? 0;
+      const jarakTertinggi = Math.round(hasil.podium.juara1?.jarak ?? 0);
 
       await tx.sessionResult.upsert({
         where: { sessionId: sesi.sessionId },
@@ -1024,7 +1024,7 @@ export const balapKarungSoloManager = {
           where: { id: p.id },
           update: {
             nama: p.nama,
-            posisi: p.jarak,
+            posisi: Math.round(p.jarak),
             keseimbangan: p.keseimbangan,
             jumlahJatuh: p.jumlahJatuh,
             efekAktif: serializeEfekMeta(p),
@@ -1045,7 +1045,7 @@ export const balapKarungSoloManager = {
             id: p.id,
             sessionId: sesi.sessionId,
             nama: p.nama,
-            posisi: p.jarak,
+            posisi: Math.round(p.jarak),
             keseimbangan: p.keseimbangan,
             jumlahJatuh: p.jumlahJatuh,
             efekAktif: serializeEfekMeta(p),
@@ -1069,17 +1069,16 @@ export const balapKarungSoloManager = {
         where: { sessionId: sesi.sessionId },
       });
 
-      for (const [questionId, st] of sesi.questionStatsMap.entries()) {
-        await tx.questionStat.create({
-          data: {
-            sessionId: sesi.sessionId,
-            questionId,
-            jumlahBenar: st.benar,
-            jumlahSalah: st.salah,
-          },
-        });
+      const statsData = Array.from(sesi.questionStatsMap.entries()).map(([questionId, st]) => ({
+        sessionId: sesi.sessionId,
+        questionId,
+        jumlahBenar: st.benar,
+        jumlahSalah: st.salah,
+      }));
+      if (statsData.length > 0) {
+        await tx.questionStat.createMany({ data: statsData });
       }
-    });
+    }, { maxWait: 10000, timeout: 15000 });
   },
 
   serialisasiUntukClient(sesi: SesiBalapKarungSoloActive): SesiBalapKarungSoloClient {

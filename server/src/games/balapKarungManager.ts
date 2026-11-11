@@ -353,7 +353,7 @@ function bangunRingkasanTim(
 
   const list: RingkasanTimBalap[] = aktifDefs.map((def) => {
     const tState = sesi.teams.get(def.id);
-    const meterRaw = Math.min(target, Math.max(0, tState?.meter ?? 0));
+    const meterRaw = Math.max(0, tState?.meter ?? 0);
     const meter = Math.round(meterRaw);
     const anggota: AnggotaTimRingkas[] = Array.from(sesi.peserta.values())
       .filter((p) => p.tim === def.id)
@@ -1366,10 +1366,7 @@ export const balapKarungManager = {
 
     const rawTeamDelta = hasilJawaban.jarakBaru - teamMeterBefore * jumlahAnggotaTim;
     const stepTim = rawTeamDelta / jumlahAnggotaTim;
-    const meterSesudah = Math.min(
-      sesi.config.targetJarak,
-      Math.max(0, teamMeterBefore + stepTim)
-    );
+    const meterSesudah = Math.max(0, teamMeterBefore + stepTim);
     const actualTeamDelta = meterSesudah - teamMeterBefore;
 
     tState.meter = meterSesudah;
@@ -1387,7 +1384,9 @@ export const balapKarungManager = {
     }
 
     if (tState.meter >= sesi.config.targetJarak - 1e-6) {
-      tState.meter = sesi.config.targetJarak;
+      if (tState.meter < sesi.config.targetJarak) {
+        tState.meter = sesi.config.targetJarak;
+      }
       tState.selesaiPadaMs = nowMs;
       sesi.teams.set(timKode, tState);
       sesi.timPemenang = timKode;
@@ -1671,17 +1670,16 @@ export const balapKarungManager = {
           where: { sessionId: sesi.sessionId },
         });
 
-        for (const [questionId, st] of statPerSoal.entries()) {
-          await tx.questionStat.create({
-            data: {
-              sessionId: sesi.sessionId,
-              questionId,
-              jumlahBenar: st.benar,
-              jumlahSalah: st.salah,
-            },
-          });
+        const statsData = Array.from(statPerSoal.entries()).map(([questionId, st]) => ({
+          sessionId: sesi.sessionId,
+          questionId,
+          jumlahBenar: st.benar,
+          jumlahSalah: st.salah,
+        }));
+        if (statsData.length > 0) {
+          await tx.questionStat.createMany({ data: statsData });
         }
-      });
+      }, { maxWait: 10000, timeout: 15000 });
     });
   },
 

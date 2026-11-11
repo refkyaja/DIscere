@@ -802,7 +802,7 @@ export default function LayarHostBalapKarung() {
                         </span>
                         <span className="bk-h font-extrabold text-[#1f9d55] text-base">
                           {t.isWinner || t.meter >= targetJarak
-                            ? 'Finis!'
+                            ? `${Math.round(t.meter)} m · Finis!`
                             : `${Math.round(t.meter)} m`}
                         </span>
                       </div>

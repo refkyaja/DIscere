@@ -296,23 +296,24 @@ export default function DashboardGuru() {
 
   // Handler: Mulai Game dari Template (semua 4 game diarahkan ke halaman pengaturan seragam)
   const handleMulaiGame = async (templateId: string, mode?: string, gameType?: string) => {
+    const kembaliTemplate = encodeURIComponent('/guru?tab=template');
     if (gameType === 'makan_kerupuk') {
-      navigate(`/guru/makan-kerupuk?templateId=${encodeURIComponent(templateId)}&kembali=/guru`);
+      navigate(`/guru/makan-kerupuk?templateId=${encodeURIComponent(templateId)}&kembali=${kembaliTemplate}`);
       return;
     }
 
     if (gameType === 'panjat_pinang') {
-      navigate(`/guru/panjat-pinang?templateId=${encodeURIComponent(templateId)}&kembali=/guru`);
+      navigate(`/guru/panjat-pinang?templateId=${encodeURIComponent(templateId)}&kembali=${kembaliTemplate}`);
       return;
     }
 
     if (gameType === 'balap_karung') {
-      navigate(`/guru/balap-karung?templateId=${encodeURIComponent(templateId)}&kembali=/guru`);
+      navigate(`/guru/balap-karung?templateId=${encodeURIComponent(templateId)}&kembali=${kembaliTemplate}`);
       return;
     }
 
     if (!gameType || gameType === 'tarik_tambang') {
-      navigate(`/guru/tarik-tambang?templateId=${encodeURIComponent(templateId)}&kembali=/guru`);
+      navigate(`/guru/tarik-tambang?templateId=${encodeURIComponent(templateId)}&kembali=${kembaliTemplate}`);
       return;
     }
 

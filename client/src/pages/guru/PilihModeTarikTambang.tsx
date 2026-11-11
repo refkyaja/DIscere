@@ -8,6 +8,7 @@ import {
   GameConfigPageShell,
   GameConfigSection,
   GameModeCard,
+  resolveGuruReturnUrl,
 } from '../../components';
 import type {
   KesulitanTarik,
@@ -61,7 +62,7 @@ export default function PilihModeTarikTambang() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const queryTemplateId = searchParams.get('templateId') || '';
-  const queryKembali = searchParams.get('kembali') || '/guru';
+  const queryKembali = resolveGuruReturnUrl(searchParams.get('kembali'));
   const queryModeParam = searchParams.get('mode');
 
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateDetail | null>(null);

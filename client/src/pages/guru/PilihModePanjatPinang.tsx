@@ -8,6 +8,7 @@ import {
   GameConfigPageShell,
   GameConfigSection,
   GameModeCard,
+  resolveGuruReturnUrl,
 } from '../../components';
 import type {
   JenisRintangan,
@@ -86,7 +87,7 @@ export default function PilihModePanjatPinang() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const queryTemplateId = searchParams.get('templateId') || '';
-  const queryKembali = searchParams.get('kembali') || '/guru';
+  const queryKembali = resolveGuruReturnUrl(searchParams.get('kembali'));
 
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateDetail | null>(null);
   const [loadingTemplate, setLoadingTemplate] = useState(true);

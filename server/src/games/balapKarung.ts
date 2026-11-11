@@ -465,7 +465,7 @@ export interface PesertaBalapKarungState {
   nama: string;
   tim?: KodeTimBalap | null;
   connected: boolean;
-  jarak: number; // 0 .. targetJarak (meter)
+  jarak: number; // >= 0 (meter), boleh melebihi targetJarak saat lompatan terakhir
   keseimbangan: number; // 0 .. 100 (%)
   jumlahJatuh: number;
   totalBenar: number;
@@ -850,7 +850,7 @@ export function prosesJawabanBalapKarung(
     }
 
     langkahJarak = Math.max(0, langkahJarak);
-    updated.jarak = Math.min(config.targetJarak, Math.max(0, jarakSebelum + langkahJarak));
+    updated.jarak = Math.max(0, jarakSebelum + langkahJarak);
     updated.keseimbangan = config.keseimbanganAktif
       ? Math.min(100, Math.max(0, keseimbanganSebelum + tambahKeseimbangan))
       : 100;
@@ -921,7 +921,6 @@ export function prosesJawabanBalapKarung(
 
   let selesaiBaru = false;
   if (updated.jarak >= config.targetJarak) {
-    updated.jarak = config.targetJarak;
     updated.status = 'selesai';
     updated.selesaiPada = nowMs;
     updated.waktuSelesaiMs = Math.max(1, nowMs - gameMulaiPadaMs);
