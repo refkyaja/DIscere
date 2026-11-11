@@ -13,7 +13,6 @@ import KolaborasiPublik from './pages/papan/KolaborasiPublik';
 import DashboardGuru from './pages/guru/Dashboard';
 import TemplateForm from './pages/guru/TemplateForm';
 import PilihModeKerupuk from './pages/guru/PilihModeKerupuk';
-import PilihModeTarikTambang from './pages/guru/PilihModeTarikTambang';
 import LayarHost from './pages/game/LayarHost';
 import HasilSolo from './pages/game/HasilSolo';
 import DashboardAdmin from './pages/admin/Statistik';
@@ -37,7 +36,6 @@ export default function App() {
             <Route element={<RequireRole allowedRole="guru" />}>
               <Route path="/guru" element={<DashboardGuru />} />
               <Route path="/guru/makan-kerupuk" element={<PilihModeKerupuk />} />
-              <Route path="/guru/tarik-tambang" element={<PilihModeTarikTambang />} />
               <Route path="/guru/template/baru" element={<TemplateForm />} />
               <Route path="/guru/template/:id/ubah" element={<TemplateForm />} />
               <Route path="/guru/sesi/:id" element={<LayarHost />} />

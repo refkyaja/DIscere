@@ -12,6 +12,9 @@ import ModalKonfigurasiPanjatPinang, {
 import ModalKonfigurasiBalapKarung, {
   KonfigurasiBalapKarungPayload,
 } from './ModalKonfigurasiBalapKarung';
+import ModalKonfigurasiTarikTambang, {
+  KonfigurasiTarikTambangPayload,
+} from './ModalKonfigurasiTarikTambang';
 import {
   LogOut,
   LayoutDashboard,
@@ -201,6 +204,13 @@ export default function DashboardGuru() {
     totalSoal: number;
   } | null>(null);
   const [balapCreating, setBalapCreating] = useState(false);
+  const [modalTarikTemplate, setModalTarikTemplate] = useState<{
+    id: string;
+    judul: string;
+    mode: 'solo' | 'multi';
+    totalSoal: number;
+  } | null>(null);
+  const [tarikCreating, setTarikCreating] = useState(false);
   const [modalKeluarOpen, setModalKeluarOpen] = useState(false);
   const [sisaAi, setSisaAi] = useState<number>(30);
 
@@ -332,9 +342,17 @@ export default function DashboardGuru() {
       return;
     }
 
-    // Jika game adalah Tarik Tambang Challenge, arahkan ke halaman Pemilihan Mode (Solo 1v1 / Multiplayer)
-    if (gameType === 'tarik_tambang') {
-      navigate(`/guru/tarik-tambang?templateId=${encodeURIComponent(templateId)}&kembali=/guru`);
+    // Jika game adalah Tarik Tambang Challenge, mode diambil langsung dari template (solo / multi) lalu buka pengaturan ronde
+    if (!gameType || gameType === 'tarik_tambang') {
+      const tmpl = cariTemplate();
+      const resolvedMode: 'solo' | 'multi' =
+        (mode || tmpl?.mode) === 'multi' ? 'multi' : 'solo';
+      setModalTarikTemplate({
+        id: templateId,
+        judul: tmpl?.judul || 'Tarik Tambang Challenge',
+        mode: resolvedMode,
+        totalSoal: (tmpl as TemplateItem)?._count?.questions || tmpl?.jumlahSoal || 0,
+      });
       return;
     }
 
@@ -393,6 +411,32 @@ export default function DashboardGuru() {
       alert(err.pesan || 'Gagal membuat sesi Balap Karung.');
     } finally {
       setBalapCreating(false);
+    }
+  };
+
+  // Handler: Konfirmasi & Mulai Sesi Tarik Tambang Dual Mode (Mode ditentukan oleh template)
+  const handleKonfirmasiTarik = async (config: KonfigurasiTarikTambangPayload) => {
+    if (!modalTarikTemplate) return;
+    try {
+      setTarikCreating(true);
+      const isMulti = modalTarikTemplate.mode === 'multi';
+      const res = await apiRequest<{ session: { id: string } }>('/sesi', {
+        method: 'POST',
+        body: JSON.stringify({
+          templateId: modalTarikTemplate.id,
+          game: 'tarik_tambang',
+          mode: modalTarikTemplate.mode,
+          playMode: isMulti ? 'MULTIPLAYER' : 'SOLO',
+          autoStart: !isMulti,
+          tarikTambangConfig: config,
+        }),
+      });
+      setModalTarikTemplate(null);
+      navigate(`/guru/sesi/${res.session.id}`);
+    } catch (err: any) {
+      alert(err.pesan || 'Gagal membuat sesi Tarik Tambang.');
+    } finally {
+      setTarikCreating(false);
     }
   };
 
@@ -2058,6 +2102,18 @@ export default function DashboardGuru() {
         totalSoal={modalBalapTemplate?.totalSoal || 0}
         onMulai={handleKonfirmasiBalap}
         loading={balapCreating}
+      />
+
+      {/* Modal Konfigurasi Sesi Tarik Tambang (Solo / Multi ditentukan oleh template) */}
+      <ModalKonfigurasiTarikTambang
+        isOpen={Boolean(modalTarikTemplate)}
+        onClose={() => setModalTarikTemplate(null)}
+        templateId={modalTarikTemplate?.id || ''}
+        templateJudul={modalTarikTemplate?.judul || ''}
+        templateMode={modalTarikTemplate?.mode || 'solo'}
+        totalSoal={modalTarikTemplate?.totalSoal || 0}
+        onMulai={handleKonfirmasiTarik}
+        loading={tarikCreating}
       />
 
       {/* Modal Konfirmasi Keluar Akun Guru */}

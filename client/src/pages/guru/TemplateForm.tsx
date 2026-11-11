@@ -419,12 +419,18 @@ export default function TemplateForm() {
                   onChange={(e) => setMode(e.target.value as 'solo' | 'multi')}
                   className="portal-select"
                 >
-                  <option value="multi">Mode Multiplayer (HP Siswa Masing-Masing)</option>
+                  <option value="multi">
+                    {game === 'tarik_tambang'
+                      ? 'Mode Multiplayer (Team Multiplayer via PIN & QR)'
+                      : 'Mode Multiplayer (HP Siswa Masing-Masing)'}
+                  </option>
                   {game !== 'panjat_pinang' &&
                     game !== 'balap_karung' && (
                       <option value="solo">
                         {game === 'makan_kerupuk'
                           ? 'Mode Solo (Satu Perangkat Guru / Proyektor)'
+                          : game === 'tarik_tambang'
+                          ? 'Mode Solo (Duel 1 vs 1 pada Satu Perangkat Guru)'
                           : 'Mode Solo (Satu Layar Bersama)'}
                       </option>
                     )}
@@ -432,6 +438,8 @@ export default function TemplateForm() {
                 <span className="text-[11px] text-[#6b7d6c] mt-1 block">
                   {game === 'makan_kerupuk'
                     ? 'Saat memulai Makan Kerupuk Challenge nanti, Anda dapat bebas memilih Multiplayer maupun Solo Mode.'
+                    : game === 'tarik_tambang'
+                    ? 'Mode permainan Tarik Tambang (Solo 1 vs 1 atau Team Multiplayer) ditetapkan langsung melalui pilihan template ini.'
                     : game === 'panjat_pinang' || game === 'balap_karung'
                     ? 'Setiap siswa bergabung menggunakan HP masing-masing dan bertanding secara individu.'
                     : 'Pilih cara siswa berpartisipasi dalam sesi kelas.'}

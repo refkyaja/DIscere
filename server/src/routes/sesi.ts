@@ -861,6 +861,21 @@ sesiRouter.post('/', async (req: AuthRequest, res: Response) => {
     };
 
     const mappedQuestions = mapQuestionsForTarikTambang(template.questions);
+    const kesulitanEksplisit = req.body?.tarikTambangConfig?.kesulitan;
+    if (!kesulitanEksplisit) {
+      const tersedia = (['sedang', 'mudah', 'sulit'] as const).find((lvl) => {
+        try {
+          filterBankSoalSetara(mappedQuestions, lvl);
+          return true;
+        } catch {
+          return false;
+        }
+      });
+      if (tersedia) {
+        rawTarikConfig.kesulitan = tersedia;
+      }
+    }
+
     const configTarik = bangunKonfigurasiTarikTambang(rawTarikConfig);
 
     // Validasi pool soal setara sebelum membuat record sesi di DB
