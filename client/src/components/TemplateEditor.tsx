@@ -96,7 +96,7 @@ export function TemplateEditor({
 }: TemplateEditorProps) {
   const initialGame = initialData?.game || 'tarik_tambang';
   const initialMode: 'solo' | 'multi' =
-    initialGame === 'panjat_pinang' || initialGame === 'balap_karung'
+    initialGame === 'panjat_pinang'
       ? 'multi'
       : initialData?.mode || 'solo';
 
@@ -458,7 +458,7 @@ export function TemplateEditor({
                 onChange={(e) => {
                   const newGame = e.target.value;
                   setGame(newGame);
-                  if (newGame === 'panjat_pinang' || newGame === 'balap_karung') {
+                  if (newGame === 'panjat_pinang') {
                     setMode('multi');
                   }
                 }}
@@ -467,7 +467,7 @@ export function TemplateEditor({
                 <option value="tarik_tambang">Tarik Tambang Edukasi (Beregu / Solo)</option>
                 <option value="makan_kerupuk">Makan Kerupuk Challenge (Dual Mode: Multi / Solo)</option>
                 <option value="panjat_pinang">Panjat Pinang (Individu Multiplayer)</option>
-                <option value="balap_karung">Balap Karung Challenge (Individu Multiplayer)</option>
+                <option value="balap_karung">Balap Karung Challenge (Dual Mode: Multi / Solo)</option>
               </select>
               <span className="text-[11px] text-[#6b7d6c] mt-1 block">
                 {game === 'makan_kerupuk'
@@ -475,7 +475,7 @@ export function TemplateEditor({
                   : game === 'panjat_pinang'
                   ? 'Lomba memanjat tiang pinang menuju puncak 100% dengan bonus streak dan rintangan opsional.'
                   : game === 'balap_karung'
-                  ? 'Lomba balap karung menjaga keseimbangan, streak, dan melompat cepat menuju garis finis.'
+                  ? 'Lomba balap karung Dual Mode: Multiplayer lewat HP siswa maupun Solo 1 vs 1 di layar proyektor.'
                   : 'Game lomba tarik tambang klasik untuk Discere.'}
               </span>
             </div>
@@ -494,10 +494,12 @@ export function TemplateEditor({
                     ? 'Mode Multiplayer (Team Multiplayer via PIN & QR)'
                     : 'Mode Multiplayer (HP Siswa Masing-Masing)'}
                 </option>
-                {game !== 'panjat_pinang' && game !== 'balap_karung' && (
+                {game !== 'panjat_pinang' && (
                   <option value="solo">
                     {game === 'makan_kerupuk'
                       ? 'Mode Solo (Satu Perangkat Guru / Proyektor)'
+                      : game === 'balap_karung'
+                      ? 'Mode Solo (Duel 1 vs 1 di Layar Proyektor)'
                       : game === 'tarik_tambang'
                       ? 'Mode Solo (Duel 1 vs 1 pada Satu Perangkat Guru)'
                       : 'Mode Solo (Satu Layar Bersama)'}
@@ -505,11 +507,11 @@ export function TemplateEditor({
                 )}
               </select>
               <span className="text-[11px] text-[#6b7d6c] mt-1 block">
-                {game === 'makan_kerupuk'
-                  ? 'Saat memulai Makan Kerupuk Challenge nanti, Anda dapat bebas memilih Multiplayer maupun Solo Mode.'
+                {game === 'makan_kerupuk' || game === 'balap_karung'
+                  ? 'Saat memulai permainan nanti, Anda tetap bebas memilih Multiplayer maupun Solo Mode.'
                   : game === 'tarik_tambang'
                   ? 'Mode permainan Tarik Tambang (Solo 1 vs 1 atau Team Multiplayer) ditetapkan langsung melalui pilihan template ini.'
-                  : game === 'panjat_pinang' || game === 'balap_karung'
+                  : game === 'panjat_pinang'
                   ? 'Setiap siswa bergabung menggunakan HP masing-masing dan bertanding secara individu.'
                   : 'Pilih cara siswa berpartisipasi dalam sesi kelas.'}
               </span>

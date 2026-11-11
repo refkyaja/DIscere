@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { apiRequest } from '../../lib/api';
 import { getSocket } from '../../lib/socket';
 import { Button, Card, Modal } from '../../components';
@@ -28,6 +28,7 @@ import {
   RefreshCw,
   ArrowLeft,
   CheckCircle2,
+  Sliders,
 } from 'lucide-react';
 
 interface KonfigurasiBalapHost {
@@ -158,9 +159,12 @@ const LABEL_RINTANGAN: Record<string, string> = {
 export default function LayarHostBalapKarung() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnUrl = searchParams.get('kembali') || '/guru';
 
   const [loading, setLoading] = useState(true);
   const [errorPesan, setErrorPesan] = useState<string | null>(null);
+  const [templateId, setTemplateId] = useState('');
   const [templateJudul, setTemplateJudul] = useState('');
   const [token, setToken] = useState('');
   const [qrDataUrl, setQrDataUrl] = useState('');
@@ -174,7 +178,8 @@ export default function LayarHostBalapKarung() {
   const [deltaMap, setDeltaMap] = useState<Record<string, number | null>>({});
   const [ekspresiMap, setEkspresiMap] = useState<Record<string, EkspresiBalapKarung>>({});
   const [jatuhMap, setJatuhMap] = useState<Record<string, boolean>>({});
-  const [tampilSemuaLintasan, setTampilSemuaLintasan] = useState(false);
+  const [tampilSemuaLintasan, setTampilSemuaLintasan] = useState(true);
+  const timersRef = useRef<number[]>([]);
 
   const [liveFeed, setLiveFeed] = useState<
     Array<{ id: string; teks: string; tipe: 'naik' | 'turun' | 'bonus' | 'finis' | 'rintangan' | 'jatuh' }>
@@ -197,6 +202,7 @@ export default function LayarHostBalapKarung() {
     try {
       const res = await apiRequest<{
         session: {
+          templateId?: string;
           templateJudul: string;
           token: string;
           qrDataUrl?: string;
@@ -212,6 +218,7 @@ export default function LayarHostBalapKarung() {
       }>(`/sesi/${id}`);
 
       const s = res.session;
+      setTemplateId(s.templateId || '');
       setTemplateJudul(s.templateJudul);
       setToken(s.token);
       setQrDataUrl(s.qrDataUrl || '');
@@ -248,7 +255,11 @@ export default function LayarHostBalapKarung() {
     if (!id) return;
     const socket = getSocket();
 
-    socket.emit('sesi:host_join', { sessionId: id });
+    const handleConnect = () => {
+      socket.emit('sesi:host_join', { sessionId: id });
+    };
+
+    handleConnect();
 
     const handleLobiUpdate = (data: {
       game?: string;
@@ -312,15 +323,17 @@ export default function LayarHostBalapKarung() {
           setJatuhMap((prev) => ({ ...prev, [aksi.pesertaId]: true }));
         }
 
-        setTimeout(() => {
+        const resetTimer = window.setTimeout(() => {
           setDeltaMap((prev) => ({ ...prev, [aksi.pesertaId]: null }));
           setJatuhMap((prev) => ({ ...prev, [aksi.pesertaId]: false }));
         }, 1600);
+        timersRef.current.push(resetTimer);
 
         if (!aksi.selesaiBaru) {
-          setTimeout(() => {
+          const exprTimer = window.setTimeout(() => {
             setEkspresiMap((prev) => ({ ...prev, [aksi.pesertaId]: 'netral' }));
           }, 2200);
+          timersRef.current.push(exprTimer);
         }
 
         let teks = '';
@@ -371,16 +384,20 @@ export default function LayarHostBalapKarung() {
       }
     };
 
+    socket.on('connect', handleConnect);
     socket.on('lobi:update', handleLobiUpdate);
     socket.on('game:mulai', handleGameMulai);
     socket.on('balap:update', handleBalapUpdate);
     socket.on('sesi:selesai', handleSesiSelesai);
 
     return () => {
+      socket.off('connect', handleConnect);
       socket.off('lobi:update', handleLobiUpdate);
       socket.off('game:mulai', handleGameMulai);
       socket.off('balap:update', handleBalapUpdate);
       socket.off('sesi:selesai', handleSesiSelesai);
+      timersRef.current.forEach((t) => window.clearTimeout(t));
+      timersRef.current = [];
     };
   }, [id]);
 
@@ -418,7 +435,7 @@ export default function LayarHostBalapKarung() {
         { method: 'POST' }
       );
       const nextId = res.session?.id || res.sessionId;
-      if (nextId) navigate(`/guru/sesi/${nextId}`);
+      if (nextId) navigate(`/guru/sesi/${nextId}?kembali=${encodeURIComponent(returnUrl)}`);
     } catch (err: any) {
       alert(err.pesan || 'Gagal membuat sesi ulang.');
     } finally {
@@ -452,7 +469,7 @@ export default function LayarHostBalapKarung() {
         <Card className="max-w-md p-6 bg-slate-800 border-slate-700 text-center">
           <h2 className="text-xl font-bold text-white mb-2">Terjadi Kesalahan</h2>
           <p className="text-slate-400 text-sm mb-6">{errorPesan}</p>
-          <Button variant="utama" onClick={() => navigate('/guru')} className="w-full">
+          <Button variant="utama" onClick={() => navigate(returnUrl)} className="w-full">
             Kembali ke Dashboard
           </Button>
         </Card>
@@ -489,7 +506,7 @@ export default function LayarHostBalapKarung() {
             </button>
             <Button
               variant="hantu"
-              onClick={() => navigate('/guru')}
+              onClick={() => navigate(returnUrl)}
               className="text-xs text-slate-300 border border-slate-600 hover:bg-slate-700"
             >
               Dashboard
@@ -678,6 +695,20 @@ export default function LayarHostBalapKarung() {
             </div>
 
             <div className="flex flex-wrap gap-3">
+              {templateId && (
+                <Button
+                  variant="hantu"
+                  onClick={() =>
+                    navigate(
+                      `/guru/balap-karung?templateId=${templateId}&kembali=${encodeURIComponent(returnUrl)}`
+                    )
+                  }
+                  className="border border-slate-600 bg-slate-800/80 text-slate-200 hover:bg-slate-700"
+                >
+                  <Sliders className="w-4 h-4 mr-2" />
+                  Ubah Pengaturan
+                </Button>
+              )}
               <Button
                 variant="hantu"
                 onClick={handleMainLagi}
@@ -689,7 +720,7 @@ export default function LayarHostBalapKarung() {
               </Button>
               <Button
                 variant="utama"
-                onClick={() => navigate('/guru')}
+                onClick={() => navigate(returnUrl)}
                 className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" /> Kembali ke Dashboard
@@ -1090,48 +1121,54 @@ export default function LayarHostBalapKarung() {
             )}
           </div>
 
-          <div className="space-y-3 max-h-[580px] overflow-y-auto pr-1">
-            {pesertaVisual.map((p) => (
-              <div
-                key={p.id}
-                className="bg-slate-900/60 border border-slate-700/80 rounded-2xl p-3 space-y-2"
-              >
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="font-black text-amber-400 font-mono">#{p.peringkat}</span>
-                    <span className="font-bold text-white">{p.nama}</span>
-                    {p.jumlahJatuh > 0 && (
-                      <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 text-[10px] font-bold">
-                        {p.jumlahJatuh}x Jatuh
+          <div className="space-y-3 max-h-[640px] overflow-y-auto pr-1">
+            {pesertaVisual.length === 0 ? (
+              <div className="text-center py-12 text-slate-400 text-sm">
+                Menunggu pelari masuk ke lintasan...
+              </div>
+            ) : (
+              pesertaVisual.map((p) => (
+                <div
+                  key={p.id}
+                  className="bg-slate-900/60 border border-slate-700/80 rounded-2xl p-3 space-y-2"
+                >
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="font-black text-amber-400 font-mono">#{p.peringkat}</span>
+                      <span className="font-bold text-white">{p.nama}</span>
+                      {p.jumlahJatuh > 0 && (
+                        <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 text-[10px] font-bold">
+                          {p.jumlahJatuh}x Jatuh
+                        </span>
+                      )}
+                    </div>
+                    {p.status === 'selesai' ? (
+                      <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold text-[10px]">
+                        FINIS {formatDurasiDetik(p.waktuSelesaiMs)}
+                      </span>
+                    ) : (
+                      <span className="font-mono font-bold text-slate-300">
+                        {p.jarak}m / {targetJarak}m
                       </span>
                     )}
                   </div>
-                  {p.status === 'selesai' ? (
-                    <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold text-[10px]">
-                      FINIS {formatDurasiDetik(p.waktuSelesaiMs)}
-                    </span>
-                  ) : (
-                    <span className="font-mono font-bold text-slate-300">
-                      {p.jarak}m / {targetJarak}m
-                    </span>
-                  )}
+                  <LintasanBalapKarung
+                    jarak={p.jarak}
+                    targetJarak={p.targetJarak || targetJarak}
+                    keseimbangan={p.keseimbangan}
+                    keseimbanganAktif={keseimbanganAktif}
+                    namaPemain={p.nama}
+                    efekAktif={p.efekAktif}
+                    lastDeltaJarak={deltaMap[p.id]}
+                    ekspresi={ekspresiMap[p.id]}
+                    terjatuh={Boolean(jatuhMap[p.id])}
+                    streak={p.streakSaatIni}
+                    status={p.status}
+                    compact
+                  />
                 </div>
-                <LintasanBalapKarung
-                  jarak={p.jarak}
-                  targetJarak={p.targetJarak || targetJarak}
-                  keseimbangan={p.keseimbangan}
-                  keseimbanganAktif={keseimbanganAktif}
-                  namaPemain={p.nama}
-                  efekAktif={p.efekAktif}
-                  lastDeltaJarak={deltaMap[p.id]}
-                  ekspresi={ekspresiMap[p.id]}
-                  terjatuh={Boolean(jatuhMap[p.id])}
-                  streak={p.streakSaatIni}
-                  status={p.status}
-                  compact
-                />
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </section>
 

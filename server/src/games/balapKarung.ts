@@ -84,19 +84,15 @@ export const DAFTAR_RINTANGAN_BALAP_RESMI: readonly JenisRintanganBalap[] = [
   'jalan_berlumpur',
 ] as const;
 
-export const probabilitasRintanganBalapSchema = z
-  .object({
-    kulit_pisang: z.number().int().min(0).max(100),
-    perisai: z.number().int().min(0).max(100),
-    lompatan_kuat: z.number().int().min(0).max(100),
-    jalan_berlumpur: z.number().int().min(0).max(100),
-  })
-  .refine(
-    (p) => p.kulit_pisang + p.perisai + p.lompatan_kuat + p.jalan_berlumpur === 100,
-    {
-      message: 'Total bobot probabilitas rintangan harus tepat 100%.',
-    }
-  );
+export type TipeLawanSoloBalap = 'bot' | 'lokal';
+export type KesulitanBotBalap = 'santai' | 'sedang' | 'cepat';
+
+export const probabilitasRintanganBalapSchema = z.object({
+  kulit_pisang: z.number().int().min(0).max(100),
+  perisai: z.number().int().min(0).max(100),
+  lompatan_kuat: z.number().int().min(0).max(100),
+  jalan_berlumpur: z.number().int().min(0).max(100),
+});
 
 export const konfigurasiBalapKarungSchema = z
   .object({
@@ -185,17 +181,25 @@ export const konfigurasiBalapKarungSchema = z
     penaltiJalanBerlumpur: z.number().int().min(1).max(30).default(5),
     maxPeserta: z.number().int().min(1).max(200).default(100),
     allowLateJoin: z.boolean().default(true),
+    tipeLawanSolo: z.enum(['bot', 'lokal']).default('bot'),
+    kesulitanBot: z.enum(['santai', 'sedang', 'cepat']).default('sedang'),
+    namaPemain1: z.string().trim().min(1).max(24).default('Pemain 1'),
+    namaPemain2: z.string().trim().min(1).max(24).default('Lawan Bot'),
   })
   .superRefine((val, ctx) => {
-    if (val.rintanganAktif && val.rintanganDipilih.length === 0) {
+    const rintanganAktifDipilih = val.keseimbanganAktif
+      ? val.rintanganDipilih
+      : val.rintanganDipilih.filter((j) => j !== 'kulit_pisang' && j !== 'perisai');
+
+    if (val.rintanganAktif && rintanganAktifDipilih.length === 0) {
       ctx.addIssue({
         code: 'custom',
         path: ['rintanganDipilih'],
-        message: 'Pilih minimal satu jenis rintangan saat rintangan diaktifkan.',
+        message: 'Pilih minimal satu rintangan yang sesuai dengan aturan keseimbangan aktif.',
       });
     }
-    if (val.rintanganAktif && val.rintanganDipilih.length > 0) {
-      const totalSelectedWeight = val.rintanganDipilih.reduce(
+    if (val.rintanganAktif && rintanganAktifDipilih.length > 0) {
+      const totalSelectedWeight = rintanganAktifDipilih.reduce(
         (acc, key) => acc + (val.probabilitasRintangan[key] || 0),
         0
       );
@@ -240,6 +244,10 @@ export interface KonfigurasiBalapKarung {
   penaltiJalanBerlumpur: number;
   maxPeserta: number;
   allowLateJoin: boolean;
+  tipeLawanSolo: TipeLawanSoloBalap;
+  kesulitanBot: KesulitanBotBalap;
+  namaPemain1: string;
+  namaPemain2: string;
 }
 
 /**
@@ -317,6 +325,11 @@ export function bangunKonfigurasiBalapKarung(
     penaltiJalanBerlumpur: parsed.penaltiJalanBerlumpur,
     maxPeserta: parsed.maxPeserta,
     allowLateJoin: parsed.allowLateJoin,
+    tipeLawanSolo: parsed.tipeLawanSolo,
+    kesulitanBot: parsed.kesulitanBot,
+    namaPemain1: parsed.namaPemain1 || 'Pemain 1',
+    namaPemain2:
+      parsed.namaPemain2 || (parsed.tipeLawanSolo === 'bot' ? 'Lawan Bot' : 'Pemain 2'),
   });
 }
 
@@ -543,9 +556,12 @@ export function putarRintanganBalapKarung(
     return null;
   }
 
-  const kandidat = config.rintanganDipilih.filter(
-    (jenis) => (config.probabilitasRintangan[jenis] || 0) > 0
-  );
+  const kandidat = config.rintanganDipilih.filter((jenis) => {
+    if (!config.keseimbanganAktif && (jenis === 'kulit_pisang' || jenis === 'perisai')) {
+      return false;
+    }
+    return (config.probabilitasRintangan[jenis] || 0) > 0;
+  });
   if (kandidat.length === 0) {
     return null;
   }
@@ -853,13 +869,15 @@ export function prosesJawabanBalapKarung(
       prosesJatuhSekali('jawaban salah');
     }
 
-    // 2. Undi rintangan opsional bila belum finis
-    rintanganBaru = putarRintanganBalapKarung(updated, config, nowMs, rngRintangan);
-    if (rintanganBaru) {
-      alasanList.push(rintanganBaru.judul);
-      // Jika Kulit Pisang menjatuhkan keseimbangan tepat ke 0%, proses kejadian jatuh sekali
-      if (config.keseimbanganAktif && updated.keseimbangan <= 0) {
-        prosesJatuhSekali('terinjak kulit pisang');
+    // 2. Undi rintangan/power-up opsional hanya pada jawaban benar & belum finis
+    if (benar) {
+      rintanganBaru = putarRintanganBalapKarung(updated, config, nowMs, rngRintangan);
+      if (rintanganBaru) {
+        alasanList.push(rintanganBaru.judul);
+        // Jika Kulit Pisang menjatuhkan keseimbangan tepat ke 0%, proses kejadian jatuh sekali
+        if (config.keseimbanganAktif && updated.keseimbangan <= 0) {
+          prosesJatuhSekali('terinjak kulit pisang');
+        }
       }
     }
   }

@@ -253,8 +253,7 @@ export default function DashboardAdmin() {
         judul: editingTemplate.judul || '',
         game: editingTemplate.game || 'tarik_tambang',
         mode:
-          editingTemplate.game === 'panjat_pinang' ||
-          editingTemplate.game === 'balap_karung'
+          editingTemplate.game === 'panjat_pinang'
             ? 'multi'
             : editingTemplate.mode === 'solo'
             ? 'solo'
