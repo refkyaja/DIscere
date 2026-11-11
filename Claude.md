@@ -109,7 +109,7 @@ Gunakan **versi stabil terbaru** dari setiap paket, dan cek dokumentasinya. Semu
 | Kanvas          | **Canvas 2D buatan sendiri (mesin dari referensi-desain/discere-v5.html)** |
 | Backend         | **Node.js + Express + TypeScript**                                      |
 | Real-time       | **Socket.IO** (server dan client)                                       |
-| Database        | **SQLite** (`better-sqlite3`) lewat **Prisma ORM**                      |
+| Database        | **PostgreSQL (Supabase)** lewat **Prisma ORM**                          |
 | Validasi        | **Zod**                                                                 |
 | Autentikasi     | Email + password, hash dengan `bcryptjs`, sesi JWT di cookie `httpOnly` (`SameSite=Lax`) |
 | Pembatas request| `express-rate-limit` (khusus login, daftar, dan endpoint AI)            |
@@ -117,7 +117,7 @@ Gunakan **versi stabil terbaru** dari setiap paket, dan cek dokumentasinya. Semu
 | AI              | Panggilan API dari **server**; nama model dan kunci dari `.env`         |
 | Skrip dev       | `concurrently`, `tsx`                                                   |
 
-**Catatan database:** SQLite dipakai karena finalnya di satu laptop (localhost). Skema ditulis lewat Prisma supaya bisa **pindah ke PostgreSQL** nanti hanya dengan mengganti provider dan menjalankan migrasi ulang. Jangan memakai fitur yang hanya ada di SQLite.
+**Catatan database:** Database menggunakan **PostgreSQL (Supabase)** lewat Prisma ORM. Semua data tersimpan aman di cloud sehingga deployment backend bersifat stateless dan bebas risiko data hilang saat server restart.
 
 **Catatan jaringan:** server berjalan di `0.0.0.0` dan mencetak alamat IP laptop (contoh `http://192.168.1.5:3000`) saat start. HP siswa membuka alamat itu lewat WiFi yang sama. Kamera dan GPS tidak dipakai, jadi HTTPS tidak diperlukan.
 
