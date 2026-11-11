@@ -686,7 +686,7 @@ export default function DashboardGuru() {
             <button
               type="button"
               aria-current={tabAktif === 'ringkasan' ? 'page' : undefined}
-              onClick={() => navigate('/guru?tab=ringkasan')}
+              onClick={() => navigate('/guru')}
               title="Ringkasan"
             >
               <LayoutDashboard className="w-4 h-4 shrink-0" />
