@@ -61,7 +61,7 @@ export default function LintasanBalapKarung({
     ? 'sedih'
     : 'netral';
 
-  const trackHeight = compact ? 'h-20' : 'h-28 sm:h-32';
+  const trackHeight = compact ? 'h-24' : 'h-32 sm:h-36';
 
   return (
     <div className="w-full space-y-2 select-none">

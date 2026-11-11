@@ -287,9 +287,13 @@ export function RiwayatDetailModal({
                   ? detail.mode === 'MULTI'
                     ? 'Mode Multiplayer (HP Siswa)'
                     : 'Mode Solo (Perangkat Guru)'
-                  : detail.game === 'panjat_pinang' || detail.game === 'balap_karung'
+                  : detail.game === 'balap_karung'
+                  ? detail.mode === 'MULTI'
+                    ? 'Mode Multiplayer (HP Siswa)'
+                    : 'Mode Solo (Duel 1 vs 1)'
+                  : detail.game === 'panjat_pinang'
                   ? 'Individu Multiplayer'
-                  : `Mode ${detail.mode === 'multi' ? 'Multiplayer' : 'Solo'}`}
+                  : `Mode ${detail.mode === 'MULTI' || detail.mode === 'multi' ? 'Multiplayer' : 'Solo'}`}
               </span>
             </div>
             <h3 className="portal-cv text-2xl text-[#1d3b2e] leading-snug">

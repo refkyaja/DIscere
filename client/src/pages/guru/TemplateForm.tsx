@@ -34,7 +34,7 @@ export default function TemplateForm() {
         const t = res.template;
         const game = t.game || 'tarik_tambang';
         const mode: 'solo' | 'multi' =
-          game === 'panjat_pinang' || game === 'balap_karung'
+          game === 'panjat_pinang'
             ? 'multi'
             : t.mode === 'solo'
             ? 'solo'
