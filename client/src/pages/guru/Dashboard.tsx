@@ -653,7 +653,7 @@ export default function DashboardGuru() {
           <div className="portal-side-header">
             <div className="portal-brand">
               <svg
-                className="w-8 h-8 shrink-0 text-[#f4ecd8]"
+                className="w-8 h-8 mx-auto shrink-0 text-[#f4ecd8]"
                 viewBox="0 0 48 48"
                 fill="none"
                 stroke="currentColor"
@@ -665,7 +665,7 @@ export default function DashboardGuru() {
                 <path d="M5 11c7-3 14-1 19 4v26c-5-5-12-7-19-4zM43 11c-7-3-14-1-19 4v26c5-5 12-7 19-4z" />
                 <path d="M10 19h8M10 26h8M30 19h8M30 26h8" />
               </svg>
-              <span>Discere</span>
+              {!sidebarMinimized && <span>Discere</span>}
             </div>
             <button
               type="button"

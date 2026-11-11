@@ -111,10 +111,18 @@
 }
 
 .portal-shell.minimized .portal-brand {
+  display: flex;
   justify-content: center;
   align-items: center;
   width: 100%;
+  margin: 0 auto;
+  padding: 0;
   gap: 0;
+}
+
+.portal-shell.minimized .portal-brand svg {
+  display: block;
+  margin: 0 auto;
 }
 
 .portal-shell.minimized .portal-brand span {
