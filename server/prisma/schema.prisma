@@ -56,6 +56,7 @@ model Question {
   opsiC        String
   jawabanBenar String         // "A" | "B" | "C"
   penjelasan   String?
+  kesulitan    String         @default("sedang") // "mudah" | "sedang" | "sulit"
   dibuatAi     Boolean        @default(false)
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
@@ -95,6 +96,7 @@ model SessionPlayer {
   sessionId           String
   session             Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   nama                String
+  tim                 String?   // Tarik Tambang: "tim1" | "tim2"
   posisi              Int       @default(0) // Panjat Pinang: 0..100%; Balap Karung: jarakTempuh (meter)
   keseimbangan        Int       @default(100) // Balap Karung: 0..100%
   jumlahJatuh         Int       @default(0) // Balap Karung: total kejadian jatuh saat keseimbangan 0%
