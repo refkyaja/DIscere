@@ -975,7 +975,16 @@ export async function obrolDenganAI(params: {
       });
 
       if (!response.ok) {
-        throw new Error(`Layanan AI memberikan kode respon ${response.status}`);
+        let errDetail = '';
+        try {
+          const errJson = (await response.json()) as any;
+          errDetail = errJson?.error?.message || '';
+        } catch {}
+
+        if (response.status === 429) {
+          throw new Error('Batas kecepatan / kuota API Google Gemini tercapai (Too Many Requests). Silakan tunggu sebentar.');
+        }
+        throw new Error(`Layanan AI memberikan kode respon ${response.status}${errDetail ? `: ${errDetail}` : ''}`);
       }
 
       const data = (await response.json()) as any;
@@ -1047,7 +1056,16 @@ export async function obrolDenganAI(params: {
       });
 
       if (!response.ok) {
-        throw new Error(`Layanan AI memberikan kode respon ${response.status}`);
+        let errDetail = '';
+        try {
+          const errJson = (await response.json()) as any;
+          errDetail = errJson?.error?.message || '';
+        } catch {}
+
+        if (response.status === 429) {
+          throw new Error('Batas kecepatan / kuota API Google Gemini tercapai (Too Many Requests). Silakan tunggu sebentar.');
+        }
+        throw new Error(`Layanan AI memberikan kode respon ${response.status}${errDetail ? `: ${errDetail}` : ''}`);
       }
 
       const data = (await response.json()) as any;
@@ -1059,8 +1077,12 @@ export async function obrolDenganAI(params: {
       return { jawaban: textOut.trim() };
     }
   } catch (err: any) {
+    console.error('[AI Obrol Error]:', err?.message || err);
     if (err?.name === 'TimeoutError' || err?.name === 'AbortError') {
       throw new Error('Waktu respon AI terlalu lama (melebihi 60 detik).');
+    }
+    if (err?.message && !err.message.includes('at ')) {
+      throw err;
     }
     throw new Error('Gagal menghubungi layanan AI. Silakan coba kembali.');
   }

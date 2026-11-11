@@ -14,7 +14,6 @@ import {
 import {
   parseAiQuizText,
   PROMPT_TEMPLATE,
-  CONTOH_TEXT,
   type QuestionItem,
 } from '../lib/quizParser';
 
@@ -124,8 +123,6 @@ export function TemplateEditor({
   const [modalAiOpen, setModalAiOpen] = useState(false);
   const [aiMateri, setAiMateri] = useState('');
   const [aiJumlah, setAiJumlah] = useState<number>(5);
-  const [aiTingkat, setAiTingkat] = useState<'SD' | 'SMP'>('SD');
-  const [aiKesulitan, setAiKesulitan] = useState<'mudah' | 'sedang' | 'sulit'>('sedang');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiSuksesPesan, setAiSuksesPesan] = useState<string | null>(null);
@@ -172,10 +169,7 @@ export function TemplateEditor({
         body: JSON.stringify({
           materi: aiMateri.trim(),
           jumlah: aiJumlah,
-          tingkat: aiTingkat,
-          kesulitan: aiKesulitan,
           jumlahSoal: aiJumlah,
-          jenjang: aiTingkat,
         }),
       });
 
@@ -190,7 +184,7 @@ export function TemplateEditor({
           opsiC: q.opsiC,
           jawabanBenar: q.jawabanBenar,
           penjelasan: q.penjelasan || '',
-          kesulitan: q.kesulitan || aiKesulitan,
+          kesulitan: q.kesulitan || 'sedang',
           dibuatAi: true,
         }));
 
@@ -567,14 +561,7 @@ export function TemplateEditor({
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#e0d5b8]">
-                  <button
-                    type="button"
-                    onClick={() => setTeksTempelAi(CONTOH_TEXT)}
-                    className="portal-btn ghost sm text-xs"
-                  >
-                    Muat Contoh Format
-                  </button>
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#e0d5b8]">
                   <div className="flex items-center gap-2">
                     {teksTempelAi && (
                       <button
@@ -787,56 +774,21 @@ export function TemplateEditor({
           </div>
 
           {/* Pilihan Pengaturan AI */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-[#1d3b2e] uppercase tracking-wider mb-1">
-                Jumlah Soal
-              </label>
-              <select
-                disabled={aiLoading}
-                value={aiJumlah}
-                onChange={(e) => setAiJumlah(parseInt(e.target.value, 10))}
-                className="portal-select"
-              >
-                <option value={5}>5 Soal (Rekomendasi Cepat)</option>
-                <option value={8}>8 Soal</option>
-                <option value={10}>10 Soal (Lomba Standar)</option>
-                <option value={15}>15 Soal (Maksimal)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-[#1d3b2e] uppercase tracking-wider mb-1">
-                Jenjang / Tingkat
-              </label>
-              <select
-                disabled={aiLoading}
-                value={aiTingkat}
-                onChange={(e) => setAiTingkat(e.target.value as 'SD' | 'SMP')}
-                className="portal-select"
-              >
-                <option value="SD">Sekolah Dasar (SD Kelas 4 - 6)</option>
-                <option value="SMP">Sekolah Menengah Pertama (SMP)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-[#1d3b2e] uppercase tracking-wider mb-1">
-                Tingkat Kesulitan
-              </label>
-              <select
-                disabled={aiLoading}
-                value={aiKesulitan}
-                onChange={(e) =>
-                  setAiKesulitan(e.target.value as 'mudah' | 'sedang' | 'sulit')
-                }
-                className="portal-select"
-              >
-                <option value="mudah">Mudah</option>
-                <option value="sedang">Sedang</option>
-                <option value="sulit">Sulit</option>
-              </select>
-            </div>
+          <div>
+            <label className="block text-xs font-bold text-[#1d3b2e] uppercase tracking-wider mb-1">
+              Jumlah Soal
+            </label>
+            <select
+              disabled={aiLoading}
+              value={aiJumlah}
+              onChange={(e) => setAiJumlah(parseInt(e.target.value, 10))}
+              className="portal-select"
+            >
+              <option value={5}>5 Soal (Rekomendasi Cepat)</option>
+              <option value={8}>8 Soal</option>
+              <option value={10}>10 Soal (Lomba Standar)</option>
+              <option value={15}>15 Soal (Maksimal)</option>
+            </select>
           </div>
 
           {/* Action Buttons */}

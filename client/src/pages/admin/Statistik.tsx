@@ -55,7 +55,11 @@ export default function DashboardAdmin() {
     setErrorPesan(null);
     setPustakaView('list');
     setEditingTemplate(null);
-    navigate(`/admin?tab=${tab}`);
+    if (tab === 'statistik') {
+      navigate('/admin');
+    } else {
+      navigate(`/admin?tab=${tab}`);
+    }
   };
 
   const [sidebarMinimized, setSidebarMinimized] = useState(false);
