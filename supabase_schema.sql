@@ -65,6 +65,9 @@ CREATE TABLE IF NOT EXISTS public.questions (
 );
 
 ALTER TABLE public.questions ADD COLUMN IF NOT EXISTS kesulitan TEXT NOT NULL DEFAULT 'sedang';
+ALTER TABLE public.questions ALTER COLUMN "opsiC" DROP NOT NULL;
+ALTER TABLE public.questions ADD COLUMN IF NOT EXISTS "opsiD" TEXT;
+ALTER TABLE public.questions ADD COLUMN IF NOT EXISTS "opsiE" TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_questions_template ON public.questions("templateId");
 
