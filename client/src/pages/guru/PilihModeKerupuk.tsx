@@ -373,7 +373,7 @@ export default function PilihModeKerupuk() {
                   </div>
                 )}
 
-                <div className="p-3 rounded-xl bg-[#f4ecd9] border border-dashed border-[#d7caa7] text-xs text-[#6b7d6c] space-y-1">
+                <div className="pt-3 border-t border-dashed border-[#e0d5b8] text-xs text-[#6b7d6c] space-y-1">
                   <div className="flex items-center justify-between">
                     <span>Target menghabiskan kerupuk:</span>
                     <strong className="text-[#1d3b2e] font-mono text-sm">
@@ -419,7 +419,7 @@ export default function PilihModeKerupuk() {
                     </select>
                   </div>
 
-                  <label className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#fffdf6] border-2 border-[#e0d5b8] cursor-pointer">
+                  <label className="flex items-center justify-between gap-3 pt-3 border-t border-dashed border-[#e0d5b8] cursor-pointer">
                     <div>
                       <div className="text-xs font-extrabold text-[#1d3b2e]">
                         Izinkan Gabung Susulan
@@ -445,8 +445,8 @@ export default function PilihModeKerupuk() {
                     tagColor="red"
                   />
 
-                  <div className="space-y-2.5 text-xs text-[#1d3b2e]">
-                    <div className="p-3 rounded-2xl bg-[#fffdf6] border-2 border-[#e0d5b8]">
+                  <div className="divide-y divide-dashed divide-[#e0d5b8] text-xs text-[#1d3b2e]">
+                    <div className="pb-3">
                       <div className="font-extrabold">Pintasan Mouse &amp; Keyboard</div>
                       <p className="text-[11px] text-[#6b7d6c] mt-0.5">
                         Tekan tombol pilihan di layar atau keyboard{' '}
@@ -454,7 +454,7 @@ export default function PilihModeKerupuk() {
                         <strong className="font-mono text-[#1d3b2e]">1–5</strong> untuk langsung menggigit kerupuk.
                       </p>
                     </div>
-                    <div className="p-3 rounded-2xl bg-[#fffdf6] border-2 border-[#e0d5b8]">
+                    <div className="pt-3">
                       <div className="font-extrabold">Jeda &amp; Ulang Kapan Saja</div>
                       <p className="text-[11px] text-[#6b7d6c] mt-0.5">
                         Guru dapat menjeda permainan saat menjelaskan materi lalu melanjutkan atau mengulang dari nol.
@@ -475,7 +475,7 @@ export default function PilihModeKerupuk() {
               />
 
               {/* Ringkasan Peluang Aktif */}
-              <div className="p-4 rounded-2xl bg-[#fffdf6] border-2 border-[#e0d5b8] space-y-2.5">
+              <div className="space-y-2.5">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-extrabold flex items-center gap-1.5 text-[#1d3b2e]">
                     <Sparkles className="w-4 h-4 text-[#c8362f]" /> Distribusi Gigitan Saat Ini
@@ -517,7 +517,7 @@ export default function PilihModeKerupuk() {
               </div>
 
               {/* Ringkasan Mekanika */}
-              <div className="p-3.5 rounded-2xl bg-[#f4ecd9]/80 border border-dashed border-[#d7caa7] text-xs text-[#1d3b2e] leading-relaxed">
+              <div className="border-l-4 border-[#d7caa7] pl-3.5 py-0.5 text-xs text-[#1d3b2e] leading-relaxed">
                 <strong>Mekanika Makan Kerupuk:</strong> Setiap jawaban benar bernilai{' '}
                 <strong className="font-mono">+100 pt</strong> + undian ukuran gigitan otomatis
                 dari server. Mencapai rangkaian{' '}
@@ -527,7 +527,7 @@ export default function PilihModeKerupuk() {
               </div>
 
               {/* Preset Kesulitan */}
-              <div>
+              <div className="pt-4 border-t border-dashed border-[#e0d5b8]">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-extrabold text-[#1d3b2e]">
                     Tingkat Kesulitan &amp; Peluang Gigitan
@@ -572,11 +572,11 @@ export default function PilihModeKerupuk() {
               </div>
 
               {/* Pengaturan Lanjutan (Slider Peluang Gigitan & Zonk) */}
-              <div className="pt-1">
+              <div className="pt-3 border-t border-dashed border-[#e0d5b8]">
                 <button
                   type="button"
                   onClick={() => setShowAdvancedRules((prev) => !prev)}
-                  className="w-full px-3.5 py-2.5 rounded-2xl border-2 border-dashed border-[#d7caa7] bg-[#fcf8ed] hover:bg-[#f4ecd8] text-xs font-extrabold text-[#1d3b2e] flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                  className="w-full py-1 text-xs font-extrabold text-[#1d3b2e] hover:text-[#c8362f] flex items-center justify-between gap-2 cursor-pointer transition-colors"
                 >
                   <span className="flex items-center gap-2">
                     <Sliders className="w-3.5 h-3.5 text-[#c8362f]" />
@@ -594,7 +594,7 @@ export default function PilihModeKerupuk() {
               </div>
 
               {showAdvancedRules && (
-                <div className="space-y-3 bg-[#fffdf6] border-2 border-[#e0d5b8] rounded-2xl p-4">
+                <div className="space-y-3 pt-1">
                   {[
                     {
                       key: 'besar' as const,
@@ -685,11 +685,6 @@ export default function PilihModeKerupuk() {
               )}
 
               <GameConfigFooter
-                modeSummary={
-                  playMode === 'MULTIPLAYER'
-                    ? `Multiplayer Siswa (${targetKerupuk} pt · ${labelKesulitanAktif})`
-                    : `Solo Proyektor (${targetKerupuk} pt · ${labelKesulitanAktif})`
-                }
                 canSubmit={canSubmit}
                 submitting={submitting}
                 isSolo={playMode === 'SOLO'}

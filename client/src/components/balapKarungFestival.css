@@ -241,7 +241,7 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 50%;
+  left: calc(46.5% + var(--rw) * 0.25);
   border-left: 3px dashed rgba(255, 255, 255, 0.75);
   pointer-events: none;
   z-index: 1;
@@ -263,7 +263,7 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 84%;
+  left: calc(90% - 11px);
   width: 22px;
   background: repeating-conic-gradient(var(--ink) 0 25%, #ffffff 0 50%) 0 0 / 11px 11px;
   border: 2px solid var(--ink);

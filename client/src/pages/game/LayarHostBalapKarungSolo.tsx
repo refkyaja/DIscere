@@ -16,7 +16,6 @@ import {
   Bot,
   Swords,
   RefreshCw,
-  Sliders,
   CheckCircle2,
   Clock,
   Pause,
@@ -61,6 +60,11 @@ interface PesertaBalapSolo {
   waktuSelesaiMs: number | null;
   rataRataWaktuJawabMs: number;
   jumlahJawab: number;
+  efekAktif?: {
+    perisai: boolean;
+    lompatanKuat: boolean;
+    jalanBerlumpur: boolean;
+  };
   soalAktif: SoalAktifSolo | null;
 }
 
@@ -78,9 +82,21 @@ interface FeedbackAksi {
   perubahanJarak: number;
   keseimbanganBaru: number;
   streakSaatIni: number;
+  bonusStreakJarakDidapat?: number;
+  bonusStreakKeseimbanganDidapat?: number;
+  bonusLompatanKuatDidapat?: number;
+  penaltiJalanBerlumpurDipakai?: number;
   terjatuh: boolean;
   penaltiJatuhJarak: number;
   perisaiDigunakan: boolean;
+  rintanganBaru?: {
+    id: string;
+    tipe: string;
+    judul: string;
+    deskripsi: string;
+    efekNilai: number;
+    satuan: string;
+  } | null;
   selesaiBaru: boolean;
 }
 
@@ -163,7 +179,6 @@ export default function LayarHostBalapKarungSolo() {
   const [errorPesan, setErrorPesan] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isActionLoading, setIsActionLoading] = useState(false);
-  const [isUpdatingBot, setIsUpdatingBot] = useState(false);
   const [isMuted, setIsMuted] = useState(soundEffects.getMuted());
   const [isMainLagi, setIsMainLagi] = useState(false);
 
@@ -484,32 +499,6 @@ export default function LayarHostBalapKarungSolo() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isPlaying, isVsBot, isRevealingP1, sesi?.pemain1?.soalAktif, submitJawabanSlot]);
 
-  const handleUbahBotKesulitan = async (nextBot: KesulitanBot) => {
-    if (!id || !sesi || sesi.state !== 'READY' || isUpdatingBot) return;
-    const prev = sesi.config.kesulitanBot;
-    setSesi((curr) =>
-      curr ? { ...curr, config: { ...curr.config, kesulitanBot: nextBot } } : curr
-    );
-    try {
-      setIsUpdatingBot(true);
-      const res = await apiRequest<{ session: SesiBalapSoloClient }>(
-        `/sesi/${id}/pengaturan`,
-        {
-          method: 'PATCH',
-          body: JSON.stringify({ kesulitanBot: nextBot }),
-        }
-      );
-      if (res.session) setSesi(res.session);
-    } catch (err: any) {
-      setSesi((curr) =>
-        curr ? { ...curr, config: { ...curr.config, kesulitanBot: prev } } : curr
-      );
-      setActionError(err.pesan || 'Gagal mengubah tingkat kesulitan bot.');
-    } finally {
-      setIsUpdatingBot(false);
-    }
-  };
-
   const handleMulai = async () => {
     if (!id || !sesi || isActionLoading) return;
     try {
@@ -690,13 +679,66 @@ export default function LayarHostBalapKarungSolo() {
   const remainingSecDisplay = Math.max(0, Math.ceil(remainingMs / 1000));
 
   const renderFeedbackText = (fb: FeedbackAksi) => {
+    const extras: string[] = [];
+    if (fb.bonusStreakJarakDidapat) extras.push(`Streak +${fb.bonusStreakJarakDidapat} m`);
+    if (fb.bonusLompatanKuatDidapat) extras.push(`Lompatan Kuat +${fb.bonusLompatanKuatDidapat} m`);
+    if (fb.penaltiJalanBerlumpurDipakai) extras.push(`Lumpur −${fb.penaltiJalanBerlumpurDipakai} m`);
+    if (fb.terjatuh) {
+      extras.push(
+        fb.perisaiDigunakan
+          ? 'Perisai menahan jatuh!'
+          : `Terjatuh −${fb.penaltiJatuhJarak} m`
+      );
+    }
+    if (fb.rintanganBaru?.judul) extras.push(fb.rintanganBaru.judul);
+    const suffix = extras.length > 0 ? ` (${extras.join(' · ')})` : '';
+
     if (fb.benar) {
-      return `Benar! Karung melompat +${Math.abs(fb.perubahanJarak)} m.`;
+      return `Benar! Karung melompat ${fb.perubahanJarak >= 0 ? '+' : '−'}${Math.abs(fb.perubahanJarak)} m${suffix}.`;
     }
     if (fb.timedOut) {
-      return `Waktu habis, mundur ${Math.abs(fb.perubahanJarak)} m. Jawaban: ${fb.jawabanBenarTeks}`;
+      return `Waktu habis, mundur ${Math.abs(fb.perubahanJarak)} m${suffix}. Jawaban: ${fb.jawabanBenarTeks}`;
     }
-    return `Belum tepat, mundur ${Math.abs(fb.perubahanJarak)} m. Jawaban: ${fb.jawabanBenarTeks}`;
+    return `Belum tepat, mundur ${Math.abs(fb.perubahanJarak)} m${suffix}. Jawaban: ${fb.jawabanBenarTeks}`;
+  };
+
+  const renderStatusBadges = (p: PesertaBalapSolo) => {
+    if (
+      !sesi.config.keseimbanganAktif &&
+      !sesi.config.bonusStreakAktif &&
+      !sesi.config.rintanganAktif
+    ) {
+      return null;
+    }
+    return (
+      <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-extrabold mb-2">
+        {sesi.config.keseimbanganAktif && (
+          <span className="px-2.5 py-0.5 rounded-full bg-sky-50 border border-sky-200 text-sky-800">
+            Keseimbangan: {p.keseimbangan}%
+          </span>
+        )}
+        {sesi.config.bonusStreakAktif && (
+          <span className="px-2.5 py-0.5 rounded-full bg-orange-50 border border-orange-200 text-orange-800">
+            Streak: {p.streakSaatIni}
+          </span>
+        )}
+        {sesi.config.rintanganAktif && p.efekAktif?.perisai && (
+          <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800">
+            Perisai Aktif
+          </span>
+        )}
+        {sesi.config.rintanganAktif && p.efekAktif?.lompatanKuat && (
+          <span className="px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800">
+            Lompatan Kuat Siap
+          </span>
+        )}
+        {sesi.config.rintanganAktif && p.efekAktif?.jalanBerlumpur && (
+          <span className="px-2.5 py-0.5 rounded-full bg-red-50 border border-red-200 text-red-700">
+            Jalan Berlumpur
+          </span>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -760,45 +802,11 @@ export default function LayarHostBalapKarungSolo() {
             <h2 className="bk-h text-2xl sm:text-3xl font-extrabold text-[#2b2a4a] mt-1">
               {isDuelLokal ? 'Siap duel lokal 1 vs 1?' : 'Siap duel 1 vs 1?'}
             </h2>
-            <p className="text-sm text-[#6b6a85] max-w-[48ch] mx-auto mt-1 mb-4">
+            <p className="text-sm text-[#6b6a85] max-w-[48ch] mx-auto mt-1 mb-5">
               Jawab kuis secepat dan setepat mungkin ({timerSec} detik per soal). Setiap jawaban
               benar melompatkan karung +{sesi.config.lompatBenar} m, salah −
               {sesi.config.turunSalah} m.
             </p>
-
-            {!isDuelLokal && (
-              <div
-                className="flex flex-wrap items-center justify-center gap-2 mb-5"
-                role="group"
-                aria-label="Tingkat bot"
-              >
-                {(
-                  [
-                    { key: 'santai', label: 'Bot mudah' },
-                    { key: 'sedang', label: 'Bot sedang' },
-                    { key: 'cepat', label: 'Bot sulit' },
-                  ] as const
-                ).map((item) => {
-                  const active = sesi.config.kesulitanBot === item.key;
-                  return (
-                    <button
-                      key={item.key}
-                      type="button"
-                      disabled={isUpdatingBot}
-                      aria-pressed={active}
-                      onClick={() => handleUbahBotKesulitan(item.key)}
-                      className={`px-4 py-1.5 rounded-full border-2 text-sm font-extrabold transition-all cursor-pointer ${
-                        active
-                          ? 'bg-[#1d8fe0] border-[#1d8fe0] text-white shadow-xs'
-                          : 'bg-[#fff3d6] border-[#f0dfb4] text-[#2b2a4a] hover:border-[#1d8fe0]'
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
 
             <div className="flex flex-wrap items-center justify-center gap-3">
               <button
@@ -809,19 +817,6 @@ export default function LayarHostBalapKarungSolo() {
               >
                 <Play className="w-4 h-4 fill-current" />
                 {isActionLoading ? 'Memulai...' : 'Mulai lomba'}
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  navigate(
-                    `/guru/balap-karung?templateId=${encodeURIComponent(
-                      sesi.templateId
-                    )}&kembali=${encodeURIComponent(returnUrl)}`
-                  )
-                }
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl border-2 border-[#f0dfb4] bg-[#fff3d6] text-xs font-extrabold text-[#2b2a4a] hover:bg-[#fde9b8] cursor-pointer"
-              >
-                <Sliders className="w-4 h-4" /> Pengaturan Lomba
               </button>
             </div>
           </section>
@@ -860,6 +855,8 @@ export default function LayarHostBalapKarungSolo() {
                       {remainingSecDisplay} detik
                     </span>
                   </div>
+
+                  {renderStatusBadges(sesi.pemain1)}
 
                   <div className="bk-tbar">
                     <div
@@ -967,6 +964,8 @@ export default function LayarHostBalapKarungSolo() {
                     </span>
                   </div>
 
+                  {renderStatusBadges(peserta)}
+
                   {soal ? (
                     <>
                       <div className="text-xs font-extrabold text-[#6b6a85] mb-1.5">
@@ -1054,7 +1053,7 @@ export default function LayarHostBalapKarungSolo() {
                   onClick={() => setModalUlangOpen(true)}
                   className="bk-btn slate"
                 >
-                  <RotateCcw className="w-4 h-4" /> Ubah bot / ulang
+                  <RotateCcw className="w-4 h-4" /> Ulang dari awal
                 </button>
                 <button
                   type="button"
@@ -1153,26 +1152,47 @@ export default function LayarHostBalapKarungSolo() {
                   <CheckCircle2 className="w-5 h-5 text-[#1f9d55]" />
                   Statistik soal yang dijawab
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                  {sesi.hasil.questionStats.map((qs, idx) => (
-                    <div
-                      key={qs.questionId || idx}
-                      className="flex items-start justify-between gap-3 bg-[#fff3d6] border-2 border-[#f0dfb4] rounded-2xl px-3.5 py-2.5"
-                    >
-                      <div className="min-w-0">
-                        <small className="text-[11px] font-extrabold text-[#6b6a85] block">
-                          Soal #{qs.nomorSoal ?? idx + 1}
-                        </small>
-                        <div className="text-sm font-extrabold text-[#2b2a4a] leading-snug">
-                          {qs.teksSoal || `Pertanyaan ${idx + 1}`}
-                        </div>
-                      </div>
-                      <div className="text-right text-xs font-extrabold whitespace-nowrap shrink-0">
-                        <div className="text-[#1f9d55]">{qs.jumlahBenar ?? 0} Benar</div>
-                        <div className="text-[#d63b3b]">{qs.jumlahSalah ?? 0} Salah</div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="bk-hm-wrap">
+                  <table className="bk-hm">
+                    <thead>
+                      <tr>
+                        <th className="w-16">No</th>
+                        <th className="!text-left pl-3">Pertanyaan</th>
+                        <th className="w-24">Benar</th>
+                        <th className="w-24">Salah</th>
+                        <th className="w-24">Akurasi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sesi.hasil.questionStats.map((qs, idx) => {
+                        const benar = qs.jumlahBenar ?? 0;
+                        const salah = qs.jumlahSalah ?? 0;
+                        const total = benar + salah;
+                        const akurasi = total > 0 ? `${Math.round((benar / total) * 100)}%` : '—';
+                        return (
+                          <tr key={qs.questionId || idx}>
+                            <td className="font-mono font-extrabold text-[#6b6a85]">
+                              #{qs.nomorSoal ?? idx + 1}
+                            </td>
+                            <td className="!text-left pl-3 font-bold text-[#2b2a4a] leading-snug">
+                              {qs.teksSoal || `Pertanyaan ${idx + 1}`}
+                            </td>
+                            <td>
+                              <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#e6f8ed] text-[#1f9d55] font-extrabold text-xs">
+                                {benar}
+                              </span>
+                            </td>
+                            <td>
+                              <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#fdecec] text-[#d63b3b] font-extrabold text-xs">
+                                {salah}
+                              </span>
+                            </td>
+                            <td className="font-mono font-extrabold text-[#2b2a4a]">{akurasi}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
@@ -1189,8 +1209,8 @@ export default function LayarHostBalapKarungSolo() {
       >
         <div className="space-y-4">
           <p className="text-sm text-slate-600">
-            Jarak kedua peserta akan direset ke 0 m sehingga guru bisa memilih tingkat bot lagi
-            dan memulai duel baru pada sesi ini.
+            Jarak kedua peserta akan direset ke 0 m sehingga kedua peserta kembali ke garis awal
+            untuk memulai duel baru pada sesi ini.
           </p>
           <div className="flex justify-end gap-2.5">
             <button

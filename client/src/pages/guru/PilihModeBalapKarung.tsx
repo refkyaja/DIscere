@@ -527,7 +527,7 @@ export default function PilihModeBalapKarung() {
                       </div>
                     )}
 
-                    <div className="p-3 rounded-xl bg-[#f4ecd9] border border-dashed border-[#d7caa7] text-xs text-[#6b7d6c] flex items-center justify-between">
+                    <div className="pt-3 border-t border-dashed border-[#e0d5b8] text-xs text-[#6b7d6c] flex items-center justify-between">
                       <span>Garis finis ditetapkan pada:</span>
                       <strong className="text-[#1d3b2e] font-mono text-sm">
                         {isValidTarget ? `${targetJarakFinal} meter` : 'Tidak valid (10–1000m)'}
@@ -710,7 +710,7 @@ export default function PilihModeBalapKarung() {
                         </select>
                       </div>
 
-                      <label className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#fffdf6] border-2 border-[#e0d5b8] cursor-pointer">
+                      <label className="flex items-center justify-between gap-3 pt-3 border-t border-dashed border-[#e0d5b8] cursor-pointer">
                         <div>
                           <div className="text-xs font-extrabold text-[#1d3b2e]">
                             Izinkan Gabung Susulan
@@ -740,7 +740,7 @@ export default function PilihModeBalapKarung() {
                   />
 
                   {/* Timer Per Soal */}
-                  <div className="p-4 rounded-2xl bg-[#fffdf6] border-2 border-[#e0d5b8] space-y-3">
+                  <div className="space-y-2.5">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-extrabold flex items-center gap-1.5 text-[#1d3b2e]">
                         <Clock className="w-4 h-4 text-[#c8362f]" /> Batas Waktu per Soal
@@ -793,29 +793,81 @@ export default function PilihModeBalapKarung() {
                   </div>
 
                   {/* Ringkasan Mekanika */}
-                  <div className="p-3.5 rounded-2xl bg-[#f4ecd9]/80 border border-dashed border-[#d7caa7] text-xs text-[#1d3b2e] leading-relaxed">
+                  <div className="border-l-4 border-[#d7caa7] pl-3.5 py-0.5 text-xs text-[#1d3b2e] leading-relaxed space-y-1">
                     {playMode === 'MULTIPLAYER' ? (
-                      <>
+                      <p>
                         <strong>Mekanika Multiplayer Tim:</strong> Siswa dibagi merata ke{' '}
-                        <strong>{jumlahTim} tim</strong>. Jawaban benar memajukan tim sejauh{' '}
-                        <strong className="font-mono">
-                          +({targetJarakFinal}m × 12.5% ÷ anggota tim)
-                        </strong>{' '}
-                        sehingga ukuran tim yang berbeda tetap adil. Jawaban salah atau waktu
-                        habis memicu animasi tersandung tanpa memundurkan tim.
-                      </>
+                        <strong>{jumlahTim} tim</strong>. Jawaban benar memajukan tim sebesar{' '}
+                        <strong className="font-mono">+{lompatBenar}m ÷ anggota tim</strong>; salah atau
+                        waktu habis{' '}
+                        {turunSalah > 0 ? (
+                          <>
+                            memundurkan tim <strong className="font-mono">-{turunSalah}m ÷ anggota tim</strong>
+                          </>
+                        ) : (
+                          'memicu tersandung tanpa mundur'
+                        )}{' '}
+                        agar ukuran tim yang berbeda tetap adil.
+                        {(keseimbanganAktif || bonusStreakAktif || rintanganAktif) && (
+                          <>
+                            {' '}
+                            Opsi aktif:{' '}
+                            <strong>
+                              {[
+                                keseimbanganAktif ? 'Keseimbangan' : '',
+                                bonusStreakAktif ? 'Bonus Streak' : '',
+                                rintanganAktif ? 'Rintangan' : '',
+                              ]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </strong>
+                            .
+                          </>
+                        )}
+                      </p>
                     ) : (
-                      <>
+                      <p>
                         <strong>Mekanika Solo 1 vs 1:</strong> Setiap jawaban benar melompat{' '}
                         <strong className="font-mono">+{lompatBenar}m</strong>; salah atau
-                        waktu habis mundur <strong className="font-mono">-{turunSalah}m</strong>.
-                        Soal diacak tanpa pengulangan hingga habis lalu diacak ulang.
-                      </>
+                        waktu habis{' '}
+                        {turunSalah > 0 ? (
+                          <>
+                            mundur <strong className="font-mono">-{turunSalah}m</strong>
+                          </>
+                        ) : (
+                          'tidak mengurangi jarak'
+                        )}
+                        . Soal diacak tanpa pengulangan hingga habis lalu diacak ulang.
+                      </p>
+                    )}
+                    {jumlahSoal > 0 && isValidTarget && (
+                      <p className="text-[11px] text-[#6b7d6c] flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        <span>
+                          Bank <strong>{jumlahSoal} soal</strong> · Butuh{' '}
+                          <strong>{Math.ceil(targetJarakFinal / Math.max(1, lompatBenar))} benar</strong>{' '}
+                          untuk mencapai <strong>{targetJarakFinal}m</strong> (tidak otomatis dibagi jumlah soal).
+                        </span>
+                        {Math.max(1, Math.round(targetJarakFinal / jumlahSoal)) !== lompatBenar && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setKesulitan('custom');
+                              setLompatBenar(
+                                Math.min(100, Math.max(1, Math.round(targetJarakFinal / jumlahSoal)))
+                              );
+                            }}
+                            className="font-extrabold text-[#c8362f] underline cursor-pointer"
+                          >
+                            Sesuaikan langkah ({jumlahSoal} soal → +
+                            {Math.min(100, Math.max(1, Math.round(targetJarakFinal / jumlahSoal)))}m)
+                          </button>
+                        )}
+                      </p>
                     )}
                   </div>
 
-                  {/* Preset Kesulitan (Langkah Solo) */}
-                  <div>
+                  {/* Preset Kesulitan (Langkah Solo & Tim) */}
+                  <div className="pt-4 border-t border-dashed border-[#e0d5b8]">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-extrabold text-[#1d3b2e]">
                         {playMode === 'MULTIPLAYER'
@@ -858,7 +910,7 @@ export default function PilihModeBalapKarung() {
                   </div>
 
                   {kesulitan === 'custom' && (
-                    <div className="bg-[#fffdf6] border-2 border-[#e0d5b8] rounded-2xl p-4 grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                    <div className="pt-3 mt-3 border-t border-dashed border-[#e0d5b8] grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                       <div>
                         <label className="font-bold text-[11px] block mb-1">
                           Lompat Benar (+m)
@@ -966,11 +1018,11 @@ export default function PilihModeBalapKarung() {
                   </div>
 
                   {/* Pengaturan Lanjutan (Opsional: Keseimbangan, Streak & Rintangan) */}
-                  <div className="pt-1">
+                  <div className="pt-3 border-t border-dashed border-[#e0d5b8]">
                     <button
                       type="button"
                       onClick={() => setShowAdvancedRules((prev) => !prev)}
-                      className="w-full px-3.5 py-2.5 rounded-2xl border-2 border-dashed border-[#d7caa7] bg-[#fcf8ed] hover:bg-[#f4ecd8] text-xs font-extrabold text-[#1d3b2e] flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                      className="w-full py-1 text-xs font-extrabold text-[#1d3b2e] hover:text-[#c8362f] flex items-center justify-between gap-2 cursor-pointer transition-colors"
                     >
                       <span className="flex items-center gap-2">
                         <Sliders className="w-3.5 h-3.5 text-[#c8362f]" />
@@ -992,8 +1044,8 @@ export default function PilihModeBalapKarung() {
                   {showAdvancedRules && (
                     <div className="space-y-4">
                   {/* Keseimbangan & Bonus Streak */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <label className="p-3.5 bg-[#fffdf6] border-2 border-[#e0d5b8] rounded-2xl flex items-start justify-between gap-2.5 cursor-pointer">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    <label className="flex items-start justify-between gap-2.5 cursor-pointer py-1">
                       <div>
                         <span className="text-xs font-extrabold flex items-center gap-1.5 text-[#1d3b2e]">
                           <Scale className="w-3.5 h-3.5 text-sky-600" /> Sistem Keseimbangan
@@ -1011,7 +1063,7 @@ export default function PilihModeBalapKarung() {
                       />
                     </label>
 
-                    <div className="p-3.5 bg-[#fffdf6] border-2 border-[#e0d5b8] rounded-2xl space-y-2">
+                    <div className="space-y-2 py-1">
                       <label className="flex items-start justify-between gap-2.5 cursor-pointer">
                         <div>
                           <span className="text-xs font-extrabold flex items-center gap-1.5 text-[#1d3b2e]">
@@ -1084,7 +1136,7 @@ export default function PilihModeBalapKarung() {
                   </div>
 
                   {/* Rintangan & Power-Up */}
-                  <div className="p-4 bg-[#fffdf6] border-2 border-[#e0d5b8] rounded-2xl space-y-3">
+                  <div className="pt-3 border-t border-dashed border-[#e0d5b8] space-y-3">
                     <div className="flex items-center justify-between gap-2">
                       <div>
                         <span className="text-xs font-extrabold flex items-center gap-1.5 text-[#1d3b2e]">
@@ -1238,7 +1290,7 @@ export default function PilihModeBalapKarung() {
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between gap-2 text-[11px] bg-[#fcf8ed] border border-dashed border-[#d7caa7] rounded-xl px-3 py-2">
+                        <div className="flex items-center justify-between gap-2 text-[11px] pt-2 border-t border-dashed border-[#e0d5b8]">
                           <span>
                             Total bobot aktif:{' '}
                             <strong className="font-mono">{totalBobotDipilih}</strong>
@@ -1273,13 +1325,6 @@ export default function PilihModeBalapKarung() {
 
                   {/* Tombol Mulai */}
                   <GameConfigFooter
-                    modeSummary={
-                      playMode === 'MULTIPLAYER'
-                        ? `Multiplayer Tim (${jumlahTim} tim · ${waktuPerSoalDetik}dtk/soal)`
-                        : `Solo 1 vs 1 (${namaPemain1.trim() || 'Pemain 1'} vs ${
-                            namaPemain2.trim() || (tipeLawanSolo === 'bot' ? 'Lawan Bot' : 'Pemain 2')
-                          } · ${waktuPerSoalDetik}dtk/soal)`
-                    }
                     canSubmit={canSubmit}
                     submitting={submitting}
                     isSolo={playMode === 'SOLO'}

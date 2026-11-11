@@ -53,6 +53,9 @@ interface KonfigurasiBalapHost {
   waktuPerSoalDetik?: number;
   lompatBenar?: number;
   turunSalah?: number;
+  keseimbanganAktif?: boolean;
+  bonusStreakAktif?: boolean;
+  rintanganAktif?: boolean;
   maxPeserta?: number;
   allowLateJoin?: boolean;
 }
@@ -249,6 +252,12 @@ export default function LayarHostBalapKarung() {
         stepTim?: number;
         timMenangId?: KodeTim | null;
         timMenangNama?: string | null;
+        keseimbanganBaru?: number;
+        streakSaatIni?: number;
+        terjatuh?: boolean;
+        penaltiJatuhJarak?: number;
+        perisaiDigunakan?: boolean;
+        rintanganBaru?: { judul: string; tipe: string } | null;
       };
     }) => {
       if (data.teams) setTeams(data.teams);
@@ -273,7 +282,7 @@ export default function LayarHostBalapKarung() {
           setCrowdCheer(true);
           scheduleTimer(() => setCrowdCheer(false), 1200);
           setTeamJumpMap((prev) => ({ ...prev, [timKey]: true }));
-          if (typeof aksi.stepTim === 'number' && aksi.stepTim > 0) {
+          if (typeof aksi.stepTim === 'number' && aksi.stepTim !== 0) {
             setTeamDeltaMap((prev) => ({ ...prev, [timKey]: Number(aksi.stepTim!.toFixed(1)) }));
           }
           scheduleTimer(() => {
@@ -282,13 +291,21 @@ export default function LayarHostBalapKarung() {
           }, 1100);
         } else {
           setTeamHurtMap((prev) => ({ ...prev, [timKey]: true }));
+          if (typeof aksi.stepTim === 'number' && aksi.stepTim < 0) {
+            setTeamDeltaMap((prev) => ({ ...prev, [timKey]: Number(aksi.stepTim!.toFixed(1)) }));
+          }
           setTeamSayMap((prev) => ({
             ...prev,
-            [timKey]: aksi.stumbleQuote || (aksi.timedOut ? 'Waktu habis!' : 'Aduh!'),
+            [timKey]: aksi.terjatuh
+              ? aksi.perisaiDigunakan
+                ? 'Perisai menahan jatuh!'
+                : 'Terjatuh!'
+              : aksi.stumbleQuote || (aksi.timedOut ? 'Waktu habis!' : 'Aduh!'),
           }));
           scheduleTimer(() => {
             setTeamHurtMap((prev) => ({ ...prev, [timKey]: false }));
             setTeamSayMap((prev) => ({ ...prev, [timKey]: null }));
+            setTeamDeltaMap((prev) => ({ ...prev, [timKey]: null }));
           }, 1050);
         }
 
@@ -298,13 +315,23 @@ export default function LayarHostBalapKarung() {
 
         const labelTim =
           DEFAULT_TEAMS.find((t) => t.id === timKey)?.nama || 'Tim';
+        const extras: string[] = [];
+        if (aksi.rintanganBaru?.judul) extras.push(aksi.rintanganBaru.judul);
+        if (aksi.terjatuh) {
+          extras.push(aksi.perisaiDigunakan ? 'Perisai menolong!' : 'Keseimbangan 0% (jatuh)');
+        }
+        const extraSuffix = extras.length > 0 ? ` • ${extras.join(' · ')}` : '';
+        const stepStr =
+          typeof aksi.stepTim === 'number' && aksi.stepTim !== 0
+            ? `${aksi.stepTim > 0 ? '+' : ''}${aksi.stepTim.toFixed(1)} m`
+            : '0 m';
         const feedText = aksi.timMenangNama
           ? `${aksi.nama} membawa ${aksi.timMenangNama} melintasi GARIS FINIS!`
           : aksi.benar
-          ? `${aksi.nama} (${labelTim}) menjawab benar (+${(aksi.stepTim || 0).toFixed(1)} m)`
+          ? `${aksi.nama} (${labelTim}) menjawab benar (${stepStr})${extraSuffix}`
           : `${aksi.nama} (${labelTim}) ${
-              aksi.timedOut ? 'kehabisan waktu' : 'tersandung'
-            } — "${aksi.stumbleQuote || 'Aduh!'}"`;
+              aksi.timedOut ? 'kehabisan waktu' : 'salah'
+            }${typeof aksi.stepTim === 'number' && aksi.stepTim < 0 ? ` (${stepStr})` : ''}${extraSuffix}`;
 
         setLiveFeed((prev) => [
           { id: `${Date.now()}-${Math.random()}`, teks: feedText, ok: aksi.benar },
@@ -568,7 +595,9 @@ export default function LayarHostBalapKarung() {
         }
         statusTone={status === 'jalan' ? 'live' : status === 'selesai' ? 'done' : 'idle'}
         targetJarak={targetJarak}
-        ruleSummary="Benar = tim maju • Salah = tersandung"
+        ruleSummary={`Benar +${config.lompatBenar ?? 10}m · ${
+          config.turunSalah ? `Salah −${config.turunSalah}m` : 'Salah tersandung'
+        } (÷ anggota)`}
         lanes={stadiumLanes}
         crowdCheer={crowdCheer || status === 'selesai'}
         compactLanes={activeTeams.length >= 4}

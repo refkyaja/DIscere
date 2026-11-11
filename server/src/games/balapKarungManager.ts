@@ -13,7 +13,6 @@ import {
   KodeTimBalap,
   TIM_BALAP_RESMI,
   KATA_TERSANDUNG_BALAP,
-  hitungLangkahTimBalap,
   bangunKonfigurasiBalapKarung,
   buatPresentasiSoalBalap,
   prosesJawabanBalapKarung,
@@ -1312,21 +1311,39 @@ export const balapKarungManager = {
     // Tandai presentasi secara sinkron sebelum proses & penyimpanan
     sesi.processedPresentations.add(presentasi.presentationId);
 
-    // Pada mode Multiplayer Tim, kelulusan ditentukan oleh meter tim (bukan akumulasi individu),
-    // sehingga lompat individu diatur 0 dan status 'selesai' dikendalikan mutlak oleh posisi tim.
+    // Siapkan konteks tim terlebih dahulu agar langkah, penalti, streak, keseimbangan,
+    // dan rintangan berjalan sesuai konfigurasi guru & dinormalisasi adil per anggota tim.
+    const timKode: KodeTimBalap = peserta.tim || pilihTimSeimbang(sesi);
+    const jumlahAnggotaTim = Math.max(
+      1,
+      Array.from(sesi.peserta.values()).filter((p) => (p.tim || timKode) === timKode).length
+    );
+
+    const tState = sesi.teams.get(timKode) || {
+      id: timKode,
+      nama: TIM_BALAP_RESMI.find((t) => t.id === timKode)?.nama || 'Tim Merah',
+      warna: TIM_BALAP_RESMI.find((t) => t.id === timKode)?.warna || '#e2312d',
+      meter: 0,
+      selesaiPadaMs: null,
+    };
+    const teamMeterBefore = tState.meter;
+
+    // Gunakan targetJarak besar sementara agar kelulusan tetap ditentukan mutlak oleh posisi tim
     const teamConfigForAttempt: KonfigurasiBalapKarung = Object.freeze({
       ...sesi.config,
-      lompatBenar: 0,
-      turunSalah: 0,
-      keseimbanganAktif: false,
-      bonusStreakAktif: false,
-      rintanganAktif: false,
+      targetJarak: Number.MAX_SAFE_INTEGER,
     });
+    const pesertaForAttempt: PesertaBalapKarungState = {
+      ...peserta,
+      tim: timKode,
+      status: 'bermain',
+      jarak: teamMeterBefore * jumlahAnggotaTim,
+    };
 
     let hasilJawaban: HasilJawabanBalap;
     try {
       hasilJawaban = prosesJawabanBalapKarung({
-        peserta,
+        peserta: pesertaForAttempt,
         presentasi,
         choiceId,
         fallbackJawabanKey: jawaban,
@@ -1341,58 +1358,78 @@ export const balapKarungManager = {
       throw err;
     }
 
+    hasilJawaban.pesertaUpdated.tim = timKode;
     hasilJawaban.pesertaUpdated.status = 'bermain';
     hasilJawaban.pesertaUpdated.selesaiPada = null;
     hasilJawaban.pesertaUpdated.waktuSelesaiMs = null;
     hasilJawaban.selesaiBaru = false;
 
-    // Hitung kemajuan tim (dinormalisasi berdasarkan jumlah anggota tim agar adil!)
-    const timKode: KodeTimBalap = peserta.tim || pilihTimSeimbang(sesi);
-    hasilJawaban.pesertaUpdated.tim = timKode;
+    const rawTeamDelta = hasilJawaban.jarakBaru - teamMeterBefore * jumlahAnggotaTim;
+    const stepTim = rawTeamDelta / jumlahAnggotaTim;
+    const meterSesudah = Math.min(
+      sesi.config.targetJarak,
+      Math.max(0, teamMeterBefore + stepTim)
+    );
+    const actualTeamDelta = meterSesudah - teamMeterBefore;
 
-    const jumlahAnggotaTim = Array.from(sesi.peserta.values()).filter(
-      (p) => (p.tim || timKode) === timKode
-    ).length;
+    tState.meter = meterSesudah;
+    sesi.teams.set(timKode, tState);
 
-    let stepTim = 0;
     let terpeleset = false;
     let stumbleQuote: string | null = null;
     let timMenangId: KodeTimBalap | null = null;
     let timMenangNama: string | null = null;
 
-    const tState = sesi.teams.get(timKode) || {
-      id: timKode,
-      nama: TIM_BALAP_RESMI.find((t) => t.id === timKode)?.nama || 'Tim Merah',
-      warna: TIM_BALAP_RESMI.find((t) => t.id === timKode)?.warna || '#e2312d',
-      meter: 0,
-      selesaiPadaMs: null,
-    };
-
-    if (hasilJawaban.benar) {
-      stepTim = hitungLangkahTimBalap(sesi.config.targetJarak, jumlahAnggotaTim);
-      tState.meter = Math.min(sesi.config.targetJarak, tState.meter + stepTim);
-      if (tState.meter >= sesi.config.targetJarak - 1e-6) {
-        tState.meter = sesi.config.targetJarak;
-        tState.selesaiPadaMs = nowMs;
-        sesi.timPemenang = timKode;
-        timMenangId = timKode;
-        timMenangNama = tState.nama;
-        hasilJawaban.selesaiBaru = true;
-        hasilJawaban.pesertaUpdated.status = 'selesai';
-        hasilJawaban.pesertaUpdated.selesaiPada = nowMs;
-        hasilJawaban.pesertaUpdated.waktuSelesaiMs = Math.max(
-          1,
-          nowMs - (sesi.gameMulaiPadaMs || nowMs)
-        );
-      }
-      sesi.teams.set(timKode, tState);
-    } else {
+    if (!hasilJawaban.benar) {
       terpeleset = true;
       stumbleQuote =
         KATA_TERSANDUNG_BALAP[crypto.randomInt(0, KATA_TERSANDUNG_BALAP.length)] || 'Aduh!';
     }
 
-    // Jarak individu disimpan sebagai kontribusi meter rounded agar DB & leaderboard konsisten
+    if (tState.meter >= sesi.config.targetJarak - 1e-6) {
+      tState.meter = sesi.config.targetJarak;
+      tState.selesaiPadaMs = nowMs;
+      sesi.teams.set(timKode, tState);
+      sesi.timPemenang = timKode;
+      timMenangId = timKode;
+      timMenangNama = tState.nama;
+      hasilJawaban.selesaiBaru = true;
+      hasilJawaban.pesertaUpdated.status = 'selesai';
+      hasilJawaban.pesertaUpdated.selesaiPada = nowMs;
+      hasilJawaban.pesertaUpdated.waktuSelesaiMs = Math.max(
+        1,
+        nowMs - (sesi.gameMulaiPadaMs || nowMs)
+      );
+    }
+
+    const roundedBefore = Number(teamMeterBefore.toFixed(2));
+    const roundedAfter = Number(tState.meter.toFixed(2));
+    const roundedDelta = Number(actualTeamDelta.toFixed(2));
+
+    hasilJawaban.jarakSebelum = roundedBefore;
+    hasilJawaban.jarakBaru = roundedAfter;
+    hasilJawaban.perubahanJarak = roundedDelta;
+
+    const lastJarakIdx = hasilJawaban.pesertaUpdated.riwayatJarak.length - 1;
+    if (lastJarakIdx >= 0) {
+      hasilJawaban.pesertaUpdated.riwayatJarak[lastJarakIdx] = {
+        ...hasilJawaban.pesertaUpdated.riwayatJarak[lastJarakIdx],
+        jarakSebelum: roundedBefore,
+        perubahanJarak: roundedDelta,
+        jarakSesudah: roundedAfter,
+      };
+    }
+
+    const lastJawIdx = hasilJawaban.pesertaUpdated.riwayatJawaban.length - 1;
+    if (lastJawIdx >= 0) {
+      hasilJawaban.pesertaUpdated.riwayatJawaban[lastJawIdx] = {
+        ...hasilJawaban.pesertaUpdated.riwayatJawaban[lastJawIdx],
+        perubahanJarak: roundedDelta,
+        jarakSesudah: roundedAfter,
+      };
+    }
+
+    // Jarak individu disimpan sebagai posisi tim rounded agar DB & leaderboard konsisten
     hasilJawaban.pesertaUpdated.jarak = Math.round(tState.meter);
 
     sesi.peserta.set(peserta.id, hasilJawaban.pesertaUpdated);
@@ -1408,7 +1445,7 @@ export const balapKarungManager = {
       leaderboard: this.dapatkanLeaderboard(sesi.sessionId),
       teams: this.dapatkanRingkasanTim(sesi.sessionId),
       timPeserta: timKode,
-      stepTim: Number(stepTim.toFixed(2)),
+      stepTim: roundedDelta,
       terpeleset,
       stumbleQuote,
       timMenangId,

@@ -218,7 +218,7 @@ export function BalapKarungStadium({
         {lanes.map((lane) => {
           const val = Math.min(lane.targetJarak, Math.max(0, lane.meterRaw ?? lane.meter));
           const frac = lane.targetJarak > 0 ? val / lane.targetJarak : 0;
-          const leftExpr = `calc(3% + (94% - var(--rw)) * ${frac.toFixed(4)})`;
+          const leftExpr = `calc(3% + (87% - var(--rw) * 0.5) * ${frac.toFixed(4)})`;
           const runnerClass = [
             'bk-runner',
             lane.isRunning ? 'run' : '',

@@ -365,7 +365,7 @@ export default function PilihModeTarikTambang() {
                   </div>
                 )}
 
-                <div className="p-3 rounded-xl bg-[#f4ecd9] border border-dashed border-[#d7caa7] text-xs text-[#6b7d6c] space-y-1">
+                <div className="pt-3 border-t border-dashed border-[#e0d5b8] text-xs text-[#6b7d6c] space-y-1">
                   <div className="flex items-center justify-between">
                     <span>Target kemenangan tali:</span>
                     <strong className="text-[#1d3b2e] font-mono text-sm">
@@ -449,7 +449,7 @@ export default function PilihModeTarikTambang() {
                     </select>
                   </div>
                 ) : (
-                  <div className="p-3.5 rounded-2xl bg-[#fffdf6] border-2 border-[#e0d5b8] text-xs text-[#6b7d6c]">
+                  <div className="pt-3 border-t border-dashed border-[#e0d5b8] text-xs text-[#6b7d6c]">
                     <div className="font-extrabold text-[#1d3b2e]">Duel Lokal Tanpa PIN</div>
                     <p className="text-[11px] mt-0.5 leading-snug">
                       Kedua sisi tampil bersamaan di satu layar proyektor dan menjawab pasangan soal setara secara adil.
@@ -469,7 +469,7 @@ export default function PilihModeTarikTambang() {
               />
 
               {/* Timer Per Ronde */}
-              <div className="p-4 rounded-2xl bg-[#fffdf6] border-2 border-[#e0d5b8] space-y-3">
+              <div className="space-y-2.5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-xs font-extrabold flex items-center gap-1.5 text-[#1d3b2e]">
                     <Clock className="w-4 h-4 text-[#c8362f]" /> Durasi Timer per Ronde
@@ -500,7 +500,7 @@ export default function PilihModeTarikTambang() {
               </div>
 
               {/* Ringkasan Mekanika */}
-              <div className="p-3.5 rounded-2xl bg-[#f4ecd9]/80 border border-dashed border-[#d7caa7] text-xs text-[#1d3b2e] leading-relaxed">
+              <div className="border-l-4 border-[#d7caa7] pl-3.5 py-0.5 text-xs text-[#1d3b2e] leading-relaxed">
                 <strong>Mekanika Tarik Tambang:</strong> Setiap ronde, Tim Kiri dan Tim Kanan
                 mendapatkan <strong>2 soal berbeda dengan tingkat kesulitan setara</strong>.
                 Selisih akurasi &amp; kecepatan menarik posisi tali ke arah tim terkuat hingga
@@ -508,7 +508,7 @@ export default function PilihModeTarikTambang() {
               </div>
 
               {/* Tingkat Kesulitan Soal Setara */}
-              <div className="space-y-2.5">
+              <div className="pt-4 border-t border-dashed border-[#e0d5b8] space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-extrabold text-[#1d3b2e]">
                     Tingkat Kesulitan Soal Setara (Pool Soal)
@@ -569,11 +569,11 @@ export default function PilihModeTarikTambang() {
               </div>
 
               {/* Pengaturan Lanjutan (Bonus Streak & Power-Up) */}
-              <div className="pt-1">
+              <div className="pt-3 border-t border-dashed border-[#e0d5b8]">
                 <button
                   type="button"
                   onClick={() => setShowAdvancedRules((prev) => !prev)}
-                  className="w-full px-3.5 py-2.5 rounded-2xl border-2 border-dashed border-[#d7caa7] bg-[#fcf8ed] hover:bg-[#f4ecd8] text-xs font-extrabold text-[#1d3b2e] flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                  className="w-full py-1 text-xs font-extrabold text-[#1d3b2e] hover:text-[#c8362f] flex items-center justify-between gap-2 cursor-pointer transition-colors"
                 >
                   <span className="flex items-center gap-2">
                     <Sliders className="w-3.5 h-3.5 text-[#c8362f]" />
@@ -591,8 +591,8 @@ export default function PilihModeTarikTambang() {
               </div>
 
               {showAdvancedRules && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <label className="p-3.5 bg-[#fffdf6] border-2 border-[#e0d5b8] rounded-2xl flex items-start justify-between gap-2.5 cursor-pointer">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                  <label className="flex items-start justify-between gap-2.5 cursor-pointer py-1">
                     <div>
                       <span className="text-xs font-extrabold flex items-center gap-1.5 text-[#1d3b2e]">
                         <Flame className="w-3.5 h-3.5 text-orange-500" /> Bonus Streak
@@ -610,7 +610,7 @@ export default function PilihModeTarikTambang() {
                     />
                   </label>
 
-                  <label className="p-3.5 bg-[#fffdf6] border-2 border-[#e0d5b8] rounded-2xl flex items-start justify-between gap-2.5 cursor-pointer">
+                  <label className="flex items-start justify-between gap-2.5 cursor-pointer py-1">
                     <div>
                       <span className="text-xs font-extrabold flex items-center gap-1.5 text-[#1d3b2e]">
                         <Zap className="w-3.5 h-3.5 text-sky-600" /> Sistem Power-Up
@@ -630,13 +630,6 @@ export default function PilihModeTarikTambang() {
               )}
 
               <GameConfigFooter
-                modeSummary={
-                  playMode === 'MULTIPLAYER'
-                    ? `Multiplayer Tim (${durasiRonde}dtk/ronde · ±${batasMenangFinal} pt)`
-                    : `Solo 1 vs 1 (${namaTim1.trim() || 'Tim Merah'} vs ${
-                        namaTim2.trim() || 'Tim Biru'
-                      } · ${durasiRonde}dtk)`
-                }
                 canSubmit={canSubmit}
                 submitting={submitting}
                 isSolo={playMode === 'SOLO'}

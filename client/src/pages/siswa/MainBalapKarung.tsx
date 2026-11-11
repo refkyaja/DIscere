@@ -61,6 +61,11 @@ export interface PesertaBalapData {
   status: 'bermain' | 'selesai';
   rataRataWaktuJawabMs: number;
   jumlahJawab: number;
+  efekAktif?: {
+    perisai: boolean;
+    lompatanKuat: boolean;
+    jalanBerlumpur: boolean;
+  };
 }
 
 interface MainBalapKarungProps {
@@ -76,6 +81,9 @@ interface MainBalapKarungProps {
     waktuPerSoalDetik?: number;
     lompatBenar?: number;
     turunSalah?: number;
+    keseimbanganAktif?: boolean;
+    bonusStreakAktif?: boolean;
+    rintanganAktif?: boolean;
   };
   initialStatus?: string;
   initialPesertaState?: PesertaBalapData;
@@ -91,6 +99,13 @@ interface FeedbackSiswaState {
   stumbleQuote?: string | null;
   stepTim?: number;
   kunciKey: string;
+  bonusStreakJarakDidapat?: number;
+  bonusLompatanKuatDidapat?: number;
+  penaltiJalanBerlumpurDipakai?: number;
+  terjatuh?: boolean;
+  penaltiJatuhJarak?: number;
+  perisaiDigunakan?: boolean;
+  rintanganBaru?: { tipe: string; judul: string; deskripsi?: string } | null;
 }
 
 const DEFAULT_TEAM_META: Record<KodeTimBalapSiswa, { nama: string; warna: string }> = {
@@ -277,6 +292,13 @@ export default function MainBalapKarung({
         stumbleQuote: data.stumbleQuote || null,
         stepTim: typeof data.stepTim === 'number' ? data.stepTim : undefined,
         kunciKey: String(data.kunciKey || data.jawabanBenar || ''),
+        bonusStreakJarakDidapat: data.bonusStreakJarakDidapat || 0,
+        bonusLompatanKuatDidapat: data.bonusLompatanKuatDidapat || 0,
+        penaltiJalanBerlumpurDipakai: data.penaltiJalanBerlumpurDipakai || 0,
+        terjatuh: Boolean(data.terjatuh),
+        penaltiJatuhJarak: data.penaltiJatuhJarak || 0,
+        perisaiDigunakan: Boolean(data.perisaiDigunakan),
+        rintanganBaru: data.rintanganBaru || null,
       });
 
       if (benar) soundEffects.playCorrect();
@@ -689,6 +711,38 @@ export default function MainBalapKarung({
                 />
               </div>
 
+              {(activeConfig.keseimbanganAktif ||
+                activeConfig.bonusStreakAktif ||
+                activeConfig.rintanganAktif) && (
+                <div className="flex flex-wrap items-center gap-1.5 mb-3 text-[11px] font-extrabold">
+                  {activeConfig.keseimbanganAktif && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-sky-50 border border-sky-200 text-sky-800">
+                      Keseimbangan: {myState.keseimbangan}%
+                    </span>
+                  )}
+                  {activeConfig.bonusStreakAktif && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-orange-50 border border-orange-200 text-orange-800">
+                      Streak: {myState.streakSaatIni}
+                    </span>
+                  )}
+                  {activeConfig.rintanganAktif && myState.efekAktif?.perisai && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800">
+                      Perisai Aktif
+                    </span>
+                  )}
+                  {activeConfig.rintanganAktif && myState.efekAktif?.lompatanKuat && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800">
+                      Lompatan Kuat Siap
+                    </span>
+                  )}
+                  {activeConfig.rintanganAktif && myState.efekAktif?.jalanBerlumpur && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-red-50 border border-red-200 text-red-700">
+                      Jalan Berlumpur
+                    </span>
+                  )}
+                </div>
+              )}
+
               <h2 className="bk-h text-lg sm:text-xl font-extrabold text-[#2b2a4a] leading-snug mb-3">
                 {soalAktif.teks}
               </h2>
@@ -727,15 +781,40 @@ export default function MainBalapKarung({
                 aria-live="polite"
               >
                 {feedback
-                  ? feedback.benar
-                    ? `Benar! ${myTeam.nama} maju${
-                        typeof feedback.stepTim === 'number'
-                          ? ` (+${feedback.stepTim.toFixed(1)} m)`
-                          : ''
-                      }.`
-                    : feedback.timedOut
-                    ? `Waktu habis! ${myTeam.nama} tersandung.`
-                    : `Salah! ${myTeam.nama} tersandung (${feedback.stumbleQuote || 'Aduh!'}).`
+                  ? (() => {
+                      const extras: string[] = [];
+                      if (feedback.bonusStreakJarakDidapat) {
+                        extras.push(`Streak +${feedback.bonusStreakJarakDidapat}m`);
+                      }
+                      if (feedback.bonusLompatanKuatDidapat) {
+                        extras.push(`Lompat Kuat +${feedback.bonusLompatanKuatDidapat}m`);
+                      }
+                      if (feedback.penaltiJalanBerlumpurDipakai) {
+                        extras.push(`Lumpur -${feedback.penaltiJalanBerlumpurDipakai}m`);
+                      }
+                      if (feedback.terjatuh) {
+                        extras.push(
+                          feedback.perisaiDigunakan
+                            ? 'Perisai menahan jatuh!'
+                            : 'Terjatuh (keseimbangan 0%)'
+                        );
+                      }
+                      if (feedback.rintanganBaru?.judul) {
+                        extras.push(feedback.rintanganBaru.judul);
+                      }
+                      const suffix = extras.length > 0 ? ` (${extras.join(' · ')})` : '';
+                      const stepStr =
+                        typeof feedback.stepTim === 'number' && feedback.stepTim !== 0
+                          ? ` (${feedback.stepTim > 0 ? '+' : ''}${feedback.stepTim.toFixed(1)} m)`
+                          : '';
+                      if (feedback.benar) {
+                        return `Benar! ${myTeam.nama} maju${stepStr}${suffix}.`;
+                      }
+                      if (feedback.timedOut) {
+                        return `Waktu habis! ${myTeam.nama} tersandung${stepStr}${suffix}.`;
+                      }
+                      return `Salah! ${myTeam.nama} tersandung (${feedback.stumbleQuote || 'Aduh!'})${stepStr}${suffix}.`;
+                    })()
                   : sudahKirim
                   ? 'Memeriksa jawaban...'
                   : `Jawab sebelum waktu habis!`}

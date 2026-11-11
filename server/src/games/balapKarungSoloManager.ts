@@ -77,6 +77,10 @@ export interface FeedbackAksiBalapSolo {
   perubahanJarak: number;
   keseimbanganBaru: number;
   streakSaatIni: number;
+  bonusStreakJarakDidapat: number;
+  bonusStreakKeseimbanganDidapat: number;
+  bonusLompatanKuatDidapat: number;
+  penaltiJalanBerlumpurDipakai: number;
   terjatuh: boolean;
   penaltiJatuhJarak: number;
   perisaiDigunakan: boolean;
@@ -405,6 +409,10 @@ function bangunFeedback(
     perubahanJarak: hasilJawaban.perubahanJarak,
     keseimbanganBaru: hasilJawaban.keseimbanganBaru,
     streakSaatIni: hasilJawaban.pesertaUpdated.streakSaatIni,
+    bonusStreakJarakDidapat: hasilJawaban.bonusStreakJarakDidapat,
+    bonusStreakKeseimbanganDidapat: hasilJawaban.bonusStreakKeseimbanganDidapat,
+    bonusLompatanKuatDidapat: hasilJawaban.bonusLompatanKuatDidapat,
+    penaltiJalanBerlumpurDipakai: hasilJawaban.penaltiJalanBerlumpurDipakai,
     terjatuh: hasilJawaban.terjatuh,
     penaltiJatuhJarak: hasilJawaban.penaltiJatuhJarak,
     perisaiDigunakan: hasilJawaban.perisaiDigunakan,

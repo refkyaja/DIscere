@@ -385,7 +385,7 @@ export default function PilihModePanjatPinang() {
                   ))}
                 </div>
 
-                <div className="p-3 rounded-xl bg-[#f4ecd9] border border-dashed border-[#d7caa7] text-xs text-[#6b7d6c] flex items-center justify-between">
+                <div className="pt-3 border-t border-dashed border-[#e0d5b8] text-xs text-[#6b7d6c] flex items-center justify-between">
                   <span>Garis puncak ditetapkan pada:</span>
                   <strong className="text-[#1d3b2e] font-mono text-sm">100% ketinggian</strong>
                 </div>
@@ -416,7 +416,7 @@ export default function PilihModePanjatPinang() {
                   </select>
                 </div>
 
-                <label className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#fffdf6] border-2 border-[#e0d5b8] cursor-pointer">
+                <label className="flex items-center justify-between gap-3 pt-3 border-t border-dashed border-[#e0d5b8] cursor-pointer">
                   <div>
                     <div className="text-xs font-extrabold text-[#1d3b2e]">
                       Izinkan Gabung Susulan
@@ -445,7 +445,7 @@ export default function PilihModePanjatPinang() {
               />
 
               {/* Informasi Timer Fleksibel */}
-              <div className="p-4 rounded-2xl bg-[#fffdf6] border-2 border-[#e0d5b8] space-y-1.5">
+              <div className="space-y-1.5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-xs font-extrabold flex items-center gap-1.5 text-[#1d3b2e]">
                     <Clock className="w-4 h-4 text-[#c8362f]" /> Durasi Permainan
@@ -461,7 +461,7 @@ export default function PilihModePanjatPinang() {
               </div>
 
               {/* Ringkasan Mekanika */}
-              <div className="p-3.5 rounded-2xl bg-[#f4ecd9]/80 border border-dashed border-[#d7caa7] text-xs text-[#1d3b2e] leading-relaxed">
+              <div className="border-l-4 border-[#d7caa7] pl-3.5 py-0.5 text-xs text-[#1d3b2e] leading-relaxed">
                 <strong>Mekanika Panjat Pinang:</strong> Setiap jawaban benar menaikkan posisi
                 sejauh <strong className="font-mono">+{naikBenar}%</strong>; jawaban salah
                 meluncur turun <strong className="font-mono">-{turunSalah}%</strong>. Urutan soal
@@ -469,7 +469,7 @@ export default function PilihModePanjatPinang() {
               </div>
 
               {/* Tingkat Kesulitan & Pergerakan */}
-              <div className="space-y-3">
+              <div className="pt-4 border-t border-dashed border-[#e0d5b8] space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-extrabold text-[#1d3b2e]">
                     Kecepatan Naik &amp; Turun Tiang
@@ -511,7 +511,7 @@ export default function PilihModePanjatPinang() {
                 </div>
 
                 {kesulitan === 'custom' && (
-                  <div className="bg-[#fffdf6] border-2 border-[#e0d5b8] rounded-2xl p-4 grid grid-cols-2 gap-3 text-xs">
+                  <div className="pt-3 border-t border-dashed border-[#e0d5b8] grid grid-cols-2 gap-3 text-xs">
                     <div>
                       <label className="font-bold text-[11px] block mb-1">
                         Naik Jawaban Benar (+%)
@@ -547,11 +547,11 @@ export default function PilihModePanjatPinang() {
               </div>
 
               {/* Pengaturan Lanjutan (Bonus Streak & Rintangan) */}
-              <div className="pt-1">
+              <div className="pt-3 border-t border-dashed border-[#e0d5b8]">
                 <button
                   type="button"
                   onClick={() => setShowAdvancedRules((prev) => !prev)}
-                  className="w-full px-3.5 py-2.5 rounded-2xl border-2 border-dashed border-[#d7caa7] bg-[#fcf8ed] hover:bg-[#f4ecd8] text-xs font-extrabold text-[#1d3b2e] flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                  className="w-full py-1 text-xs font-extrabold text-[#1d3b2e] hover:text-[#c8362f] flex items-center justify-between gap-2 cursor-pointer transition-colors"
                 >
                   <span className="flex items-center gap-2">
                     <Sliders className="w-3.5 h-3.5 text-[#c8362f]" />
@@ -571,7 +571,7 @@ export default function PilihModePanjatPinang() {
               {showAdvancedRules && (
                 <div className="space-y-4">
                   {/* Bonus Streak */}
-                  <div className="p-3.5 bg-[#fffdf6] border-2 border-[#e0d5b8] rounded-2xl space-y-2.5">
+                  <div className="space-y-2.5 pt-1">
                     <label className="flex items-start justify-between gap-2.5 cursor-pointer">
                       <div>
                         <span className="text-xs font-extrabold flex items-center gap-1.5 text-[#1d3b2e]">
@@ -622,7 +622,7 @@ export default function PilihModePanjatPinang() {
                   </div>
 
                   {/* Sistem Rintangan & Kejutan */}
-                  <div className="p-4 bg-[#fffdf6] border-2 border-[#e0d5b8] rounded-2xl space-y-3">
+                  <div className="pt-3 border-t border-dashed border-[#e0d5b8] space-y-3">
                     <div className="flex items-center justify-between gap-2">
                       <div>
                         <span className="text-xs font-extrabold flex items-center gap-1.5 text-[#1d3b2e]">
@@ -792,7 +792,6 @@ export default function PilihModePanjatPinang() {
               )}
 
               <GameConfigFooter
-                modeSummary={`Multiplayer Individu (${labelKesulitan} · +${naikBenar}% / -${turunSalah}%)`}
                 canSubmit={canSubmit}
                 submitting={submitting}
                 isSolo={false}

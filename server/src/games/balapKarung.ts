@@ -103,9 +103,15 @@ export const KATA_TERSANDUNG_BALAP: readonly string[] = [
   'Auw!',
 ] as const;
 
-export function hitungLangkahTimBalap(targetJarak: number, jumlahAnggotaTim: number): number {
+export function hitungLangkahTimBalap(
+  targetJarak: number,
+  jumlahAnggotaTim: number,
+  langkahDasar?: number
+): number {
   const anggotaValid = Math.max(1, jumlahAnggotaTim);
-  return (targetJarak * 0.125) / anggotaValid;
+  const dasar =
+    typeof langkahDasar === 'number' && langkahDasar >= 0 ? langkahDasar : targetJarak * 0.125;
+  return dasar / anggotaValid;
 }
 
 export const probabilitasRintanganBalapSchema = z.object({

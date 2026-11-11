@@ -321,7 +321,7 @@ export function GameConfigCardHeader({
 }
 
 interface GameConfigFooterProps {
-  modeSummary: string;
+  modeSummary?: string;
   canSubmit: boolean;
   submitting: boolean;
   isSolo: boolean;
@@ -330,7 +330,6 @@ interface GameConfigFooterProps {
 }
 
 export function GameConfigFooter({
-  modeSummary,
   canSubmit,
   submitting,
   isSolo,
@@ -338,11 +337,7 @@ export function GameConfigFooter({
   submittingLabel = 'Mempersiapkan Sesi...',
 }: GameConfigFooterProps) {
   return (
-    <div className="pt-2 border-t-2 border-dashed border-[#e0d5b8] flex flex-col sm:flex-row items-center justify-between gap-3">
-      <div className="text-xs text-[#6b7d6c]">
-        Mode: <strong className="text-[#1d3b2e]">{modeSummary}</strong>
-      </div>
-
+    <div className="pt-3 border-t-2 border-dashed border-[#e0d5b8] flex flex-col sm:flex-row items-center justify-end gap-3">
       <button
         type="submit"
         disabled={!canSubmit}
