@@ -86,6 +86,27 @@ export const DAFTAR_RINTANGAN_BALAP_RESMI: readonly JenisRintanganBalap[] = [
 
 export type TipeLawanSoloBalap = 'bot' | 'lokal';
 export type KesulitanBotBalap = 'santai' | 'sedang' | 'cepat';
+export type KodeTimBalap = 'merah' | 'biru' | 'hijau' | 'kuning';
+
+export const TIM_BALAP_RESMI: readonly { id: KodeTimBalap; nama: string; warna: string }[] = [
+  { id: 'merah', nama: 'Tim Merah', warna: '#e2312d' },
+  { id: 'biru', nama: 'Tim Biru', warna: '#1d8fe0' },
+  { id: 'hijau', nama: 'Tim Hijau', warna: '#1f9d55' },
+  { id: 'kuning', nama: 'Tim Kuning', warna: '#e6a100' },
+] as const;
+
+export const KATA_TERSANDUNG_BALAP: readonly string[] = [
+  'Aduh!',
+  'Waduh!',
+  'Yah salah~',
+  'Ups, kurang tepat!',
+  'Auw!',
+] as const;
+
+export function hitungLangkahTimBalap(targetJarak: number, jumlahAnggotaTim: number): number {
+  const anggotaValid = Math.max(1, jumlahAnggotaTim);
+  return (targetJarak * 0.125) / anggotaValid;
+}
 
 export const probabilitasRintanganBalapSchema = z.object({
   kulit_pisang: z.number().int().min(0).max(100),
@@ -181,8 +202,18 @@ export const konfigurasiBalapKarungSchema = z
     penaltiJalanBerlumpur: z.number().int().min(1).max(30).default(5),
     maxPeserta: z.number().int().min(1).max(200).default(100),
     allowLateJoin: z.boolean().default(true),
+    jumlahTim: z
+      .preprocess((v) => (v === 4 || v === '4' ? 4 : 3), z.union([z.literal(3), z.literal(4)]))
+      .default(3),
+    waktuPerSoalDetik: z.number().int().min(5).max(120).default(15),
     tipeLawanSolo: z.enum(['bot', 'lokal']).default('bot'),
-    kesulitanBot: z.enum(['santai', 'sedang', 'cepat']).default('sedang'),
+    kesulitanBot: z
+      .preprocess((v) => {
+        if (v === 'mudah' || v === 'santai') return 'santai';
+        if (v === 'sulit' || v === 'cepat') return 'cepat';
+        return 'sedang';
+      }, z.enum(['santai', 'sedang', 'cepat']))
+      .default('sedang'),
     namaPemain1: z.string().trim().min(1).max(24).default('Pemain 1'),
     namaPemain2: z.string().trim().min(1).max(24).default('Lawan Bot'),
   })
@@ -244,6 +275,8 @@ export interface KonfigurasiBalapKarung {
   penaltiJalanBerlumpur: number;
   maxPeserta: number;
   allowLateJoin: boolean;
+  jumlahTim: 3 | 4;
+  waktuPerSoalDetik: number;
   tipeLawanSolo: TipeLawanSoloBalap;
   kesulitanBot: KesulitanBotBalap;
   namaPemain1: string;
@@ -325,6 +358,8 @@ export function bangunKonfigurasiBalapKarung(
     penaltiJalanBerlumpur: parsed.penaltiJalanBerlumpur,
     maxPeserta: parsed.maxPeserta,
     allowLateJoin: parsed.allowLateJoin,
+    jumlahTim: parsed.jumlahTim,
+    waktuPerSoalDetik: parsed.waktuPerSoalDetik,
     tipeLawanSolo: parsed.tipeLawanSolo,
     kesulitanBot: parsed.kesulitanBot,
     namaPemain1: parsed.namaPemain1 || 'Pemain 1',
@@ -356,6 +391,7 @@ export interface PresentasiSoalBalap {
   presentationId: string;
   questionId: string;
   nomorSoal: number;
+  urutanSoal?: number;
   teks: string;
   pilihan: OpsiPilihanBalap[];
   kunciKey: KunciPilihan;
@@ -394,8 +430,12 @@ export interface RiwayatRintanganBalapEntry {
 export interface RiwayatJawabanBalapEntry {
   presentationId: string;
   questionId: string;
+  urutanSoal?: number;
   choiceId: string;
-  jawabanKey: KunciPilihan;
+  jawabanKey: KunciPilihan | 'TIMEOUT';
+  jawabanTeks?: string | null;
+  timedOut?: boolean;
+  percobaanKe?: number;
   benar: boolean;
   waktuJawabMs: number;
   perubahanJarak: number;
@@ -410,6 +450,7 @@ export interface PesertaBalapKarungState {
   secretToken: string;
   socketId: string;
   nama: string;
+  tim?: KodeTimBalap | null;
   connected: boolean;
   jarak: number; // 0 .. targetJarak (meter)
   keseimbangan: number; // 0 .. 100 (%)
@@ -480,6 +521,7 @@ export function buatPresentasiSoalBalap(
     presentationId: crypto.randomUUID(),
     questionId: soal.id,
     nomorSoal,
+    urutanSoal: soal.urutan,
     teks: soal.teks,
     pilihan,
     kunciKey,
@@ -652,6 +694,7 @@ export interface ProsesJawabanBalapParams {
   presentasi: PresentasiSoalBalap;
   choiceId?: string;
   fallbackJawabanKey?: string;
+  timedOut?: boolean;
   config: KonfigurasiBalapKarung;
   gameMulaiPadaMs: number;
   nowMs?: number;
@@ -660,7 +703,8 @@ export interface ProsesJawabanBalapParams {
 
 export interface HasilJawabanBalap {
   benar: boolean;
-  pilihanDipilih: OpsiPilihanBalap;
+  timedOut: boolean;
+  pilihanDipilih: OpsiPilihanBalap | null;
   jarakSebelum: number;
   jarakBaru: number;
   perubahanJarak: number;
@@ -691,6 +735,7 @@ export function prosesJawabanBalapKarung(
     presentasi,
     choiceId,
     fallbackJawabanKey,
+    timedOut = false,
     config,
     gameMulaiPadaMs,
     nowMs = Date.now(),
@@ -701,13 +746,18 @@ export function prosesJawabanBalapKarung(
     throw new Error('Anda sudah mencapai garis finis dan menyelesaikan perlombaan.');
   }
 
-  const cekPilihan = validasiPilihanBalapDenganChoiceId(
-    presentasi,
-    choiceId,
-    fallbackJawabanKey
-  );
-  if (!cekPilihan.valid || !cekPilihan.dipilih) {
-    throw new Error('Pilihan jawaban tidak valid untuk soal yang aktif.');
+  let cekPilihan: { valid: boolean; dipilih: OpsiPilihanBalap | null; benar: boolean };
+  if (timedOut) {
+    cekPilihan = { valid: true, dipilih: null, benar: false };
+  } else {
+    cekPilihan = validasiPilihanBalapDenganChoiceId(
+      presentasi,
+      choiceId,
+      fallbackJawabanKey
+    );
+    if (!cekPilihan.valid || !cekPilihan.dipilih) {
+      throw new Error('Pilihan jawaban tidak valid untuk soal yang aktif.');
+    }
   }
 
   const updated = clonePesertaBalap(peserta);
@@ -798,7 +848,7 @@ export function prosesJawabanBalapKarung(
     updated.bonus5DalamStreak = false;
 
     updated.jarak = Math.max(0, jarakSebelum - config.turunSalah);
-    alasanList.push(`Salah -${config.turunSalah}m`);
+    alasanList.push(timedOut ? `Waktu habis -${config.turunSalah}m` : `Salah -${config.turunSalah}m`);
 
     updated.keseimbangan = config.keseimbanganAktif
       ? Math.max(0, keseimbanganSebelum - config.keseimbanganSalah)
@@ -894,11 +944,18 @@ export function prosesJawabanBalapKarung(
     timestampMs: nowMs,
   });
 
+  const percobaanKe =
+    updated.riwayatJawaban.filter((r) => r.questionId === presentasi.questionId).length + 1;
+
   updated.riwayatJawaban.push({
     presentationId: presentasi.presentationId,
     questionId: presentasi.questionId,
-    choiceId: cekPilihan.dipilih.choiceId,
-    jawabanKey: cekPilihan.dipilih.key,
+    urutanSoal: presentasi.urutanSoal,
+    choiceId: cekPilihan.dipilih?.choiceId || 'TIMEOUT',
+    jawabanKey: cekPilihan.dipilih?.key || 'TIMEOUT',
+    jawabanTeks: cekPilihan.dipilih?.teks || null,
+    timedOut,
+    percobaanKe,
     benar,
     waktuJawabMs,
     perubahanJarak: updated.jarak - jarakSebelum,
@@ -910,6 +967,7 @@ export function prosesJawabanBalapKarung(
 
   return {
     benar,
+    timedOut,
     pilihanDipilih: cekPilihan.dipilih,
     jarakSebelum,
     jarakBaru: updated.jarak,

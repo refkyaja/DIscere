@@ -8,6 +8,8 @@ import {
   HasilJawabanBalap,
   RiwayatJarakEntry,
   RiwayatRintanganBalapEntry,
+  KesulitanBotBalap,
+  KATA_TERSANDUNG_BALAP,
   bangunKonfigurasiBalapKarung,
   buatPresentasiSoalBalap,
   prosesJawabanBalapKarung,
@@ -32,6 +34,8 @@ export interface SoalAktifBalapSolo {
   totalSoalBank: number;
   teks: string;
   pilihan: OpsiPilihanBalap[];
+  ditampilkanPadaMs: number;
+  waktuPerSoalDetik: number;
 }
 
 export interface PesertaClientBalapSolo {
@@ -63,6 +67,8 @@ export interface FeedbackAksiBalapSolo {
   slot: SlotPemainSoloBalap;
   nama: string;
   benar: boolean;
+  timedOut?: boolean;
+  stumbleQuote?: string | null;
   jawabanBenarKode: string;
   jawabanBenarTeks: string;
   penjelasan: string | null;
@@ -123,9 +129,9 @@ export interface SesiBalapKarungSoloClient {
 const sesiSoloBalapMap = new Map<string, SesiBalapKarungSoloActive>();
 
 const BOT_CONFIG_MAP = {
-  santai: { minCooldownMs: 2400, thinkMinMs: 2800, thinkMaxMs: 4200, accuracyPercent: 58 },
-  sedang: { minCooldownMs: 1800, thinkMinMs: 1900, thinkMaxMs: 3100, accuracyPercent: 74 },
-  cepat: { minCooldownMs: 1200, thinkMinMs: 1200, thinkMaxMs: 2200, accuracyPercent: 88 },
+  santai: { minCooldownMs: 4200, thinkMinMs: 4200, thinkMaxMs: 5200, accuracyPercent: 50 },
+  sedang: { minCooldownMs: 3600, thinkMinMs: 3600, thinkMaxMs: 4600, accuracyPercent: 65 },
+  cepat: { minCooldownMs: 3000, thinkMinMs: 3000, thinkMaxMs: 4000, accuracyPercent: 80 },
 } as const;
 
 function buatPesertaKosong(
@@ -283,6 +289,8 @@ function formatPesertaClient(
             totalSoalBank,
             teks: p.presentasiAktif.teks,
             pilihan: p.presentasiAktif.pilihan,
+            ditampilkanPadaMs: p.presentasiAktif.ditampilkanPadaMs,
+            waktuPerSoalDetik: config.waktuPerSoalDetik,
           }
         : null,
   };
@@ -337,19 +345,16 @@ function buatLaporanAkhirSolo(
     };
   });
 
-  const questionStats = sesi.questions
-    .map((q) => {
-      const st = sesi.questionStatsMap.get(q.id);
-      if (!st) return null;
-      return {
-        questionId: q.id,
-        nomorSoal: q.urutan,
-        teksSoal: q.teks,
-        jumlahBenar: st.benar,
-        jumlahSalah: st.salah,
-      };
-    })
-    .filter((item): item is NonNullable<typeof item> => item !== null);
+  const questionStats = sesi.questions.map((q) => {
+    const st = sesi.questionStatsMap.get(q.id) || { benar: 0, salah: 0 };
+    return {
+      questionId: q.id,
+      nomorSoal: q.urutan,
+      teksSoal: q.teks,
+      jumlahBenar: st.benar,
+      jumlahSalah: st.salah,
+    };
+  });
 
   return {
     sessionId: sesi.sessionId,
@@ -383,10 +388,15 @@ function bangunFeedback(
   hasilJawaban: HasilJawabanBalap
 ): FeedbackAksiBalapSolo {
   const opsiBenar = presentasi.pilihan.find((o) => o.choiceId === presentasi.kunciChoiceId);
+  const stumbleQuote = !hasilJawaban.benar
+    ? KATA_TERSANDUNG_BALAP[crypto.randomInt(0, KATA_TERSANDUNG_BALAP.length)] || 'Aduh!'
+    : null;
   return {
     slot,
     nama: pesertaNama,
     benar: hasilJawaban.benar,
+    timedOut: hasilJawaban.timedOut,
+    stumbleQuote,
     jawabanBenarKode: presentasi.kunciKey,
     jawabanBenarTeks: opsiBenar?.teks || '',
     penjelasan,
@@ -589,7 +599,36 @@ export const balapKarungSoloManager = {
     return sesi;
   },
 
-  mulaiSesi(sessionId: string, hostId: string): SesiBalapKarungSoloActive {
+  ubahKesulitanBot(
+    sessionId: string,
+    hostId: string,
+    kesulitanBot: KesulitanBotBalap | 'mudah' | 'sulit'
+  ): SesiBalapKarungSoloActive {
+    const sesi = this.dapatkanSesi(sessionId, hostId);
+    if (!sesi) {
+      throw new Error('Sesi Balap Karung Solo tidak ditemukan.');
+    }
+    if (sesi.state !== 'READY') {
+      throw new Error('Tingkat bot hanya dapat diubah sebelum lomba dimulai.');
+    }
+    const normalized: KesulitanBotBalap =
+      kesulitanBot === 'mudah' || kesulitanBot === 'santai'
+        ? 'santai'
+        : kesulitanBot === 'sulit' || kesulitanBot === 'cepat'
+        ? 'cepat'
+        : 'sedang';
+    sesi.config = bangunKonfigurasiBalapKarung({
+      ...sesi.config,
+      kesulitanBot: normalized,
+    });
+    return sesi;
+  },
+
+  mulaiSesi(
+    sessionId: string,
+    hostId: string,
+    opts?: { kesulitanBot?: KesulitanBotBalap | 'mudah' | 'sulit' }
+  ): SesiBalapKarungSoloActive {
     const sesi = this.dapatkanSesi(sessionId, hostId);
     if (!sesi) {
       throw new Error('Sesi Balap Karung Solo tidak ditemukan.');
@@ -600,6 +639,10 @@ export const balapKarungSoloManager = {
 
     if (sesi.state === 'FINISHED' || sesi.state === 'STOPPED') {
       throw new Error('Sesi sudah berakhir.');
+    }
+
+    if (opts?.kesulitanBot && sesi.state === 'READY') {
+      this.ubahKesulitanBot(sessionId, hostId, opts.kesulitanBot);
     }
 
     const nowMs = Date.now();
@@ -663,8 +706,9 @@ export const balapKarungSoloManager = {
     params: {
       slot: SlotPemainSoloBalap;
       presentationId: string;
-      choiceId: string;
+      choiceId?: string;
       questionId?: string;
+      timedOut?: boolean;
     }
   ): {
     slot: SlotPemainSoloBalap;
@@ -710,6 +754,7 @@ export const balapKarungSoloManager = {
         peserta: targetPeserta,
         presentasi,
         choiceId: params.choiceId,
+        timedOut: Boolean(params.timedOut),
         config: sesi.config,
         gameMulaiPadaMs: sesi.gameMulaiPadaMs || nowMs,
         nowMs,
@@ -1041,6 +1086,15 @@ export const balapKarungSoloManager = {
       isFinished: sesi.state === 'FINISHED' || sesi.state === 'STOPPED',
       hasil: sesi.hasil || null,
     };
+  },
+
+  async muatLaporanDariDatabase(sessionId: string): Promise<LaporanAkhirBalapKarung | null> {
+    const existing = this.dapatkanSesi(sessionId);
+    if (existing?.hasil) return existing.hasil;
+    const restored = await this.pulihkanSesiDariDb(sessionId);
+    if (!restored) return null;
+    if (restored.hasil) return restored.hasil;
+    return buatLaporanAkhirSolo(restored, false, Date.now()) ?? null;
   },
 
   hapusSesi(sessionId: string): void {

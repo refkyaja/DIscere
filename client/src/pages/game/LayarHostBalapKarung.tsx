@@ -1,120 +1,72 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { apiRequest } from '../../lib/api';
 import { getSocket } from '../../lib/socket';
-import { Button, Card, Modal } from '../../components';
+import { Modal } from '../../components';
 import { soundEffects } from '../../lib/soundEffects';
-import LintasanBalapKarung, { EfekAktifBalapVisual } from '../siswa/LintasanBalapKarung';
-import KarakterBalapKarung, { EkspresiBalapKarung } from '../siswa/KarakterBalapKarung';
+import {
+  BalapKarungStadium,
+  BalapSackSvg,
+  BalapHeatmapMatrix,
+  BalapLaneItem,
+  AnalisisHeatmapData,
+} from '../../components/BalapKarungStadium';
 import {
   Trophy,
-  Users,
   Play,
   StopCircle,
   Loader2,
   Copy,
   Check,
-  Flame,
-  Shield,
-  Zap,
-  CloudRain,
-  Scale,
-  AlertTriangle,
-  Clock,
-  Eye,
-  Volume2,
-  VolumeX,
-  Flag,
   RefreshCw,
-  ArrowLeft,
-  CheckCircle2,
+  Users,
   Sliders,
 } from 'lucide-react';
+
+type KodeTim = 'merah' | 'biru' | 'hijau' | 'kuning';
+
+interface AnggotaTimRingkas {
+  id: string;
+  nama: string;
+  connected?: boolean;
+  totalBenar: number;
+  totalSalah: number;
+}
+
+interface RingkasanTimClient {
+  id: KodeTim;
+  nama: string;
+  warna: string;
+  meter: number;
+  meterRaw?: number;
+  targetJarak: number;
+  persen: number;
+  isWinner: boolean;
+  selesaiPadaMs: number | null;
+  anggota: AnggotaTimRingkas[];
+}
 
 interface KonfigurasiBalapHost {
   presetJarak: string;
   targetJarak: number;
-  kesulitan: string;
-  lompatBenar: number;
-  turunSalah: number;
-  keseimbanganAktif: boolean;
-  keseimbanganBenar: number;
-  keseimbanganSalah: number;
-  bonusStreakAktif: boolean;
-  bonusStreak3Jarak: number;
-  bonusStreak5Jarak: number;
-  penurunanJatuhJarak: number;
-  pemulihanJatuhKeseimbangan: number;
-  rintanganAktif: boolean;
-  rintanganDipilih: string[];
-  peluangRintanganPersen: number;
-  maxPeserta: number;
-  allowLateJoin: boolean;
+  jumlahTim?: 3 | 4;
+  waktuPerSoalDetik?: number;
+  lompatBenar?: number;
+  turunSalah?: number;
+  maxPeserta?: number;
+  allowLateJoin?: boolean;
 }
 
-interface LeaderboardItemBalapHost {
+interface LaporanTimItem {
   peringkat: number;
-  id: string;
+  id: KodeTim;
   nama: string;
-  connected?: boolean;
-  jarak: number;
-  targetJarak: number;
-  keseimbangan: number;
-  jumlahJatuh: number;
+  warna: string;
+  meter: number;
+  isWinner: boolean;
   totalBenar: number;
   totalSalah: number;
-  akurasiPersen: number;
-  streakSaatIni: number;
-  streakTertinggi: number;
-  totalBonusStreakKali?: number;
-  totalBonusStreakMeter?: number;
-  status: 'bermain' | 'selesai';
-  waktuSelesaiMs: number | null;
-  rataRataWaktuJawabMs: number;
-  jumlahJawab: number;
-  efekAktif?: EfekAktifBalapVisual;
-}
-
-interface RiwayatRintanganBalapHost {
-  id: string;
-  tipe: string;
-  judul: string;
-  deskripsi: string;
-  efekNilai: number;
-  satuan: string;
-  timestampMs: number;
-}
-
-interface LaporanPemainBalapHost {
-  peringkat: number;
-  id: string;
-  nama: string;
-  jarakAkhir: number;
-  targetJarak: number;
-  keseimbanganAkhir: number;
-  jumlahJatuh: number;
-  status: 'bermain' | 'selesai';
-  totalBenar: number;
-  totalSalah: number;
-  akurasiPersen: number;
-  streakTertinggi: number;
-  streakSaatIni: number;
-  totalBonusStreakKali: number;
-  totalBonusStreakMeter: number;
-  rataRataWaktuJawabMs: number;
-  waktuSelesaiMs: number | null;
-  riwayatRintangan: RiwayatRintanganBalapHost[];
-}
-
-interface QuestionStatBalapHost {
-  questionId: string;
-  nomorSoal?: number;
-  teksSoal?: string;
-  teks?: string;
-  jumlahBenar?: number;
-  jumlahSalah?: number;
-  totalBenar?: number;
-  totalSalah?: number;
+  anggota: AnggotaTimRingkas[];
 }
 
 interface LaporanAkhirBalapHost {
@@ -122,39 +74,23 @@ interface LaporanAkhirBalapHost {
   templateId: string;
   templateJudul: string;
   konfigurasi?: KonfigurasiBalapHost;
+  timPemenang?: KodeTim | null;
+  namaTimPemenang?: string | null;
   totalPeserta: number;
-  totalSelesai: number;
   totalSoalTemplate: number;
   totalJawabanBenar: number;
   totalJawabanSalah: number;
-  totalJatuhKelas: number;
-  dihentikanManual: boolean;
-  leaderboard: LeaderboardItemBalapHost[];
-  laporanPemain: LaporanPemainBalapHost[];
-  podium?: {
-    juara1?: LeaderboardItemBalapHost;
-    juara2?: LeaderboardItemBalapHost;
-    juara3?: LeaderboardItemBalapHost;
-  };
-  questionStats?: QuestionStatBalapHost[];
+  dihentikanManual?: boolean;
+  laporanTim?: LaporanTimItem[];
+  analisisHeatmap?: AnalisisHeatmapData;
 }
 
-function formatDurasiDetik(ms: number | null | undefined): string {
-  if (ms === null || ms === undefined || ms <= 0) return '-';
-  if (ms < 1000) return `${ms} md`;
-  const detik = ms / 1000;
-  if (detik < 60) return `${detik.toFixed(1)} dtk`;
-  const menit = Math.floor(detik / 60);
-  const sisa = Math.round(detik % 60);
-  return `${menit}m ${sisa}d`;
-}
-
-const LABEL_RINTANGAN: Record<string, string> = {
-  kulit_pisang: 'Kulit Pisang',
-  perisai: 'Perisai',
-  lompatan_kuat: 'Lompatan Kuat',
-  jalan_berlumpur: 'Jalan Berlumpur',
-};
+const DEFAULT_TEAMS: Array<{ id: KodeTim; nama: string; warna: string }> = [
+  { id: 'merah', nama: 'Tim Merah', warna: '#e2312d' },
+  { id: 'biru', nama: 'Tim Biru', warna: '#1d8fe0' },
+  { id: 'hijau', nama: 'Tim Hijau', warna: '#1f9d55' },
+  { id: 'kuning', nama: 'Tim Kuning', warna: '#e6a100' },
+];
 
 export default function LayarHostBalapKarung() {
   const { id } = useParams<{ id: string }>();
@@ -165,37 +101,56 @@ export default function LayarHostBalapKarung() {
   const [loading, setLoading] = useState(true);
   const [errorPesan, setErrorPesan] = useState<string | null>(null);
   const [templateId, setTemplateId] = useState('');
-  const [templateJudul, setTemplateJudul] = useState('');
+  const [templateJudul, setTemplateJudul] = useState('Balap Karung Tim');
   const [token, setToken] = useState('');
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [joinUrl, setJoinUrl] = useState('');
   const [status, setStatus] = useState<'lobi' | 'jalan' | 'selesai'>('lobi');
-  const [totalSoal, setTotalSoal] = useState(0);
-  const [config, setConfig] = useState<KonfigurasiBalapHost | null>(null);
-
-  const [leaderboard, setLeaderboard] = useState<LeaderboardItemBalapHost[]>([]);
   const [totalPeserta, setTotalPeserta] = useState(0);
-  const [deltaMap, setDeltaMap] = useState<Record<string, number | null>>({});
-  const [ekspresiMap, setEkspresiMap] = useState<Record<string, EkspresiBalapKarung>>({});
-  const [jatuhMap, setJatuhMap] = useState<Record<string, boolean>>({});
-  const [tampilSemuaLintasan, setTampilSemuaLintasan] = useState(true);
-  const timersRef = useRef<number[]>([]);
-
-  const [liveFeed, setLiveFeed] = useState<
-    Array<{ id: string; teks: string; tipe: 'naik' | 'turun' | 'bonus' | 'finis' | 'rintangan' | 'jatuh' }>
-  >([]);
-
+  const [config, setConfig] = useState<KonfigurasiBalapHost>({
+    presetJarak: 'normal',
+    targetJarak: 100,
+    jumlahTim: 3,
+    waktuPerSoalDetik: 10,
+  });
+  const [teams, setTeams] = useState<RingkasanTimClient[]>([]);
+  const [timPemenang, setTimPemenang] = useState<KodeTim | null>(null);
   const [hasilAkhir, setHasilAkhir] = useState<LaporanAkhirBalapHost | null>(null);
+  const [showEndSection, setShowEndSection] = useState(false);
+
+  // Animasi & status lintasan real-time per tim & per anggota
+  const [memberPulseMap, setMemberPulseMap] = useState<Record<string, 'ok' | 'no'>>({});
+  const [teamHurtMap, setTeamHurtMap] = useState<Record<string, boolean>>({});
+  const [teamJumpMap, setTeamJumpMap] = useState<Record<string, boolean>>({});
+  const [teamSayMap, setTeamSayMap] = useState<Record<string, string | null>>({});
+  const [teamDeltaMap, setTeamDeltaMap] = useState<Record<string, number | null>>({});
+  const [crowdCheer, setCrowdCheer] = useState(false);
+  const [liveFeed, setLiveFeed] = useState<Array<{ id: string; teks: string; ok: boolean }>>([]);
+
+  // Aksi UI
   const [modalAkhiriOpen, setModalAkhiriOpen] = useState(false);
-  const [detailPemain, setDetailPemain] = useState<LaporanPemainBalapHost | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
   const [isMainLagi, setIsMainLagi] = useState(false);
+  const [isChangingTeamCount, setIsChangingTeamCount] = useState(false);
   const [isMuted, setIsMuted] = useState(soundEffects.getMuted());
   const [copied, setCopied] = useState(false);
 
-  const targetJarak = config?.targetJarak ?? leaderboard[0]?.targetJarak ?? 100;
-  const keseimbanganAktif = config?.keseimbanganAktif !== false;
+  const timersRef = useRef<number[]>([]);
+  const endRef = useRef<HTMLElement | null>(null);
+
+  const scheduleTimer = useCallback((fn: () => void, ms: number) => {
+    const t = window.setTimeout(fn, ms);
+    timersRef.current.push(t);
+    return t;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      timersRef.current.forEach((t) => window.clearTimeout(t));
+      timersRef.current = [];
+    };
+  }, []);
 
   const fetchSesi = useCallback(async () => {
     if (!id) return;
@@ -208,11 +163,10 @@ export default function LayarHostBalapKarung() {
           qrDataUrl?: string;
           joinUrl?: string;
           status: 'lobi' | 'jalan' | 'selesai';
-          totalSoal?: number;
           totalPeserta?: number;
           config?: KonfigurasiBalapHost;
-          leaderboard?: LeaderboardItemBalapHost[];
-          daftarPeserta?: LeaderboardItemBalapHost[];
+          teams?: RingkasanTimClient[];
+          timPemenang?: KodeTim | null;
           hasil?: LaporanAkhirBalapHost | null;
         };
       }>(`/sesi/${id}`);
@@ -220,24 +174,23 @@ export default function LayarHostBalapKarung() {
       const s = res.session;
       setTemplateId(s.templateId || '');
       setTemplateJudul(s.templateJudul);
-      setToken(s.token);
+      setToken(s.token || '');
       setQrDataUrl(s.qrDataUrl || '');
       setJoinUrl(s.joinUrl || '');
       setStatus(s.status);
-      setTotalSoal(s.totalSoal ?? 0);
-      if (s.config) setConfig(s.config);
       setTotalPeserta(s.totalPeserta ?? 0);
-      setLeaderboard(s.leaderboard || s.daftarPeserta || []);
+      if (s.config) setConfig(s.config);
+      if (s.teams) setTeams(s.teams);
+      if (s.timPemenang !== undefined) setTimPemenang(s.timPemenang);
 
       if (s.status === 'selesai') {
-        if (s.hasil) {
-          setHasilAkhir(s.hasil);
-        }
+        setShowEndSection(true);
+        if (s.hasil) setHasilAkhir(s.hasil);
         try {
           const hasilRes = await apiRequest<{ hasil: LaporanAkhirBalapHost }>(`/sesi/${id}/hasil`);
           if (hasilRes.hasil) setHasilAkhir(hasilRes.hasil);
         } catch {
-          // gunakan hasil awal bila tersedia
+          // Gunakan hasil awal dari GET /sesi bila sudah ada
         }
       }
     } catch (err: any) {
@@ -258,130 +211,142 @@ export default function LayarHostBalapKarung() {
     const handleConnect = () => {
       socket.emit('sesi:host_join', { sessionId: id });
     };
-
     handleConnect();
 
     const handleLobiUpdate = (data: {
       game?: string;
       totalPeserta: number;
-      leaderboard?: LeaderboardItemBalapHost[];
-      daftarPeserta?: LeaderboardItemBalapHost[];
+      config?: KonfigurasiBalapHost;
+      teams?: RingkasanTimClient[];
     }) => {
       if (data.game && data.game !== 'balap_karung') return;
-      setTotalPeserta(data.totalPeserta);
-      const list = data.leaderboard || data.daftarPeserta;
-      if (list) setLeaderboard(list);
+      if (typeof data.totalPeserta === 'number') setTotalPeserta(data.totalPeserta);
+      if (data.config) setConfig(data.config);
+      if (data.teams) setTeams(data.teams);
     };
 
     const handleGameMulai = (data: {
       game?: string;
       config?: KonfigurasiBalapHost;
-      leaderboard?: LeaderboardItemBalapHost[];
+      teams?: RingkasanTimClient[];
     }) => {
       if (data.game && data.game !== 'balap_karung') return;
       setStatus('jalan');
+      setShowEndSection(false);
+      setLiveFeed([]);
       if (data.config) setConfig(data.config);
-      if (data.leaderboard) setLeaderboard(data.leaderboard);
+      if (data.teams) setTeams(data.teams);
       soundEffects.playWhistle();
+      setCrowdCheer(true);
+      scheduleTimer(() => setCrowdCheer(false), 1300);
     };
 
     const handleBalapUpdate = (data: {
-      leaderboard: LeaderboardItemBalapHost[];
-      totalPeserta: number;
+      teams?: RingkasanTimClient[];
+      totalPeserta?: number;
       terakhirAksi?: {
         pesertaId: string;
         nama: string;
+        tim?: KodeTim;
         benar: boolean;
-        jarakSebelum: number;
-        jarakBaru: number;
-        perubahanJarak: number;
-        keseimbanganBaru: number;
-        streakSaatIni: number;
-        terjatuh?: boolean;
-        penaltiJatuhJarak?: number;
-        perisaiDigunakan?: boolean;
-        rintanganBaru?: { judul: string; tipe: string } | null;
-        selesaiBaru?: boolean;
+        timedOut?: boolean;
+        terpeleset?: boolean;
+        stumbleQuote?: string | null;
+        stepTim?: number;
+        timMenangId?: KodeTim | null;
+        timMenangNama?: string | null;
       };
     }) => {
-      if (data.leaderboard) setLeaderboard(data.leaderboard);
+      if (data.teams) setTeams(data.teams);
       if (typeof data.totalPeserta === 'number') setTotalPeserta(data.totalPeserta);
 
       const aksi = data.terakhirAksi;
       if (aksi) {
-        const exp: EkspresiBalapKarung = aksi.selesaiBaru
-          ? 'puncak'
-          : aksi.terjatuh && !aksi.perisaiDigunakan
-          ? 'terjatuh'
-          : aksi.benar
-          ? 'bahagia'
-          : 'sedih';
+        setMemberPulseMap((prev) => ({
+          ...prev,
+          [aksi.pesertaId]: aksi.benar ? 'ok' : 'no',
+        }));
+        scheduleTimer(() => {
+          setMemberPulseMap((prev) => {
+            const copy = { ...prev };
+            delete copy[aksi.pesertaId];
+            return copy;
+          });
+        }, 700);
 
-        setDeltaMap((prev) => ({ ...prev, [aksi.pesertaId]: aksi.perubahanJarak }));
-        setEkspresiMap((prev) => ({ ...prev, [aksi.pesertaId]: exp }));
-        if (aksi.terjatuh && !aksi.perisaiDigunakan) {
-          setJatuhMap((prev) => ({ ...prev, [aksi.pesertaId]: true }));
-        }
-
-        const resetTimer = window.setTimeout(() => {
-          setDeltaMap((prev) => ({ ...prev, [aksi.pesertaId]: null }));
-          setJatuhMap((prev) => ({ ...prev, [aksi.pesertaId]: false }));
-        }, 1600);
-        timersRef.current.push(resetTimer);
-
-        if (!aksi.selesaiBaru) {
-          const exprTimer = window.setTimeout(() => {
-            setEkspresiMap((prev) => ({ ...prev, [aksi.pesertaId]: 'netral' }));
-          }, 2200);
-          timersRef.current.push(exprTimer);
-        }
-
-        let teks = '';
-        let tipe: 'naik' | 'turun' | 'bonus' | 'finis' | 'rintangan' | 'jatuh' = aksi.benar
-          ? 'naik'
-          : 'turun';
-
-        if (aksi.selesaiBaru) {
-          teks = `${aksi.nama} melintasi GARIS FINIS ${aksi.jarakBaru}m!`;
-          tipe = 'finis';
-          soundEffects.playVictoryFanfare();
-        } else if (aksi.terjatuh && aksi.perisaiDigunakan) {
-          teks = `${aksi.nama} terselamatkan oleh Perisai Keseimbangan!`;
-          tipe = 'bonus';
-        } else if (aksi.terjatuh) {
-          teks = `${aksi.nama} terjatuh (-${aksi.penaltiJatuhJarak ?? 5}m) karena keseimbangan habis!`;
-          tipe = 'jatuh';
-        } else if (aksi.rintanganBaru) {
-          teks = `${aksi.nama} mendapat ${aksi.rintanganBaru.judul}!`;
-          tipe = 'rintangan';
-        } else if (aksi.benar) {
-          teks = `${aksi.nama} melompat +${aksi.perubahanJarak}m (${aksi.jarakBaru}m)${
-            aksi.streakSaatIni >= 3 ? ` • Streak ${aksi.streakSaatIni}x` : ''
-          }`;
-          tipe = aksi.streakSaatIni >= 3 ? 'bonus' : 'naik';
+        const timKey = aksi.tim || 'merah';
+        if (aksi.benar) {
+          setCrowdCheer(true);
+          scheduleTimer(() => setCrowdCheer(false), 1200);
+          setTeamJumpMap((prev) => ({ ...prev, [timKey]: true }));
+          if (typeof aksi.stepTim === 'number' && aksi.stepTim > 0) {
+            setTeamDeltaMap((prev) => ({ ...prev, [timKey]: Number(aksi.stepTim!.toFixed(1)) }));
+          }
+          scheduleTimer(() => {
+            setTeamJumpMap((prev) => ({ ...prev, [timKey]: false }));
+            setTeamDeltaMap((prev) => ({ ...prev, [timKey]: null }));
+          }, 1100);
         } else {
-          teks = `${aksi.nama} salah (${aksi.perubahanJarak}m • Keseimbangan ${aksi.keseimbanganBaru}%)`;
-          tipe = 'turun';
+          setTeamHurtMap((prev) => ({ ...prev, [timKey]: true }));
+          setTeamSayMap((prev) => ({
+            ...prev,
+            [timKey]: aksi.stumbleQuote || (aksi.timedOut ? 'Waktu habis!' : 'Aduh!'),
+          }));
+          scheduleTimer(() => {
+            setTeamHurtMap((prev) => ({ ...prev, [timKey]: false }));
+            setTeamSayMap((prev) => ({ ...prev, [timKey]: null }));
+          }, 1050);
         }
+
+        if (aksi.timMenangId) {
+          setTimPemenang(aksi.timMenangId);
+        }
+
+        const labelTim =
+          DEFAULT_TEAMS.find((t) => t.id === timKey)?.nama || 'Tim';
+        const feedText = aksi.timMenangNama
+          ? `${aksi.nama} membawa ${aksi.timMenangNama} melintasi GARIS FINIS!`
+          : aksi.benar
+          ? `${aksi.nama} (${labelTim}) menjawab benar (+${(aksi.stepTim || 0).toFixed(1)} m)`
+          : `${aksi.nama} (${labelTim}) ${
+              aksi.timedOut ? 'kehabisan waktu' : 'tersandung'
+            } — "${aksi.stumbleQuote || 'Aduh!'}"`;
 
         setLiveFeed((prev) => [
-          { id: `${Date.now()}-${Math.random()}`, teks, tipe },
+          { id: `${Date.now()}-${Math.random()}`, teks: feedText, ok: aksi.benar },
           ...prev.slice(0, 5),
         ]);
       }
     };
 
-    const handleSesiSelesai = async (data: { game?: string; hasil?: LaporanAkhirBalapHost }) => {
+    const handleSesiSelesai = async (data: {
+      game?: string;
+      hasil?: LaporanAkhirBalapHost;
+    }) => {
       if (data.game && data.game !== 'balap_karung') return;
       setStatus('selesai');
       soundEffects.playVictoryFanfare();
-      if (data.hasil) setHasilAkhir(data.hasil);
+      setCrowdCheer(true);
+
+      if (data.hasil) {
+        setHasilAkhir(data.hasil);
+        if (data.hasil.timPemenang) setTimPemenang(data.hasil.timPemenang);
+      }
+
       try {
         const res = await apiRequest<{ hasil: LaporanAkhirBalapHost }>(`/sesi/${id}/hasil`);
-        if (res.hasil) setHasilAkhir(res.hasil);
+        if (res.hasil) {
+          setHasilAkhir(res.hasil);
+          if (res.hasil.timPemenang) setTimPemenang(res.hasil.timPemenang);
+        }
       } catch {
-        // fallback ke data socket
+        // Fallback ke payload socket
       }
+
+      scheduleTimer(() => {
+        setShowEndSection(true);
+        endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 1200);
     };
 
     socket.on('connect', handleConnect);
@@ -396,10 +361,32 @@ export default function LayarHostBalapKarung() {
       socket.off('game:mulai', handleGameMulai);
       socket.off('balap:update', handleBalapUpdate);
       socket.off('sesi:selesai', handleSesiSelesai);
-      timersRef.current.forEach((t) => window.clearTimeout(t));
-      timersRef.current = [];
     };
-  }, [id]);
+  }, [id, scheduleTimer]);
+
+  const handleUbahJumlahTim = (nextJumlah: 3 | 4) => {
+    if (!id || status !== 'lobi' || isChangingTeamCount) return;
+    setIsChangingTeamCount(true);
+    const socket = getSocket();
+    socket.emit(
+      'balap:ubah_jumlah_tim',
+      { sessionId: id, jumlahTim: nextJumlah },
+      (res: {
+        success?: boolean;
+        pesan?: string;
+        config?: KonfigurasiBalapHost;
+        teams?: RingkasanTimClient[];
+      }) => {
+        setIsChangingTeamCount(false);
+        if (res?.success) {
+          if (res.config) setConfig(res.config);
+          if (res.teams) setTeams(res.teams);
+        } else if (res?.pesan) {
+          alert(res.pesan);
+        }
+      }
+    );
+  };
 
   const handleMulai = () => {
     if (!id || totalPeserta === 0 || isStarting) return;
@@ -408,7 +395,7 @@ export default function LayarHostBalapKarung() {
     socket.emit('sesi:mulai', { sessionId: id }, (res: { success?: boolean; pesan?: string }) => {
       setIsStarting(false);
       if (!res?.success) {
-        alert(res?.pesan || 'Gagal memulai sesi Balap Karung Challenge.');
+        alert(res?.pesan || 'Gagal memulai lomba Balap Karung Tim.');
       }
     });
   };
@@ -417,27 +404,40 @@ export default function LayarHostBalapKarung() {
     if (!id || isEnding) return;
     setIsEnding(true);
     const socket = getSocket();
-    socket.emit('sesi:akhiri_manual', { sessionId: id }, (res: { success?: boolean; pesan?: string }) => {
-      setIsEnding(false);
-      setModalAkhiriOpen(false);
-      if (!res?.success) {
-        alert(res?.pesan || 'Gagal mengakhiri permainan.');
+    socket.emit(
+      'sesi:akhiri_manual',
+      { sessionId: id },
+      (res: { success?: boolean; pesan?: string }) => {
+        setIsEnding(false);
+        setModalAkhiriOpen(false);
+        if (!res?.success) {
+          alert(res?.pesan || 'Gagal mengakhiri perlombaan.');
+        }
       }
-    });
+    );
   };
 
-  const handleMainLagi = async () => {
+  const handleMainLagi = async (nextJumlahTim?: 3 | 4) => {
     if (!id || isMainLagi) return;
     setIsMainLagi(true);
     try {
       const res = await apiRequest<{ sessionId?: string; session?: { id: string } }>(
         `/sesi/${id}/main-lagi`,
-        { method: 'POST' }
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            autoStart: false,
+            ...(nextJumlahTim ? { jumlahTim: nextJumlahTim } : {}),
+          }),
+        }
       );
       const nextId = res.session?.id || res.sessionId;
-      if (nextId) navigate(`/guru/sesi/${nextId}?kembali=${encodeURIComponent(returnUrl)}`);
+      if (nextId) {
+        navigate(`/guru/sesi/${nextId}?kembali=${encodeURIComponent(returnUrl)}`);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     } catch (err: any) {
-      alert(err.pesan || 'Gagal membuat sesi ulang.');
+      alert(err.pesan || 'Gagal membuat sesi baru.');
     } finally {
       setIsMainLagi(false);
     }
@@ -450,852 +450,568 @@ export default function LayarHostBalapKarung() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleToggleSound = () => {
-    setIsMuted(soundEffects.toggleMute());
-  };
+  const targetJarak = config.targetJarak || 100;
+  const jumlahTim = config.jumlahTim === 4 ? 4 : 3;
+
+  // Pastikan lintasan selalu berurutan (Merah, Biru, Hijau, [Kuning])
+  const activeTeams: RingkasanTimClient[] = useMemo(() => {
+    if (teams.length > 0) {
+      const order: KodeTim[] = ['merah', 'biru', 'hijau', 'kuning'];
+      return [...teams].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+    }
+    return DEFAULT_TEAMS.slice(0, jumlahTim).map((t) => ({
+      id: t.id,
+      nama: t.nama,
+      warna: t.warna,
+      meter: 0,
+      targetJarak,
+      persen: 0,
+      isWinner: false,
+      selesaiPadaMs: null,
+      anggota: [],
+    }));
+  }, [teams, jumlahTim, targetJarak]);
+
+  // Papan peringkat tim terurut
+  const rankedTeams: RingkasanTimClient[] = useMemo(() => {
+    return [...activeTeams].sort((a, b) => {
+      if (a.isWinner !== b.isWinner) return a.isWinner ? -1 : 1;
+      if (Math.abs(b.meter - a.meter) > 0.001) return b.meter - a.meter;
+      if (a.selesaiPadaMs !== null && b.selesaiPadaMs !== null) {
+        return a.selesaiPadaMs - b.selesaiPadaMs;
+      }
+      return 0;
+    });
+  }, [activeTeams]);
+
+  const stadiumLanes: BalapLaneItem[] = useMemo(() => {
+    return activeTeams.map((t) => ({
+      id: t.id,
+      nama: t.nama,
+      warna: t.warna,
+      shirtColor: t.warna,
+      meter: t.meter,
+      targetJarak,
+      isWinner: status === 'selesai' && (t.isWinner || timPemenang === t.id),
+      isRunning: status === 'jalan' && !teamHurtMap[t.id],
+      isJumping: Boolean(teamJumpMap[t.id]),
+      isHurt: Boolean(teamHurtMap[t.id]),
+      sayBubble: teamSayMap[t.id] || null,
+      deltaBadge: teamDeltaMap[t.id] ?? null,
+      members: t.anggota.map((a) => ({
+        id: a.id,
+        nama: a.nama,
+        pulse: memberPulseMap[a.id] || null,
+      })),
+    }));
+  }, [
+    activeTeams,
+    targetJarak,
+    status,
+    timPemenang,
+    teamHurtMap,
+    teamJumpMap,
+    teamSayMap,
+    teamDeltaMap,
+    memberPulseMap,
+  ]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
-        <Loader2 className="w-10 h-10 animate-spin text-amber-400 mb-3" />
-        <p className="text-sm font-bold text-slate-300">Menyiapkan Lintasan Balap Karung...</p>
+      <div className="bk-festival flex flex-col items-center justify-center p-6">
+        <Loader2 className="w-10 h-10 animate-spin text-[#e2312d] mb-3" />
+        <p className="font-extrabold text-[#2b2a4a]">Menyiapkan Lintasan Balap Karung Tim...</p>
       </div>
     );
   }
 
   if (errorPesan) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-        <Card className="max-w-md p-6 bg-slate-800 border-slate-700 text-center">
-          <h2 className="text-xl font-bold text-white mb-2">Terjadi Kesalahan</h2>
-          <p className="text-slate-400 text-sm mb-6">{errorPesan}</p>
-          <Button variant="utama" onClick={() => navigate(returnUrl)} className="w-full">
+      <div className="bk-festival flex items-center justify-center p-4">
+        <div className="bk-card max-w-md w-full text-center space-y-4">
+          <h2 className="bk-h text-2xl font-extrabold">Sesi Tidak Tersedia</h2>
+          <p className="text-sm text-[#6b6a85]">{errorPesan}</p>
+          <button
+            type="button"
+            onClick={() => navigate(returnUrl)}
+            className="bk-btn w-full justify-center"
+          >
             Kembali ke Dashboard
-          </Button>
-        </Card>
-      </div>
-    );
-  }
-
-  // -------------------------------------------------------------------------
-  // FASE 1: LOBI PROYEKTOR
-  // -------------------------------------------------------------------------
-  if (status === 'lobi') {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-emerald-950/70 to-amber-950/40 text-white flex flex-col justify-between p-6 sm:p-10 select-none">
-        <header className="flex justify-between items-center bg-slate-800/80 backdrop-blur border border-slate-700/80 rounded-2xl p-4 sm:px-6 shadow-md">
-          <div>
-            <span className="text-xs font-black uppercase tracking-widest text-amber-400 block">
-              Balap Karung Challenge • Mode Individu Multiplayer
-            </span>
-            <h1 className="text-xl sm:text-2xl font-black text-white">{templateJudul}</h1>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleToggleSound}
-              className="p-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors"
-              title={isMuted ? 'Nyalakan Suara' : 'Bisukan Suara'}
-            >
-              {isMuted ? (
-                <VolumeX className="w-5 h-5 text-red-400" />
-              ) : (
-                <Volume2 className="w-5 h-5 text-emerald-400" />
-              )}
-            </button>
-            <Button
-              variant="hantu"
-              onClick={() => navigate(returnUrl)}
-              className="text-xs text-slate-300 border border-slate-600 hover:bg-slate-700"
-            >
-              Dashboard
-            </Button>
-          </div>
-        </header>
-
-        <main className="grid grid-cols-1 lg:grid-cols-12 gap-8 my-auto py-6 items-start">
-          {/* Kiri: QR, PIN, Aturan Sesi */}
-          <div className="lg:col-span-5 flex flex-col items-center bg-slate-800/90 border-2 border-amber-500/40 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5 text-center">
-            <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                Gabung dari HP Siswa
-              </span>
-              <p className="text-sm font-semibold text-amber-300">
-                Pindai QR atau masukkan PIN 6 digit
-              </p>
-            </div>
-
-            {qrDataUrl && (
-              <div className="bg-white p-3 rounded-2xl shadow-inner border-4 border-amber-400">
-                <img
-                  src={qrDataUrl}
-                  alt="QR Code Balap Karung"
-                  className="w-44 h-44 sm:w-52 sm:h-52 object-contain"
-                />
-              </div>
-            )}
-
-            <div className="w-full bg-slate-900/90 border border-slate-700 rounded-2xl p-4">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block mb-1">
-                KODE PIN GAME
-              </span>
-              <div className="text-4xl sm:text-5xl font-mono font-black tracking-[0.25em] text-amber-400">
-                {token}
-              </div>
-            </div>
-
-            {joinUrl && (
-              <div className="w-full flex items-center justify-between gap-2 bg-slate-900/60 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-300">
-                <span className="truncate font-mono">{joinUrl}</span>
-                <button
-                  type="button"
-                  onClick={handleCopyLink}
-                  className="shrink-0 p-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-amber-300 transition-colors"
-                  title="Salin tautan"
-                >
-                  {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                </button>
-              </div>
-            )}
-
-            {config && (
-              <div className="w-full text-left bg-slate-900/70 border border-slate-700/80 rounded-2xl p-3.5 space-y-2 text-xs">
-                <div className="flex flex-wrap gap-1.5">
-                  <span className="px-2 py-0.5 rounded-md bg-amber-950/90 border border-amber-700 text-amber-300 font-bold">
-                    Target: {config.targetJarak}m
-                  </span>
-                  <span className="px-2 py-0.5 rounded-md bg-emerald-950/90 border border-emerald-700 text-emerald-300 font-bold uppercase">
-                    {config.kesulitan}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-md bg-emerald-900/50 text-emerald-200 font-bold">
-                    Benar +{config.lompatBenar}m
-                  </span>
-                  <span className="px-2 py-0.5 rounded-md bg-rose-950/80 text-rose-300 font-bold">
-                    Salah -{config.turunSalah}m
-                  </span>
-                  <span className="px-2 py-0.5 rounded-md bg-sky-950/80 text-sky-300 font-bold">
-                    Keseimbangan: {config.keseimbanganAktif ? 'Aktif' : 'Nonaktif'}
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-400">
-                  <span className="font-semibold text-slate-300">Rintangan ({config.peluangRintanganPersen}%): </span>
-                  {config.rintanganAktif && config.rintanganDipilih.length > 0
-                    ? config.rintanganDipilih.map((r) => LABEL_RINTANGAN[r] || r).join(', ')
-                    : 'Nonaktif'}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Kanan: Pelari di Ruang Tunggu */}
-          <div className="lg:col-span-7 flex flex-col bg-slate-800/80 border border-slate-700 rounded-3xl p-6 sm:p-8 shadow-xl min-h-[440px] justify-between">
-            <div>
-              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-700 pb-4 mb-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
-                    <Users className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-black text-white">Pelari di Ruang Tunggu</h2>
-                    <p className="text-xs text-slate-400">
-                      {totalSoal} soal acak berulang • Target finis {targetJarak} meter
-                    </p>
-                  </div>
-                </div>
-                <div className="bg-amber-500/20 border border-amber-500/50 rounded-2xl px-4 py-2 text-center">
-                  <span className="text-2xl font-black text-amber-300 font-mono">
-                    {totalPeserta}
-                  </span>
-                  <span className="text-[11px] font-bold text-slate-400 ml-1">
-                    / {config?.maxPeserta || 100} Pelari
-                  </span>
-                </div>
-              </div>
-
-              {leaderboard.length === 0 ? (
-                <div className="h-56 flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-slate-700 rounded-2xl p-6 text-center">
-                  <Loader2 className="w-8 h-8 animate-spin text-slate-600 mb-3" />
-                  <p className="font-bold text-slate-300">Menunggu siswa bergabung...</p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Setiap siswa berlomba di lintasan masing-masing menjaga jarak dan keseimbangan.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-h-[300px] overflow-y-auto pr-1">
-                  {leaderboard.map((p, idx) => (
-                    <div
-                      key={p.id}
-                      className="flex items-center gap-2 bg-slate-900/80 border border-slate-700/80 rounded-xl p-2.5 shadow-sm"
-                    >
-                      <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 text-xs font-black flex items-center justify-center shrink-0">
-                        {idx + 1}
-                      </span>
-                      <span className="font-bold text-sm text-white truncate">{p.nama}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="pt-6 border-t border-slate-700 mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <p className="text-xs text-slate-400 text-center sm:text-left">
-                Tanpa batas waktu keseluruhan. Permainan berakhir ketika semua pelari mencapai garis finis {targetJarak}m atau guru menghentikan sesi.
-              </p>
-              <Button
-                variant="utama"
-                size="lg"
-                onClick={handleMulai}
-                disabled={totalPeserta === 0 || isStarting}
-                className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-[#D7262E] hover:bg-[#b81e25] text-white font-black text-base shadow-lg shrink-0"
-              >
-                {isStarting ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin mr-2" /> Memulai...
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-5 h-5 mr-2 fill-current" /> Mulai Balap Karung
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  // -------------------------------------------------------------------------
-  // FASE 3: PODIUM & LAPORAN AKHIR
-  // -------------------------------------------------------------------------
-  if (status === 'selesai') {
-    const laporanPemain = hasilAkhir?.laporanPemain || [];
-    const podium = hasilAkhir?.podium || {
-      juara1: leaderboard[0],
-      juara2: leaderboard[1],
-      juara3: leaderboard[2],
-    };
-    const statsSoal = hasilAkhir?.questionStats || [];
-
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-emerald-950/60 to-slate-900 text-white p-6 sm:p-10">
-        <div className="max-w-7xl mx-auto space-y-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-slate-800/80 border border-amber-500/40 rounded-3xl p-6 shadow-xl">
-            <div className="space-y-1">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/50 text-amber-300 text-xs font-black uppercase tracking-wider">
-                <Trophy className="w-3.5 h-3.5" /> Balap Karung Challenge Selesai
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white">{templateJudul}</h1>
-              <p className="text-xs sm:text-sm text-slate-300">
-                {hasilAkhir?.dihentikanManual
-                  ? `Perlombaan dihentikan secara manual oleh guru (Target: ${targetJarak} meter).`
-                  : `Seluruh pelari berhasil mencapai garis finis ${targetJarak} meter!`}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              {templateId && (
-                <Button
-                  variant="hantu"
-                  onClick={() =>
-                    navigate(
-                      `/guru/balap-karung?templateId=${templateId}&kembali=${encodeURIComponent(returnUrl)}`
-                    )
-                  }
-                  className="border border-slate-600 bg-slate-800/80 text-slate-200 hover:bg-slate-700"
-                >
-                  <Sliders className="w-4 h-4 mr-2" />
-                  Ubah Pengaturan
-                </Button>
-              )}
-              <Button
-                variant="hantu"
-                onClick={handleMainLagi}
-                disabled={isMainLagi}
-                className="border border-emerald-500/50 bg-emerald-900/40 text-emerald-200 hover:bg-emerald-800/60"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${isMainLagi ? 'animate-spin' : ''}`} />
-                Main Lagi
-              </Button>
-              <Button
-                variant="utama"
-                onClick={() => navigate(returnUrl)}
-                className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" /> Kembali ke Dashboard
-              </Button>
-            </div>
-          </div>
-
-          {/* Ringkasan Statistik */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-4">
-              <p className="text-xs text-slate-400 font-bold uppercase">Total Pelari</p>
-              <p className="text-2xl font-black text-white mt-1">
-                {hasilAkhir?.totalPeserta ?? leaderboard.length}
-              </p>
-            </div>
-            <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-4">
-              <p className="text-xs text-slate-400 font-bold uppercase">Mencapai Finis</p>
-              <p className="text-2xl font-black text-emerald-400 mt-1">
-                {hasilAkhir?.totalSelesai ?? leaderboard.filter((p) => p.status === 'selesai').length}
-              </p>
-            </div>
-            <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-4">
-              <p className="text-xs text-slate-400 font-bold uppercase">Total Benar / Salah</p>
-              <p className="text-2xl font-black text-amber-400 mt-1 font-mono">
-                {hasilAkhir?.totalJawabanBenar ?? 0} / {hasilAkhir?.totalJawabanSalah ?? 0}
-              </p>
-            </div>
-            <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-4">
-              <p className="text-xs text-slate-400 font-bold uppercase">Total Kejadian Jatuh</p>
-              <p className="text-2xl font-black text-rose-400 mt-1">
-                {hasilAkhir?.totalJatuhKelas ?? 0}x
-              </p>
-            </div>
-          </div>
-
-          {/* Top 3 Podium dengan Karakter 2D */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-            {podium.juara2 && (
-              <div className="order-2 md:order-1 bg-slate-800/90 border border-slate-500 rounded-3xl p-5 text-center shadow-lg flex flex-col items-center">
-                <KarakterBalapKarung
-                  nama={podium.juara2.nama}
-                  pose="podium"
-                  ekspresi="bahagia"
-                  podiumRank={2}
-                  size="md"
-                  className="mb-2"
-                />
-                <span className="inline-block px-3 py-1 rounded-full bg-slate-600/80 border border-slate-400/60 text-slate-100 text-xs font-black mb-2">
-                  Juara 2 • Kalung Perak
-                </span>
-                <h3 className="text-xl font-black text-white truncate max-w-full">{podium.juara2.nama}</h3>
-                <p className="text-2xl font-black text-emerald-300 mt-1">
-                  {podium.juara2.jarak} m
-                </p>
-                <p className="text-xs text-slate-400 mt-1">
-                  Akurasi {podium.juara2.akurasiPersen}% • Jatuh {podium.juara2.jumlahJatuh}x
-                </p>
-              </div>
-            )}
-
-            {podium.juara1 && (
-              <div className="order-1 md:order-2 bg-gradient-to-b from-amber-500/20 to-slate-800/95 border-2 border-amber-400 rounded-3xl p-6 text-center shadow-2xl flex flex-col items-center">
-                <KarakterBalapKarung
-                  nama={podium.juara1.nama}
-                  pose="podium"
-                  ekspresi="bahagia"
-                  podiumRank={1}
-                  size="lg"
-                  className="mb-2"
-                />
-                <span className="inline-block px-3 py-1 rounded-full bg-amber-400 text-slate-950 text-xs font-black mb-2">
-                  Juara 1 • Mahkota Juara
-                </span>
-                <h3 className="text-2xl font-black text-white truncate max-w-full">{podium.juara1.nama}</h3>
-                <p className="text-3xl font-black text-amber-300 mt-1">
-                  {podium.juara1.jarak} m
-                </p>
-                <p className="text-xs text-slate-300 mt-1">
-                  Benar {podium.juara1.totalBenar} • Akurasi {podium.juara1.akurasiPersen}% •{' '}
-                  {podium.juara1.waktuSelesaiMs
-                    ? `Finis ${formatDurasiDetik(podium.juara1.waktuSelesaiMs)}`
-                    : `Rata-rata ${formatDurasiDetik(podium.juara1.rataRataWaktuJawabMs)}`}
-                </p>
-              </div>
-            )}
-
-            {podium.juara3 && (
-              <div className="order-3 bg-slate-800/90 border border-amber-700/70 rounded-3xl p-5 text-center shadow-lg flex flex-col items-center">
-                <KarakterBalapKarung
-                  nama={podium.juara3.nama}
-                  pose="podium"
-                  ekspresi="bahagia"
-                  podiumRank={3}
-                  size="md"
-                  className="mb-2"
-                />
-                <span className="inline-block px-3 py-1 rounded-full bg-amber-900/60 border border-amber-600/60 text-amber-200 text-xs font-black mb-2">
-                  Juara 3 • Kalung Perunggu
-                </span>
-                <h3 className="text-xl font-black text-white truncate max-w-full">{podium.juara3.nama}</h3>
-                <p className="text-2xl font-black text-emerald-300 mt-1">
-                  {podium.juara3.jarak} m
-                </p>
-                <p className="text-xs text-slate-400 mt-1">
-                  Akurasi {podium.juara3.akurasiPersen}% • Jatuh {podium.juara3.jumlahJatuh}x
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Tabel Laporan Lengkap Semua Pemain */}
-          <div className="bg-slate-800/90 border border-slate-700 rounded-3xl overflow-hidden shadow-xl">
-            <div className="p-5 border-b border-slate-700">
-              <h2 className="text-lg font-black text-white">Laporan Detail Pelari</h2>
-              <p className="text-xs text-slate-400">
-                Peringkat ditentukan berdasarkan status finis, waktu finis tercepat, jarak tempuh tertinggi, jumlah benar, dan rata-rata waktu respons.
-              </p>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-900/80 text-slate-400 uppercase font-bold">
-                  <tr>
-                    <th className="px-4 py-3">Rank</th>
-                    <th className="px-4 py-3">Nama Pelari</th>
-                    <th className="px-4 py-3 text-right">Jarak Akhir</th>
-                    <th className="px-4 py-3 text-right">Keseimbangan</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3 text-center">Benar / Salah</th>
-                    <th className="px-4 py-3 text-right">Jatuh</th>
-                    <th className="px-4 py-3 text-right">Bonus Streak</th>
-                    <th className="px-4 py-3 text-right">Rata Respons</th>
-                    <th className="px-4 py-3 text-right">Waktu Finis</th>
-                    <th className="px-4 py-3 text-center">Rintangan</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-700/70">
-                  {laporanPemain.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-700/30 transition-colors">
-                      <td className="px-4 py-3 font-black text-amber-300">#{p.peringkat}</td>
-                      <td className="px-4 py-3 font-bold text-white">{p.nama}</td>
-                      <td className="px-4 py-3 text-right font-mono font-black text-emerald-300">
-                        {p.jarakAkhir} / {p.targetJarak} m
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-sky-300">
-                        {p.keseimbanganAkhir}%
-                      </td>
-                      <td className="px-4 py-3">
-                        {p.status === 'selesai' ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold">
-                            <CheckCircle2 className="w-3 h-3" /> Finis
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-700 text-slate-300 font-semibold">
-                            Belum Finis
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-center font-mono">
-                        <span className="text-emerald-400 font-bold">{p.totalBenar}</span>
-                        <span className="text-slate-500 mx-1">/</span>
-                        <span className="text-rose-400 font-bold">{p.totalSalah}</span>
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-rose-300 font-bold">
-                        {p.jumlahJatuh}x
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-orange-300 font-bold">
-                        {p.totalBonusStreakKali}x (+{p.totalBonusStreakMeter}m)
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-slate-300">
-                        {formatDurasiDetik(p.rataRataWaktuJawabMs)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-emerald-300">
-                        {formatDurasiDetik(p.waktuSelesaiMs)}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => setDetailPemain(p)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold transition-colors"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>{p.riwayatRintangan?.length || 0}</span>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {statsSoal.length > 0 && (
-            <div className="bg-slate-800/90 border border-slate-700 rounded-3xl p-5 shadow-xl">
-              <h3 className="text-base font-black text-white mb-3">Statistik Tingkat Kesulitan Soal</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {statsSoal.map((sq, idx) => {
-                  const jBenar = sq.jumlahBenar ?? sq.totalBenar ?? 0;
-                  const jSalah = sq.jumlahSalah ?? sq.totalSalah ?? 0;
-                  const tot = jBenar + jSalah;
-                  const salahPct = tot > 0 ? Math.round((jSalah / tot) * 100) : 0;
-                  return (
-                    <div
-                      key={sq.questionId}
-                      className="bg-slate-900/70 border border-slate-700/80 rounded-2xl p-3.5 flex items-center justify-between gap-3"
-                    >
-                      <div className="min-w-0">
-                        <span className="text-[10px] font-bold uppercase text-slate-400">
-                          Soal #{sq.nomorSoal ?? idx + 1}
-                        </span>
-                        <p className="text-xs font-semibold text-white line-clamp-2">
-                          {sq.teksSoal || sq.teks}
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-xs font-mono font-black text-emerald-400 block">
-                          {jBenar} Benar
-                        </span>
-                        <span className="text-[11px] font-mono text-rose-400">
-                          {jSalah} Salah ({salahPct}%)
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          </button>
         </div>
+      </div>
+    );
+  }
 
-        <Modal
-          isOpen={Boolean(detailPemain)}
-          onClose={() => setDetailPemain(null)}
-          title={`Riwayat Rintangan & Jatuh: ${detailPemain?.nama || ''}`}
-          maxWidth="xl"
-          variant="standard"
-        >
-          {detailPemain && (
-            <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1 text-slate-800">
-              <div className="grid grid-cols-4 gap-2 text-center bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs">
-                <div>
-                  <span className="text-slate-500 block">Jarak</span>
-                  <span className="font-black text-emerald-700 text-base">
-                    {detailPemain.jarakAkhir}m
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">Keseimbangan</span>
-                  <span className="font-black text-sky-700 text-base">
-                    {detailPemain.keseimbanganAkhir}%
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">Jatuh</span>
-                  <span className="font-black text-rose-600 text-base">
-                    {detailPemain.jumlahJatuh}x
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">Streak Maks</span>
-                  <span className="font-black text-amber-600 text-base">
-                    {detailPemain.streakTertinggi}x
-                  </span>
-                </div>
-              </div>
+  const finalLaporanTim: LaporanTimItem[] =
+    hasilAkhir?.laporanTim && hasilAkhir.laporanTim.length > 0
+      ? hasilAkhir.laporanTim
+      : rankedTeams.map((t, i) => ({
+          peringkat: i + 1,
+          id: t.id,
+          nama: t.nama,
+          warna: t.warna,
+          meter: t.meter,
+          isWinner: i === 0 || t.isWinner || timPemenang === t.id,
+          totalBenar: t.anggota.reduce((acc, a) => acc + (a.totalBenar || 0), 0),
+          totalSalah: t.anggota.reduce((acc, a) => acc + (a.totalSalah || 0), 0),
+          anggota: t.anggota,
+        }));
 
+  const winnerTeamName =
+    hasilAkhir?.namaTimPemenang || finalLaporanTim[0]?.nama || 'Tim Juara';
+
+  return (
+    <div className="bk-festival">
+      <BalapKarungStadium
+        title="Balap Karung Kuis"
+        subtitle={`Multiplayer Tim (${templateJudul})`}
+        statusLabel={
+          status === 'lobi'
+            ? 'Menunggu siswa'
+            : status === 'jalan'
+            ? 'Berlangsung'
+            : 'Selesai'
+        }
+        statusTone={status === 'jalan' ? 'live' : status === 'selesai' ? 'done' : 'idle'}
+        targetJarak={targetJarak}
+        ruleSummary="Benar = tim maju • Salah = tersandung"
+        lanes={stadiumLanes}
+        crowdCheer={crowdCheer || status === 'selesai'}
+        compactLanes={activeTeams.length >= 4}
+        isMuted={isMuted}
+        onToggleMute={() => setIsMuted(soundEffects.toggleMute())}
+        onBack={() => navigate(returnUrl)}
+        onStop={status === 'jalan' ? () => setModalAkhiriOpen(true) : undefined}
+      />
+
+      <main className="bk-wrap">
+        {/* 1. LOBI PESERTA & PEMBAGIAN TIM */}
+        {status === 'lobi' && (
+          <section className="bk-card mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Kiri: PIN, QR & Pemilih Jumlah Tim */}
               <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
-                  Catatan Rintangan & Jatuh ({detailPemain.riwayatRintangan?.length || 0})
-                </h4>
-                {(!detailPemain.riwayatRintangan || detailPemain.riwayatRintangan.length === 0) ? (
-                  <p className="text-xs text-slate-500 italic bg-slate-50 p-3 rounded-xl">
-                    Tidak ada kejadian jatuh atau rintangan tercatat.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {detailPemain.riwayatRintangan.map((r) => (
-                      <div
-                        key={r.id}
-                        className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs flex items-start justify-between gap-2"
-                      >
-                        <div>
-                          <p className="font-bold text-amber-900">{r.judul}</p>
-                          <p className="text-amber-800 mt-0.5">{r.deskripsi}</p>
-                        </div>
-                        <span className="shrink-0 px-2 py-0.5 rounded-md bg-white border border-amber-300 font-mono font-bold text-amber-900">
-                          {r.efekNilai !== 0
-                            ? `${r.efekNilai > 0 ? '+' : ''}${r.efekNilai} ${r.satuan}`
-                            : r.satuan}
-                        </span>
+                <h2 className="bk-h text-2xl font-extrabold text-[#2b2a4a]">
+                  Siswa gabung lewat HP
+                </h2>
+                <p className="text-sm text-[#6b6a85] mt-1 mb-3">
+                  Masukkan PIN atau pindai QR, lalu tulis nama. Siswa otomatis dibagi merata ke
+                  setiap tim.
+                </p>
+
+                <div className="flex flex-wrap items-center gap-4 mb-3">
+                  <div className="bk-pin-row">
+                    {(token || '------').split('').map((digit, idx) => (
+                      <div key={idx} className="bk-pin-tile">
+                        {digit}
                       </div>
                     ))}
                   </div>
-                )}
-              </div>
-            </div>
-          )}
-        </Modal>
-      </div>
-    );
-  }
 
-  // -------------------------------------------------------------------------
-  // FASE 2: PERMAINAN BERLANGSUNG (ARENA LINTASAN + LEADERBOARD REALTIME)
-  // -------------------------------------------------------------------------
-  const totalSelesaiCount = leaderboard.filter((p) => p.status === 'selesai').length;
-  const maxVisualLintasan = tampilSemuaLintasan
-    ? leaderboard.length
-    : Math.min(leaderboard.length, 10);
-  const pesertaVisual = leaderboard.slice(0, maxVisualLintasan);
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-emerald-950/70 to-slate-900 text-white p-4 sm:p-6 flex flex-col gap-5 select-none">
-      <header className="flex flex-wrap items-center justify-between gap-4 bg-slate-800/80 border border-slate-700 rounded-2xl p-4 shadow-md">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[11px] font-black uppercase tracking-wider">
-              Balap Karung Live • PIN {token} • Target {targetJarak}m
-            </span>
-            <span className="text-xs text-slate-400">
-              {totalSelesaiCount} / {totalPeserta} Finis
-            </span>
-          </div>
-          <h1 className="text-lg sm:text-xl font-black text-white mt-0.5">{templateJudul}</h1>
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={handleToggleSound}
-            className="p-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors"
-            title={isMuted ? 'Nyalakan Suara' : 'Bisukan Suara'}
-          >
-            {isMuted ? (
-              <VolumeX className="w-5 h-5 text-red-400" />
-            ) : (
-              <Volume2 className="w-5 h-5 text-emerald-400" />
-            )}
-          </button>
-          <Button
-            variant="utama"
-            onClick={() => setModalAkhiriOpen(true)}
-            className="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl"
-          >
-            <StopCircle className="w-4 h-4 mr-1.5" /> Akhiri Sesi
-          </Button>
-        </div>
-      </header>
-
-      {liveFeed.length > 0 && (
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          {liveFeed.map((item) => {
-            const warna =
-              item.tipe === 'finis'
-                ? 'bg-amber-500/20 border-amber-400 text-amber-200'
-                : item.tipe === 'jatuh'
-                ? 'bg-rose-600/25 border-rose-400 text-rose-200'
-                : item.tipe === 'rintangan'
-                ? 'bg-purple-500/20 border-purple-400 text-purple-200'
-                : item.tipe === 'bonus'
-                ? 'bg-emerald-500/20 border-emerald-400 text-emerald-200'
-                : item.tipe === 'turun'
-                ? 'bg-rose-500/20 border-rose-400 text-rose-200'
-                : 'bg-slate-800 border-slate-600 text-slate-200';
-            return (
-              <div
-                key={item.id}
-                className={`shrink-0 px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 ${warna}`}
-              >
-                <span>{item.teks}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1">
-        {/* Arena Lintasan Horizontal */}
-        <section className="lg:col-span-7 bg-slate-800/75 border border-slate-700 rounded-3xl p-5 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-base font-black text-white flex items-center gap-2">
-                <Flag className="w-4 h-4 text-amber-400" />
-                Arena Lintasan Balap Karung ({pesertaVisual.length} dari {leaderboard.length} Pelari)
-              </h2>
-              <p className="text-xs text-slate-400">
-                Posisi lompatan, keseimbangan, dan kejadian jatuh tersinkronisasi dari server.
-              </p>
-            </div>
-            {leaderboard.length > 10 && (
-              <button
-                type="button"
-                onClick={() => setTampilSemuaLintasan((v) => !v)}
-                className="px-3 py-1.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-xs font-bold text-slate-200 transition-colors"
-              >
-                {tampilSemuaLintasan ? 'Tampilkan Top 10' : `Tampilkan Semua (${leaderboard.length})`}
-              </button>
-            )}
-          </div>
-
-          <div className="space-y-3 max-h-[640px] overflow-y-auto pr-1">
-            {pesertaVisual.length === 0 ? (
-              <div className="text-center py-12 text-slate-400 text-sm">
-                Menunggu pelari masuk ke lintasan...
-              </div>
-            ) : (
-              pesertaVisual.map((p) => (
-                <div
-                  key={p.id}
-                  className="bg-slate-900/60 border border-slate-700/80 rounded-2xl p-3 space-y-2"
-                >
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="font-black text-amber-400 font-mono">#{p.peringkat}</span>
-                      <span className="font-bold text-white">{p.nama}</span>
-                      {p.jumlahJatuh > 0 && (
-                        <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 text-[10px] font-bold">
-                          {p.jumlahJatuh}x Jatuh
-                        </span>
-                      )}
+                  {qrDataUrl && (
+                    <div className="p-1.5 bg-white border-[3px] border-[#2b2a4a] rounded-xl shrink-0">
+                      <img
+                        src={qrDataUrl}
+                        alt="QR Code Gabung Lomba"
+                        className="w-[104px] h-[104px] block"
+                      />
                     </div>
-                    {p.status === 'selesai' ? (
-                      <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold text-[10px]">
-                        FINIS {formatDurasiDetik(p.waktuSelesaiMs)}
-                      </span>
-                    ) : (
-                      <span className="font-mono font-bold text-slate-300">
-                        {p.jarak}m / {targetJarak}m
-                      </span>
-                    )}
-                  </div>
-                  <LintasanBalapKarung
-                    jarak={p.jarak}
-                    targetJarak={p.targetJarak || targetJarak}
-                    keseimbangan={p.keseimbangan}
-                    keseimbanganAktif={keseimbanganAktif}
-                    namaPemain={p.nama}
-                    efekAktif={p.efekAktif}
-                    lastDeltaJarak={deltaMap[p.id]}
-                    ekspresi={ekspresiMap[p.id]}
-                    terjatuh={Boolean(jatuhMap[p.id])}
-                    streak={p.streakSaatIni}
-                    status={p.status}
-                    compact
-                  />
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-
-        {/* Leaderboard Real-Time */}
-        <section className="lg:col-span-5 bg-slate-800/85 border border-slate-700 rounded-3xl p-5 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-black text-white flex items-center gap-2">
-              <Trophy className="w-4 h-4 text-amber-400" />
-              Leaderboard Real-Time
-            </h2>
-            <span className="text-xs font-mono text-slate-400">{leaderboard.length} Pelari</span>
-          </div>
-
-          <div className="space-y-2 max-h-[580px] overflow-y-auto pr-1">
-            {leaderboard.map((p) => (
-              <div
-                key={p.id}
-                className={`p-3 rounded-2xl border transition-all ${
-                  p.status === 'selesai'
-                    ? 'bg-emerald-950/50 border-emerald-500/50'
-                    : 'bg-slate-900/75 border-slate-700/80'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span
-                      className={`w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center shrink-0 ${
-                        p.peringkat === 1
-                          ? 'bg-amber-400 text-slate-950'
-                          : p.peringkat === 2
-                          ? 'bg-slate-300 text-slate-900'
-                          : p.peringkat === 3
-                          ? 'bg-amber-700 text-white'
-                          : 'bg-slate-700 text-slate-300'
-                      }`}
-                    >
-                      {p.peringkat}
-                    </span>
-                    <span
-                      className={`w-2 h-2 rounded-full shrink-0 ${
-                        p.connected === false ? 'bg-slate-500' : 'bg-emerald-400'
-                      }`}
-                      title={p.connected === false ? 'Terputus' : 'Terhubung'}
-                    />
-                    <span className="font-bold text-sm text-white truncate">{p.nama}</span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {p.efekAktif?.perisai && (
-                      <span title="Perisai Aktif" className="text-sky-400">
-                        <Shield className="w-3.5 h-3.5" />
-                      </span>
-                    )}
-                    {p.efekAktif?.lompatanKuat && (
-                      <span title="Lompatan Kuat" className="text-amber-400">
-                        <Zap className="w-3.5 h-3.5" />
-                      </span>
-                    )}
-                    {p.efekAktif?.jalanBerlumpur && (
-                      <span title="Jalan Berlumpur" className="text-amber-600">
-                        <CloudRain className="w-3.5 h-3.5" />
-                      </span>
-                    )}
-                    {p.streakSaatIni >= 2 && (
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 text-[10px] font-black">
-                        <Flame className="w-3 h-3" /> {p.streakSaatIni}
-                      </span>
-                    )}
-                    <span className="font-mono font-black text-sm text-emerald-300">
-                      {p.jarak}m
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
-                  <span className="flex items-center gap-2">
-                    <span>✓{p.totalBenar} / ✗{p.totalSalah}</span>
-                    {keseimbanganAktif && (
-                      <span className="text-sky-300 flex items-center gap-0.5">
-                        <Scale className="w-3 h-3" /> {p.keseimbangan}%
-                      </span>
-                    )}
-                    <span className="text-rose-300 flex items-center gap-0.5">
-                      <AlertTriangle className="w-3 h-3" /> {p.jumlahJatuh}x
-                    </span>
-                  </span>
-                  {p.status === 'selesai' && p.waktuSelesaiMs ? (
-                    <span className="text-amber-300 font-bold flex items-center gap-1">
-                      <Clock className="w-3 h-3" /> {formatDurasiDetik(p.waktuSelesaiMs)}
-                    </span>
-                  ) : (
-                    <span>{p.jumlahJawab} soal</span>
                   )}
                 </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
 
+                {joinUrl && (
+                  <div className="flex items-center gap-2 bg-[#fff3d6] border-2 border-[#f0dfb4] rounded-xl px-3 py-2 mb-4">
+                    <span className="text-xs font-bold text-[#6b6a85] truncate flex-1 font-mono">
+                      {joinUrl}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopyLink}
+                      className="inline-flex items-center gap-1 text-xs font-extrabold px-2.5 py-1 rounded-lg bg-white border border-[#f0dfb4] text-[#2b2a4a] hover:bg-[#ffe9a8] cursor-pointer shrink-0"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-[#1f9d55]" /> Disalin
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" /> Salin
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-extrabold text-[#2b2a4a] mr-1">
+                    Jumlah tim:
+                  </span>
+                  {([3, 4] as const).map((n) => {
+                    const active = jumlahTim === n;
+                    return (
+                      <button
+                        key={n}
+                        type="button"
+                        disabled={isChangingTeamCount}
+                        onClick={() => handleUbahJumlahTim(n)}
+                        className={`px-4 py-1.5 rounded-full border-2 text-sm font-extrabold transition-all cursor-pointer ${
+                          active
+                            ? 'bg-[#1d8fe0] border-[#1d8fe0] text-white'
+                            : 'bg-[#fff3d6] border-[#f0dfb4] text-[#2b2a4a] hover:border-[#1d8fe0]'
+                        }`}
+                      >
+                        {n} tim
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Kanan: Daftar Anggota Per Tim + Tombol Mulai */}
+              <div className="flex flex-col justify-between gap-4">
+                <div>
+                  <h2 className="bk-h text-2xl font-extrabold text-[#2b2a4a] mb-2 flex items-center gap-2">
+                    <Users className="w-5 h-5 text-[#1d8fe0]" />
+                    Tim ({totalPeserta} siswa)
+                  </h2>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {activeTeams.map((t) => (
+                      <div
+                        key={t.id}
+                        className="rounded-2xl p-3 bg-[#fff3d6] border-[3px]"
+                        style={{ borderColor: t.warna }}
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <span
+                            className="bk-h text-sm font-extrabold"
+                            style={{ color: t.warna }}
+                          >
+                            {t.nama}
+                          </span>
+                          <span className="text-[11px] font-extrabold text-[#6b6a85]">
+                            {t.anggota.length} orang
+                          </span>
+                        </div>
+
+                        {t.anggota.length === 0 ? (
+                          <div className="text-[11px] italic text-[#6b6a85]">
+                            Menunggu peserta...
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5">
+                            {t.anggota.map((m) => (
+                              <span
+                                key={m.id}
+                                className="inline-flex items-center gap-1.5 bg-white border border-[#f0dfb4] rounded-full py-0.5 pl-1 pr-2.5 text-xs font-extrabold text-[#2b2a4a]"
+                              >
+                                <span
+                                  className="w-3.5 h-3.5 rounded-full shrink-0"
+                                  style={{ background: t.warna }}
+                                />
+                                {m.nama}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2.5 pt-2 border-t-2 border-dashed border-[#f0dfb4]">
+                  {totalPeserta > 0 && totalPeserta < activeTeams.length && (
+                    <div className="px-3 py-2 rounded-xl bg-[#fff3c4] border border-[#f2c230] text-[11px] font-bold text-[#7a5200]">
+                      Jumlah peserta ({totalPeserta}) lebih sedikit dari {activeTeams.length}{' '}
+                      tim. Guru tetap bisa memulai lomba sekarang atau menunggu siswa lain.
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigate(
+                          `/guru/balap-karung?templateId=${encodeURIComponent(
+                            templateId
+                          )}&kembali=${encodeURIComponent(returnUrl)}`
+                        )
+                      }
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl border-2 border-[#f0dfb4] bg-[#fff3d6] text-xs font-extrabold text-[#2b2a4a] hover:bg-[#fde9b8] cursor-pointer"
+                    >
+                      <Sliders className="w-4 h-4" /> Pengaturan
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={totalPeserta === 0 || isStarting}
+                      onClick={handleMulai}
+                      className="bk-btn"
+                    >
+                      <Play className="w-4 h-4 fill-current" />
+                      {isStarting ? 'Memulai...' : 'Mulai lomba'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* 2. LOMBA BERLANGSUNG (LEADERBOARD TIM + FEED REAL-TIME) */}
+        {(status === 'jalan' || (status === 'selesai' && !showEndSection)) && (
+          <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+            {/* Posisi Tim Live */}
+            <div className="lg:col-span-2 bk-card">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <h2 className="bk-h text-2xl font-extrabold text-[#2b2a4a]">Posisi tim</h2>
+                <span className="bk-chip">
+                  {config.waktuPerSoalDetik || 10} detik / soal
+                </span>
+              </div>
+
+              <ol className="space-y-2.5">
+                {rankedTeams.map((t, idx) => {
+                  const pct = Math.min(100, Math.max(0, (t.meter / targetJarak) * 100));
+                  return (
+                    <li
+                      key={t.id}
+                      className="bg-[#fff3d6] border-2 border-[#f0dfb4] rounded-2xl px-4 py-2.5 space-y-1.5"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <strong className="bk-h text-lg font-extrabold text-[#2b2a4a] w-5">
+                          {idx + 1}
+                        </strong>
+                        <span
+                          className="w-3.5 h-3.5 rounded-full shrink-0"
+                          style={{ background: t.warna }}
+                        />
+                        <span className="font-extrabold text-[#2b2a4a] flex-1">
+                          {t.nama}{' '}
+                          <small className="font-bold text-[#6b6a85] ml-1">
+                            {t.anggota.length} orang
+                          </small>
+                        </span>
+                        <span className="bk-h font-extrabold text-[#1f9d55] text-base">
+                          {t.isWinner || t.meter >= targetJarak
+                            ? 'Finis!'
+                            : `${Math.round(t.meter)} m`}
+                        </span>
+                      </div>
+
+                      <div className="h-2.5 rounded-full bg-[#f0dfb4] overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${pct}%`, background: t.warna }}
+                        />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+
+            {/* Panel Samping: PIN Susulan & Aktivitas */}
+            <div className="bk-card flex flex-col justify-between gap-4">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="bk-h text-lg font-extrabold text-[#2b2a4a]">
+                    Aktivitas Lomba
+                  </h3>
+                  {config.allowLateJoin !== false && token && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-[#2b2a4a] text-[#fff3d6] text-xs font-extrabold font-mono">
+                      PIN: {token}
+                    </span>
+                  )}
+                </div>
+
+                {liveFeed.length === 0 ? (
+                  <p className="text-xs font-bold text-[#6b6a85]">
+                    Menunggu jawaban siswa dari HP masing-masing...
+                  </p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {liveFeed.map((item) => (
+                      <li
+                        key={item.id}
+                        className={`text-xs font-bold px-3 py-2 rounded-xl border ${
+                          item.ok
+                            ? 'bg-[#d9f5e3] border-[#a7e6be] text-[#0f5b32]'
+                            : 'bg-[#fde0e0] border-[#f4b6b6] text-[#8a1f1f]'
+                        }`}
+                      >
+                        {item.teks}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setModalAkhiriOpen(true)}
+                className="bk-btn w-full justify-center"
+              >
+                <StopCircle className="w-4 h-4" /> Akhiri Lomba
+              </button>
+            </div>
+          </section>
+        )}
+
+        {/* 3. HASIL AKHIR PODIUM TIM & HEATMAP ANALISIS PER SOAL */}
+        {status === 'selesai' && showEndSection && (
+          <section ref={endRef} className="bk-card mt-4 space-y-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <span className="inline-block px-3 py-1 rounded-full bg-[#ffe9a8] text-[#7a5200] text-xs font-extrabold mb-1.5">
+                  <Trophy className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />
+                  Hasil lomba tim
+                </span>
+                <h2 className="bk-h text-2xl sm:text-3xl font-extrabold text-[#2b2a4a]">
+                  Pemenang: {winnerTeamName}!
+                </h2>
+                <p className="text-sm text-[#6b6a85] mt-0.5">
+                  {hasilAkhir?.dihentikanManual
+                    ? 'Perlombaan dihentikan manual oleh guru.'
+                    : `Tim pertama yang menyentuh garis finis ${targetJarak} m.`}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5">
+                <button
+                  type="button"
+                  disabled={isMainLagi}
+                  onClick={() => handleMainLagi(jumlahTim)}
+                  className="bk-btn alt"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isMainLagi ? 'animate-spin' : ''}`} />
+                  {isMainLagi ? 'Menyiapkan...' : 'Main lagi'}
+                </button>
+                <button
+                  type="button"
+                  disabled={isMainLagi}
+                  onClick={() => handleMainLagi(jumlahTim)}
+                  className="bk-btn slate"
+                >
+                  Ubah tim di Lobi
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate(returnUrl)}
+                  className="bk-btn gold"
+                >
+                  Selesai
+                </button>
+              </div>
+            </div>
+
+            {/* Kartu Podium Setiap Tim */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              {finalLaporanTim.map((tim, idx) => {
+                const isWinner = idx === 0 || tim.isWinner;
+                return (
+                  <div
+                    key={tim.id}
+                    className={`rounded-[20px] p-4 text-center border-2 ${
+                      isWinner
+                        ? 'border-[#ffb81c] border-[3px] bg-gradient-to-b from-[#fff3c4] to-[#fff3d6]'
+                        : 'border-[#f0dfb4] bg-[#fff3d6]'
+                    }`}
+                  >
+                    <div className="flex justify-center mb-1">
+                      <BalapSackSvg
+                        shirtColor={tim.warna}
+                        up={isWinner}
+                        crown={isWinner}
+                        medal={idx === 1}
+                        className="w-20 h-auto"
+                      />
+                    </div>
+                    <span
+                      className={`inline-block px-3 py-0.5 rounded-full text-xs font-extrabold ${
+                        isWinner
+                          ? 'bg-[#ffb81c] text-[#4a3000]'
+                          : 'bg-[#dfe3ee] text-[#394060]'
+                      }`}
+                    >
+                      {isWinner ? 'Juara 1 • Pemenang' : `Juara ${tim.peringkat || idx + 1}`}
+                    </span>
+                    <h3
+                      className="bk-h text-xl font-extrabold mt-1.5"
+                      style={{ color: tim.warna }}
+                    >
+                      {tim.nama}
+                    </h3>
+                    <div className="bk-h text-3xl font-extrabold text-[#2b2a4a] mb-2">
+                      {Math.round(tim.meter)} m
+                    </div>
+
+                    <ul className="text-left text-xs border-t border-[#f0dfb4] pt-2 space-y-1">
+                      {tim.anggota.length === 0 ? (
+                        <li className="text-[#6b6a85] italic text-center">Tanpa anggota</li>
+                      ) : (
+                        tim.anggota.map((m) => (
+                          <li
+                            key={m.id}
+                            className="flex items-center justify-between gap-2 py-0.5"
+                          >
+                            <span className="font-extrabold text-[#2b2a4a] truncate">
+                              {m.nama}
+                            </span>
+                            <span className="font-bold whitespace-nowrap shrink-0">
+                              <strong className="text-[#1f9d55]">{m.totalBenar}</strong> benar /{' '}
+                              <strong className="text-[#d63b3b]">{m.totalSalah}</strong> salah
+                            </span>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Heatmap Matriks & Drilldown Soal */}
+            {hasilAkhir?.analisisHeatmap && (
+              <div className="pt-2 border-t-2 border-dashed border-[#f0dfb4]">
+                <BalapHeatmapMatrix heatmap={hasilAkhir.analisisHeatmap} />
+              </div>
+            )}
+          </section>
+        )}
+      </main>
+
+      {/* Modal Konfirmasi Akhiri Lomba */}
       <Modal
         isOpen={modalAkhiriOpen}
         onClose={() => setModalAkhiriOpen(false)}
-        title="Akhiri Balap Karung Challenge?"
-        maxWidth="md"
+        title="Akhiri Perlombaan Sekarang?"
         variant="standard"
       >
-        <div className="space-y-4 text-slate-700">
-          <p className="text-sm leading-relaxed">
-            Seluruh siswa akan langsung melihat podium juara dan laporan hasil saat ini. Sesi yang dihentikan manual tidak dapat dilanjutkan kembali.
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600">
+            Perlombaan akan dihentikan dan tim dengan jarak terjauh dinyatakan sebagai pemenang.
           </p>
-          <div className="flex justify-end gap-2">
-            <Button variant="hantu" onClick={() => setModalAkhiriOpen(false)}>
-              Lanjutkan Perlombaan
-            </Button>
-            <Button
-              variant="utama"
-              onClick={handleAkhiriManual}
-              disabled={isEnding}
-              className="bg-rose-600 hover:bg-rose-700 text-white"
+          <div className="flex justify-end gap-2.5">
+            <button
+              type="button"
+              onClick={() => setModalAkhiriOpen(false)}
+              className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 cursor-pointer"
             >
-              {isEnding ? 'Mengakhiri...' : 'Ya, Akhiri Sekarang'}
-            </Button>
+              Lanjutkan Lomba
+            </button>
+            <button
+              type="button"
+              disabled={isEnding}
+              onClick={handleAkhiriManual}
+              className="bk-btn"
+            >
+              {isEnding ? 'Mengakhiri...' : 'Ya, Akhiri Lomba'}
+            </button>
           </div>
         </div>
       </Modal>
     </div>
   );
 }
-

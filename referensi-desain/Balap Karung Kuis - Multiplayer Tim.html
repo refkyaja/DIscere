@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Balap Karung Multiplayer</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#fff3d6;--card:#fffdf6;--ink:#2b2a4a;--soft:#6b6a85;--line:#f0dfb4;--red:#e2312d;--redd:#b81f1c;--blue:#1d8fe0;--gold:#ffb81c;--ok:#1f9d55;--bad:#d63b3b;--rw:clamp(44px,6vw,58px);color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Nunito",system-ui,sans-serif;font-weight:600}
+h1,h2,h3,.disp{font-family:"Baloo 2",system-ui,sans-serif;font-weight:800;margin:0}
+.stage{position:relative;overflow:hidden;background:linear-gradient(#6cc8ff,#cdeeff 45%,#eaf8ff)}
+.scen{position:relative;height:300px}
+.sun{position:absolute;left:7%;top:84px;width:70px;height:70px;border-radius:50%;background:#ffd23f;box-shadow:0 0 0 14px rgba(255,210,63,.3),0 0 0 30px rgba(255,210,63,.15)}
+.cloud{position:absolute;height:28px;border-radius:28px;background:#fff;animation:drift 80s linear infinite}
+.cloud:before,.cloud:after{content:"";position:absolute;background:#fff;border-radius:50%}
+.cloud:before{width:40px;height:40px;left:14px;top:-20px}.cloud:after{width:28px;height:28px;left:48px;top:-10px}
+@keyframes drift{from{transform:translateX(-30px)}50%{transform:translateX(50px)}to{transform:translateX(-30px)}}
+.sky{position:absolute;left:0;right:0;bottom:44px;height:150px;width:100%}
+.crowd{position:absolute;left:0;right:0;bottom:40px;height:100px;display:flex;align-items:flex-end;justify-content:space-around;padding:0 6px}
+.crowd svg{flex:none;overflow:visible;margin-inline:-3px;transform-origin:50% 100%;animation:sway 1.6s ease-in-out infinite}
+.crowd.cheer svg{animation:jump .35s ease-in-out infinite}
+@keyframes sway{0%,100%{transform:rotate(-2deg)}50%{transform:rotate(2deg)}}
+@keyframes jump{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+.wall{position:absolute;left:0;right:0;bottom:0;height:44px;background:repeating-linear-gradient(0deg,transparent 0 14px,rgba(0,0,0,.12) 14px 15px),linear-gradient(#9a9ca6,#7d7f89);display:flex;align-items:center;justify-content:center;border-top:4px solid #6c6e78}
+.wall .disp{color:#fff;font-size:1.5rem;letter-spacing:.06em;transform:rotate(-2deg);text-shadow:2px 2px 0 var(--redd)}
+.bunt{position:absolute;left:0;right:0;bottom:44px;display:flex;justify-content:space-between;background:linear-gradient(#5a4a3a,#5a4a3a) 0 2px/100% 2px no-repeat}
+.bunt i{border-left:9px solid transparent;border-right:9px solid transparent;border-top:20px solid var(--red)}
+.bunt i:nth-child(even){border-top-color:#fff}
+.top{position:absolute;z-index:5;top:12px;left:12px;right:12px;max-width:960px;margin:0 auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(255,253,246,.94);border:2px solid var(--line);border-radius:18px;padding:8px 14px}
+.top h1{font-size:1.3rem;line-height:1.1}
+.chip{font-size:.8rem;font-weight:800;padding:3px 10px;border-radius:99px;background:#cfeaff;color:#0b4d7a}.chip.t{background:#ffe9a8;color:#7a5200}.chip.m{background:#d9f5e3;color:#0f5b32}
+.sp{flex:1}.rule{color:var(--soft);font-weight:800;font-size:.9rem}
+.track{position:relative;background:linear-gradient(#f0c982,#e0a95a)}
+.lane{position:relative;height:100px;border-top:3px solid rgba(255,255,255,.9)}
+.lane:last-child{border-bottom:3px solid rgba(255,255,255,.9)}
+.lane.me{background:rgba(255,255,255,.22)}
+.chip2{position:absolute;left:8px;top:3px;z-index:3;display:flex;gap:6px;align-items:center;font:800 .75rem "Baloo 2";color:#fff;padding:0 9px;border-radius:99px}
+.chip2 b{background:#fff;color:var(--ink);border-radius:99px;padding:0 7px}
+.mk{position:absolute;top:0;bottom:0;left:50%;border-left:3px dashed rgba(255,255,255,.75)}
+.fin{position:absolute;left:84%;top:0;bottom:0;width:22px;background:repeating-conic-gradient(var(--ink) 0 25%,#fff 0 50%) 0 0/11px 11px;border:2px solid var(--ink);z-index:1}
+.fin:after{content:"FINISH";position:absolute;left:50%;top:-26px;transform:translateX(-50%);background:var(--red);color:#fff;font:800 .72rem "Baloo 2";padding:1px 8px;border-radius:6px;white-space:nowrap}
+.runner{position:absolute;bottom:2px;left:3%;width:var(--rw);z-index:2;transition:left 2.2s cubic-bezier(.25,.6,.35,1)}
+.runner svg{width:100%;height:auto;display:block;transform-origin:50% 100%}
+.run .runner svg{animation:hop .55s ease-in-out infinite}.win .runner svg{animation:hop .3s ease-in-out infinite}
+@keyframes hop{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-10px) rotate(4deg)}}
+.grass{height:22px;background:linear-gradient(#5fb84f,#3f9b46)}.river{height:12px;background:#38a3e8}
+.wrap{max-width:960px;margin:0 auto;padding:0 16px 32px}
+.panel{margin-top:16px;background:var(--card);border:2px solid var(--line);border-radius:24px;padding:22px}
+.btn{font:800 1rem "Baloo 2",sans-serif;border:0;border-radius:14px;padding:10px 20px;background:var(--red);color:#fff;cursor:pointer;box-shadow:0 5px 0 var(--redd)}
+.btn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--redd)}.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.g{background:var(--ok);box-shadow:0 5px 0 #14703c}.btn.y{background:var(--gold);color:#4a3000;box-shadow:0 5px 0 #c98a00}.btn.s{background:#5b6b8c;box-shadow:0 5px 0 #3d4a66}
+.btn:focus-visible,.opt:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.hidden{display:none!important}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.panel h2{font-size:1.5rem;margin-bottom:6px}.panel p{margin:0 0 12px;color:var(--soft)}
+.pin{display:flex;gap:8px;margin:6px 0 14px}.pin b{font:800 2.2rem "Baloo 2";background:var(--ink);color:#fff3d6;border-radius:12px;width:46px;text-align:center;padding:2px 0}
+.qr{width:120px;height:120px;background:#fff;border:3px solid var(--ink);border-radius:12px;padding:6px}
+.steps{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.steps ol{margin:0;padding-left:20px;color:var(--soft);max-width:26ch}
+.joined{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 16px}
+.pl{display:flex;align-items:center;gap:6px;background:var(--bg);border:2px solid var(--line);border-radius:99px;padding:3px 12px 3px 4px;font-weight:800}
+.pl i{width:20px;height:20px;border-radius:50%}
+.btns{display:flex;gap:10px;flex-wrap:wrap}
+.grid{display:grid;grid-template-columns:1fr 320px;gap:16px;margin-top:16px}
+.grid .panel{margin:0}
+.lb{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.lb li{display:flex;align-items:center;gap:10px;background:var(--bg);border:2px solid var(--line);border-radius:12px;padding:6px 12px}
+.lb li.me{border-color:var(--blue)}.lb b{width:22px;font:800 1rem "Baloo 2"}.lb i{width:14px;height:14px;border-radius:50%}
+.lb span{flex:1;font-weight:800}.lb em{font-style:normal;font-weight:800;color:var(--ok)}
+.phone{background:var(--ink);border-radius:32px;padding:12px;max-width:300px;margin:0 auto}
+.scr{background:var(--card);border-radius:22px;padding:14px;min-height:340px}
+.pt{display:flex;justify-content:space-between;font:800 .95rem "Baloo 2";margin-bottom:8px}
+.pq{font:800 1.1rem/1.25 "Baloo 2";margin-bottom:10px}
+.opt{display:block;width:100%;text-align:left;font:800 .95rem "Nunito";color:var(--ink);background:var(--bg);border:2px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px;cursor:pointer}
+.opt.ok{background:#d9f5e3;border-color:var(--ok)}.opt.no{background:#fde0e0;border-color:var(--bad)}
+.fb{font:800 .95rem "Baloo 2";min-height:1.4em}
+.rhead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.badge{display:inline-block;background:#ffe9a8;color:#7a5200;font:800 .8rem "Nunito";padding:3px 12px;border-radius:99px;margin-bottom:6px}
+.pod{display:flex;justify-content:center;align-items:flex-end;gap:12px;margin:18px 0}
+.pd{text-align:center;width:150px}.pd svg{width:76px;height:auto}.pd small{display:block;color:var(--soft)}
+.blk{margin-top:6px;border-radius:14px 14px 0 0;color:#fff;font:800 1.8rem "Baloo 2";padding-top:6px}
+.p1 .blk{height:110px;background:var(--gold);color:#4a3000}.p2 .blk{height:80px;background:#8d9bb5}.p3 .blk{height:60px;background:#c0814a}
+.si{display:flex;gap:10px;align-items:center;background:var(--bg);border:2px solid var(--line);border-radius:12px;padding:8px 12px;margin-bottom:6px}
+.si b{width:24px;font:800 1rem "Baloo 2"}.si span{flex:1;font-weight:800}.si small{color:var(--soft);font-weight:800}
+@media (max-width:760px){.two,.grid{grid-template-columns:1fr}.rule{display:none}.pd{width:100px}.fin{left:80%;width:14px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}.runner{transition:none}}
+.lh{position:absolute;left:8px;top:4px;z-index:3;display:flex;gap:8px;align-items:center}.lh .chip2{position:static;font-size:.85rem}
+.mem{display:flex;gap:3px}.mem i{display:grid;place-items:center;width:20px;height:20px;border-radius:50%;font:800 .65rem Nunito;color:#fff;border:2px solid #fff}
+.mem i.ok{background:#1f9d55!important;animation:pulse .6s}.mem i.no{background:#d63b3b!important;animation:pulse .6s}
+@keyframes pulse{50%{transform:scale(1.5)}}
+.say{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);z-index:4;background:#fff;border:2px solid var(--ink);border-radius:12px;padding:1px 10px;font:800 .8rem "Baloo 2";white-space:nowrap}
+.runner.hurt svg{animation:hurt .8s ease-in-out!important;filter:drop-shadow(0 0 6px #d63b3b)}
+@keyframes hurt{0%,100%{transform:none}20%{transform:translateX(-7px) rotate(-14deg)}40%{transform:translateX(7px) rotate(12deg)}60%{transform:translateX(-4px) rotate(-8deg)}80%{transform:translateX(3px) rotate(5deg)}}
+.df{font:800 .95rem Nunito;border:2px solid var(--line);background:var(--bg);color:var(--ink);border-radius:99px;padding:6px 16px;cursor:pointer;margin:0 3px}.df[aria-pressed=true]{background:var(--blue);border-color:var(--blue);color:#fff}
+.tms{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.tm{border:3px solid;border-radius:16px;padding:10px;background:var(--bg)}.tm .joined{margin:6px 0 0}
+.tb{height:8px;background:var(--line);border-radius:99px;overflow:hidden;margin-bottom:8px}.tb i{display:block;height:100%;background:var(--gold);transform-origin:left}
+.lb li{flex-wrap:wrap}.lb small{color:var(--soft);font-weight:700}.bar{flex-basis:100%;height:8px;border-radius:99px;background:var(--line);overflow:hidden}.bar u{display:block;height:100%;transition:width .6s}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-top:16px}.rc{border:2px solid var(--line);border-radius:20px;padding:14px;text-align:center;background:var(--bg)}.rc.w{border:3px solid var(--gold);background:linear-gradient(#fff3c4,var(--bg))}
+.rc svg{width:84px;height:auto}.rc h3{margin:6px 0 0}.big{font:800 1.8rem "Baloo 2"}.mt{list-style:none;margin:8px 0 0;padding:0;text-align:left;font-size:.9rem}.mt li{display:flex;justify-content:space-between;padding:3px 0;border-top:1px dashed var(--line)}
+.pl2{display:inline-block;font:800 .8rem Nunito;padding:2px 12px;border-radius:99px;background:#dfe3ee}.rc.w .pl2{background:var(--gold);color:#4a3000}.g1{color:var(--ok)}.r1{color:var(--bad)}
+.nt{color:var(--soft);font-size:.9rem;margin:0 0 12px}
+.hm{overflow-x:auto;border:2px solid var(--line);border-radius:16px;background:var(--card)}
+.hm table{border-collapse:separate;border-spacing:0;width:100%}
+.hm th,.hm td{padding:4px;text-align:center;font-size:.8rem}
+.hm thead th{padding:8px 4px;background:var(--bg)}
+.hm .nm,.hm thead th:first-child{position:sticky;left:0;z-index:1;text-align:left;padding-left:12px;min-width:92px;font-weight:800;background:var(--card)}
+.hm thead th:first-child{background:var(--bg)}
+.band th{text-align:left;padding:8px 12px 2px}.band span{color:#fff;font:800 .85rem "Baloo 2";padding:1px 12px;border-radius:99px}
+.qn{font:800 .85rem "Baloo 2";min-width:32px;height:32px;border-radius:10px;border:2px solid var(--line);background:#fff;color:var(--ink);cursor:pointer}.qn[aria-pressed=true]{background:var(--ink);color:#fff;border-color:var(--ink)}
+.sq{width:32px;height:32px;border-radius:10px;border:0;font:800 1rem Nunito;cursor:pointer}.sq.ok{background:#d9f5e3;color:var(--ok)}.sq.no{background:#fde0e0;color:var(--bad)}.sq.na{background:var(--bg);color:#b9b4a2}
+.sum{font-weight:800;padding-right:12px!important;white-space:nowrap}.foot th,.foot td{border-top:2px solid var(--line);color:var(--soft);font-weight:800;padding-top:8px}
+.qd{margin-top:14px;border:2px solid var(--line);border-radius:18px;padding:16px 18px;background:var(--bg)}.qd h4{font:800 1.15rem "Baloo 2";margin:0 0 4px}
+.ops{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 8px}.ops span{padding:4px 12px;border-radius:99px;border:2px solid var(--line);background:#fff;font-weight:700}.ops .c{background:#d9f5e3;border-color:var(--ok);color:#0f5b32;font-weight:800}
+.gt{font:800 .9rem "Baloo 2";margin:10px 0 4px}
+.pl3{list-style:none;margin:0 0 6px;padding:0;display:grid;gap:6px}.pl3 li{display:grid;grid-template-columns:110px 1fr auto;gap:4px 10px;align-items:center;padding:8px 12px;border-radius:12px;border-left:5px solid var(--line);background:#fff}
+.pl3 li.ok{border-color:var(--ok)}.pl3 li.no{border-color:var(--bad);background:#fff6f6}.pl3 li.na{opacity:.6}
+.pl3 em{grid-column:2/4;font-style:normal;color:#0f5b32;font-weight:800;font-size:.9rem}.pl3 small{grid-column:2/4;color:var(--soft)}
+.bd{font:800 .75rem Nunito;font-style:normal;padding:2px 10px;border-radius:99px;color:#fff}.bd.ok{background:var(--ok)}.bd.no{background:var(--bad)}
+.hm button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+@media (max-width:560px){.pl3 li{grid-template-columns:1fr auto}.pl3 em,.pl3 small{grid-column:1/3}}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="scen">
+    <div class="sun"></div><div class="cloud" style="width:110px;top:78px;left:32%"></div><div class="cloud" style="width:90px;top:100px;left:64%;animation-duration:100s"></div>
+    <svg class="sky" height="150" aria-hidden="true"><defs><pattern id="t" width="600" height="150" patternUnits="userSpaceOnUse">
+<rect x="60" y="35" width="60" height="110" fill="#ddcdb7" stroke="#7b6f5c" stroke-width="2"/><path d="M55 35h70l-35-22z" fill="#d4452f"/><g fill="#fff6c2"><rect x="72" y="52" width="9" height="11"/><rect x="98" y="52" width="9" height="11"/><rect x="72" y="76" width="9" height="11"/><rect x="98" y="76" width="9" height="11"/></g>
+<rect x="330" y="62" width="70" height="90" fill="#ddcdb7" stroke="#7b6f5c" stroke-width="2"/><path d="M325 62h80l-40-20z" fill="#d4452f"/><g fill="#fff6c2"><rect x="344" y="78" width="9" height="11"/><rect x="376" y="78" width="9" height="11"/></g>
+<rect x="220" y="55" width="20" height="95" fill="#8e949c"/><rect x="250" y="72" width="20" height="78" fill="#a2a8b0"/>
+<path d="M560 20V140" stroke="#7b6f5c" stroke-width="3"/><rect x="560" y="22" width="34" height="11" fill="#e2312d"/><rect x="560" y="33" width="34" height="11" fill="#fff"/>
+<path d="M0 150V100Q150 70 300 100T600 100V150Z" fill="#9fd685"/>
+<rect x="478" y="95" width="8" height="40" fill="#6b4423"/><circle cx="482" cy="80" r="26" fill="#2f8f3f"/><rect x="16" y="105" width="7" height="35" fill="#6b4423"/><circle cx="20" cy="92" r="18" fill="#2f8f3f"/>
+</pattern></defs><rect width="100%" height="150" fill="url(#t)"/></svg>
+    <div class="crowd" id="crowd" aria-hidden="true"></div>
+    <div class="bunt" id="bunt" aria-hidden="true"></div>
+    <div class="wall"><span class="disp">MERDEKA!!</span></div>
+    <header class="top"><h1>Balap Karung Kuis</h1><span class="chip m">Multiplayer Tim</span><span class="chip" id="state">Menunggu siswa</span><span class="chip t">Target 100 m</span><span class="sp"></span><span class="rule">Benar = tim maju pelan-pelan • Salah = tersandung</span></header>
+  </div>
+  <div class="track" id="track"><i class="fin"></i></div>
+  <div class="grass"></div><div class="river"></div>
+</div>
+
+<main class="wrap">
+  <section class="panel" id="lobby"><div class="two">
+<div><h2>Siswa gabung lewat HP</h2><p>Masukkan PIN atau pindai QR, lalu tulis nama. Siswa otomatis dibagi rata ke tim.</p>
+<div class="steps"><div class="pin" id="pin"></div><div class="qr" id="qr" role="img" aria-label="Contoh kode QR"></div></div>
+<p style="font-size:.85rem;margin-top:8px">QR hanya contoh tampilan.</p>
+<div role="group" aria-label="Jumlah tim"><b>Jumlah tim:</b> <button class="df" data-n="3">3 tim</button><button class="df" data-n="4">4 tim</button></div></div>
+<div><h2>Tim (<span id="cnt">0</span> siswa)</h2><div class="tms" id="tms"></div><div class="btns" style="margin-top:14px"><button class="btn s" id="add">Tambah siswa demo</button><button class="btn" id="go" disabled>Mulai lomba</button></div></div>
+</div></section>
+<section class="grid hidden" id="play">
+<div class="panel"><h2>Posisi tim</h2><ol class="lb" id="lb"></ol></div>
+<div class="panel"><h2 style="text-align:center">Layar HP siswa</h2><p style="text-align:center">Kamu anggota <b id="myt"></b>. Jawab sebelum waktu habis!</p>
+<div class="phone"><div class="scr"><div class="pt"><span>Kamu</span><span id="phm">0 m</span></div><div class="tb"><i id="pb"></i></div><div class="pq" id="pq"></div><div id="po"></div><div class="fb" id="pf" aria-live="polite"></div></div></div></div></section>
+  <section class="panel hidden" id="end"></section>
+</main>
+
+<script>
+const QS=[["Ibu kota Provinsi Jawa Barat adalah...","Bandung",["Surabaya","Semarang","Medan"]],["7 × 8 = ...","56",["54","49","63"]],["Planet yang paling dekat dengan Matahari adalah...","Merkurius",["Venus","Mars","Bumi"]],["Indonesia memproklamasikan kemerdekaan pada tahun...","1945",["1928","1950","1965"]],["Hewan mamalia yang bisa terbang adalah...","Kelelawar",["Elang","Burung hantu","Capung"]],["Air membeku pada suhu... derajat Celsius","0",["10","−10","100"]],["Lambang kimia untuk emas adalah...","Au",["Ag","Fe","Go"]],["Bahasa Inggris dari “apel” adalah...","Apple",["Orange","Grape","Mango"]],["Gas yang kita hirup untuk bernapas adalah...","Oksigen",["Nitrogen","Helium","Karbon dioksida"]],["144 : 12 = ...","12",["11","14","16"]],["Penjahit bendera pusaka Merah Putih adalah...","Fatmawati",["Kartini","Cut Nyak Dien","Dewi Sartika"]],["Organ yang memompa darah ke seluruh tubuh adalah...","Jantung",["Paru-paru","Hati","Ginjal"]]];
+const NAMES=["Rina","Budi","Sari","Dimas","Putri","Agus","Nisa","Fajar","Tika","Raka","Lani"];
+const COLS=["#1d8fe0","#7a3fd0","#1f9d55","#ff7a59","#2bb6a8","#d6459b","#8a6d3b","#4a5bd6","#c2332f","#3a9d9d","#9a6f10","#5b8c2a"];
+const $=id=>document.getElementById(id);
+let S={st:[],run:false,fc:0,t0:0,pin:"",join:0,loop:0,ct:0,locked:false};
+const pos=m=>`calc(3% + (94% - var(--rw)) * ${Math.min(m,100)/100})`;
+function sack(shirt,o={}){return `<svg viewBox="0 -12 80 112" aria-hidden="true">${o.up?'<path d="M20 52L8 28M60 52L72 28" stroke="#ffd9a8" stroke-width="8" stroke-linecap="round"/>':''}<ellipse cx="40" cy="96" rx="22" ry="4" fill="rgba(0,0,0,.2)"/><path d="M14 58L22 94Q40 100 58 94L66 58Z" fill="#c98a4b" stroke="#6b4423" stroke-width="3" stroke-linejoin="round"/><path d="M20 66Q40 74 60 66" stroke="#6b4423" stroke-width="2.5" fill="none"/><circle cx="40" cy="82" r="6" fill="#e9b778" stroke="#6b4423" stroke-width="2"/><rect x="18" y="48" width="44" height="18" rx="9" fill="${shirt}" stroke="#2b2a4a" stroke-width="3"/><circle cx="40" cy="28" r="22" fill="#ffd9a8" stroke="#2b2a4a" stroke-width="3"/><path d="M18 22Q40 4 62 22L62 29Q40 17 18 29Z" fill="#fff" stroke="#2b2a4a" stroke-width="3"/><path d="M18 22Q40 4 62 22L62 25Q40 12 18 25Z" fill="#e2312d"/>${o.sad?'<path d="M29 33l6 6M35 33l-6 6M45 33l6 6M51 33l-6 6" stroke="#2b2a4a" stroke-width="2.5" stroke-linecap="round"/><path d="M32 47Q40 40 48 47" stroke="#2b2a4a" stroke-width="2.5" fill="none" stroke-linecap="round"/>':'<circle cx="32" cy="36" r="2.6" fill="#2b2a4a"/><circle cx="48" cy="36" r="2.6" fill="#2b2a4a"/><path d="M32 43Q40 51 48 43Z" fill="#c2332f" stroke="#2b2a4a" stroke-width="2" stroke-linejoin="round"/>'}${o.crown?'<path d="M26 8L28 -4L35 3L40 -8L45 3L52 -4L54 8Z" fill="#ffb81c" stroke="#2b2a4a" stroke-width="2.5" stroke-linejoin="round"/>':''}</svg>`}
+(function(){const cols=["#e2312d","#1d8fe0","#ffb81c","#7a3fd0","#1f9d55","#ff7a59","#2bb6a8"],sk=["#ffd9a8","#e8b27d","#c58c5a","#f3c99b"],hr=["#2b2a4a","#4a2c17","#111","#6b3b1e"];let h="";
+ for(let i=0;i<30;i++){const w=34+Math.round(Math.random()*12),flag=i%5==0;h+=`<svg width="${w}" viewBox="0 -16 40 76" style="animation-delay:-${(Math.random()*1.5).toFixed(2)}s"><path d="M9 40L3 16M31 40L37 16" stroke="${sk[(i*3)%4]}" stroke-width="5" stroke-linecap="round"/>${flag?'<path d="M37 16V-12" stroke="#6b4423" stroke-width="2"/><path d="M37 -12h12v5h-12z" fill="#e2312d"/><path d="M37 -7h12v5h-12z" fill="#fff" stroke="#ddd" stroke-width=".5"/>':''}<rect x="8" y="30" width="24" height="30" rx="8" fill="${cols[i%7]}"/><circle cx="20" cy="19" r="10" fill="${sk[(i*3)%4]}"/><path d="M10 18Q20 4 30 18Q20 11 10 18Z" fill="${hr[(i*5)%4]}"/><ellipse cx="20" cy="23" rx="3" ry="2.4" fill="#8a2a2a"/></svg>`}
+ $("crowd").innerHTML=h;let f="";for(let i=0;i<46;i++)f+="<i></i>";$("bunt").innerHTML=f})();
+function cheer(){$("crowd").classList.add("cheer");clearTimeout(S.ct);S.ct=setTimeout(()=>$("crowd").classList.remove("cheer"),1300)}
+function qr(seed){let x=+seed,r=()=>(x=(x*1103515245+12345)&0x7fffffff)/0x7fffffff,h="";
+ for(let i=0;i<21;i++)for(let j=0;j<21;j++){if((i<8&&j<8)||(i<8&&j>12)||(i>12&&j<8))continue;if(r()>.5)h+=`<rect x="${j}" y="${i}" width="1" height="1"/>`}
+ const f=(a,b)=>`<g transform="translate(${a} ${b})"><path d="M.5 .5h6v6h-6z" fill="none" stroke="#2b2a4a"/><rect x="2" y="2" width="3" height="3"/></g>`;
+ $("qr").innerHTML=`<svg viewBox="0 0 21 21" width="100%" height="100%" fill="#2b2a4a" shape-rendering="crispEdges">${h}${f(0,0)}${f(14,0)}${f(0,14)}</svg>`}
+const TN=[["Tim Merah","#e2312d"],["Tim Biru","#1d8fe0"],["Tim Hijau","#1f9d55"],["Tim Kuning","#e6a100"]],TS=["Aduh!","Waduh!","Yah salah~","Ups, kurang tepat!","Auw!"];
+const sz=t=>S.st.filter(s=>s.team===t).length||1,step=t=>12.5/sz(t);
+function mk(){S.tm=TN.slice(0,S.nt).map((x,i)=>({id:i,name:x[0],col:x[1],m:0,fin:0,hu:0}))}
+function assign(){S.st.forEach((s,i)=>s.team=i%S.nt)}
+function addStudent(name,human){S.st.push({id:S.st.length,name,human,team:0,c:0,w:0,next:0,acc:.5+Math.random()*.4});assign();lobby()}
+function addNext(){if(S.st.length>=16)return;const u=S.st.map(s=>s.name);addStudent(NAMES.find(n=>!u.includes(n))||"Siswa"+S.st.length)}
+function lobby(){mk();$("cnt").textContent=S.st.length;$("go").disabled=S.st.length<S.nt;$("add").disabled=S.st.length>=16;
+ document.querySelectorAll(".df").forEach(b=>b.setAttribute("aria-pressed",+b.dataset.n===S.nt));
+ $("tms").innerHTML=S.tm.map(t=>{const ms=S.st.filter(s=>s.team===t.id);return `<div class="tm" style="border-color:${t.col}"><b style="color:${t.col}">${t.name}</b> <small>${ms.length} orang</small><div class="joined">${ms.map(s=>`<span class="pl"><i style="background:${t.col}"></i>${s.name}</span>`).join("")}</div></div>`}).join("");lanes()}
+function lanes(){$("track").innerHTML=`<i class="fin"></i>`+S.tm.map(t=>{const ms=S.st.filter(s=>s.team===t.id);return `<div class="lane" id="l${t.id}"><div class="lh"><span class="chip2" style="background:${t.col}">${t.name}<b id="m${t.id}">${Math.round(t.m)} m</b></span><span class="mem">${ms.map(s=>`<i id="d${s.id}" style="background:${t.col}">${s.human?"K":s.name[0]}</i>`).join("")}</span></div><i class="mk"></i><div class="runner" id="r${t.id}" style="left:${pos(t.m)}">${sack(t.col)}</div></div>`}).join("")}
+function show(id){["lobby","play","end"].forEach(k=>$(k).classList.toggle("hidden",k!==id))}
+function rank(){return [...S.tm].sort((a,b)=>b.fin-a.fin||b.m-a.m)}
+function init(){clearInterval(S.join);clearInterval(S.loop);clearTimeout(S.qt);S={st:[],tm:[],nt:4,run:false,t0:0,join:0,loop:0,ct:0,qt:0,pin:String(Math.floor(100000+Math.random()*900000)),locked:false};
+ $("pin").innerHTML=S.pin.split("").map(d=>`<b>${d}</b>`).join("");qr(S.pin);$("state").textContent="Menunggu siswa";show("lobby");addStudent("Kamu",true);
+ S.join=setInterval(()=>{if(S.st.length>=8)clearInterval(S.join);else addNext()},900)}
+function back(){S.run=false;clearInterval(S.loop);clearTimeout(S.qt);$("state").textContent="Menunggu siswa";show("lobby");lobby();scrollTo({top:0,behavior:"smooth"})}
+function start(){clearInterval(S.join);mk();S.st.forEach(s=>{s.c=s.w=0;s.log=[];s.deck=null;s.next=2000+Math.random()*5000});lanes();S.run=true;S.t0=Date.now();$("state").textContent="Berlangsung";show("play");
+ document.querySelectorAll(".lane").forEach(l=>l.classList.add("run"));const mt=S.tm[S.st[0].team];$("myt").textContent=mt.name;$("myt").style.color=mt.col;
+ cheer();ask();draw();S.loop=setInterval(tick,300);scrollTo({top:0,behavior:"smooth"})}
+function nextQ(s){if(!s.deck||!s.deck.length){const d=QS.map((_,i)=>i).sort(()=>Math.random()-.5);if(s.last!=null&&d[0]===s.last)d.push(d.shift());s.deck=d}s.last=s.deck.shift();return QS[s.last]}
+function tick(){if(!S.run)return;const now=Date.now()-S.t0;S.st.forEach(s=>{if(s.human||!S.run||now<s.next)return;const q=nextQ(s),ok=Math.random()<s.acc,to=Math.random()<.06,wr=q[2][Math.floor(Math.random()*q[2].length)];res(s,ok&&!to,q,to?null:ok?q[1]:wr);s.next=now+3000+Math.random()*6500});draw()}
+function res(s,ok,q,pk){if(!S.run)return;const t=S.tm[s.team],d=$("d"+s.id);s.log.push({qi:QS.indexOf(q),q:q[0],pk,right:q[1],ok});d.className=ok?"ok":"no";setTimeout(()=>d.className="",650);
+ if(ok){s.c++;t.m=Math.min(100,t.m+step(t.id));cheer()}else{s.w++;hurt(t)}
+ if(t.m>=100)win(t)}
+function hurt(t){const r=$("r"+t.id);r.innerHTML=sack(t.col,{sad:1})+`<span class="say">${TS[Math.floor(Math.random()*TS.length)]}</span>`;r.classList.add("hurt");clearTimeout(t.hu);
+ t.hu=setTimeout(()=>{if(!t.fin){r.innerHTML=sack(t.col);r.classList.remove("hurt")}},1000)}
+function win(t){S.run=false;clearInterval(S.loop);clearTimeout(S.qt);t.fin=1;draw();$("state").textContent="Selesai";
+ document.querySelectorAll(".lane").forEach(l=>l.classList.remove("run"));$("l"+t.id).classList.add("win");$("r"+t.id).classList.remove("hurt");$("r"+t.id).innerHTML=sack(t.col,{up:1,crown:1});cheer();setTimeout(end,2900)}
+function draw(){S.tm.forEach(t=>{$("r"+t.id).style.left=pos(t.m);$("m"+t.id).textContent=Math.round(t.m)+" m"});
+ $("lb").innerHTML=rank().map((t,i)=>`<li class="${t.id===S.st[0].team?"me":""}"><b>${i+1}</b><i style="background:${t.col}"></i><span>${t.name} <small>${sz(t.id)} orang</small></span><em>${t.fin?"Finis":Math.round(t.m)+" m"}</em><div class="bar"><u style="width:${t.m}%;background:${t.col}"></u></div></li>`).join("");
+ $("phm").textContent=Math.round(S.tm[S.st[0].team].m)+" m"}
+function ask(){if(!S.run)return;S.locked=false;const q=nextQ(S.st[0]),o=[q[1],...q[2]].sort(()=>Math.random()-.5);
+ S.cq=q;$("pq").textContent=q[0];$("pf").textContent="";$("po").innerHTML=o.map(v=>`<button class="opt" data-v="${v}">${v}</button>`).join("");
+ $("po").querySelectorAll(".opt").forEach(b=>b.onclick=()=>pick(b,q[1]));
+ const bar=$("pb");bar.style.transition="none";bar.style.transform="scaleX(1)";
+ requestAnimationFrame(()=>requestAnimationFrame(()=>{bar.style.transition="transform 10s linear";bar.style.transform="scaleX(0)"}));
+ clearTimeout(S.qt);S.qt=setTimeout(()=>pick(null,q[1]),10000)}
+function pick(b,right){if(S.locked||!S.run)return;S.locked=true;clearTimeout(S.qt);
+ [...$("po").children].forEach(x=>{x.disabled=true;if(x.dataset.v===right)x.classList.add("ok")});
+ const good=!!b&&b.dataset.v===right;if(b&&!good)b.classList.add("no");
+ $("pf").textContent=good?"Benar! Timmu maju.":(b?"Salah! Timmu tersandung.":"Waktu habis! Timmu tersandung.");$("pf").style.color=good?"var(--ok)":"var(--bad)";
+ res(S.st[0],good,S.cq,b?b.dataset.v:null);draw();setTimeout(ask,900)}
+const ans=(s,i)=>s.log.find(l=>l.qi===i);
+function pct(i){const a=S.st.map(s=>ans(s,i)).filter(Boolean);return a.length?a.filter(x=>x.ok).length/a.length:null}
+function matrix(sel){let hard=0,best=2;QS.forEach((_,i)=>{const p=pct(i);if(p!==null&&p<best){best=p;hard=i}});if(sel===undefined)sel=hard;
+ const head=QS.map((_,i)=>`<th><button class="qn" aria-pressed="${i===sel}" onclick="matrix(${i})">${i+1}</button></th>`).join("");
+ const row=s=>{const a=QS.map((_,i)=>ans(s,i)).filter(Boolean),c=a.filter(x=>x.ok).length;
+  return `<tr><th class="nm">${s.name}</th>${QS.map((_,i)=>{const x=ans(s,i);return `<td><button class="sq ${x?(x.ok?"ok":"no"):"na"}" onclick="matrix(${i})" aria-label="${s.name}, soal ${i+1}: ${x?(x.ok?"benar":"salah"):"belum muncul"}">${x?(x.ok?"\u2713":"\u2717"):"\u00b7"}</button></td>`}).join("")}<td class="sum">${c}/${a.length}</td></tr>`};
+ const body=S.tm.map(t=>`<tr class="band"><th colspan="${QS.length+2}"><span style="background:${t.col}">${t.name}</span></th></tr>`+S.st.filter(s=>s.team===t.id).map(row).join("")).join("");
+ const foot=QS.map((_,i)=>{const p=pct(i);return `<td>${p===null?"\u2013":Math.round(p*100)}</td>`}).join("");
+ const q=QS[sel],all=S.st.filter(s=>ans(s,sel)),ok=all.filter(s=>ans(s,sel).ok).length;
+ const li=s=>{const x=ans(s,sel),n=s.log.filter(l=>l.qi===sel).length;
+  return `<li class="${x?(x.ok?"ok":"no"):"na"}"><b>${s.name}</b><span>${x?(x.pk===null?"Waktu habis":x.pk):"Belum mendapat soal ini"}</span>${x?(x.ok?'<i class="bd ok">\u2713 Benar</i>':'<i class="bd no">\u2717 Salah</i><em>Koreksi: jawaban yang benar adalah '+x.right+'</em>'):""}${n>1?`<small>\u27f3 muncul lagi ${n-1}\u00d7 (nilai dari jawaban pertama)</small>`:""}</li>`};
+ const pl=S.tm.map(t=>`<div class="gt" style="color:${t.col}">${t.name}</div><ul class="pl3">${S.st.filter(s=>s.team===t.id).map(li).join("")}</ul>`).join("");
+ $("det").innerHTML=`<div class="hm"><table><thead><tr><th>Pemain</th>${head}<th>Benar</th></tr></thead><tbody>${body}</tbody><tfoot><tr class="foot"><th class="nm">% benar</th>${foot}<td></td></tr></tfoot></table></div>
+ <div class="qd"><h4>Soal ${sel+1}${sel===hard&&best<1?" \u2022 paling banyak salah":""}</h4><div>${q[0]}</div><div class="ops">${[q[1],...q[2]].sort().map(o=>`<span class="${o===q[1]?"c":""}">${o===q[1]?"\u2713 ":""}${o}</span>`).join("")}</div><p class="nt">Setiap siswa mendapat semua soal lebih dulu (urutannya diacak per orang). Soal baru diulang setelah semuanya habis, dan nilai dihitung dari jawaban pertama. Tekan nomor soal untuk melihat pilihan jawaban, jawaban tiap siswa, dan koreksinya.</p>${pl}</div>`}
+function end(){const R=rank(),w=R[0],mem=t=>S.st.filter(s=>s.team===t.id);
+ const card=(t,i)=>`<div class="rc ${i?"":"w"}">${sack(t.col,i?{}:{up:1,crown:1})}<div><span class="pl2">${i?"Juara "+(i+1):"Juara 1 • Pemenang"}</span></div><h3 style="color:${t.col}">${t.name}</h3><div class="big">${Math.round(t.m)} m</div><ul class="mt">${mem(t).map(s=>`<li><span>${s.name}</span><span><b class="g1">${s.c}</b> benar / <b class="r1">${s.w}</b> salah</span></li>`).join("")}</ul></div>`;
+ $("end").innerHTML=`<div class="rhead"><div><span class="badge">Hasil lomba tim</span><h2 style="font-size:2rem">Pemenang: ${w.name}!</h2><p>Tim pertama yang menyentuh dan melewati garis finis 100 m.</p></div><div class="btns"><button class="btn g" id="again">Main lagi</button><button class="btn s" id="setb">Ubah tim</button><button class="btn y" id="done">Selesai</button></div></div><div class="cards">${R.map(card).join("")}</div><h3 style="margin:22px 0 4px">Hasil jawaban per soal</h3><p class="nt">Soal bisa muncul lagi kalau semua soal sudah habis dikerjakan (looping). Nilai dihitung dari percobaan pertama setiap soal; percobaan berikutnya tampil sebagai ulangan (⟳) di dalam kotak yang sama.</p><div id="det"></div>`;matrix();
+ show("end");$("end").scrollIntoView({behavior:"smooth",block:"start"});$("again").onclick=start;$("setb").onclick=back;$("done").onclick=()=>{init();scrollTo({top:0,behavior:"smooth"})}}
+document.querySelectorAll(".df").forEach(b=>b.onclick=()=>{S.nt=+b.dataset.n;assign();lobby()});
+$("add").onclick=addNext;$("go").onclick=start;init();
+</script>
+</body>
+</html>
