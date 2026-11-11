@@ -20,7 +20,7 @@ import {
 
 interface PilihanSoalKerupuk {
   choiceId: string;
-  label: 'A' | 'B' | 'C';
+  label: 'A' | 'B' | 'C' | 'D' | 'E';
   teks: string;
 }
 

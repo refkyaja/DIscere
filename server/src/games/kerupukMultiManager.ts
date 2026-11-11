@@ -1,5 +1,7 @@
 import crypto from 'crypto';
 import { prisma } from '../db.js';
+import type { KunciPilihan } from '../utils/questionOptions.js';
+import { mapDbQuestionForGame } from '../utils/questionOptions.js';
 import {
   ActivePresentationKerupuk,
   HasilGachaGigitan,
@@ -396,7 +398,7 @@ export const kerupukMultiManager = {
     pesertaView: PesertaKerupukMultiView;
     leaderboard: PesertaKerupukMultiView[];
     benar: boolean;
-    jawabanBenarKode: 'A' | 'B' | 'C';
+    jawabanBenarKode: KunciPilihan;
     jawabanBenarTeks: string;
     penjelasan: string | null;
     poinDidapat: number;
@@ -814,16 +816,7 @@ export const kerupukMultiManager = {
     }
 
     const config = bangunKonfigurasiKerupukMulti(rawConfig);
-    const questions: SoalKerupuk[] = sessionDb.template.questions.map((q) => ({
-      id: q.id,
-      urutan: q.urutan,
-      teks: q.teks,
-      opsiA: q.opsiA,
-      opsiB: q.opsiB,
-      opsiC: q.opsiC,
-      jawabanBenar: q.jawabanBenar,
-      penjelasan: q.penjelasan,
-    }));
+    const questions: SoalKerupuk[] = sessionDb.template.questions.map(mapDbQuestionForGame);
 
     const token = sessionDb.token || this.generateUniqueToken();
     const sesi = this.inisialisasiSesi(

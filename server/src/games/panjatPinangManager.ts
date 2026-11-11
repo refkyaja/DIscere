@@ -17,6 +17,7 @@ import {
 } from './panjatPinang.js';
 import { multiManager } from './multiManager.js';
 import { prisma } from '../db.js';
+import { mapDbQuestionForGame } from '../utils/questionOptions.js';
 
 export interface SoalPublikPanjat {
   presentationId: string;
@@ -363,16 +364,7 @@ export const panjatPinangManager = {
       token,
       sessionDb.hostId,
       { id: sessionDb.template.id, judul: sessionDb.template.judul },
-      sessionDb.template.questions.map((q) => ({
-        id: q.id,
-        urutan: q.urutan,
-        teks: q.teks,
-        opsiA: q.opsiA,
-        opsiB: q.opsiB,
-        opsiC: q.opsiC,
-        jawabanBenar: q.jawabanBenar,
-        penjelasan: q.penjelasan,
-      })),
+      sessionDb.template.questions.map(mapDbQuestionForGame),
       parsedConfig
     );
 

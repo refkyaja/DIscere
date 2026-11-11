@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import os from 'os';
 import { prisma } from '../db.js';
 import { config } from '../config.js';
+import { mapDbQuestionForGame, SoalRecordForGame } from '../utils/questionOptions.js';
 import { authMiddleware, AuthRequest } from '../middleware/auth.js';
 import { roleMiddleware } from '../middleware/role.js';
 import { soloManager } from '../games/soloManager.js';
@@ -50,29 +51,9 @@ function isTokenDipakaiDiMemori(token: string): boolean {
 }
 
 function mapQuestionsForTarikTambang(
-  questions: Array<{
-    id: string;
-    urutan: number;
-    teks: string;
-    opsiA: string;
-    opsiB: string;
-    opsiC: string;
-    jawabanBenar: string;
-    penjelasan: string | null;
-    kesulitan?: string | null;
-  }>
+  questions: SoalRecordForGame[]
 ): SoalBankTarikTambang[] {
-  return questions.map((q) => ({
-    id: q.id,
-    urutan: q.urutan,
-    teks: q.teks,
-    opsiA: q.opsiA,
-    opsiB: q.opsiB,
-    opsiC: q.opsiC,
-    jawabanBenar: q.jawabanBenar,
-    penjelasan: q.penjelasan,
-    kesulitan: q.kesulitan || 'sedang',
-  }));
+  return questions.map(mapDbQuestionForGame);
 }
 
 function parseTarikTambangConfigFromJson(
@@ -454,6 +435,8 @@ sesiRouter.get('/riwayat/:id', async (req: AuthRequest, res: Response) => {
         opsiA: qs.question.opsiA,
         opsiB: qs.question.opsiB,
         opsiC: qs.question.opsiC,
+        opsiD: qs.question.opsiD,
+        opsiE: qs.question.opsiE,
         jawabanBenar: qs.question.jawabanBenar,
         penjelasan: qs.question.penjelasan,
         jumlahBenar: qs.jumlahBenar,
@@ -607,16 +590,7 @@ sesiRouter.post('/', async (req: AuthRequest, res: Response) => {
         token,
         req.user!.id,
         { id: template.id, judul: template.judul },
-        template.questions.map((q) => ({
-          id: q.id,
-          urutan: q.urutan,
-          teks: q.teks,
-          opsiA: q.opsiA,
-          opsiB: q.opsiB,
-          opsiC: q.opsiC,
-          jawabanBenar: q.jawabanBenar,
-          penjelasan: q.penjelasan,
-        })),
+        template.questions.map(mapDbQuestionForGame),
         configSnapshot
       );
 
@@ -670,16 +644,7 @@ sesiRouter.post('/', async (req: AuthRequest, res: Response) => {
         token,
         req.user!.id,
         { id: template.id, judul: template.judul },
-        template.questions.map((q) => ({
-          id: q.id,
-          urutan: q.urutan,
-          teks: q.teks,
-          opsiA: q.opsiA,
-          opsiB: q.opsiB,
-          opsiC: q.opsiC,
-          jawabanBenar: q.jawabanBenar,
-          penjelasan: q.penjelasan,
-        })),
+        template.questions.map(mapDbQuestionForGame),
         configSnapshot
       );
 
@@ -759,16 +724,7 @@ sesiRouter.post('/', async (req: AuthRequest, res: Response) => {
           token,
           req.user!.id,
           { id: template.id, judul: template.judul },
-          template.questions.map((q) => ({
-            id: q.id,
-            urutan: q.urutan,
-            teks: q.teks,
-            opsiA: q.opsiA,
-            opsiB: q.opsiB,
-            opsiC: q.opsiC,
-            jawabanBenar: q.jawabanBenar,
-            penjelasan: q.penjelasan,
-          })),
+          template.questions.map(mapDbQuestionForGame),
           configSnapshot
         );
 
@@ -820,16 +776,7 @@ sesiRouter.post('/', async (req: AuthRequest, res: Response) => {
         session.id,
         req.user!.id,
         { id: template.id, judul: template.judul },
-        template.questions.map((q) => ({
-          id: q.id,
-          urutan: q.urutan,
-          teks: q.teks,
-          opsiA: q.opsiA,
-          opsiB: q.opsiB,
-          opsiC: q.opsiC,
-          jawabanBenar: q.jawabanBenar,
-          penjelasan: q.penjelasan,
-        })),
+        template.questions.map(mapDbQuestionForGame),
         configSnapshot
       );
 
@@ -1889,16 +1836,7 @@ sesiRouter.post('/:id/main-lagi', async (req: AuthRequest, res: Response) => {
           token,
           req.user!.id,
           { id: sessionLama.template.id, judul: sessionLama.template.judul },
-          sessionLama.template.questions.map((q) => ({
-            id: q.id,
-            urutan: q.urutan,
-            teks: q.teks,
-            opsiA: q.opsiA,
-            opsiB: q.opsiB,
-            opsiC: q.opsiC,
-            jawabanBenar: q.jawabanBenar,
-            penjelasan: q.penjelasan,
-          })),
+          sessionLama.template.questions.map(mapDbQuestionForGame),
           configSnapshot
         );
 
@@ -1935,16 +1873,7 @@ sesiRouter.post('/:id/main-lagi', async (req: AuthRequest, res: Response) => {
         sessionBaru.id,
         req.user!.id,
         { id: sessionLama.template.id, judul: sessionLama.template.judul },
-        sessionLama.template.questions.map((q) => ({
-          id: q.id,
-          urutan: q.urutan,
-          teks: q.teks,
-          opsiA: q.opsiA,
-          opsiB: q.opsiB,
-          opsiC: q.opsiC,
-          jawabanBenar: q.jawabanBenar,
-          penjelasan: q.penjelasan,
-        })),
+        sessionLama.template.questions.map(mapDbQuestionForGame),
         configSnapshot
       );
 
@@ -1990,16 +1919,7 @@ sesiRouter.post('/:id/main-lagi', async (req: AuthRequest, res: Response) => {
         token,
         req.user!.id,
         { id: sessionLama.template.id, judul: sessionLama.template.judul },
-        sessionLama.template.questions.map((q) => ({
-          id: q.id,
-          urutan: q.urutan,
-          teks: q.teks,
-          opsiA: q.opsiA,
-          opsiB: q.opsiB,
-          opsiC: q.opsiC,
-          jawabanBenar: q.jawabanBenar,
-          penjelasan: q.penjelasan,
-        })),
+        sessionLama.template.questions.map(mapDbQuestionForGame),
         configSnapshot
       );
 
@@ -2045,16 +1965,7 @@ sesiRouter.post('/:id/main-lagi', async (req: AuthRequest, res: Response) => {
         token,
         req.user!.id,
         { id: sessionLama.template.id, judul: sessionLama.template.judul },
-        sessionLama.template.questions.map((q) => ({
-          id: q.id,
-          urutan: q.urutan,
-          teks: q.teks,
-          opsiA: q.opsiA,
-          opsiB: q.opsiB,
-          opsiC: q.opsiC,
-          jawabanBenar: q.jawabanBenar,
-          penjelasan: q.penjelasan,
-        })),
+        sessionLama.template.questions.map(mapDbQuestionForGame),
         configSnapshot
       );
 

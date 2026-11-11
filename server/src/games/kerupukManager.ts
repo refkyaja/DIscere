@@ -1,4 +1,6 @@
 import { prisma } from '../db.js';
+import type { KunciPilihan } from '../utils/questionOptions.js';
+import { mapDbQuestionForGame } from '../utils/questionOptions.js';
 import {
   ActivePresentationKerupuk,
   HasilGachaGigitan,
@@ -255,7 +257,7 @@ export const kerupukManager = {
   ): {
     sesi: SesiKerupukSoloActive;
     benar: boolean;
-    jawabanBenarKode: 'A' | 'B' | 'C';
+    jawabanBenarKode: KunciPilihan;
     jawabanBenarTeks: string;
     penjelasan: string | null;
     poinDidapat: number;
@@ -623,16 +625,7 @@ export const kerupukManager = {
     }
 
     const config = bangunKonfigurasiKerupukSolo(rawConfig);
-    const questions: SoalKerupuk[] = sessionDb.template.questions.map((q) => ({
-      id: q.id,
-      urutan: q.urutan,
-      teks: q.teks,
-      opsiA: q.opsiA,
-      opsiB: q.opsiB,
-      opsiC: q.opsiC,
-      jawabanBenar: q.jawabanBenar,
-      penjelasan: q.penjelasan,
-    }));
+    const questions: SoalKerupuk[] = sessionDb.template.questions.map(mapDbQuestionForGame);
 
     if (sessionDb.status === 'selesai') {
       const laporan = laporanDb || (await this.muatLaporanDariDatabase(sessionId)) || undefined;

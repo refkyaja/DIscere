@@ -1,5 +1,10 @@
 import crypto from 'crypto';
 import { z } from 'zod';
+import {
+  KODE_OPSI_VALID,
+  KunciPilihan,
+  extractActiveOptions,
+} from '../utils/questionOptions.js';
 
 /**
  * Modul Domain Bersama (Shared Engine) Game Edukasi: Makan Kerupuk Challenge
@@ -24,7 +29,9 @@ export interface SoalKerupuk {
   teks: string;
   opsiA: string;
   opsiB: string;
-  opsiC: string;
+  opsiC?: string | null;
+  opsiD?: string | null;
+  opsiE?: string | null;
   jawabanBenar: string;
   penjelasan: string | null;
 }
@@ -60,7 +67,7 @@ export interface HasilGachaGigitan {
 
 export interface PilihanSoalKerupuk {
   choiceId: string;
-  label: 'A' | 'B' | 'C';
+  label: KunciPilihan;
   teks: string;
 }
 
@@ -79,9 +86,9 @@ export interface ActivePresentationKerupuk {
   nomorSoal: number;
   teks: string;
   pilihanList: PilihanSoalKerupuk[];
-  pilihanMap: Map<string, 'A' | 'B' | 'C'>;
+  pilihanMap: Map<string, KunciPilihan>;
   correctChoiceId: string;
-  jawabanBenarKode: 'A' | 'B' | 'C';
+  jawabanBenarKode: KunciPilihan;
   penjelasan: string | null;
   tampilPadaMs: number;
   pausedDurationMs: number;
@@ -333,10 +340,10 @@ export function hitungPersentaseKerupuk(sisaKerupuk: number, targetKerupuk: numb
   return { progresPersen, sisaPersen };
 }
 
-export function normalisasiKodeJawaban(raw: string): 'A' | 'B' | 'C' {
+export function normalisasiKodeJawaban(raw: string): KunciPilihan {
   const cleaned = String(raw || '').trim().toUpperCase();
-  if (cleaned === 'A' || cleaned === 'B' || cleaned === 'C') {
-    return cleaned;
+  if ((KODE_OPSI_VALID as readonly string[]).includes(cleaned)) {
+    return cleaned as KunciPilihan;
   }
   throw new Error(`Kode kunci jawaban "${raw}" tidak valid pada bank soal.`);
 }
@@ -396,26 +403,24 @@ export function siapkanPresentasiSoalDariAntrean(
   const soal = questions.find((q) => q.id === nextQuestionId) || questions[0];
 
   const presentationId = crypto.randomUUID();
-  const jawabanBenarKode = normalisasiKodeJawaban(soal.jawabanBenar);
+  const pilihanRaw = extractActiveOptions(soal);
+  const rawKunci = normalisasiKodeJawaban(soal.jawabanBenar);
+  const jawabanBenarKode: KunciPilihan = pilihanRaw.some((p) => p.key === rawKunci)
+    ? rawKunci
+    : pilihanRaw[0].key;
 
-  const pilihanRaw: Array<{ kode: 'A' | 'B' | 'C'; teks: string }> = [
-    { kode: 'A', teks: soal.opsiA },
-    { kode: 'B', teks: soal.opsiB },
-    { kode: 'C', teks: soal.opsiC },
-  ];
-
-  const pilihanMap = new Map<string, 'A' | 'B' | 'C'>();
+  const pilihanMap = new Map<string, KunciPilihan>();
   let correctChoiceId = '';
 
   const pilihanList: PilihanSoalKerupuk[] = pilihanRaw.map((item) => {
-    const choiceId = `${presentationId}_${item.kode}_${crypto.randomBytes(4).toString('hex')}`;
-    pilihanMap.set(choiceId, item.kode);
-    if (item.kode === jawabanBenarKode) {
+    const choiceId = `${presentationId}_${item.key}_${crypto.randomBytes(4).toString('hex')}`;
+    pilihanMap.set(choiceId, item.key);
+    if (item.key === jawabanBenarKode) {
       correctChoiceId = choiceId;
     }
     return {
       choiceId,
-      label: item.kode,
+      label: item.key,
       teks: item.teks,
     };
   });

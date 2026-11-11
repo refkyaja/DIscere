@@ -33,7 +33,7 @@ type TipeGigitan = 'besar' | 'sedang' | 'kecil' | 'sangat_kecil' | 'zonk';
 
 interface PilihanSoal {
   choiceId: string;
-  label: 'A' | 'B' | 'C';
+  label: 'A' | 'B' | 'C' | 'D' | 'E';
   teks: string;
 }
 
@@ -350,7 +350,7 @@ export default function LayarHostKerupuk() {
     }
   };
 
-  // Pintasan keyboard guru (1/2/3 atau A/B/C saat PLAYING, tidak aktif saat modal terbuka atau jeda)
+  // Pintasan keyboard guru (1-5 atau A-E sesuai jumlah opsi aktif saat PLAYING, tidak aktif saat modal terbuka)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (modalHentikanOpen || modalUlangOpen || isActionLoading || isSubmitting) return;
@@ -358,12 +358,12 @@ export default function LayarHostKerupuk() {
 
       if (sesi.state === 'PLAYING' && sesi.soalSaatIni) {
         const key = e.key.toUpperCase();
-        let idx = -1;
-        if (key === '1' || key === 'A') idx = 0;
-        else if (key === '2' || key === 'B') idx = 1;
-        else if (key === '3' || key === 'C') idx = 2;
+        const hurufKeys = ['A', 'B', 'C', 'D', 'E'];
+        const angkaKeys = ['1', '2', '3', '4', '5'];
+        let idx = hurufKeys.indexOf(key);
+        if (idx < 0) idx = angkaKeys.indexOf(key);
 
-        if (idx >= 0 && sesi.soalSaatIni.pilihan[idx]) {
+        if (idx >= 0 && idx < sesi.soalSaatIni.pilihan.length && sesi.soalSaatIni.pilihan[idx]) {
           e.preventDefault();
           handleJawab(sesi.soalSaatIni.pilihan[idx].choiceId);
         }
@@ -782,7 +782,9 @@ export default function LayarHostKerupuk() {
                         <HelpCircle className="w-3.5 h-3.5" /> Soal #{sesi.soalSaatIni.nomorSoal}
                       </span>
                       <span className="text-xs font-bold text-[#6b7d6c]">
-                        Pintasan keyboard: A / B / C atau 1 / 2 / 3
+                        Pintasan keyboard:{' '}
+                        {sesi.soalSaatIni.pilihan.map((p) => p.label).join(' / ')} atau{' '}
+                        {sesi.soalSaatIni.pilihan.map((_, idx) => idx + 1).join(' / ')}
                       </span>
                     </div>
 

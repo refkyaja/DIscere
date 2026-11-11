@@ -3,6 +3,10 @@ import { z } from 'zod';
 import { prisma } from '../db.js';
 import { authMiddleware, AuthRequest } from '../middleware/auth.js';
 import { roleMiddleware } from '../middleware/role.js';
+import {
+  buildPrismaQuestionData,
+  questionInputSchema,
+} from '../utils/questionOptions.js';
 
 export const templateRouter = Router();
 
@@ -10,28 +14,13 @@ export const templateRouter = Router();
 templateRouter.use(authMiddleware);
 templateRouter.use(roleMiddleware('guru'));
 
-const questionSchema = z.object({
-  id: z.string().optional(),
-  urutan: z.number().int().default(0),
-  teks: z.string().min(1, 'Teks soal wajib diisi.'),
-  opsiA: z.string().min(1, 'Pilihan A wajib diisi.'),
-  opsiB: z.string().min(1, 'Pilihan B wajib diisi.'),
-  opsiC: z.string().min(1, 'Pilihan C wajib diisi.'),
-  jawabanBenar: z.enum(['A', 'B', 'C'], {
-    message: 'Jawaban benar harus berupa A, B, atau C.',
-  }),
-  penjelasan: z.string().nullable().optional(),
-  kesulitan: z.enum(['mudah', 'sedang', 'sulit']).default('sedang'),
-  dibuatAi: z.boolean().default(false),
-});
-
 const templateInputSchema = z.object({
   judul: z.string().min(3, 'Judul template minimal 3 karakter.'),
   game: z
     .enum(['tarik_tambang', 'makan_kerupuk', 'panjat_pinang', 'balap_karung'])
     .default('tarik_tambang'),
   mode: z.enum(['solo', 'multi']).default('solo'),
-  questions: z.array(questionSchema).min(1, 'Minimal sertakan 1 soal dalam template.'),
+  questions: z.array(questionInputSchema).min(1, 'Minimal sertakan 1 soal dalam template.'),
 });
 
 // GET /api/template - Daftar template milik guru
@@ -136,15 +125,7 @@ templateRouter.post('/', async (req: AuthRequest, res: Response) => {
         await tx.question.createMany({
           data: parsed.questions.map((q, index) => ({
             templateId: created.id,
-            urutan: q.urutan || index + 1,
-            teks: q.teks,
-            opsiA: q.opsiA,
-            opsiB: q.opsiB,
-            opsiC: q.opsiC,
-            jawabanBenar: q.jawabanBenar,
-            penjelasan: q.penjelasan || null,
-            kesulitan: q.kesulitan || 'sedang',
-            dibuatAi: q.dibuatAi || false,
+            ...buildPrismaQuestionData(q, index),
           })),
         });
       }
@@ -203,15 +184,7 @@ templateRouter.put('/:id', async (req: AuthRequest, res: Response) => {
       await tx.question.createMany({
         data: parsed.questions.map((q, index) => ({
           templateId: id,
-          urutan: q.urutan || index + 1,
-          teks: q.teks,
-          opsiA: q.opsiA,
-          opsiB: q.opsiB,
-          opsiC: q.opsiC,
-          jawabanBenar: q.jawabanBenar,
-          penjelasan: q.penjelasan || null,
-          kesulitan: q.kesulitan || 'sedang',
-          dibuatAi: q.dibuatAi || false,
+          ...buildPrismaQuestionData(q, index),
         })),
       });
     });
@@ -286,17 +259,9 @@ templateRouter.post('/:id/duplikat', async (req: AuthRequest, res: Response) => 
 
       if (asal.questions.length > 0) {
         await tx.question.createMany({
-          data: asal.questions.map((q) => ({
+          data: asal.questions.map((q, idx) => ({
             templateId: baru.id,
-            urutan: q.urutan,
-            teks: q.teks,
-            opsiA: q.opsiA,
-            opsiB: q.opsiB,
-            opsiC: q.opsiC,
-            jawabanBenar: q.jawabanBenar,
-            penjelasan: q.penjelasan,
-            kesulitan: (q as any).kesulitan || 'sedang',
-            dibuatAi: q.dibuatAi,
+            ...buildPrismaQuestionData(q, idx),
           })),
         });
       }

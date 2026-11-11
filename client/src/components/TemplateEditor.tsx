@@ -3,6 +3,8 @@ import { apiRequest } from '../lib/api';
 import { Modal } from './Modal';
 import {
   Plus,
+  Minus,
+  X,
   Trash2,
   Save,
   AlertTriangle,
@@ -15,7 +17,10 @@ import {
   parseAiQuizText,
   PROMPT_TEMPLATE,
   CONTOH_TEXT,
+  KODE_OPSI_SOAL,
+  hitungJumlahOpsiAktif,
   type QuestionItem,
+  type KunciOpsi,
 } from '../lib/quizParser';
 
 export const GAME_LABELS: Record<string, string> = {
@@ -45,8 +50,10 @@ export interface TemplateEditorPayload {
     teks: string;
     opsiA: string;
     opsiB: string;
-    opsiC: string;
-    jawabanBenar: 'A' | 'B' | 'C';
+    opsiC: string | null;
+    opsiD?: string | null;
+    opsiE?: string | null;
+    jawabanBenar: KunciOpsi;
     penjelasan: string | null;
     kesulitan: 'mudah' | 'sedang' | 'sulit';
     dibuatAi: boolean;
@@ -69,6 +76,9 @@ function createEmptyQuestion(urutan = 1): QuestionItem {
     opsiA: '',
     opsiB: '',
     opsiC: '',
+    opsiD: '',
+    opsiE: '',
+    opsiAktif: 3,
     jawabanBenar: 'A',
     penjelasan: '',
     kesulitan: 'sedang',
@@ -96,17 +106,24 @@ export function TemplateEditor({
   const [mode, setMode] = useState<'solo' | 'multi'>(initialMode);
   const [questions, setQuestions] = useState<QuestionItem[]>(() =>
     initialData?.questions && initialData.questions.length > 0
-      ? initialData.questions.map((q, idx) => ({
-          urutan: q.urutan || idx + 1,
-          teks: q.teks || '',
-          opsiA: q.opsiA || '',
-          opsiB: q.opsiB || '',
-          opsiC: q.opsiC || '',
-          jawabanBenar: q.jawabanBenar || 'A',
-          penjelasan: q.penjelasan || '',
-          kesulitan: q.kesulitan || 'sedang',
-          dibuatAi: Boolean(q.dibuatAi),
-        }))
+      ? initialData.questions.map((q, idx) => {
+          const aktif = hitungJumlahOpsiAktif(q);
+          const validKeys = KODE_OPSI_SOAL.slice(0, aktif);
+          return {
+            urutan: q.urutan || idx + 1,
+            teks: q.teks || '',
+            opsiA: q.opsiA || '',
+            opsiB: q.opsiB || '',
+            opsiC: q.opsiC || '',
+            opsiD: q.opsiD || '',
+            opsiE: q.opsiE || '',
+            opsiAktif: aktif,
+            jawabanBenar: validKeys.includes(q.jawabanBenar) ? q.jawabanBenar : 'A',
+            penjelasan: q.penjelasan || '',
+            kesulitan: q.kesulitan || 'sedang',
+            dibuatAi: Boolean(q.dibuatAi),
+          };
+        })
       : [createEmptyQuestion(1)]
   );
 
@@ -152,8 +169,10 @@ export function TemplateEditor({
           teks: string;
           opsiA: string;
           opsiB: string;
-          opsiC: string;
-          jawabanBenar: 'A' | 'B' | 'C';
+          opsiC?: string | null;
+          opsiD?: string | null;
+          opsiE?: string | null;
+          jawabanBenar: KunciOpsi;
           penjelasan?: string;
           kesulitan?: 'mudah' | 'sedang' | 'sulit';
         }>;
@@ -162,8 +181,10 @@ export function TemplateEditor({
           teks: string;
           opsiA: string;
           opsiB: string;
-          opsiC: string;
-          jawabanBenar: 'A' | 'B' | 'C';
+          opsiC?: string | null;
+          opsiD?: string | null;
+          opsiE?: string | null;
+          jawabanBenar: KunciOpsi;
           penjelasan?: string;
           kesulitan?: 'mudah' | 'sedang' | 'sulit';
         }>;
@@ -182,17 +203,24 @@ export function TemplateEditor({
       const daftarSoal = res.soal || res.questions || [];
 
       if (daftarSoal.length > 0) {
-        const aiQuestionsFormatted: QuestionItem[] = daftarSoal.map((q, idx) => ({
-          urutan: idx + 1,
-          teks: q.teks,
-          opsiA: q.opsiA,
-          opsiB: q.opsiB,
-          opsiC: q.opsiC,
-          jawabanBenar: q.jawabanBenar,
-          penjelasan: q.penjelasan || '',
-          kesulitan: q.kesulitan || aiKesulitan,
-          dibuatAi: true,
-        }));
+        const aiQuestionsFormatted: QuestionItem[] = daftarSoal.map((q, idx) => {
+          const aktif = hitungJumlahOpsiAktif(q);
+          const validKeys = KODE_OPSI_SOAL.slice(0, aktif);
+          return {
+            urutan: idx + 1,
+            teks: q.teks,
+            opsiA: q.opsiA,
+            opsiB: q.opsiB,
+            opsiC: q.opsiC || '',
+            opsiD: q.opsiD || '',
+            opsiE: q.opsiE || '',
+            opsiAktif: aktif,
+            jawabanBenar: validKeys.includes(q.jawabanBenar) ? q.jawabanBenar : 'A',
+            penjelasan: q.penjelasan || '',
+            kesulitan: q.kesulitan || aiKesulitan,
+            dibuatAi: true,
+          };
+        });
 
         setQuestions(aiQuestionsFormatted);
         setModeInput('manual');
@@ -235,7 +263,7 @@ export function TemplateEditor({
     const hasilParse = parseAiQuizText(teksTempelAi);
     if (hasilParse.length === 0) {
       setErrorTempel(
-        'Format teks belum terbaca dengan tepat. Pastikan terdapat nomor soal, opsi A, B, C, serta baris "Jawaban: X" sesuai contoh format.'
+        'Format teks belum terbaca dengan tepat. Pastikan terdapat nomor soal, minimal opsi A dan B (hingga E), serta baris "Jawaban: X" sesuai contoh format.'
       );
       return;
     }
@@ -243,6 +271,10 @@ export function TemplateEditor({
     setQuestions(
       hasilParse.map((q) => ({
         ...q,
+        opsiC: q.opsiC || '',
+        opsiD: q.opsiD || '',
+        opsiE: q.opsiE || '',
+        opsiAktif: q.opsiAktif ?? hitungJumlahOpsiAktif(q),
         kesulitan: q.kesulitan || 'sedang',
       }))
     );
@@ -278,6 +310,56 @@ export function TemplateEditor({
     });
   };
 
+  const handleTambahOpsi = (index: number) => {
+    setQuestions((prev) =>
+      prev.map((q, i) => {
+        if (i !== index) return q;
+        const aktif = Math.min(5, Math.max(2, q.opsiAktif ?? hitungJumlahOpsiAktif(q)) + 1);
+        return { ...q, opsiAktif: aktif };
+      })
+    );
+  };
+
+  const handleHapusOpsi = (index: number, keyDihapus?: KunciOpsi) => {
+    setQuestions((prev) =>
+      prev.map((q, i) => {
+        if (i !== index) return q;
+        const currentAktif = Math.max(2, Math.min(5, q.opsiAktif ?? hitungJumlahOpsiAktif(q)));
+        if (currentAktif <= 2) return q;
+
+        const targetKey = keyDihapus ?? KODE_OPSI_SOAL[currentAktif - 1];
+        const removeIdx = KODE_OPSI_SOAL.indexOf(targetKey);
+        if (removeIdx < 0 || removeIdx >= currentAktif) return q;
+
+        const aktifValues = KODE_OPSI_SOAL.slice(0, currentAktif).map((k) => {
+          const fk = `opsi${k}` as 'opsiA' | 'opsiB' | 'opsiC' | 'opsiD' | 'opsiE';
+          return (q[fk] as string) || '';
+        });
+
+        const keyIdx = KODE_OPSI_SOAL.indexOf(q.jawabanBenar);
+        const remainingValues = aktifValues.filter((_, idx) => idx !== removeIdx);
+        const newAktif = remainingValues.length;
+
+        let newJawaban: KunciOpsi = 'A';
+        if (keyIdx !== removeIdx && keyIdx >= 0 && keyIdx < currentAktif) {
+          const shiftedIdx = keyIdx > removeIdx ? keyIdx - 1 : keyIdx;
+          newJawaban = KODE_OPSI_SOAL[shiftedIdx] || 'A';
+        }
+
+        return {
+          ...q,
+          opsiA: remainingValues[0] || '',
+          opsiB: remainingValues[1] || '',
+          opsiC: remainingValues[2] || '',
+          opsiD: remainingValues[3] || '',
+          opsiE: remainingValues[4] || '',
+          opsiAktif: newAktif,
+          jawabanBenar: newJawaban,
+        };
+      })
+    );
+  };
+
   const handleSimpan = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorPesan(null);
@@ -294,8 +376,16 @@ export function TemplateEditor({
         setModeInput('manual');
         return;
       }
-      if (!q.opsiA.trim() || !q.opsiB.trim() || !q.opsiC.trim()) {
-        setErrorPesan(`Semua pilihan jawaban (A, B, C) pada soal #${i + 1} wajib diisi.`);
+      const activeCount = Math.min(5, Math.max(2, q.opsiAktif ?? hitungJumlahOpsiAktif(q)));
+      const activeKeys = KODE_OPSI_SOAL.slice(0, activeCount);
+      const adaOpsiKosong = activeKeys.some((k) => {
+        const fk = `opsi${k}` as 'opsiA' | 'opsiB' | 'opsiC' | 'opsiD' | 'opsiE';
+        return !((q[fk] as string) || '').trim();
+      });
+      if (adaOpsiKosong) {
+        setErrorPesan(
+          `Semua pilihan jawaban aktif (${activeKeys.join(', ')}) pada soal #${i + 1} wajib diisi.`
+        );
         setModeInput('manual');
         return;
       }
@@ -307,17 +397,23 @@ export function TemplateEditor({
         judul: judul.trim(),
         game,
         mode,
-        questions: questions.map((q, idx) => ({
-          urutan: idx + 1,
-          teks: q.teks.trim(),
-          opsiA: q.opsiA.trim(),
-          opsiB: q.opsiB.trim(),
-          opsiC: q.opsiC.trim(),
-          jawabanBenar: q.jawabanBenar,
-          penjelasan: q.penjelasan ? q.penjelasan.trim() : null,
-          kesulitan: q.kesulitan || 'sedang',
-          dibuatAi: Boolean(q.dibuatAi),
-        })),
+        questions: questions.map((q, idx) => {
+          const activeCount = Math.min(5, Math.max(2, q.opsiAktif ?? hitungJumlahOpsiAktif(q)));
+          const activeKeys = KODE_OPSI_SOAL.slice(0, activeCount);
+          return {
+            urutan: idx + 1,
+            teks: q.teks.trim(),
+            opsiA: q.opsiA.trim(),
+            opsiB: q.opsiB.trim(),
+            opsiC: activeCount >= 3 ? (q.opsiC || '').trim() : null,
+            opsiD: activeCount >= 4 ? (q.opsiD || '').trim() : null,
+            opsiE: activeCount >= 5 ? (q.opsiE || '').trim() : null,
+            jawabanBenar: activeKeys.includes(q.jawabanBenar) ? q.jawabanBenar : 'A',
+            penjelasan: q.penjelasan ? q.penjelasan.trim() : null,
+            kesulitan: q.kesulitan || 'sedang',
+            dibuatAi: Boolean(q.dibuatAi),
+          };
+        }),
       };
 
       await onSubmit(payload);
@@ -542,7 +638,7 @@ export function TemplateEditor({
                     Tempelkan Teks Hasil Generate AI (ChatGPT / Claude)
                   </h3>
                   <p className="text-xs text-[#6b7d6c] mt-0.5">
-                    Tempelkan teks daftar soal di bawah. Sistem DISCERE akan otomatis mengekstrak nomor soal, opsi A, B, C, dan kunci jawaban.
+                    Tempelkan teks daftar soal di bawah. Sistem DISCERE akan otomatis mengekstrak nomor soal, opsi A–E (minimal A dan B), serta kunci jawaban.
                   </p>
                 </div>
 
@@ -563,7 +659,7 @@ export function TemplateEditor({
                   />
                   <div className="flex items-center justify-between text-[11px] text-[#6b7d6c] mt-1.5">
                     <span>{teksTempelAi.length} karakter</span>
-                    <span>Format: Nomor, Pertanyaan, Opsi A/B/C, Jawaban: X</span>
+                    <span>Format: Nomor, Pertanyaan, Opsi A–E (min A–B), Jawaban: X</span>
                   </div>
                 </div>
 
@@ -660,47 +756,95 @@ export function TemplateEditor({
                     />
                   </div>
 
-                  {/* 3 Opsi Jawaban */}
-                  <div className="space-y-3 pt-1">
-                    <label className="block text-xs font-bold text-[#6b7d6c] uppercase tracking-wider">
-                      Pilihan Jawaban & Kunci Benar (Klik Huruf untuk Menjadikan Kunci)
-                    </label>
+                  {/* Pilihan Jawaban Dinamis (2–5 Opsi: A–E) */}
+                  {(() => {
+                    const activeCount = Math.min(
+                      5,
+                      Math.max(2, soal.opsiAktif ?? hitungJumlahOpsiAktif(soal))
+                    );
+                    const activeKeys = KODE_OPSI_SOAL.slice(0, activeCount);
+                    const nextKey = KODE_OPSI_SOAL[activeCount];
 
-                    {(['A', 'B', 'C'] as const).map((opsiKey) => {
-                      const fieldKey = `opsi${opsiKey}` as keyof QuestionItem;
-                      const isSelected = soal.jawabanBenar === opsiKey;
-
-                      return (
-                        <div key={opsiKey} className="flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateSoal(index, 'jawabanBenar', opsiKey)}
-                            className={`w-10 h-10 rounded-xl font-extrabold flex items-center justify-center shrink-0 transition-all cursor-pointer ${
-                              isSelected
-                                ? 'bg-[#1f4a37] text-[#f4ecd8] shadow-md ring-2 ring-[#f2c230]'
-                                : 'bg-[#f4ecd9] text-[#1d3b2e] hover:bg-[#e0d5b8]'
-                            }`}
-                            title={`Jadikan Opsi ${opsiKey} sebagai Kunci Jawaban`}
-                          >
-                            {opsiKey}
-                          </button>
-                          <input
-                            type="text"
-                            className="portal-input flex-1"
-                            placeholder={`Jawaban untuk Pilihan ${opsiKey}...`}
-                            value={(soal[fieldKey] as string) || ''}
-                            onChange={(e) => handleUpdateSoal(index, fieldKey, e.target.value)}
-                            required
-                          />
-                          {isSelected && (
-                            <span className="portal-tag green shrink-0">
-                              ✓ Kunci Benar
-                            </span>
-                          )}
+                    return (
+                      <div className="space-y-3 pt-1">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <label className="block text-xs font-bold text-[#6b7d6c] uppercase tracking-wider">
+                            Pilihan Jawaban &amp; Kunci Benar ({activeCount} Opsi &bull; Min 2, Maks E)
+                          </label>
+                          <div className="flex items-center gap-1.5">
+                            {activeCount > 2 && (
+                              <button
+                                type="button"
+                                onClick={() => handleHapusOpsi(index)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-[#fbf6e9] text-[#6b7d6c] border border-[#e0d5b8] hover:text-[#c8362f] hover:border-[#c8362f] transition-colors cursor-pointer"
+                                title={`Kurangi opsi terakhir (${activeKeys[activeKeys.length - 1]})`}
+                              >
+                                <Minus className="w-3 h-3" />
+                                <span>Kurangi ({activeKeys[activeKeys.length - 1]})</span>
+                              </button>
+                            )}
+                            {activeCount < 5 && nextKey && (
+                              <button
+                                type="button"
+                                onClick={() => handleTambahOpsi(index)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-[#f8e7b0] text-[#1d3b2e] border border-[#e2c66d] hover:bg-[#f2c230] transition-colors cursor-pointer"
+                                title={`Tambah Pilihan ${nextKey} (maksimal sampai E)`}
+                              >
+                                <Plus className="w-3 h-3" />
+                                <span>Tambah Opsi {nextKey}</span>
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      );
-                    })}
-                  </div>
+
+                        {activeKeys.map((opsiKey) => {
+                          const fieldKey = `opsi${opsiKey}` as keyof QuestionItem;
+                          const isSelected = soal.jawabanBenar === opsiKey;
+
+                          return (
+                            <div key={opsiKey} className="flex items-center gap-2.5">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateSoal(index, 'jawabanBenar', opsiKey)}
+                                className={`w-10 h-10 rounded-xl font-extrabold flex items-center justify-center shrink-0 transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-[#1f4a37] text-[#f4ecd8] shadow-md ring-2 ring-[#f2c230]'
+                                    : 'bg-[#f4ecd9] text-[#1d3b2e] hover:bg-[#e0d5b8]'
+                                }`}
+                                title={`Jadikan Opsi ${opsiKey} sebagai Kunci Jawaban`}
+                              >
+                                {opsiKey}
+                              </button>
+                              <input
+                                type="text"
+                                className="portal-input flex-1"
+                                placeholder={`Jawaban untuk Pilihan ${opsiKey}...`}
+                                value={(soal[fieldKey] as string) || ''}
+                                onChange={(e) => handleUpdateSoal(index, fieldKey, e.target.value)}
+                                required
+                              />
+                              {isSelected && (
+                                <span className="portal-tag green shrink-0">
+                                  ✓ Kunci Benar
+                                </span>
+                              )}
+                              {activeCount > 2 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleHapusOpsi(index, opsiKey)}
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-[#6b7d6c] hover:text-[#c8362f] hover:bg-[#fdecec] transition-colors cursor-pointer"
+                                  title={`Hapus Opsi ${opsiKey}`}
+                                  aria-label={`Hapus Opsi ${opsiKey}`}
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
 
                   <div>
                     <label className="block text-xs font-bold text-[#6b7d6c] uppercase tracking-wider mb-1">

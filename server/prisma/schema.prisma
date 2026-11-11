@@ -53,8 +53,10 @@ model Question {
   teks         String
   opsiA        String
   opsiB        String
-  opsiC        String
-  jawabanBenar String         // "A" | "B" | "C"
+  opsiC        String?
+  opsiD        String?
+  opsiE        String?
+  jawabanBenar String         // "A" | "B" | "C" | "D" | "E"
   penjelasan   String?
   kesulitan    String         @default("sedang") // "mudah" | "sedang" | "sulit"
   dibuatAi     Boolean        @default(false)

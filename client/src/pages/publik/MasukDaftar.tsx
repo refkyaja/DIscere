@@ -427,6 +427,7 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
           flex-direction: column;
           background-color: #163a2b;
           background-image:
+            url('/chalk-doodles.svg'),
             radial-gradient(ellipse at 15% 15%, rgba(255, 255, 255, 0.12) 0%, transparent 45%),
             radial-gradient(ellipse at 85% 25%, rgba(255, 255, 255, 0.09) 0%, transparent 42%),
             radial-gradient(ellipse at 30% 70%, rgba(255, 255, 255, 0.11) 0%, transparent 50%),
@@ -434,6 +435,8 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
             radial-gradient(circle at 50% 45%, rgba(255, 255, 255, 0.05) 0%, transparent 60%),
             radial-gradient(ellipse at 50% 50%, transparent 60%, rgba(0, 0, 0, 0.45) 100%),
             linear-gradient(175deg, #2b5641 0%, #204634 50%, #173829 100%);
+          background-repeat: repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+          background-size: 720px 720px, auto, auto, auto, auto, auto, auto, auto;
         }
 
         .discere-masuk-wrapper .stage {
@@ -892,11 +895,16 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
             justify-content: center;
             align-items: center;
             padding: env(safe-area-inset-top, 8px) 16px env(safe-area-inset-bottom, 8px);
-            background: radial-gradient(ellipse at 15% 12%, rgba(255, 255, 255, 0.14) 0%, transparent 45%),
-                        radial-gradient(ellipse at 85% 20%, rgba(255, 255, 255, 0.10) 0%, transparent 42%),
-                        radial-gradient(ellipse at 50% 85%, rgba(255, 255, 255, 0.08) 0%, transparent 50%),
-                        radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.38) 100%),
-                        linear-gradient(165deg, #244e39 0%, #1a3d2c 50%, #122c20 100%) !important;
+            background-color: #122c20 !important;
+            background-image:
+              url('/chalk-doodles.svg'),
+              radial-gradient(ellipse at 15% 12%, rgba(255, 255, 255, 0.14) 0%, transparent 45%),
+              radial-gradient(ellipse at 85% 20%, rgba(255, 255, 255, 0.10) 0%, transparent 42%),
+              radial-gradient(ellipse at 50% 85%, rgba(255, 255, 255, 0.08) 0%, transparent 50%),
+              radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.38) 100%),
+              linear-gradient(165deg, #244e39 0%, #1a3d2c 50%, #122c20 100%) !important;
+            background-repeat: repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat !important;
+            background-size: 560px 560px, auto, auto, auto, auto, auto !important;
           }
           .discere-masuk-wrapper .stage {
             height: 100%;

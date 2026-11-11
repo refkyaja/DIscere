@@ -1,5 +1,13 @@
 import crypto from 'crypto';
 import { z } from 'zod';
+import {
+  KODE_OPSI_VALID,
+  KunciPilihan,
+  extractActiveOptions,
+  normalizeOptionKey,
+} from '../utils/questionOptions.js';
+
+export type { KunciPilihan };
 
 export type PresetJarakBalapKarung = 'pendek' | 'normal' | 'panjang' | 'custom';
 export type KesulitanBalapKarung = 'mudah' | 'normal' | 'sulit' | 'custom';
@@ -8,7 +16,6 @@ export type JenisRintanganBalap =
   | 'perisai'
   | 'lompatan_kuat'
   | 'jalan_berlumpur';
-export type KunciPilihan = 'A' | 'B' | 'C';
 
 export const TARGET_JARAK_PRESET: Record<
   Exclude<PresetJarakBalapKarung, 'custom'>,
@@ -319,7 +326,9 @@ export interface SoalBalapKarung {
   teks: string;
   opsiA: string;
   opsiB: string;
-  opsiC: string;
+  opsiC?: string | null;
+  opsiD?: string | null;
+  opsiE?: string | null;
   jawabanBenar: string;
   penjelasan: string | null;
 }
@@ -441,15 +450,18 @@ export function buatPresentasiSoalBalap(
   nomorSoal: number,
   ditampilkanPadaMs: number = Date.now()
 ): PresentasiSoalBalap {
-  const cleanKunci = soal.jawabanBenar.trim().toUpperCase();
-  const kunciKey: KunciPilihan =
-    cleanKunci === 'B' ? 'B' : cleanKunci === 'C' ? 'C' : 'A';
+  const activeOpsi = extractActiveOptions(soal);
+  const kunciKey = normalizeOptionKey(
+    soal.jawabanBenar,
+    activeOpsi.map((o) => o.key),
+    'A'
+  );
 
-  const pilihan: OpsiPilihanBalap[] = [
-    { choiceId: buatChoiceIdBalap(soal.id, 'A'), key: 'A', teks: soal.opsiA },
-    { choiceId: buatChoiceIdBalap(soal.id, 'B'), key: 'B', teks: soal.opsiB },
-    { choiceId: buatChoiceIdBalap(soal.id, 'C'), key: 'C', teks: soal.opsiC },
-  ];
+  const pilihan: OpsiPilihanBalap[] = activeOpsi.map((opsi) => ({
+    choiceId: buatChoiceIdBalap(soal.id, opsi.key),
+    key: opsi.key,
+    teks: opsi.teks,
+  }));
 
   return {
     presentationId: crypto.randomUUID(),
@@ -474,8 +486,8 @@ export function validasiPilihanBalapDenganChoiceId(
   let targetChoiceId = (choiceId || '').trim();
   if (!targetChoiceId && fallbackKey) {
     const k = fallbackKey.trim().toUpperCase();
-    if (k === 'A' || k === 'B' || k === 'C') {
-      targetChoiceId = buatChoiceIdBalap(presentasi.questionId, k);
+    if ((KODE_OPSI_VALID as readonly string[]).includes(k)) {
+      targetChoiceId = buatChoiceIdBalap(presentasi.questionId, k as KunciPilihan);
     }
   }
 

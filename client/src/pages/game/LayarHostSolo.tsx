@@ -25,7 +25,7 @@ import {
 
 interface PilihanSoalClient {
   choiceId: string;
-  label: 'A' | 'B' | 'C';
+  label: 'A' | 'B' | 'C' | 'D' | 'E';
   teks: string;
 }
 
@@ -38,7 +38,9 @@ interface SoalTimClient {
   teks: string;
   opsiA: string;
   opsiB: string;
-  opsiC: string;
+  opsiC?: string | null;
+  opsiD?: string | null;
+  opsiE?: string | null;
   pilihan: PilihanSoalClient[];
   endsAt?: number;
   duration?: number;

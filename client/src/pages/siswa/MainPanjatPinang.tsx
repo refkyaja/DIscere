@@ -21,7 +21,7 @@ import {
 
 interface PilihanPanjat {
   choiceId: string;
-  key: 'A' | 'B' | 'C';
+  key: 'A' | 'B' | 'C' | 'D' | 'E';
   teks: string;
 }
 

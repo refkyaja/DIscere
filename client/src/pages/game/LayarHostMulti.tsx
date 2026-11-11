@@ -47,7 +47,7 @@ interface SoalTimHost {
   nomorRonde: number;
   kesulitan: 'mudah' | 'sedang' | 'sulit';
   teks: string;
-  pilihan: Array<{ choiceId: string; label: 'A' | 'B' | 'C'; teks: string }>;
+  pilihan: Array<{ choiceId: string; label: 'A' | 'B' | 'C' | 'D' | 'E'; teks: string }>;
   endsAt?: number;
   duration?: number;
 }
