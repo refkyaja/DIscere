@@ -843,19 +843,6 @@ export default function MainSiswa() {
 
           {/* KARTU FORMULIR KERTAS PARCHMENT (Paper Card) */}
           <div className="join-card relative w-full bg-[#f6efe2] rounded-[30px] p-6 sm:p-8 shadow-[0_12px_0_rgba(0,0,0,0.18),0_25px_50px_rgba(0,0,0,0.45)] border-2 border-[#e4d7c3] text-center">
-            {/* Percikan Kapur Kuning di Samping Kiri Kartu */}
-            <svg
-              className="absolute -left-6 sm:-left-8 top-12 w-6 h-10 text-[#f2c230] pointer-events-none select-none"
-              viewBox="0 0 24 36"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3.2"
-              strokeLinecap="round"
-              aria-hidden="true"
-            >
-              <path d="M22 6 L 8 12 M20 18 L 4 20 M22 30 L 8 26" />
-            </svg>
-
             {/* Pesan Error */}
             {formError && (
               <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-xs font-bold flex items-center justify-center gap-2 animate-bounce">

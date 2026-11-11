@@ -36,37 +36,73 @@ adminRouter.get('/statistik', async (_req: AuthRequest, res: Response) => {
       prisma.user.count({ where: { role: 'guru', status: 'nonaktif' } }),
     ]);
 
-    // Agregat aktivitas sesi 7 hari terakhir
-    const tujuhHariLalu = new Date();
-    tujuhHariLalu.setDate(tujuhHariLalu.getDate() - 6);
-    tujuhHariLalu.setHours(0, 0, 0, 0);
+    // Agregat aktivitas sesi untuk grafik Bulanan, Mingguan, dan Harian
+    const now = new Date();
+    const awalTahun = new Date(now.getFullYear(), 0, 1);
 
-    const sesiTerbaru = await prisma.session.findMany({
+    const semuaSesiTahunIni = await prisma.session.findMany({
       where: {
-        createdAt: { gte: tujuhHariLalu },
+        createdAt: { gte: awalTahun },
       },
       select: { createdAt: true },
     });
 
-    // Petakan ke format tanggal YYYY-MM-DD
-    const aktivitasPerHari: Record<string, number> = {};
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(tujuhHariLalu);
-      d.setDate(d.getDate() + i);
-      const key = d.toISOString().split('T')[0];
-      aktivitasPerHari[key] = 0;
-    }
-
-    sesiTerbaru.forEach((s) => {
-      const key = s.createdAt.toISOString().split('T')[0];
-      if (aktivitasPerHari[key] !== undefined) {
-        aktivitasPerHari[key]++;
+    // 1. Data Bulanan (12 Bulan di tahun berjalan)
+    const grafikBulanan = Array(12).fill(0);
+    semuaSesiTahunIni.forEach((s) => {
+      const d = new Date(s.createdAt);
+      if (d.getFullYear() === now.getFullYear()) {
+        grafikBulanan[d.getMonth()]++;
       }
     });
 
-    const grafikAktivitas = Object.entries(aktivitasPerHari).map(([tanggal, jumlah]) => ({
+    // 2. Data Mingguan (Senin s/d Minggu di minggu berjalan)
+    const startOfWeek = new Date(now);
+    const day = startOfWeek.getDay();
+    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
+    startOfWeek.setDate(diff);
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(endOfWeek.getDate() + 7);
+
+    const grafikMingguan = Array(7).fill(0);
+    semuaSesiTahunIni.forEach((s) => {
+      const d = new Date(s.createdAt);
+      if (d >= startOfWeek && d < endOfWeek) {
+        const dayIdx = (d.getDay() + 6) % 7;
+        grafikMingguan[dayIdx]++;
+      }
+    });
+
+    // 3. Data Harian (7 Hari Terakhir)
+    const tujuhHariLalu = new Date(now);
+    tujuhHariLalu.setDate(tujuhHariLalu.getDate() - 6);
+    tujuhHariLalu.setHours(0, 0, 0, 0);
+
+    const grafikHarian = Array(7).fill(0);
+    const grafikHarianLabels: string[] = [];
+    const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(tujuhHariLalu);
+      d.setDate(d.getDate() + i);
+      grafikHarianLabels.push(`${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`);
+    }
+
+    semuaSesiTahunIni.forEach((s) => {
+      const d = new Date(s.createdAt);
+      if (d >= tujuhHariLalu) {
+        const diffDays = Math.floor((d.getTime() - tujuhHariLalu.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays >= 0 && diffDays < 7) {
+          grafikHarian[diffDays]++;
+        }
+      }
+    });
+
+    const grafikAktivitas = grafikHarianLabels.map((tanggal, idx) => ({
       tanggal,
-      jumlah,
+      jumlah: grafikHarian[idx],
     }));
 
     return res.json({
@@ -80,6 +116,10 @@ adminRouter.get('/statistik', async (_req: AuthRequest, res: Response) => {
         totalPapan,
         sesiSelesai,
         grafikAktivitas,
+        grafikBulanan,
+        grafikMingguan,
+        grafikHarian,
+        grafikHarianLabels,
       },
     });
   } catch (err: any) {

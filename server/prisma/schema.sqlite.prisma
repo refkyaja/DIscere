@@ -1,0 +1,215 @@
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String       @id @default(cuid())
+  nama         String
+  email        String       @unique
+  passwordHash String
+  role         String       @default("guru") // "guru" | "admin"
+  sekolah      String?
+  status       String       @default("aktif") // "aktif" | "nonaktif"
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  templates    Template[]
+  sessions     Session[]
+  boards       Board[]
+  aiUsage      AiUsage[]
+  adminLogs    AdminLog[]
+
+  @@map("users")
+}
+
+model Template {
+  id        String     @id @default(cuid())
+  ownerId   String?
+  owner     User?      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  judul     String
+  game      String     @default("tarik_tambang")
+  mode      String     @default("solo") // "solo" | "multi"
+  resmi     Boolean    @default(false)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  questions Question[]
+  sessions  Session[]
+
+  @@index([ownerId])
+  @@index([resmi])
+  @@map("templates")
+}
+
+model Question {
+  id           String         @id @default(cuid())
+  templateId   String
+  template     Template       @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  urutan       Int            @default(0)
+  teks         String
+  opsiA        String
+  opsiB        String
+  opsiC        String
+  jawabanBenar String         // "A" | "B" | "C"
+  penjelasan   String?
+  dibuatAi     Boolean        @default(false)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  stats        QuestionStat[]
+
+  @@index([templateId])
+  @@map("questions")
+}
+
+model Session {
+  id          String         @id @default(cuid())
+  templateId  String
+  template    Template       @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  hostId      String
+  host        User           @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  token       String?
+  mode        String         @default("solo") // "solo" | "multi"
+  status      String         @default("lobi") // "lobi" | "jalan" | "selesai"
+  konfigurasi String?        // Snapshot JSON konfigurasi permainan saat sesi dibuat/dimulai
+  mulaiPada   DateTime?
+  selesaiPada DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  result        SessionResult?
+  questionStats QuestionStat[]
+  players       SessionPlayer[]
+
+  @@index([hostId])
+  @@index([token])
+  @@map("sessions")
+}
+
+model SessionPlayer {
+  id                  String    @id
+  sessionId           String
+  session             Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  nama                String
+  posisi              Int       @default(0) // Panjat Pinang: 0..100%; Balap Karung: jarakTempuh (meter)
+  keseimbangan        Int       @default(100) // Balap Karung: 0..100%
+  jumlahJatuh         Int       @default(0) // Balap Karung: total kejadian jatuh saat keseimbangan 0%
+  efekAktif           String    @default("{}") // JSON efek power-up/rintangan & metrik streak per game
+  poinBonus           Int       @default(0)
+  totalBenar          Int       @default(0)
+  totalSalah          Int       @default(0)
+  streakSaatIni       Int       @default(0)
+  streakTertinggi     Int       @default(0)
+  totalWaktuJawabMs   Int       @default(0)
+  jumlahJawab         Int       @default(0)
+  status              String    @default("bermain") // "bermain" | "selesai"
+  waktuSelesaiMs      Int?
+  selesaiPada         DateTime?
+  riwayatPosisi       String    @default("[]") // JSON array riwayat perubahan posisi
+  riwayatRintangan    String    @default("[]") // JSON array riwayat rintangan
+  riwayatJawaban      String    @default("[]") // JSON array riwayat jawaban
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([sessionId])
+  @@map("session_players")
+}
+
+model SessionResult {
+  id          String   @id @default(cuid())
+  sessionId   String   @unique
+  session     Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  timMenang   String   // "merah" | "putih" | "seri"
+  posisiAkhir Int      @default(0)
+  skorMerah   Int      @default(0)
+  skorPutih   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@map("session_results")
+}
+
+model QuestionStat {
+  id          String   @id @default(cuid())
+  sessionId   String
+  session     Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questionId  String
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  jumlahBenar Int      @default(0)
+  jumlahSalah Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([questionId])
+  @@map("question_stats")
+}
+
+model Board {
+  id        String       @id @default(cuid())
+  ownerId   String
+  owner     User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  judul     String       @default("Papan Tanpa Judul")
+  data      String       @default("{}") // JSON Fabric
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  shares    BoardShare[]
+
+  @@index([ownerId])
+  @@map("boards")
+}
+
+model BoardShare {
+  id        String   @id @default(cuid())
+  boardId   String
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  peran     String   @default("viewer") // "viewer" | "editor"
+  aktif     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([boardId])
+  @@map("board_shares")
+}
+
+model AiCache {
+  id        String   @id @default(cuid())
+  hash      String   @unique
+  jenis     String   // "soal" | "jawab"
+  hasil     String   // JSON string
+  createdAt DateTime @default(now())
+
+  @@index([hash])
+  @@map("ai_cache")
+}
+
+model AiUsage {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tanggal   String   // format "YYYY-MM-DD"
+  jumlah    Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, tanggal])
+  @@index([userId])
+  @@index([tanggal])
+  @@map("ai_usage")
+}
+
+model AdminLog {
+  id        String   @id @default(cuid())
+  adminId   String
+  admin     User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  aksi      String
+  target    String
+  createdAt DateTime @default(now())
+
+  @@index([adminId])
+  @@map("admin_logs")
+}

@@ -9,21 +9,17 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  BookOpen,
-  Users,
-  Trophy,
-  ShieldAlert,
 } from 'lucide-react';
 
 interface ProfilAdminViewProps {
-  stats: {
+  stats?: {
     totalGuru?: number;
     totalTemplateResmi?: number;
     totalSesi?: number;
   };
 }
 
-export function ProfilAdminView({ stats }: ProfilAdminViewProps) {
+export function ProfilAdminView({}: ProfilAdminViewProps) {
   const { user, refreshUser } = useAuth();
 
   // Form Profil state
@@ -112,12 +108,9 @@ export function ProfilAdminView({ stats }: ProfilAdminViewProps) {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Grid Utama 2 Kolom */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Kolom Kiri: Form Informasi Akun Admin & Ganti Kata Sandi (2 Kolom Desktop) */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="portal-card p-6 space-y-5">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full items-start">
+      {/* Kolom Kiri: Form Informasi Akun Admin */}
+      <div className="portal-card p-6 space-y-5">
             <div className="flex items-center gap-4 pb-4 border-b border-[#e0d5b8]">
               <div className="w-16 h-16 rounded-2xl bg-[#1f4a37] text-[#f4ecd8] flex items-center justify-center font-bold text-2xl border-2 border-[#a6783c] shadow-inner shrink-0">
                 <Shield className="w-8 h-8 text-[#f2c230]" />
@@ -327,47 +320,6 @@ export function ProfilAdminView({ stats }: ProfilAdminViewProps) {
             </form>
           </div>
         </div>
-
-        {/* Kolom Kanan: Ringkasan Tanggung Jawab Platform & Penegasan Privasi */}
-        <div className="space-y-6">
-          <div className="portal-card p-6 space-y-4">
-            <h4 className="text-sm font-bold text-[#1d3b2e] uppercase tracking-wider pb-3 border-b border-[#e0d5b8]">
-              Tanggung Jawab Platform
-            </h4>
-
-            <div className="grid grid-cols-3 gap-2">
-              <div className="p-3.5 rounded-xl bg-[#f2ebd9] border border-[#e5dcc7] text-center">
-                <Users className="w-5 h-5 mx-auto text-[#1d3b2e] mb-1" />
-                <b className="block text-2xl text-[#1d3b2e]">{stats.totalGuru ?? 0}</b>
-                <span className="text-xs text-[#6b7d6c] font-bold">Akun Guru</span>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-[#f2ebd9] border border-[#e5dcc7] text-center">
-                <BookOpen className="w-5 h-5 mx-auto text-[#1d3b2e] mb-1" />
-                <b className="block text-2xl text-[#1d3b2e]">{stats.totalTemplateResmi ?? 0}</b>
-                <span className="text-xs text-[#6b7d6c] font-bold">Pustaka Resmi</span>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-[#f2ebd9] border border-[#e5dcc7] text-center">
-                <Trophy className="w-5 h-5 mx-auto text-[#1d3b2e] mb-1" />
-                <b className="block text-2xl text-[#1d3b2e]">{stats.totalSesi ?? 0}</b>
-                <span className="text-xs text-[#6b7d6c] font-bold">Total Sesi</span>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-xl bg-[#f2ebd9] border border-[#e5dcc7] space-y-2.5 text-xs text-[#6b7d6c]">
-              <div className="flex items-center gap-2 text-[#1d3b2e] font-bold">
-                <ShieldAlert className="w-4 h-4 text-emerald-700" />
-                <span>Prinsip Etika & Privasi Terisolasi</span>
-              </div>
-              <p className="leading-relaxed">
-                Administrator mengelola akun, pustaka template kurikulum resmi, serta log audit sistem. Sesuai prinsip isolasi data pembelajaran, soal kuis privat dan kanvas kelas milik guru tidak dapat diakses maupun diubah oleh administrator.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
   );
 }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../lib/auth';
 import { apiRequest } from '../../lib/api';
 import { Modal } from '../../components';
@@ -19,19 +19,18 @@ import {
   Edit2,
   AlertTriangle,
   Loader2,
-  Shield,
-  Calendar,
   Gamepad2,
   Info,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  Check,
   User as UserIcon,
   Globe,
   Sparkles,
   Copy,
-  Check,
 } from 'lucide-react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useLocation } from 'react-router';
 import {
   parseAiQuizText,
   PROMPT_TEMPLATE,
@@ -44,15 +43,51 @@ type AdminTab = 'statistik' | 'guru' | 'pustaka' | 'ai' | 'log' | 'profil';
 export default function DashboardAdmin() {
   const { user, keluar } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const [activeTab, setActiveTab] = useState<AdminTab>('statistik');
+  const queryParams = new URLSearchParams(location.search);
+  const tabFromUrl = queryParams.get('tab') as AdminTab;
+  const validTabs: AdminTab[] = ['statistik', 'guru', 'pustaka', 'ai', 'log', 'profil'];
+  const activeTab: AdminTab = validTabs.includes(tabFromUrl) ? tabFromUrl : 'statistik';
+
+  const handlePindahTab = (tab: AdminTab) => {
+    setSuksesPesan(null);
+    setErrorPesan(null);
+    navigate(`/admin?tab=${tab}`);
+  };
+
   const [sidebarMinimized, setSidebarMinimized] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorPesan, setErrorPesan] = useState<string | null>(null);
   const [suksesPesan, setSuksesPesan] = useState<string | null>(null);
 
+  // Auto-dismiss pesan sukses dalam 4 detik
+  useEffect(() => {
+    if (suksesPesan) {
+      const timer = setTimeout(() => {
+        setSuksesPesan(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [suksesPesan]);
+
   // 1. Data Statistik
   const [statistik, setStatistik] = useState<any>(null);
+
+  // Range filter untuk grafik Sesi Game Selesai: Bulanan / Mingguan / Harian
+  const [rangeMode, setRangeMode] = useState<'Bulanan' | 'Mingguan' | 'Harian'>('Bulanan');
+  const [rangeDropdownOpen, setRangeDropdownOpen] = useState(false);
+  const rangeDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (rangeDropdownRef.current && !rangeDropdownRef.current.contains(event.target as Node)) {
+        setRangeDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // 2. Data Guru
   const [daftarGuru, setDaftarGuru] = useState<any[]>([]);
@@ -498,15 +533,60 @@ export default function DashboardAdmin() {
     }
   };
 
+  // Kalkulasi data grafik sesuai filter range
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  const DAYS_OF_WEEK = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+  const now = new Date();
+  const currentMonthIdx = now.getMonth();
+  const currentDayOfWeekIdx = (now.getDay() + 6) % 7;
+
+  let chartLabels = MONTHS;
+  let chartValues: number[] = Array(12).fill(0);
+  let chartCurrentIdx = currentMonthIdx;
+
+  if (rangeMode === 'Bulanan') {
+    chartLabels = MONTHS;
+    chartValues = statistik?.grafikBulanan || Array(12).fill(0);
+    chartCurrentIdx = currentMonthIdx;
+  } else if (rangeMode === 'Mingguan') {
+    chartLabels = DAYS_OF_WEEK;
+    chartValues = statistik?.grafikMingguan || Array(7).fill(0);
+    chartCurrentIdx = currentDayOfWeekIdx;
+  } else {
+    chartLabels = statistik?.grafikHarianLabels || ['H-6', 'H-5', 'H-4', 'H-3', 'H-2', 'H-1', 'Hari ini'];
+    chartValues = statistik?.grafikHarian || Array(7).fill(0);
+    chartCurrentIdx = 6;
+  }
+
+  // Generate SVG smooth path
+  const W = 400;
+  const mx = Math.max(4, ...chartValues);
+  const n = chartValues.length;
+  const pts = chartValues.map((v, i) => [
+    Math.round((i * W) / Math.max(1, n - 1)),
+    Math.round(108 - (v / mx) * 80),
+  ]);
+
+  let curvePath = `M ${pts[0]?.[0] ?? 0} ${pts[0]?.[1] ?? 108}`;
+  for (let i = 1; i < n; i++) {
+    const [x0, y0] = pts[i - 1];
+    const [x1, y1] = pts[i];
+    const mxMid = (x0 + x1) / 2;
+    curvePath += ` C ${mxMid} ${y0}, ${mxMid} ${y1}, ${x1} ${y1}`;
+  }
+  const lastX = pts[n - 1]?.[0] ?? W;
+  const areaPath = `${curvePath} L ${lastX} 130 L 0 130 Z`;
+  const [curX, curY] = pts[chartCurrentIdx] || [360, 28];
+
   return (
     <div className="portal-bg">
       <div className={`portal-shell ${sidebarMinimized ? 'minimized' : ''}`}>
         {/* Sidebar Papan Tulis (Sticky Mengikuti Scroll & Minimizable) */}
         <aside className="portal-side">
           <div className="portal-side-header">
-            <div className="portal-brand">
+            <div className="portal-brand flex-1 min-w-0 pr-1">
               <svg
-                className="w-8 h-8 shrink-0 text-[#f4ecd8]"
+                className="w-7 h-7 shrink-0 text-[#f4ecd8]"
                 viewBox="0 0 48 48"
                 fill="none"
                 stroke="currentColor"
@@ -518,12 +598,12 @@ export default function DashboardAdmin() {
                 <path d="M5 11c7-3 14-1 19 4v26c-5-5-12-7-19-4zM43 11c-7-3-14-1-19 4v26c5-5 12-7 19-4z" />
                 <path d="M10 19h8M10 26h8M30 19h8M30 26h8" />
               </svg>
-              <span>Discere Admin</span>
+              <span className="!text-[17px] tracking-tight">Discere Admin</span>
             </div>
             <button
               type="button"
               onClick={() => setSidebarMinimized((prev) => !prev)}
-              className="portal-side-toggle"
+              className="portal-side-toggle shrink-0"
               title={sidebarMinimized ? 'Perluas Sidebar' : 'Kecilkan Sidebar'}
               aria-label={sidebarMinimized ? 'Perluas Sidebar' : 'Kecilkan Sidebar'}
             >
@@ -539,7 +619,7 @@ export default function DashboardAdmin() {
             <button
               type="button"
               aria-current={activeTab === 'statistik' ? 'page' : undefined}
-              onClick={() => setActiveTab('statistik')}
+              onClick={() => handlePindahTab('statistik')}
               title="Statistik Platform"
             >
               <BarChart3 className="w-4 h-4 shrink-0" />
@@ -549,7 +629,7 @@ export default function DashboardAdmin() {
             <button
               type="button"
               aria-current={activeTab === 'guru' ? 'page' : undefined}
-              onClick={() => setActiveTab('guru')}
+              onClick={() => handlePindahTab('guru')}
               title="Kelola Akun Guru"
             >
               <Users className="w-4 h-4 shrink-0" />
@@ -559,7 +639,7 @@ export default function DashboardAdmin() {
             <button
               type="button"
               aria-current={activeTab === 'pustaka' ? 'page' : undefined}
-              onClick={() => setActiveTab('pustaka')}
+              onClick={() => handlePindahTab('pustaka')}
               title="Pustaka Resmi"
             >
               <BookOpen className="w-4 h-4 shrink-0" />
@@ -569,7 +649,7 @@ export default function DashboardAdmin() {
             <button
               type="button"
               aria-current={activeTab === 'ai' ? 'page' : undefined}
-              onClick={() => setActiveTab('ai')}
+              onClick={() => handlePindahTab('ai')}
               title="Monitoring AI"
             >
               <Cpu className="w-4 h-4 shrink-0" />
@@ -579,7 +659,7 @@ export default function DashboardAdmin() {
             <button
               type="button"
               aria-current={activeTab === 'log' ? 'page' : undefined}
-              onClick={() => setActiveTab('log')}
+              onClick={() => handlePindahTab('log')}
               title="Log Audit"
             >
               <History className="w-4 h-4 shrink-0" />
@@ -589,7 +669,7 @@ export default function DashboardAdmin() {
             <button
               type="button"
               aria-current={activeTab === 'profil' ? 'page' : undefined}
-              onClick={() => setActiveTab('profil')}
+              onClick={() => handlePindahTab('profil')}
               title="Profil Admin"
             >
               <UserIcon className="w-4 h-4 shrink-0" />
@@ -653,14 +733,7 @@ export default function DashboardAdmin() {
             )}
           </header>
 
-          {/* Notifikasi Sukses / Error */}
-          {suksesPesan && (
-            <div className="portal-banner success mb-5">
-              <CheckCircle2 className="w-5 h-5 shrink-0 text-[#245039]" />
-              <span className="font-bold text-[#1d3b2e]">{suksesPesan}</span>
-            </div>
-          )}
-
+          {/* Notifikasi Error */}
           {errorPesan && (
             <div className="portal-banner error mb-5">
               <AlertTriangle className="w-5 h-5 shrink-0 text-[#c8362f]" />
@@ -683,19 +756,6 @@ export default function DashboardAdmin() {
               {/* ========================================================= */}
               {activeTab === 'statistik' && statistik && (
                 <div className="space-y-6">
-                  {/* Banner Privasi & Akuntabilitas */}
-                  <div className="portal-banner info">
-                    <Shield className="w-6 h-6 text-[#f2c230] shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-bold text-[#f4ecd8] text-sm mb-1">
-                        Privasi Terisolasi Sesuai UU PDP No. 27 Tahun 2022:
-                      </p>
-                      <p className="text-xs text-[#cfd9c3] leading-relaxed">
-                        Sebagai pengelola platform, administrator hanya memiliki akses ke angka statistik agregat. Isi papan tulis guru, template privat, hasil sesi, serta identitas siswa diisolasi secara permanen dan tidak dapat diakses siapapun.
-                      </p>
-                    </div>
-                  </div>
-
                   {/* 4 Kartu Ringkasan Metrik (Ala Papan Tulis Kapur) */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="portal-over flex flex-col justify-between">
@@ -743,42 +803,132 @@ export default function DashboardAdmin() {
                     </div>
                   </div>
 
-                  {/* Grafik 7 Hari Terakhir bergaya Papan Tulis */}
-                  <div className="portal-over space-y-4">
-                    <div className="flex items-center justify-between">
+                  {/* Grafik Sesi Game Selesai (.over) dengan Filter Rentang Waktu Seperti Guru */}
+                  <article className="portal-over">
+                    <div className="hd flex items-center justify-between pb-2">
                       <div>
-                        <h2 className="portal-cv text-2xl text-[#f4ecd8]">
-                          Aktivitas Pembelajaran 7 Hari Terakhir
-                        </h2>
+                        <h2 className="portal-cv text-2xl text-[#f4ecd8]">Sesi Game Selesai</h2>
                         <p className="text-xs text-[#cfd9c3]">
-                          Agregat jumlah sesi kuis game yang diselesaikan di kelas per hari
+                          {rangeMode === 'Bulanan'
+                            ? 'Agregat sesi game per bulan di tahun berjalan'
+                            : rangeMode === 'Mingguan'
+                            ? 'Agregat sesi game per hari di minggu berjalan'
+                            : 'Agregat sesi game 7 hari terakhir'}
                         </p>
                       </div>
-                      <Calendar className="w-5 h-5 text-[#f2c230]" />
+
+                      {/* Custom Dropdown Filter Interaktif: Bulanan / Mingguan / Harian */}
+                      <div className="relative" ref={rangeDropdownRef}>
+                        <button
+                          type="button"
+                          className="portal-sel"
+                          onClick={() => setRangeDropdownOpen((prev) => !prev)}
+                          aria-haspopup="listbox"
+                          aria-expanded={rangeDropdownOpen}
+                          title="Pilih filter rentang waktu grafik"
+                        >
+                          <span>{rangeMode}</span>
+                          <ChevronDown
+                            className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                              rangeDropdownOpen ? 'rotate-180' : ''
+                            }`}
+                          />
+                        </button>
+
+                        {rangeDropdownOpen && (
+                          <div className="portal-dropdown-menu">
+                            {(['Bulanan', 'Mingguan', 'Harian'] as const).map((mode) => (
+                              <button
+                                key={mode}
+                                type="button"
+                                onClick={() => {
+                                  setRangeMode(mode);
+                                  setRangeDropdownOpen(false);
+                                }}
+                                className={`portal-dropdown-item ${rangeMode === mode ? 'active' : ''}`}
+                              >
+                                <span>{mode}</span>
+                                {rangeMode === mode && <Check className="w-3.5 h-3.5 text-[#f2c230]" />}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-7 gap-3 pt-6 items-end h-48 border-b-2 border-dashed border-[#f4ecd8]/30 pb-3">
-                      {statistik.grafikAktivitas?.map((item: any) => {
-                        const maxJumlah = Math.max(
-                          ...statistik.grafikAktivitas.map((g: any) => g.jumlah),
-                          5
-                        );
-                        const heightPercent = Math.max(14, Math.round((item.jumlah / maxJumlah) * 100));
-                        return (
-                          <div key={item.tanggal} className="flex flex-col items-center gap-2 h-full justify-end">
-                            <span className="portal-cv text-lg text-[#f4ecd8]">{item.jumlah}</span>
-                            <div
-                              style={{ height: `${heightPercent}%` }}
-                              className="w-full max-w-[44px] rounded-t-lg bg-gradient-to-t from-[#a6783c] via-[#f2c230] to-[#f4ecd8] shadow-sm transition-all"
-                            />
-                            <span className="text-[11px] font-bold text-[#cfd9c3] truncate max-w-full">
-                              {item.tanggal.slice(5)}
-                            </span>
-                          </div>
-                        );
-                      })}
+                    <div className="portal-chart-box">
+                      {/* Tooltip Angka Sesi Dinamis */}
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: '2px',
+                          left: `${Math.min(Math.max((curX / W) * 100, 8), 92)}%`,
+                          transform: 'translateX(-50%)',
+                          background: '#f4ecd8',
+                          color: '#1d3b2e',
+                          borderRadius: '9px',
+                          padding: '4px 10px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          whiteSpace: 'nowrap',
+                          boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                          transition: 'left 0.3s ease',
+                        }}
+                      >
+                        <b style={{ display: 'block', fontSize: '15px' }}>
+                          {chartValues[chartCurrentIdx] || 0} Sesi
+                        </b>
+                        {rangeMode === 'Bulanan'
+                          ? 'Bulan Ini'
+                          : rangeMode === 'Mingguan'
+                          ? 'Hari Ini'
+                          : 'Hari Terakhir'}
+                      </div>
+
+                      <svg viewBox="0 0 400 130" preserveAspectRatio="none" role="img" aria-label="Grafik sesi game selesai">
+                        <defs>
+                          <linearGradient id="portal-admin-g" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0" stopColor="#f4ecd8" stopOpacity=".3" />
+                            <stop offset="1" stopColor="#f4ecd8" stopOpacity="0" />
+                          </linearGradient>
+                        </defs>
+                        {/* Area fill */}
+                        <path d={areaPath} fill="url(#portal-admin-g)" />
+                        {/* Band vertical marker */}
+                        <line
+                          x1={curX}
+                          x2={curX}
+                          y1="0"
+                          y2="130"
+                          stroke="#f4ecd8"
+                          strokeOpacity=".25"
+                          strokeWidth="14"
+                        />
+                        {/* Yellow chalk curve */}
+                        <path
+                          d={curvePath}
+                          fill="none"
+                          stroke="#f2c230"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                        />
+                        {/* Yellow dot with white stroke */}
+                        <circle cx={curX} cy={curY} r="6" fill="#f2c230" stroke="#f4ecd8" strokeWidth="2" />
+                      </svg>
                     </div>
-                  </div>
+
+                    {/* Barisan Bulan / Hari */}
+                    <div className="portal-months">
+                      {chartLabels.map((label, idx) => (
+                        <span
+                          key={`${label}-${idx}`}
+                          className={idx === chartCurrentIdx ? 'cur' : undefined}
+                        >
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                  </article>
                 </div>
               )}
 
@@ -787,6 +937,13 @@ export default function DashboardAdmin() {
               {/* ========================================================= */}
               {activeTab === 'guru' && (
                 <div className="space-y-5">
+                  {suksesPesan && (
+                    <div className="portal-banner success">
+                      <CheckCircle2 className="w-5 h-5 shrink-0 text-[#245039]" />
+                      <span className="font-bold text-[#1d3b2e]">{suksesPesan}</span>
+                    </div>
+                  )}
+
                   {/* Form Pencarian Bergaya Kapur */}
                   <form onSubmit={handleCariGuru} className="flex items-center gap-3">
                     <div className="portal-srch flex-1">
@@ -905,6 +1062,13 @@ export default function DashboardAdmin() {
               {/* ========================================================= */}
               {activeTab === 'pustaka' && (
                 <div className="space-y-5">
+                  {suksesPesan && (
+                    <div className="portal-banner success">
+                      <CheckCircle2 className="w-5 h-5 shrink-0 text-[#245039]" />
+                      <span className="font-bold text-[#1d3b2e]">{suksesPesan}</span>
+                    </div>
+                  )}
+
                   {daftarPustaka.length === 0 ? (
                     <div className="portal-over text-center py-12 px-4 space-y-3">
                       <h2 className="portal-cv text-2xl text-[#f4ecd8]">Belum Ada Template Resmi Tersimpan</h2>
