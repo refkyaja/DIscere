@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS public.questions (
   "jawabanBenar" TEXT NOT NULL,
   penjelasan TEXT,
   "dibuatAi" BOOLEAN NOT NULL DEFAULT false,
+  kesulitan TEXT NOT NULL DEFAULT 'sedang',
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -90,6 +91,7 @@ CREATE TABLE IF NOT EXISTS public.session_players (
   id TEXT PRIMARY KEY,
   "sessionId" TEXT NOT NULL REFERENCES public.sessions(id) ON DELETE CASCADE,
   nama TEXT NOT NULL,
+  tim TEXT,
   posisi INTEGER NOT NULL DEFAULT 0,
   keseimbangan INTEGER NOT NULL DEFAULT 100,
   "jumlahJatuh" INTEGER NOT NULL DEFAULT 0,
