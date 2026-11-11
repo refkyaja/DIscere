@@ -94,6 +94,7 @@ interface SesiSoloDetail {
     powerUpAktif: boolean;
     namaTim1: string;
     namaTim2: string;
+    batasMenang?: number;
   };
   nomorRonde: number;
   taliPosition: number;
@@ -731,9 +732,10 @@ export default function LayarHostSolo() {
           </div>
         )}
 
-        {/* Arena Visualisasi Tali (-100 .. +100) */}
+        {/* Arena Visualisasi Tali */}
         <VisualisasiTali
           posisi={sesi.taliPosition}
+          batasMenang={sesi.config.batasMenang ?? 100}
           skorMerah={sesi.skorMerah}
           skorPutih={sesi.skorPutih}
           namaTim1={sesi.config.namaTim1}

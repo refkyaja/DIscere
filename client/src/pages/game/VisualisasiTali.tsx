@@ -3,7 +3,8 @@ import { Flame, Flag, Sparkles, Users } from 'lucide-react';
 import KarakterTarikTambang, { EkspresiTarikTambang } from '../siswa/KarakterTarikTambang';
 
 interface VisualisasiTaliProps {
-  posisi: number; // -100 hingga +100 (+ = Tim 1 Merah Kiri, - = Tim 2 Biru Kanan)
+  posisi: number; // -batasMenang hingga +batasMenang (+ = Tim 1 Merah Kiri, - = Tim 2 Biru Kanan)
+  batasMenang?: number;
   skorMerah?: number;
   skorPutih?: number;
   namaTim1?: string;
@@ -32,6 +33,7 @@ const LABEL_POWERUP: Record<string, string> = {
 
 export const VisualisasiTali: React.FC<VisualisasiTaliProps> = ({
   posisi,
+  batasMenang = 100,
   skorMerah = 0,
   skorPutih = 0,
   namaTim1 = 'Tim Merah',
@@ -48,15 +50,34 @@ export const VisualisasiTali: React.FC<VisualisasiTaliProps> = ({
   powerUpTim2Aktif,
 }) => {
   const isChalk = theme === 'chalk';
-  // Batasi posisi dalam rentang [-100, +100]
-  const clampedPosisi = Math.max(-100, Math.min(100, Math.round(posisi)));
+  const batas = Math.max(10, Math.min(100, Math.round(batasMenang || 100)));
+  // Batasi posisi dalam rentang [-batas, +batas]
+  const clampedPosisi = Math.max(-batas, Math.min(batas, Math.round(posisi)));
 
-  // Kiri (+100 Tim 1 Merah) -> 0%, Tengah (0) -> 50%, Kanan (-100 Tim 2 Biru) -> 100%
-  const persentase = ((100 - clampedPosisi) / 200) * 100;
+  // Kiri (+batas Tim 1 Merah) -> 0%, Tengah (0) -> 50%, Kanan (-batas Tim 2 Biru) -> 100%
+  const persentase = ((batas - clampedPosisi) / (batas * 2)) * 100;
   // Pergeseran fisik karakter seirama dengan tarikan: + geser kiri, - geser kanan
-  const shiftPx = Math.round((-clampedPosisi / 100) * 28);
+  const shiftPx = Math.round((-clampedPosisi / batas) * 28);
 
-  const skala = [100, 75, 50, 25, 0, -25, -50, -75, -100];
+  let skala: number[];
+  if (batas === 100) {
+    skala = [100, 75, 50, 25, 0, -25, -50, -75, -100];
+  } else if (batas === 75) {
+    skala = [75, 50, 25, 0, -25, -50, -75];
+  } else if (batas === 50) {
+    skala = [50, 25, 0, -25, -50];
+  } else if (batas % 4 === 0) {
+    const q1 = batas / 4;
+    skala = [batas, batas - q1, q1 * 2, q1, 0, -q1, -(q1 * 2), -(batas - q1), -batas];
+  } else {
+    const half = Math.round(batas / 2);
+    skala = [batas, half, 0, -half, -batas];
+  }
+
+  const stepSkala = skala.length >= 2 ? Math.abs(skala[0] - skala[1]) : batas;
+  const isCurrentTolerance = Math.max(2, Math.ceil(stepSkala * 0.5));
+  const thresholdBahagia = Math.max(5, Math.round(batas * 0.2));
+  const thresholdSedih = Math.max(5, Math.round(batas * 0.25));
 
   const ekspresiMerah: EkspresiTarikTambang = pemenang
     ? pemenang === 'merah'
@@ -68,9 +89,9 @@ export const VisualisasiTali: React.FC<VisualisasiTaliProps> = ({
     ? reaksiTim.merah
     : timAktif === 'merah'
     ? 'semangat'
-    : clampedPosisi >= 20
+    : clampedPosisi >= thresholdBahagia
     ? 'bahagia'
-    : clampedPosisi <= -25
+    : clampedPosisi <= -thresholdSedih
     ? 'sedih'
     : 'netral';
 
@@ -84,9 +105,9 @@ export const VisualisasiTali: React.FC<VisualisasiTaliProps> = ({
     ? reaksiTim.putih
     : timAktif === 'putih'
     ? 'semangat'
-    : clampedPosisi <= -20
+    : clampedPosisi <= -thresholdBahagia
     ? 'bahagia'
-    : clampedPosisi >= 25
+    : clampedPosisi >= thresholdSedih
     ? 'sedih'
     : 'netral';
 
@@ -153,10 +174,10 @@ export const VisualisasiTali: React.FC<VisualisasiTaliProps> = ({
           </div>
         </div>
 
-        {/* Indikator Posisi Tengah [-100 .. +100] */}
+        {/* Indikator Posisi Tengah [-batas .. +batas] */}
         <div className="text-center mx-auto sm:mx-0">
           <div className={`text-[11px] font-bold uppercase tracking-wider mb-0.5 ${isChalk ? 'text-[#6b7d6c]' : 'text-slate-400'}`}>
-            Posisi Tali (Skala -100..+100)
+            Posisi Tali (Skala -{batas}..+{batas})
           </div>
           <div className={`text-xl sm:text-3xl font-black ${isChalk ? 'text-[#1d3b2e]' : 'text-slate-800 dark:text-slate-100'}`}>
             {clampedPosisi === 0 ? (
@@ -235,9 +256,9 @@ export const VisualisasiTali: React.FC<VisualisasiTaliProps> = ({
       >
         {/* Label Batas Wilayah Kemenangan */}
         <div className={`flex justify-between text-[11px] sm:text-xs font-extrabold mb-1 ${isChalk ? 'text-[#6b7d6c]' : 'text-slate-400'}`}>
-          <span className="text-[#c8362f]">Menang {namaTim1} (+100)</span>
+          <span className="text-[#c8362f]">Menang {namaTim1} (+{batas})</span>
           <span className={isChalk ? 'text-[#1d3b2e]' : 'text-slate-300'}>Tengah (0)</span>
-          <span className="text-[#2563eb]">Menang {namaTim2} (-100)</span>
+          <span className="text-[#2563eb]">Menang {namaTim2} (-{batas})</span>
         </div>
 
         {/* Visualisasi Karakter Tim 1 Merah (Kiri) & Tim 2 Biru (Kanan) */}
@@ -356,7 +377,9 @@ export const VisualisasiTali: React.FC<VisualisasiTaliProps> = ({
             const isMerah = val > 0;
             const isCurrent =
               val === clampedPosisi ||
-              (val !== 0 && Math.abs(val - clampedPosisi) < 13 && Math.sign(val) === Math.sign(clampedPosisi));
+              (val !== 0 &&
+                Math.abs(val - clampedPosisi) < isCurrentTolerance &&
+                Math.sign(val) === Math.sign(clampedPosisi));
             return (
               <div key={val} className="flex flex-col items-center">
                 <div

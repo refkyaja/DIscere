@@ -4,6 +4,7 @@ import { Modal } from '../../components';
 import {
   AlertTriangle,
   Clock,
+  Flag,
   Flame,
   Loader2,
   Monitor,
@@ -24,6 +25,7 @@ export interface KonfigurasiTarikTambangPayload {
   namaTim1: string;
   namaTim2: string;
   maxPeserta: number;
+  batasMenang: number;
 }
 
 interface ModalKonfigurasiTarikTambangProps {
@@ -60,6 +62,8 @@ export default function ModalKonfigurasiTarikTambang({
   const [namaTim1, setNamaTim1] = useState<string>('Tim Merah');
   const [namaTim2, setNamaTim2] = useState<string>('Tim Biru');
   const [maxPeserta, setMaxPeserta] = useState<number>(60);
+  const [batasMenang, setBatasMenang] = useState<number>(100);
+  const [batasInput, setBatasInput] = useState<string>('100');
 
   const [questions, setQuestions] = useState<Array<{ kesulitan?: string | null }>>([]);
   const [loadingDetail, setLoadingDetail] = useState<boolean>(false);
@@ -110,10 +114,18 @@ export default function ModalKonfigurasiTarikTambang({
   const soalSetaraTerpilih = countsPerKesulitan[kesulitan];
   const cukupSoal = questions.length === 0 ? totalSoal >= 2 : soalSetaraTerpilih >= 2;
   const timValid = namaTim1.trim().length >= 2 && namaTim2.trim().length >= 2;
+  const parsedBatas = Number(batasInput);
+  const batasValid =
+    Number.isInteger(parsedBatas) && parsedBatas >= 10 && parsedBatas <= 100;
+
+  const pilihPresetBatas = (nilai: number) => {
+    setBatasMenang(nilai);
+    setBatasInput(String(nilai));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!cukupSoal || !timValid || loading) return;
+    if (!cukupSoal || !timValid || !batasValid || loading) return;
     onMulai({
       sumberSoal: 'bank_soal',
       kesulitan,
@@ -123,6 +135,7 @@ export default function ModalKonfigurasiTarikTambang({
       namaTim1: namaTim1.trim() || 'Tim Merah',
       namaTim2: namaTim2.trim() || 'Tim Biru',
       maxPeserta: templateMode === 'multi' ? maxPeserta : 2,
+      batasMenang: parsedBatas,
     });
   };
 
@@ -251,6 +264,66 @@ export default function ModalKonfigurasiTarikTambang({
           </div>
         </div>
 
+        {/* Batasan Poin Kemenangan */}
+        <div>
+          <label className="block text-xs font-extrabold uppercase tracking-wider text-[#1d3b2e] mb-1.5 flex items-center gap-1.5">
+            <Flag className="w-3.5 h-3.5 text-[#c8362f]" />
+            <span>Batasan Menang (Target Posisi Tali)</span>
+          </label>
+          <div className="grid grid-cols-4 gap-2 mb-2">
+            {([
+              { val: 25, ket: 'Kilat' },
+              { val: 50, ket: 'Cepat' },
+              { val: 75, ket: 'Sedang' },
+              { val: 100, ket: 'Klasik' },
+            ] as const).map((opsi) => {
+              const active = batasMenang === opsi.val && parsedBatas === opsi.val;
+              return (
+                <button
+                  key={opsi.val}
+                  type="button"
+                  onClick={() => pilihPresetBatas(opsi.val)}
+                  className={`py-2 px-2 rounded-xl border-2 text-xs font-black transition-all ${
+                    active
+                      ? 'bg-[#c8362f] text-white border-[#961e19]'
+                      : 'bg-white text-[#1d3b2e] border-[#d6c8a4] hover:bg-[#f4ecd9]'
+                  }`}
+                >
+                  <span>±{opsi.val}</span>
+                  <span className="block text-[10px] font-bold opacity-85">{opsi.ket}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-[#f4ecd9] border border-[#d6c8a4]">
+            <span className="text-xs font-bold text-[#1d3b2e]">
+              Atur sendiri (10–100 poin):
+            </span>
+            <input
+              type="number"
+              min={10}
+              max={100}
+              step={1}
+              value={batasInput}
+              onChange={(e) => {
+                const val = e.target.value;
+                setBatasInput(val);
+                const num = Number(val);
+                if (Number.isInteger(num) && num >= 10 && num <= 100) {
+                  setBatasMenang(num);
+                }
+              }}
+              aria-label="Batasan menang kustom"
+              className="w-24 px-2.5 py-1 rounded-lg bg-white border-2 border-[#b45309] text-xs font-black text-center text-[#1d3b2e]"
+            />
+          </div>
+          <p className="mt-1 text-[11px] font-semibold text-[#6b7d6c]">
+            {batasValid
+              ? `Game langsung berakhir menang jika ${namaTim1.trim() || 'Tim 1'} mencapai +${parsedBatas} atau ${namaTim2.trim() || 'Tim 2'} mencapai -${parsedBatas}.`
+              : 'Masukkan bilangan bulat antara 10 sampai 100 poin.'}
+          </p>
+        </div>
+
         {/* Toggle Bonus & Power-Up */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label className="flex items-start gap-2.5 p-3 rounded-xl bg-[#f4ecd9] border border-[#d6c8a4] cursor-pointer">
@@ -315,7 +388,7 @@ export default function ModalKonfigurasiTarikTambang({
           </button>
           <button
             type="submit"
-            disabled={!cukupSoal || !timValid || loading || loadingDetail}
+            disabled={!cukupSoal || !timValid || !batasValid || loading || loadingDetail}
             className="portal-btn red sm inline-flex items-center gap-1.5 disabled:opacity-50"
           >
             {loading ? (

@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 export interface ModalProps {
@@ -48,7 +49,7 @@ export function Modal({
 
   const isChalk = variant === 'chalk';
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -94,6 +95,7 @@ export function Modal({
         </div>
         <div className="p-6">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

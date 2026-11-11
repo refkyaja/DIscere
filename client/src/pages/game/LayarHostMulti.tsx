@@ -82,7 +82,7 @@ interface HasilRondeMulti {
 interface HasilAkhirMulti {
   sessionId: string;
   timMenang: 'merah' | 'putih' | 'seri';
-  konfigurasi?: { namaTim1?: string; namaTim2?: string };
+  konfigurasi?: { namaTim1?: string; namaTim2?: string; batasMenang?: number };
   namaTim1?: string;
   namaTim2?: string;
   posisiAkhir: number;
@@ -116,6 +116,7 @@ interface ConfigTarikMulti {
   namaTim1: string;
   namaTim2: string;
   maxPeserta: number;
+  batasMenang?: number;
 }
 
 const DEFAULT_CONFIG: ConfigTarikMulti = {
@@ -126,6 +127,7 @@ const DEFAULT_CONFIG: ConfigTarikMulti = {
   namaTim1: 'Tim Merah',
   namaTim2: 'Tim Biru',
   maxPeserta: 60,
+  batasMenang: 100,
 };
 
 function formatDurasi(ms?: number): string {
@@ -522,6 +524,7 @@ export default function LayarHostMulti() {
 
           <VisualisasiTali
             posisi={hasilAkhir.posisiAkhir}
+            batasMenang={hasilAkhir.konfigurasi?.batasMenang ?? config.batasMenang ?? 100}
             skorMerah={hasilAkhir.skorMerah}
             skorPutih={hasilAkhir.skorPutih}
             namaTim1={namaTim1}
@@ -767,6 +770,7 @@ export default function LayarHostMulti() {
               <div className="p-3 rounded-xl bg-[#f4ecd9] text-[11px] font-bold text-[#4a6252] text-left space-y-1">
                 <div>• Kesulitan: {config.kesulitan.toUpperCase()}</div>
                 <div>• Timer Ronde: {config.durasiRonde} detik</div>
+                <div>• Batasan Menang: ±{config.batasMenang ?? 100} poin</div>
                 <div>• Bonus Streak &amp; Kekompakan: {config.bonusAktif ? 'Aktif' : 'Nonaktif'}</div>
                 <div>• Power-Up Tim: {config.powerUpAktif ? 'Aktif' : 'Nonaktif'}</div>
               </div>
@@ -876,6 +880,7 @@ export default function LayarHostMulti() {
           <div className="space-y-5">
             <VisualisasiTali
               posisi={taliPosition}
+              batasMenang={config.batasMenang ?? 100}
               skorMerah={skorMerah}
               skorPutih={skorPutih}
               namaTim1={config.namaTim1}

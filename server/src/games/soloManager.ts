@@ -412,6 +412,7 @@ function evaluasiDanTutupRondeInternal(sesi: ActiveSoloSession): {
     bonusAktif: sesi.config.bonusAktif,
     powerUpTim1Aktif: ronde.powerUpTim1Dipakai,
     powerUpTim2Aktif: ronde.powerUpTim2Dipakai,
+    batasMenang: sesi.config.batasMenang,
   });
 
   sesi.taliPosition = evalRonde.posisiBaru;
@@ -452,7 +453,7 @@ function evaluasiDanTutupRondeInternal(sesi: ActiveSoloSession): {
   catatStatSoalDanLog(sesi, ronde.nomorRonde, 'merah', ronde.soalTim1, j1, res1.benar, evalRonde.posisiBaru);
   catatStatSoalDanLog(sesi, ronde.nomorRonde, 'putih', ronde.soalTim2, j2, res2.benar, evalRonde.posisiBaru);
 
-  const selesai = cekKondisiSelesai(evalRonde.posisiBaru);
+  const selesai = cekKondisiSelesai(evalRonde.posisiBaru, sesi.config.batasMenang);
   if (selesai) {
     sesi.state = 'FINISHED';
     sesi.waktuSelesaiMs = Date.now();

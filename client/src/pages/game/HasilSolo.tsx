@@ -34,7 +34,7 @@ interface HasilTarikLaporan {
   playMode?: 'SOLO' | 'MULTIPLAYER';
   templateJudul: string;
   templateId: string;
-  konfigurasi?: { namaTim1?: string; namaTim2?: string };
+  konfigurasi?: { namaTim1?: string; namaTim2?: string; batasMenang?: number };
   timMenang: 'merah' | 'putih' | 'seri';
   namaTim1?: string;
   namaTim2?: string;
@@ -141,6 +141,7 @@ export default function HasilSolo() {
 
   const namaTim1 = hasil.konfigurasi?.namaTim1 || hasil.namaTim1 || 'Tim Merah';
   const namaTim2 = hasil.konfigurasi?.namaTim2 || hasil.namaTim2 || 'Tim Biru';
+  const batasMenang = hasil.konfigurasi?.batasMenang ?? 100;
   const akurasi1 = hasil.akurasiTim1 ?? hasil.akurasiTim1Persen ?? 0;
   const akurasi2 = hasil.akurasiTim2 ?? hasil.akurasiTim2Persen ?? 0;
   const streak1 = hasil.totalBonusStreakTim1 ?? hasil.bonusStreakTim1 ?? 0;
@@ -179,8 +180,8 @@ export default function HasilSolo() {
               <h1 className="portal-cv text-4xl sm:text-5xl text-white">{labelPemenang}</h1>
               <p className="text-sm sm:text-base font-bold opacity-90 mt-1">
                 {hasil.templateJudul} • Posisi Akhir Tali:{' '}
-                {hasil.posisiAkhir > 0 ? `+${hasil.posisiAkhir}` : hasil.posisiAkhir} (Skala
-                -100..+100)
+                {hasil.posisiAkhir > 0 ? `+${hasil.posisiAkhir}` : hasil.posisiAkhir} (Skala -
+                {batasMenang}..+{batasMenang})
               </p>
             </div>
 
@@ -218,6 +219,7 @@ export default function HasilSolo() {
         {/* Arena Posisi Tali Akhir */}
         <VisualisasiTali
           posisi={hasil.posisiAkhir}
+          batasMenang={batasMenang}
           skorMerah={hasil.skorMerah}
           skorPutih={hasil.skorPutih}
           namaTim1={namaTim1}

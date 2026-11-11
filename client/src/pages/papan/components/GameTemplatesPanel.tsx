@@ -8,6 +8,9 @@ import {
   USE_MOCK_TEMPLATE_FALLBACK,
 } from '../mock-template';
 import { ClassToolsView } from './ClassToolsView';
+import ModalKonfigurasiTarikTambang, {
+  KonfigurasiTarikTambangPayload,
+} from '../../guru/ModalKonfigurasiTarikTambang';
 
 export interface GameTemplatesPanelProps {
   isOpen: boolean;
@@ -102,6 +105,8 @@ export function GameTemplatesPanel({
   const [templatesPustaka, setTemplatesPustaka] = useState<GameTemplateItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [startingId, setStartingId] = useState<string | null>(null);
+  const [modalTarikTemplate, setModalTarikTemplate] = useState<GameTemplateItem | null>(null);
+  const [tarikCreating, setTarikCreating] = useState(false);
 
   // Ambil daftar template dari server saat panel dibuka
   useEffect(() => {
@@ -184,6 +189,13 @@ export function GameTemplatesPanel({
         return;
       }
 
+      // 1c. Bila game adalah Tarik Tambang, buka modal pengaturan sebelum mulai
+      if (template.game === 'tarik_tambang') {
+        setStartingId(null);
+        setModalTarikTemplate(template);
+        return;
+      }
+
       // 2. Buat sesi di server (Solo / Multiplayer mengikuti template.mode)
       const res = await apiRequest<{ session: { id: string } }>('/sesi', {
         method: 'POST',
@@ -223,7 +235,39 @@ export function GameTemplatesPanel({
     }
   };
 
+  const handleKonfirmasiTarik = async (config: KonfigurasiTarikTambangPayload) => {
+    if (!modalTarikTemplate) return;
+    setTarikCreating(true);
+    try {
+      const isMulti = modalTarikTemplate.mode === 'multi';
+      const res = await apiRequest<{ session: { id: string } }>('/sesi', {
+        method: 'POST',
+        body: JSON.stringify({
+          templateId: modalTarikTemplate.id,
+          mode: modalTarikTemplate.mode,
+          playMode: isMulti ? 'MULTIPLAYER' : 'SOLO',
+          autoStart: !isMulti,
+          game: 'tarik_tambang',
+          tarikTambangConfig: config,
+        }),
+      });
+      const sessionId = res?.session?.id;
+      if (sessionId) {
+        setModalTarikTemplate(null);
+        onToast('Sesi Tarik Tambang berhasil dimulai!');
+        navigate(`/guru/sesi/${sessionId}?kembali=/papan/${boardId}`);
+      } else {
+        throw new Error('Sesi gagal dibuat.');
+      }
+    } catch (err: any) {
+      onToast(`Gagal memulai sesi: ${err.pesan || err.message || 'Terjadi kesalahan'}`);
+    } finally {
+      setTarikCreating(false);
+    }
+  };
+
   return (
+    <>
     <aside
       id="qz"
       className={`pn game-template-panel ${isOpen ? 'open' : ''}`}
@@ -464,5 +508,17 @@ export function GameTemplatesPanel({
       </div>
       )}
     </aside>
+
+    <ModalKonfigurasiTarikTambang
+      isOpen={Boolean(modalTarikTemplate)}
+      onClose={() => setModalTarikTemplate(null)}
+      templateId={modalTarikTemplate?.id || ''}
+      templateJudul={modalTarikTemplate?.judul || ''}
+      templateMode={modalTarikTemplate?.mode || 'solo'}
+      totalSoal={modalTarikTemplate?.questionsCount || 0}
+      onMulai={handleKonfirmasiTarik}
+      loading={tarikCreating}
+    />
+    </>
   );
 }

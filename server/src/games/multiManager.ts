@@ -904,6 +904,7 @@ export const multiManager = {
       bonusAktif: sesi.config.bonusAktif,
       powerUpTim1Aktif: ronde.powerUpTim1Dipakai,
       powerUpTim2Aktif: ronde.powerUpTim2Dipakai,
+      batasMenang: sesi.config.batasMenang,
     });
 
     sesi.taliPosition = evalRonde.posisiBaru;
@@ -964,7 +965,7 @@ export const multiManager = {
       perubahan: evalRonde.perubahanTali,
     });
 
-    const isGameFinished = cekKondisiSelesai(evalRonde.posisiBaru);
+    const isGameFinished = cekKondisiSelesai(evalRonde.posisiBaru, sesi.config.batasMenang);
     if (isGameFinished) {
       this.akhiriPermainan(sessionId);
     }

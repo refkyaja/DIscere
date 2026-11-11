@@ -40,7 +40,7 @@ interface SoalData {
 
 interface SelesaiResult {
   timMenang: 'merah' | 'putih' | 'seri';
-  konfigurasi?: { namaTim1?: string; namaTim2?: string };
+  konfigurasi?: { namaTim1?: string; namaTim2?: string; batasMenang?: number };
   namaTim1?: string;
   namaTim2?: string;
   posisiAkhir: number;
@@ -96,12 +96,14 @@ export default function MainSiswa() {
     durasiRonde: number;
     bonusAktif: boolean;
     powerUpAktif: boolean;
+    batasMenang?: number;
   }>({
     namaTim1: 'Tim Merah',
     namaTim2: 'Tim Biru',
     durasiRonde: 20,
     bonusAktif: true,
     powerUpAktif: true,
+    batasMenang: 100,
   });
   const [powerUpTim, setPowerUpTim] = useState<{
     bank: string | null;
@@ -1417,8 +1419,9 @@ export default function MainSiswa() {
     const selectedTeamColor = isMerah
       ? 'bg-[#c8362f] border-[#8f1e19]'
       : 'bg-[#2563eb] border-[#1e3a8a]';
-    const clampPos = Math.max(-100, Math.min(100, taliPosition));
-    const ropePersen = Math.max(0, Math.min(100, ((100 - clampPos) / 200) * 100));
+    const batasMenang = Math.max(10, Math.min(100, Math.round(tarikConfig.batasMenang ?? 100)));
+    const clampPos = Math.max(-batasMenang, Math.min(batasMenang, taliPosition));
+    const ropePersen = Math.max(0, Math.min(100, ((batasMenang - clampPos) / (batasMenang * 2)) * 100));
     const durasiTotal = soalAktif?.duration || tarikConfig.durasiRonde || 20;
 
     return (
@@ -1519,7 +1522,7 @@ export default function MainSiswa() {
             )}
           </header>
 
-          {/* Mini Bar Posisi Tali Live (-100 .. +100) */}
+          {/* Mini Bar Posisi Tali Live */}
           <div className="portal-card rounded-2xl px-4 py-2.5 border-2 border-[#e0d5b8] shadow-xs">
             <div className="flex justify-between items-center text-xs font-extrabold mb-1">
               <span className="text-[#c8362f]">
@@ -1530,7 +1533,8 @@ export default function MainSiswa() {
                   ? `${tarikConfig.namaTim1} +${taliPosition}`
                   : taliPosition < 0
                   ? `${tarikConfig.namaTim2} ${taliPosition}`
-                  : 'Seimbang (0)'}
+                  : 'Seimbang (0)'}{' '}
+                <span className="text-[10px] opacity-75">(±{batasMenang})</span>
               </span>
               <span className="text-[#2563eb]">
                 {tarikConfig.namaTim2}: {skorPutih}

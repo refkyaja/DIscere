@@ -15,8 +15,11 @@ export type KesulitanSoalTarik = 'mudah' | 'sedang' | 'sulit';
 export type JenisPowerUpTarik = 'semangat_tim' | 'pertahanan_kuat' | 'tarikan_super';
 
 export const POSISI_AWAL_TALI = 0;
-export const BATAS_MIN_TALI = -100; // Kemenangan Tim 2 (Biru / Kanan)
-export const BATAS_MAX_TALI = 100; // Kemenangan Tim 1 (Merah / Kiri)
+export const BATAS_MIN_TALI = -100; // Kemenangan Tim 2 (Biru / Kanan) maksimal
+export const BATAS_MAX_TALI = 100; // Kemenangan Tim 1 (Merah / Kiri) maksimal
+export const BATAS_MENANG_MIN = 10;
+export const BATAS_MENANG_MAX = 100;
+export const BATAS_MENANG_DEFAULT = 100;
 export const MAKS_GERAK_PER_RONDE = 25;
 export const KONTRIBUSI_DASAR_SOLO = 15;
 
@@ -66,6 +69,12 @@ export const konfigurasiTarikTambangSchema = z.object({
     .max(32, 'Nama Tim 2 maksimal 32 karakter.')
     .default('Tim Biru'),
   maxPeserta: z.number().int().min(2).max(200).default(60),
+  batasMenang: z
+    .number()
+    .int('Batasan menang harus berupa bilangan bulat.')
+    .min(BATAS_MENANG_MIN, `Batasan menang minimal ${BATAS_MENANG_MIN} poin.`)
+    .max(BATAS_MENANG_MAX, `Batasan menang maksimal ${BATAS_MENANG_MAX} poin.`)
+    .default(BATAS_MENANG_DEFAULT),
 });
 
 export interface KonfigurasiTarikTambang {
@@ -77,6 +86,7 @@ export interface KonfigurasiTarikTambang {
   namaTim1: string;
   namaTim2: string;
   maxPeserta: number;
+  batasMenang: number;
 }
 
 export function bangunKonfigurasiTarikTambang(
@@ -92,6 +102,7 @@ export function bangunKonfigurasiTarikTambang(
     namaTim1: parsed.namaTim1,
     namaTim2: parsed.namaTim2,
     maxPeserta: parsed.maxPeserta,
+    batasMenang: parsed.batasMenang,
   };
 }
 
@@ -368,6 +379,13 @@ export function clampTali(nilai: number, min: number = BATAS_MIN_TALI, max: numb
   return Math.max(min, Math.min(max, nilai));
 }
 
+export function normalisasiBatasMenang(batasMenang?: number | null): number {
+  if (typeof batasMenang !== 'number' || !Number.isFinite(batasMenang)) {
+    return BATAS_MENANG_DEFAULT;
+  }
+  return clampTali(Math.round(batasMenang), BATAS_MENANG_MIN, BATAS_MENANG_MAX);
+}
+
 export function hitungAkurasiTim(jumlahBenar: number, jumlahAnggotaAwalRonde: number): number {
   if (jumlahAnggotaAwalRonde <= 0) return 0;
   return Number(((jumlahBenar / jumlahAnggotaAwalRonde) * 100).toFixed(2));
@@ -479,6 +497,7 @@ export interface EvaluasiRondeInput {
   bonusAktif: boolean;
   powerUpTim1Aktif: JenisPowerUpTarik | null;
   powerUpTim2Aktif: JenisPowerUpTarik | null;
+  batasMenang?: number;
 }
 
 export interface EvaluasiRondeOutput {
@@ -560,8 +579,9 @@ export function evaluasiRondeTarikTambang(input: EvaluasiRondeInput): EvaluasiRo
     rawT = setelah;
   }
 
+  const batas = normalisasiBatasMenang(input.batasMenang);
   const perubahanTali = clampTali(Math.round(rawT), -MAKS_GERAK_PER_RONDE, MAKS_GERAK_PER_RONDE);
-  const posisiBaru = clampTali(input.posisiLama + perubahanTali, BATAS_MIN_TALI, BATAS_MAX_TALI);
+  const posisiBaru = clampTali(input.posisiLama + perubahanTali, -batas, batas);
 
   return {
     akurasiTim1,
@@ -589,17 +609,23 @@ export function evaluasiRondeTarikTambang(input: EvaluasiRondeInput): EvaluasiRo
 export function hitungPosisiTali(
   posisiSaatIni: number,
   tim: TimTarikTambang,
-  benar: boolean
+  benar: boolean,
+  batasMenang: number = BATAS_MAX_TALI
 ): number {
   if (!benar) return posisiSaatIni;
+  const batas = normalisasiBatasMenang(batasMenang);
   if (tim === 'merah') {
-    return clampTali(posisiSaatIni + KONTRIBUSI_DASAR_SOLO, BATAS_MIN_TALI, BATAS_MAX_TALI);
+    return clampTali(posisiSaatIni + KONTRIBUSI_DASAR_SOLO, -batas, batas);
   }
-  return clampTali(posisiSaatIni - KONTRIBUSI_DASAR_SOLO, BATAS_MIN_TALI, BATAS_MAX_TALI);
+  return clampTali(posisiSaatIni - KONTRIBUSI_DASAR_SOLO, -batas, batas);
 }
 
-export function cekKondisiSelesai(posisiTali: number): boolean {
-  return posisiTali >= BATAS_MAX_TALI || posisiTali <= BATAS_MIN_TALI;
+export function cekKondisiSelesai(
+  posisiTali: number,
+  batasMenang: number = BATAS_MAX_TALI
+): boolean {
+  const batas = normalisasiBatasMenang(batasMenang);
+  return posisiTali >= batas || posisiTali <= -batas;
 }
 
 /**
