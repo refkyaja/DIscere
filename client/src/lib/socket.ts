@@ -12,11 +12,11 @@ export function getSocket(): Socket {
 
     socket = io(serverUrl, {
       autoConnect: true,
+      withCredentials: true,
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
       transports: ['websocket', 'polling'],
-      withCredentials: true,
     });
   }
 

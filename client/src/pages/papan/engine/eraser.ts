@@ -2,6 +2,23 @@ import { Pt, StrokeObj, CanvasObj } from './types';
 import { bounds, dseg, ew, hit } from './geometry';
 import { shapeStrokes } from './shapes';
 
+/**
+ * Menyederhanakan deretan titik dengan membuang titik yang terlalu berdekatan (< 2px),
+ * mencegah pembengkakan memori dan lag pada WebSocket saat stroke dipotong berkali-kali.
+ */
+function simplifyPts(pts: Pt[]): Pt[] {
+  if (pts.length <= 2) return pts;
+  const out: Pt[] = [pts[0]];
+  for (let i = 1; i < pts.length; i++) {
+    const prev = out[out.length - 1];
+    const curr = pts[i];
+    if (Math.hypot(curr.x - prev.x, curr.y - prev.y) >= 2 || i === pts.length - 1) {
+      out.push(curr);
+    }
+  }
+  return out;
+}
+
 export function cutStroke(
   s: StrokeObj,
   a: Pt,
@@ -9,18 +26,24 @@ export function cutStroke(
   r: number
 ): StrokeObj | StrokeObj[] {
   const P = s.pts;
+  if (!P || P.length < 2) return s;
+
   const D: Pt[] = [];
 
   for (let i = 0; i < P.length; i++) {
     D.push(P[i]);
     const n = P[i + 1];
     if (n) {
-      const k = Math.floor(Math.hypot(n.x - P[i].x, n.y - P[i].y) / 3);
-      for (let j = 1; j <= k; j++) {
-        D.push({
-          x: P[i].x + ((n.x - P[i].x) * j) / (k + 1),
-          y: P[i].y + ((n.y - P[i].y) * j) / (k + 1),
-        });
+      const dist = Math.hypot(n.x - P[i].x, n.y - P[i].y);
+      // Hanya interpolasi jika dua titik berjarak cukup jauh (> 8px)
+      if (dist > 8) {
+        const k = Math.min(Math.floor(dist / 8), 6);
+        for (let j = 1; j <= k; j++) {
+          D.push({
+            x: P[i].x + ((n.x - P[i].x) * j) / (k + 1),
+            y: P[i].y + ((n.y - P[i].y) * j) / (k + 1),
+          });
+        }
       }
     }
   }
@@ -33,7 +56,7 @@ export function cutStroke(
   const mk = (pts: Pt[]): StrokeObj => ({
     ...s,
     id: crypto.randomUUID(),
-    pts,
+    pts: simplifyPts(pts),
   });
 
   D.forEach((p, i) => {

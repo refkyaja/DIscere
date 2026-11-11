@@ -4,9 +4,9 @@ import { Server } from 'socket.io';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
-import os from 'os';
 import cookieParser from 'cookie-parser';
 import { config } from './config.js';
+import { getLocalIp } from './utils/network.js';
 import { authRouter } from './routes/auth.js';
 import { templateRouter } from './routes/template.js';
 import { sesiRouter } from './routes/sesi.js';
@@ -26,6 +26,13 @@ export const io = new Server(server, {
     origin: true,
     credentials: true,
   },
+  connectionStateRecovery: {
+    maxDisconnectionDuration: 2 * 60 * 1000, // 2 menit
+    skipMiddlewares: true,
+  },
+  maxHttpBufferSize: 1e7, // 10 MB (cegah putus koneksi saat operasi grafis/vektor besar)
+  pingTimeout: 60000,     // 60 detik (tahan latensi jaringan)
+  pingInterval: 25000,
 });
 
 app.use(express.json({ limit: '10mb' }));
@@ -82,18 +89,6 @@ if (fs.existsSync(clientDist)) {
 
 // Error handler terpusat
 app.use(errorHandler);
-
-function getLocalIp(): string {
-  const interfaces = os.networkInterfaces();
-  for (const name of Object.keys(interfaces)) {
-    for (const iface of interfaces[name] || []) {
-      if (iface.family === 'IPv4' && !iface.internal) {
-        return iface.address;
-      }
-    }
-  }
-  return 'localhost';
-}
 
 const host = '0.0.0.0';
 server.listen(config.port, host, () => {

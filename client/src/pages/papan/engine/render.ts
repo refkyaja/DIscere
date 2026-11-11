@@ -1,4 +1,4 @@
-import { CanvasObj, BoardView, BoardState, Pt, Bounds, LaserPoint } from './types';
+import { CanvasObj, BoardView, BoardState, Pt, Bounds, LaserPoint, CollaboratorBadge } from './types';
 import { bounds, ew, lines, intersects, wb, hsFor, ubox, connEnds } from './geometry';
 import { up } from './shapes';
 import { fmLay } from './formula';
@@ -256,6 +256,11 @@ export interface DrawSceneParams {
   state: BoardState;
   objs: CanvasObj[];
   cur: CanvasObj | null;
+  remoteLiveStrokes?: CanvasObj[];
+  remoteLiveMovedObjs?: CanvasObj[];
+  remoteLiveEraseRemovedIds?: Set<string>;
+  remoteLiveEraseAddedObjs?: CanvasObj[];
+  collaboratorBadges?: CollaboratorBadge[];
   lasso: Pt[] | null;
   sel: string[] | string | null;
   marq?: Bounds | null;
@@ -273,6 +278,11 @@ export function drawScene({
   state,
   objs,
   cur,
+  remoteLiveStrokes,
+  remoteLiveMovedObjs,
+  remoteLiveEraseRemovedIds,
+  remoteLiveEraseAddedObjs,
+  collaboratorBadges,
   lasso,
   sel,
   marq,
@@ -313,22 +323,46 @@ export function drawScene({
   const vh = height / view.z;
   const viewportBounds = { x: vx0, y: vy0, w: vw, h: vh };
 
+  const movedMap = new Map((remoteLiveMovedObjs || []).map((o) => [o.id, o]));
+
   // Objek kanvas (dengan Viewport Culling agar kanvas besar 500+ objek tetap sangat cepat)
   for (const o of objs) {
-    const b = wb(o);
+    // Sembunyikan objek jika sedang dipotong/dihapus sementara oleh penghapus peserta lain
+    if (remoteLiveEraseRemovedIds && remoteLiveEraseRemovedIds.has(o.id)) {
+      continue;
+    }
+
+    // Jika objek sedang digeser live oleh peserta lain, gunakan versi posisinya yang sementara
+    const renderTarget = movedMap.has(o.id) ? movedMap.get(o.id)! : o;
+
+    const b = wb(renderTarget);
     if (!intersects(b, viewportBounds)) {
       continue;
     }
-    drawObj(ctx, o, onImageLoad, objs);
+    drawObj(ctx, renderTarget, onImageLoad, objs);
 
-    if (o.lock) {
+    if (renderTarget.lock) {
       drawLockIcon(ctx, b.x + b.w, b.y, view.z);
     }
   }
 
-  // Objek yang sedang digambar (preview)
+  // Pecahan goresan sementara dari penghapus peserta lain (live erase preview)
+  if (remoteLiveEraseAddedObjs && remoteLiveEraseAddedObjs.length > 0) {
+    for (const aObj of remoteLiveEraseAddedObjs) {
+      drawObj(ctx, aObj, onImageLoad, objs);
+    }
+  }
+
+  // Objek yang sedang digambar (preview lokal)
   if (cur) {
     drawObj(ctx, cur, onImageLoad, objs);
+  }
+
+  // Objek yang sedang digambar oleh peserta lain (live streaming)
+  if (remoteLiveStrokes && remoteLiveStrokes.length > 0) {
+    for (const rStroke of remoteLiveStrokes) {
+      drawObj(ctx, rStroke, onImageLoad, objs);
+    }
   }
 
   // Lasso Tanya AI
@@ -517,6 +551,46 @@ export function drawScene({
     ctx.beginPath();
     ctx.arc(l.x, l.y, 6 / view.z, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  // Badge nama kolaborator (sedang mencoret, menggeser, menghapus, atau objek terakhir diedit)
+  if (collaboratorBadges && collaboratorBadges.length > 0) {
+    const invZ = 1 / view.z;
+    for (const b of collaboratorBadges) {
+      ctx.save();
+      const text = b.label || b.name;
+      ctx.font = `600 ${Math.max(10, 12 * invZ)}px "Plus Jakarta Sans", sans-serif`;
+      const tw = ctx.measureText(text).width;
+      const padX = 6 * invZ;
+      const badgeH = 20 * invZ;
+      const badgeW = tw + padX * 2;
+      const bx = b.x;
+      const by = b.y - badgeH - 4 * invZ;
+      const bgCol = b.color || '#6366f1';
+
+      ctx.fillStyle = bgCol;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(bx, by, badgeW, badgeH, 4 * invZ);
+      } else {
+        ctx.rect(bx, by, badgeW, badgeH);
+      }
+      ctx.fill();
+
+      // Pointer segitiga kecil di bawah badge
+      ctx.beginPath();
+      ctx.moveTo(bx + 4 * invZ, by + badgeH);
+      ctx.lineTo(bx + 10 * invZ, by + badgeH);
+      ctx.lineTo(bx + 2 * invZ, by + badgeH + 4 * invZ);
+      ctx.closePath();
+      ctx.fill();
+
+      // Teks nama
+      ctx.fillStyle = '#ffffff';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, bx + padX, by + badgeH / 2);
+      ctx.restore();
+    }
   }
 
   ctx.globalAlpha = 1;

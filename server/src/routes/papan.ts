@@ -1,29 +1,17 @@
 import express, { Router, Response } from 'express';
 import { z } from 'zod';
 import crypto from 'crypto';
-import os from 'os';
 import { prisma } from '../db.js';
 import { config } from '../config.js';
 import { authMiddleware, AuthRequest } from '../middleware/auth.js';
 import { roleMiddleware } from '../middleware/role.js';
 import { broadcastTokenRevocation, syncBoardMemoryFromData } from '../realtime/papan.js';
+import { getNetworkBaseUrl } from '../utils/network.js';
 
 export const papanRouter = Router();
 
 // Batas body JSON khusus rute papan 8 MB
 papanRouter.use(express.json({ limit: '8mb' }));
-
-function getNetworkBaseUrl(req: any): string {
-  const interfaces = os.networkInterfaces();
-  for (const name of Object.keys(interfaces)) {
-    for (const iface of interfaces[name] || []) {
-      if (iface.family === 'IPv4' && !iface.internal) {
-        return `http://${iface.address}:${config.port}`;
-      }
-    }
-  }
-  return `http://${req.hostname || 'localhost'}:${config.port}`;
-}
 
 // ============================================================================
 // 1. RUTE PUBLIK: Validasi Token Berbagi Papan (Viewer / Editor)

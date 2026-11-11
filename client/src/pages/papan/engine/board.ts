@@ -15,6 +15,7 @@ import {
   HandleKey,
   BoardPage,
   BoardDataFormat,
+  CollaboratorBadge,
 } from './types';
 import { generateTemplate, TemplateType } from './templates';
 import { COL, LCOL } from './color';
@@ -38,6 +39,12 @@ import { resizeImageToDataUrl } from './export';
 export interface BoardOptions {
   hanyaLihat?: boolean;
   onUbah?: (payload: UbahEventPayload) => void;
+  onLiveCoret?: (stroke: CanvasObj) => void;
+  onLiveCoretSelesai?: () => void;
+  onLiveGeser?: (objs: CanvasObj[]) => void;
+  onLiveGeserSelesai?: () => void;
+  onLiveHapus?: (data: { removedIds: string[]; addedObjs: CanvasObj[] }) => void;
+  onLiveHapusSelesai?: () => void;
   onStateChange?: (state: BoardState) => void;
   onSelectionChange?: (selIds: string[], firstId: string | null) => void;
   onViewChange?: (view: BoardView) => void;
@@ -77,6 +84,10 @@ export class Board {
   public lasso: Pt[] | null = null;
   public laser: LaserPoint[] = [];
   public cur: CanvasObj | null = null;
+  public remoteLiveStrokes: Map<string, CanvasObj> = new Map();
+  public remoteLiveMovedObjs: Map<string, CanvasObj[]> = new Map();
+  public remoteLiveErase: Map<string, { removedIds: string[]; addedObjs: CanvasObj[] }> = new Map();
+  public collaboratorBadges: Map<string, CollaboratorBadge> = new Map();
   public cfrom: string | null = null;
   public hov: string | null = null;
   public hanyaLihat = false;
@@ -87,6 +98,7 @@ export class Board {
   private pasteCount = 0;
   private mouse: Pt | null = null;
   private activePointers: Map<number, Pt> = new Map();
+  private lastLiveBroadcast = 0;
   private drag: {
     k: 'pan' | 'er' | 'ai' | 'mv' | 'ls' | 'resize' | 'rot' | 'pinch' | 'mq' | 'conn';
     id?: string;
@@ -98,6 +110,7 @@ export class Board {
     p0?: Pt;
     last?: Pt;
     ch?: boolean;
+    initialObjs?: CanvasObj[];
     initialObjsBeforeMove?: CanvasObj[];
     erasedRemoved?: CanvasObj[];
     erasedAdded?: CanvasObj[];
@@ -214,7 +227,73 @@ export class Board {
     }
   }
 
+  public setRemoteLiveStroke(socketId: string, stroke: CanvasObj): void {
+    this.remoteLiveStrokes.set(socketId, stroke);
+    this.rd();
+  }
+
+  public clearRemoteLiveStroke(socketId: string): void {
+    if (this.remoteLiveStrokes.has(socketId)) {
+      this.remoteLiveStrokes.delete(socketId);
+      this.rd();
+    }
+  }
+
+  public setRemoteLiveMoved(socketId: string, objs: CanvasObj[]): void {
+    this.remoteLiveMovedObjs.set(socketId, objs);
+    this.rd();
+  }
+
+  public clearRemoteLiveMoved(socketId: string): void {
+    if (this.remoteLiveMovedObjs.has(socketId)) {
+      this.remoteLiveMovedObjs.delete(socketId);
+      this.rd();
+    }
+  }
+
+  public setRemoteLiveErase(socketId: string, data: { removedIds: string[]; addedObjs: CanvasObj[] }): void {
+    this.remoteLiveErase.set(socketId, data);
+    this.rd();
+  }
+
+  public clearRemoteLiveErase(socketId: string): void {
+    if (this.remoteLiveErase.has(socketId)) {
+      this.remoteLiveErase.delete(socketId);
+      this.rd();
+    }
+  }
+
+  public setCollaboratorBadge(id: string, badge: CollaboratorBadge): void {
+    this.collaboratorBadges.set(id, badge);
+    this.rd();
+  }
+
+  public removeCollaboratorBadge(id: string): void {
+    if (this.collaboratorBadges.has(id)) {
+      this.collaboratorBadges.delete(id);
+      this.rd();
+    }
+  }
+
+  public clearCollaboratorBadges(): void {
+    if (this.collaboratorBadges.size > 0) {
+      this.collaboratorBadges.clear();
+      this.rd();
+    }
+  }
+
   private draw(): void {
+    const allMoved: CanvasObj[] = [];
+    for (const list of this.remoteLiveMovedObjs.values()) {
+      allMoved.push(...list);
+    }
+    const allEraseRemoved = new Set<string>();
+    const allEraseAdded: CanvasObj[] = [];
+    for (const e of this.remoteLiveErase.values()) {
+      for (const id of e.removedIds) allEraseRemoved.add(id);
+      allEraseAdded.push(...e.addedObjs);
+    }
+
     drawScene({
       ctx: this.ctx,
       canvas: this.canvas,
@@ -222,6 +301,11 @@ export class Board {
       state: this.state,
       objs: this.objs,
       cur: this.cur,
+      remoteLiveStrokes: Array.from(this.remoteLiveStrokes.values()),
+      remoteLiveMovedObjs: allMoved,
+      remoteLiveEraseRemovedIds: allEraseRemoved,
+      remoteLiveEraseAddedObjs: allEraseAdded,
+      collaboratorBadges: Array.from(this.collaboratorBadges.values()),
       lasso: this.lasso,
       sel: this.sel,
       marq: this.marq,
@@ -420,12 +504,33 @@ export class Board {
     }
   }
 
+  /**
+   * Menggantikan seluruh objek kanvas lokal dengan data snapshot baru dari server (misalnya saat reconnect).
+   */
+  public replaceObjs(newObjs: CanvasObj[]): void {
+    const cloned = newObjs.map(cloneObj);
+    this.objs = cloned;
+    if (this.pages[this.activePageIndex]) {
+      this.pages[this.activePageIndex].objs = cloned;
+    }
+    if (this.sel.length > 0) {
+      this.sel = this.sel.filter((id) => this.objs.some((o) => o.id === id));
+      if (this.options.onSelectionChange) {
+        this.options.onSelectionChange([...this.sel], this.sel[0] || null);
+      }
+    }
+    this.remoteLiveStrokes.clear();
+    this.remoteLiveMovedObjs.clear();
+    this.remoteLiveErase.clear();
+    this.rd();
+  }
+
   public terapkanOps(ops: UbahEventPayload): void {
     let changed = false;
     let list = [...this.objs];
 
-    if (ops.hapus && ops.hapus.length > 0) {
-      const setHapus = new Set(ops.hapus);
+    const setHapus = new Set(ops.hapus || []);
+    if (setHapus.size > 0) {
       list = list.filter((o) => !setHapus.has(o.id));
       changed = true;
     }
@@ -442,7 +547,7 @@ export class Board {
     if (ops.tambah && ops.tambah.length > 0) {
       const existingIds = new Set(list.map((o) => o.id));
       for (const t of ops.tambah) {
-        if (!existingIds.has(t.id)) {
+        if (!existingIds.has(t.id) && !setHapus.has(t.id)) {
           list.push(cloneObj(t));
           existingIds.add(t.id);
         }
@@ -462,6 +567,15 @@ export class Board {
       }
 
       this.objs = list;
+      if (this.pages[this.activePageIndex]) {
+        this.pages[this.activePageIndex].objs = list;
+      }
+      if (this.sel.length > 0) {
+        this.sel = this.sel.filter((id) => this.objs.some((o) => o.id === id));
+        if (this.options.onSelectionChange) {
+          this.options.onSelectionChange([...this.sel], this.sel[0] || null);
+        }
+      }
       this.rd();
     }
   }
@@ -1181,6 +1295,7 @@ export class Board {
 
     if (t === 'pen') {
       const pt: Pt = e.pointerType === 'pen' ? { ...p, pr: e.pressure } : p;
+      this.lastLiveBroadcast = performance.now();
       this.cur = {
         id: crypto.randomUUID(),
         type: 'stroke',
@@ -1195,15 +1310,12 @@ export class Board {
         k: 'er',
         ch: false,
         last: p,
-        erasedAdded: [],
-        erasedRemoved: [],
+        initialObjs: [...this.objs],
       };
       const res = eraseSeg(this.objs, p, p, this.state.er / 2);
       if (res.changed) {
         this.objs = res.newObjs;
         this.drag.ch = true;
-        this.drag.erasedAdded!.push(...res.added);
-        this.drag.erasedRemoved!.push(...res.removed);
       }
     } else if (t === 'select') {
       const X = this.xform();
@@ -1427,8 +1539,22 @@ export class Board {
         if (res.changed) {
           this.objs = res.newObjs;
           this.drag.ch = true;
-          this.drag.erasedAdded?.push(...res.added);
-          this.drag.erasedRemoved?.push(...res.removed);
+
+          const now = performance.now();
+          if (now - this.lastLiveBroadcast > 35) {
+            this.lastLiveBroadcast = now;
+            if (this.options.onLiveHapus && this.drag.initialObjs) {
+              const currentMap = new Map(this.objs.map((o) => [o.id, o]));
+              const initialMap = new Map(this.drag.initialObjs.map((o) => [o.id, o]));
+              const removedIds = this.drag.initialObjs
+                .filter((o) => !currentMap.has(o.id))
+                .map((o) => o.id);
+              const addedObjs = this.objs
+                .filter((o) => !initialMap.has(o.id))
+                .map(cloneObj);
+              this.options.onLiveHapus({ removedIds, addedObjs });
+            }
+          }
         }
         this.drag.last = p;
       } else if (this.drag.k === 'ai') {
@@ -1459,6 +1585,17 @@ export class Board {
           .forEach((o) => move(o, dx, dy));
         this.drag.p = p;
         this.drag.ch = true;
+
+        const now = performance.now();
+        if (now - this.lastLiveBroadcast > 35) {
+          this.lastLiveBroadcast = now;
+          if (this.options.onLiveGeser) {
+            const moved = this.selObjs().filter((o) => !o.lock).map(cloneObj);
+            if (moved.length > 0) {
+              this.options.onLiveGeser(moved);
+            }
+          }
+        }
       } else if (this.drag.k === 'rot' && this.drag.b0 && this.drag.ids && this.drag.os) {
         const b = this.drag.b0;
         const x0 = b.x + b.w / 2;
@@ -1562,6 +1699,15 @@ export class Board {
           if (this.cur.pts.length < 5000) {
             const pt: Pt = e.pointerType === 'pen' ? { ...p, pr: e.pressure } : p;
             this.cur.pts.push(pt);
+
+            // Live streaming ke peserta lain (throttle ~35ms)
+            const now = performance.now();
+            if (now - this.lastLiveBroadcast > 35) {
+              this.lastLiveBroadcast = now;
+              if (this.options.onLiveCoret) {
+                this.options.onLiveCoret(this.cur);
+              }
+            }
           }
         }
       } else if (this.cur.type === 'shape') {
@@ -1633,6 +1779,9 @@ export class Board {
         this.objs.push(this.cur);
         this.history.commit({ tambah: [this.cur] });
       }
+      if (this.options.onLiveCoretSelesai) {
+        this.options.onLiveCoretSelesai();
+      }
       this.cur = null;
     }
 
@@ -1663,6 +1812,11 @@ export class Board {
           this.history.commit({ ubah: ubahList });
         }
       }
+      if (this.drag.k === 'mv') {
+        if (this.options.onLiveGeserSelesai) {
+          this.options.onLiveGeserSelesai();
+        }
+      }
 
       if (
         (this.drag.k === 'resize' || this.drag.k === 'rot') &&
@@ -1684,10 +1838,19 @@ export class Board {
         }
       }
 
-      if (this.drag.k === 'er' && this.drag.ch) {
-        const removed = this.drag.erasedRemoved || [];
-        const added = this.drag.erasedAdded || [];
-        this.history.commit({ hapus: removed, tambah: added });
+      if (this.drag.k === 'er' && this.drag.ch && this.drag.initialObjs) {
+        const initialMap = new Map(this.drag.initialObjs.map((o) => [o.id, o]));
+        const finalMap = new Map(this.objs.map((o) => [o.id, o]));
+        const removed = this.drag.initialObjs.filter((o) => !finalMap.has(o.id));
+        const added = this.objs.filter((o) => !initialMap.has(o.id));
+        if (removed.length > 0 || added.length > 0) {
+          this.history.commit({ hapus: removed, tambah: added });
+        }
+      }
+      if (this.drag.k === 'er') {
+        if (this.options.onLiveHapusSelesai) {
+          this.options.onLiveHapusSelesai();
+        }
       }
 
       if (this.drag.k === 'pan') {

@@ -5,7 +5,7 @@ import { apiRequest } from '../../lib/api';
 import { getSocket } from '../../lib/socket';
 import { useAuth } from '../../lib/auth';
 import { Board } from './engine/board';
-import { BoardState, BoardView, TextEditorState, ToolType, PenStyle, UbahEventPayload, FormulaObj, Pt } from './engine/types';
+import { BoardState, BoardView, TextEditorState, ToolType, PenStyle, UbahEventPayload, FormulaObj, Pt, CanvasObj } from './engine/types';
 import { COL, LCOL } from './engine/color';
 import { downloadPng, downloadPdf, downloadJson, toJson, potongArea, pngDataUrl } from './engine/export';
 import {
@@ -35,6 +35,13 @@ import { wrap, LampiranObrolan } from './lib/obrol';
 import { useObrol } from './lib/useObrol';
 import { playTimerAlarm } from './lib/timerAudio';
 
+const PALET_WARNA = ['#ec4899', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ef4444'];
+function getWarnaSocket(socketId: string) {
+  let hash = 0;
+  for (let i = 0; i < socketId.length; i++) hash = (hash << 5) - hash + socketId.charCodeAt(i);
+  return PALET_WARNA[Math.abs(hash) % PALET_WARNA.length];
+}
+
 export default function PapanTulis() {
   const { id: boardId } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -42,6 +49,7 @@ export default function PapanTulis() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const boardRef = useRef<Board | null>(null);
+  const pesertaListRef = useRef<PesertaItem[]>([]);
 
   // Status & Metadata Papan
   const [loading, setLoading] = useState(true);
@@ -287,19 +295,26 @@ export default function PapanTulis() {
 
     const socket = getSocket();
 
+    pesertaListRef.current = pesertaList;
+
     function gabungPapan() {
       socket.emit(
         'papan:gabung',
-        { boardId, nama: user?.nama || 'Guru' },
+        { boardId, nama: user?.nama || 'Guru', userId: user?.id },
         (res: any) => {
           if (res?.success) {
             setIsReconnecting(false);
-            if (res.data?.objs && !loadedObjs) {
+            if (res.data?.objs) {
               setLoadedObjs(res.data.objs);
+              if (boardRef.current) {
+                boardRef.current.replaceObjs(res.data.objs);
+              }
             }
             if (res.judul) {
               setTitle(res.judul);
             }
+          } else {
+            console.warn('[PapanTulis] Gagal bergabung ke sesi realtime:', res?.pesan);
           }
         }
       );
@@ -307,12 +322,157 @@ export default function PapanTulis() {
 
     gabungPapan();
 
-    const handleUbah = (ops: UbahEventPayload) => {
+    const handleUbah = (ops: UbahEventPayload & { dariSocketId?: string }) => {
+      const sId = ops.dariSocketId;
+      if (sId) {
+        boardRef.current?.clearRemoteLiveMoved(sId);
+        boardRef.current?.clearRemoteLiveErase(sId);
+        boardRef.current?.clearRemoteLiveStroke(sId);
+      }
       boardRef.current?.terapkanOps(ops);
+      if (boardRef.current) {
+        setLoadedObjs([...boardRef.current.objs]);
+      }
+
+      // Tutup editor teks inline jika objek yang sedang diedit dihapus oleh orang lain
+      if (ops.hapus && ops.hapus.length > 0) {
+        const setHapus = new Set(ops.hapus);
+        setTextEditor((prev) => {
+          if (prev?.obj && setHapus.has(prev.obj.id)) {
+            return null;
+          }
+          return prev;
+        });
+      }
+
+      // BAGIAN D: pasang nama kolaborator menempel pada objek yang baru diubah/ditambah
+      if (sId && boardRef.current) {
+        const targetId = (ops.tambah?.[0] || ops.ubah?.[0])?.id;
+        if (targetId) {
+          const targetObj = boardRef.current.objs.find((o) => o.id === targetId);
+          if (targetObj) {
+            const nama = pesertaListRef.current.find((p) => (p.socketId || p.id) === sId)?.nama || 'Peserta';
+            const ox = 'x' in targetObj ? (targetObj as any).x : 0;
+            const oy = 'y' in targetObj ? (targetObj as any).y : 0;
+            boardRef.current.setCollaboratorBadge(sId, {
+              id: sId,
+              name: nama,
+              x: ox,
+              y: oy,
+              color: getWarnaSocket(sId),
+              label: nama,
+            });
+          }
+        } else {
+          boardRef.current.removeCollaboratorBadge(sId);
+        }
+      }
     };
 
     const handlePeserta = (list: PesertaItem[]) => {
+      const oldList = pesertaListRef.current;
       setPesertaList(list);
+      pesertaListRef.current = list;
+
+      // Hapus badge jika peserta keluar
+      const currentIds = new Set(list.map((p) => p.socketId || p.id));
+      for (const p of oldList) {
+        const sId = p.socketId || p.id;
+        if (!currentIds.has(sId)) {
+          boardRef.current?.removeCollaboratorBadge(sId);
+          boardRef.current?.clearRemoteLiveStroke(sId);
+          boardRef.current?.clearRemoteLiveMoved(sId);
+          boardRef.current?.clearRemoteLiveErase(sId);
+        }
+      }
+    };
+
+    const handleLiveCoret = (data: { socketId: string; stroke: CanvasObj }) => {
+      if (data && data.socketId && data.stroke) {
+        boardRef.current?.setRemoteLiveStroke(data.socketId, data.stroke);
+        const nama = pesertaListRef.current.find((p) => (p.socketId || p.id) === data.socketId)?.nama || 'Peserta';
+        const strokePts = data.stroke.type === 'stroke' ? (data.stroke as any).pts : null;
+        if (strokePts && strokePts.length > 0) {
+          const lastPt = strokePts[strokePts.length - 1];
+          boardRef.current?.setCollaboratorBadge(data.socketId, {
+            id: data.socketId,
+            name: nama,
+            x: lastPt.x,
+            y: lastPt.y,
+            color: getWarnaSocket(data.socketId),
+            label: nama,
+          });
+        }
+      }
+    };
+
+    const handleLiveCoretSelesai = (data: { socketId: string }) => {
+      if (data && data.socketId) {
+        boardRef.current?.clearRemoteLiveStroke(data.socketId);
+        boardRef.current?.removeCollaboratorBadge(data.socketId);
+      }
+    };
+
+    const handleLiveGeser = (data: { socketId: string; objs: CanvasObj[] }) => {
+      if (data && data.socketId && data.objs) {
+        boardRef.current?.setRemoteLiveMoved(data.socketId, data.objs);
+        const nama = pesertaListRef.current.find((p) => (p.socketId || p.id) === data.socketId)?.nama || 'Peserta';
+        if (data.objs.length > 0) {
+          const first = data.objs[0];
+          const bx = 'x' in first ? (first as any).x : 0;
+          const by = 'y' in first ? (first as any).y : 0;
+          boardRef.current?.setCollaboratorBadge(data.socketId, {
+            id: data.socketId,
+            name: nama,
+            x: bx,
+            y: by,
+            color: getWarnaSocket(data.socketId),
+            label: `${nama} (menggeser)`,
+          });
+        }
+      }
+    };
+
+    const handleLiveGeserSelesai = (data: { socketId: string }) => {
+      if (data && data.socketId) {
+        boardRef.current?.clearRemoteLiveMoved(data.socketId);
+        boardRef.current?.removeCollaboratorBadge(data.socketId);
+      }
+    };
+
+    const handleLiveHapus = (data: { socketId: string; removedIds: string[]; addedObjs: CanvasObj[] }) => {
+      if (data && data.socketId) {
+        boardRef.current?.setRemoteLiveErase(data.socketId, {
+          removedIds: data.removedIds || [],
+          addedObjs: data.addedObjs || [],
+        });
+        const nama = pesertaListRef.current.find((p) => (p.socketId || p.id) === data.socketId)?.nama || 'Peserta';
+        let pos = { x: 0, y: 0 };
+        if (data.addedObjs && data.addedObjs.length > 0) {
+          const first = data.addedObjs[0];
+          pos = { x: (first as any).x || 0, y: (first as any).y || 0 };
+        } else if (data.removedIds && data.removedIds.length > 0 && boardRef.current) {
+          const rem = boardRef.current.objs.find((o) => o.id === data.removedIds[0]);
+          if (rem) {
+            pos = { x: (rem as any).x || 0, y: (rem as any).y || 0 };
+          }
+        }
+        boardRef.current?.setCollaboratorBadge(data.socketId, {
+          id: data.socketId,
+          name: nama,
+          x: pos.x,
+          y: pos.y,
+          color: getWarnaSocket(data.socketId),
+          label: `${nama} (menghapus)`,
+        });
+      }
+    };
+
+    const handleLiveHapusSelesai = (data: { socketId: string }) => {
+      if (data && data.socketId) {
+        boardRef.current?.clearRemoteLiveErase(data.socketId);
+        boardRef.current?.removeCollaboratorBadge(data.socketId);
+      }
     };
 
     const handleDisconnect = () => {
@@ -325,12 +485,24 @@ export default function PapanTulis() {
 
     socket.on('papan:ubah', handleUbah);
     socket.on('papan:peserta', handlePeserta);
+    socket.on('papan:coret_live', handleLiveCoret);
+    socket.on('papan:coret_selesai', handleLiveCoretSelesai);
+    socket.on('papan:geser_live', handleLiveGeser);
+    socket.on('papan:geser_selesai', handleLiveGeserSelesai);
+    socket.on('papan:hapus_live', handleLiveHapus);
+    socket.on('papan:hapus_selesai', handleLiveHapusSelesai);
     socket.on('disconnect', handleDisconnect);
     socket.on('connect', handleConnect);
 
     return () => {
       socket.off('papan:ubah', handleUbah);
       socket.off('papan:peserta', handlePeserta);
+      socket.off('papan:coret_live', handleLiveCoret);
+      socket.off('papan:coret_selesai', handleLiveCoretSelesai);
+      socket.off('papan:geser_live', handleLiveGeser);
+      socket.off('papan:geser_selesai', handleLiveGeserSelesai);
+      socket.off('papan:hapus_live', handleLiveHapus);
+      socket.off('papan:hapus_selesai', handleLiveHapusSelesai);
       socket.off('disconnect', handleDisconnect);
       socket.off('connect', handleConnect);
     };
@@ -355,6 +527,30 @@ export default function PapanTulis() {
           hapus: payload.hapus || [],
         });
         triggerAutosave();
+      },
+      onLiveCoret: (stroke) => {
+        const socket = getSocket();
+        socket.emit('papan:coret_live', { boardId, stroke });
+      },
+      onLiveCoretSelesai: () => {
+        const socket = getSocket();
+        socket.emit('papan:coret_selesai', { boardId });
+      },
+      onLiveGeser: (objs) => {
+        const socket = getSocket();
+        socket.emit('papan:geser_live', { boardId, objs });
+      },
+      onLiveGeserSelesai: () => {
+        const socket = getSocket();
+        socket.emit('papan:geser_selesai', { boardId });
+      },
+      onLiveHapus: (data) => {
+        const socket = getSocket();
+        socket.emit('papan:hapus_live', { boardId, removedIds: data.removedIds, addedObjs: data.addedObjs });
+      },
+      onLiveHapusSelesai: () => {
+        const socket = getSocket();
+        socket.emit('papan:hapus_selesai', { boardId });
       },
       onStateChange: (nextState) => {
         setBoardState({ ...nextState });

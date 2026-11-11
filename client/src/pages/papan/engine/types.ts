@@ -185,3 +185,12 @@ export interface TextEditorState {
   text: string;
 }
 
+export interface CollaboratorBadge {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  color?: string;
+  label?: string;
+}
+

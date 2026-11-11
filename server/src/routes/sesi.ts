@@ -2,9 +2,9 @@ import { Router, Response, Request } from 'express';
 import { z } from 'zod';
 import QRCode from 'qrcode';
 import crypto from 'crypto';
-import os from 'os';
 import { prisma } from '../db.js';
 import { config } from '../config.js';
+import { getNetworkBaseUrl } from '../utils/network.js';
 import { mapDbQuestionForGame, SoalRecordForGame } from '../utils/questionOptions.js';
 import { authMiddleware, AuthRequest } from '../middleware/auth.js';
 import { roleMiddleware } from '../middleware/role.js';
@@ -197,18 +197,6 @@ async function generateTokenUnikSemuaGame(): Promise<string> {
     if (!existsDb) return token;
   }
   throw new Error('Gagal menghasilkan token sesi unik.');
-}
-
-function getNetworkBaseUrl(req: Request): string {
-  const interfaces = os.networkInterfaces();
-  for (const name of Object.keys(interfaces)) {
-    for (const iface of interfaces[name] || []) {
-      if (iface.family === 'IPv4' && !iface.internal) {
-        return `http://${iface.address}:${config.port}`;
-      }
-    }
-  }
-  return `http://${req.hostname || 'localhost'}:${config.port}`;
 }
 
 // 0. GET /api/sesi/token/:token - Publik: Cek validitas token sesi untuk siswa bergabung

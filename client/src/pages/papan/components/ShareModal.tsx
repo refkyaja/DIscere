@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 
 export interface PesertaItem {
   id: string;
+  socketId?: string;
   nama: string;
   peran: 'editor' | 'viewer';
 }
@@ -37,6 +38,36 @@ export function getAvatarColor(idOrName: string): string {
   return AVATAR_COLORS[idx];
 }
 
+function resolveShareUrl(token: string, fallbackUrl?: string | null): string {
+  const currentOrigin = window.location.origin;
+  const isLocal =
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1';
+
+  // 1. Jika guru membuka dari domain publik, ngrok tunnel, atau IP LAN di browser:
+  if (!isLocal && !window.location.hostname.startsWith('192.168.56.')) {
+    return `${currentOrigin}/b/${token}`;
+  }
+
+  // 2. Jika guru membuka dari localhost: gunakan fallback network URL jika valid (bukan virtualbox/apipa)
+  if (fallbackUrl) {
+    try {
+      const url = new URL(fallbackUrl);
+      if (
+        !url.hostname.startsWith('192.168.56.') &&
+        !url.hostname.startsWith('169.254.') &&
+        !url.hostname.includes('localhost')
+      ) {
+        return fallbackUrl;
+      }
+    } catch {
+      // fallback
+    }
+  }
+
+  return `${currentOrigin}/b/${token}`;
+}
+
 export function ShareModal({
   isOpen,
   boardId,
@@ -69,7 +100,7 @@ export function ShareModal({
           setIsAktif(true);
           setToken(data.token);
           setPeran(data.peran || 'editor');
-          setJoinUrl(data.joinUrl || `${window.location.origin}/b/${data.token}`);
+          setJoinUrl(resolveShareUrl(data.token, data.joinUrl));
         } else {
           setIsAktif(false);
           setToken(null);
@@ -106,11 +137,12 @@ export function ShareModal({
       setIsAktif(true);
       setToken(data.share.token);
       setPeran(data.share.peran);
-      setJoinUrl(data.share.joinUrl || `${window.location.origin}/b/${data.share.token}`);
+      const computedUrl = resolveShareUrl(data.share.token, data.share.joinUrl);
+      setJoinUrl(computedUrl);
 
       if (!newPeran) {
         // Jika dipanggil dari tombol Salin Tautan
-        await navigator.clipboard.writeText(data.share.joinUrl);
+        await navigator.clipboard.writeText(computedUrl);
         onToast('Tautan disalin ke papan klip!');
       } else {
         onToast(`Peran tautan diubah menjadi ${targetPeran === 'editor' ? 'Editor' : 'Viewer'}`);
@@ -119,6 +151,19 @@ export function ShareModal({
       onToast(err.message || 'Gagal memproses tautan berbagi');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleCopy() {
+    if (isAktif && joinUrl) {
+      try {
+        await navigator.clipboard.writeText(joinUrl);
+        onToast('Tautan disalin ke papan klip!');
+      } catch {
+        onToast('Gagal menyalin tautan');
+      }
+    } else {
+      await handleCreateOrUpdateShare();
     }
   }
 
@@ -215,7 +260,7 @@ export function ShareModal({
       <button
         className="shb"
         disabled={loading}
-        onClick={() => handleCreateOrUpdateShare()}
+        onClick={handleCopy}
       >
         <svg viewBox="0 0 24 24" style={{ width: 18, height: 18 }}>
           <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />

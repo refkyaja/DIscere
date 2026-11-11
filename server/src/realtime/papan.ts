@@ -47,14 +47,14 @@ const canvasObjSchema = z.object({
   fill: z.string().max(40).nullable().optional(),
   type: z.enum(['stroke', 'shape', 'text', 'table', 'image', 'formula', 'conn']),
 }).passthrough().refine((obj) => {
-  // Batas keamanan: teks maksimal 5000 karakter, coretan maksimal 5000 titik
+  // Batas keamanan: teks maksimal 20000 karakter, coretan maksimal 20000 titik
   if (obj.type === 'text') {
     const txt = (obj as any).text;
-    if (typeof txt === 'string' && txt.length > 5000) return false;
+    if (typeof txt === 'string' && txt.length > 20000) return false;
   }
   if (obj.type === 'stroke') {
     const pts = (obj as any).pts;
-    if (Array.isArray(pts) && pts.length > 5000) return false;
+    if (Array.isArray(pts) && pts.length > 20000) return false;
   }
   return true;
 }, { message: 'Objek melebihi batas keamanan ukuran.' });
@@ -451,6 +451,7 @@ export function setupBoardSocket(io: Server) {
         // Siarkan perubahan ke klien lain di room papan:{id} (bukan ke pengirim)
         const roomName = `papan:${boardId}`;
         socket.to(roomName).emit('papan:ubah', {
+          dariSocketId: socket.id,
           tambah: tambah || [],
           ubah: ubah || [],
           hapus: hapus || [],
@@ -472,6 +473,113 @@ export function setupBoardSocket(io: Server) {
           return;
         }
         callback?.({ success: false, pesan: err.message || 'Gagal menerapkan perubahan kanvas.' });
+      }
+    });
+
+    // ------------------------------------------------------------------------
+    // 2b. papan:coret_live {boardId, stroke} (Streaming coretan langsung saat menggambar)
+    // ------------------------------------------------------------------------
+    socket.on('papan:coret_live', (data: { boardId?: string; stroke?: any }) => {
+      try {
+        if (!data?.boardId || !data?.stroke) return;
+        const roomMap = boardRooms.get(data.boardId);
+        const peserta = roomMap?.get(socket.id);
+        if (!peserta || peserta.peran === 'viewer') return;
+
+        // Siarkan langsung ke peserta lain di room (volatil, tidak disimpan DB)
+        socket.to(`papan:${data.boardId}`).emit('papan:coret_live', {
+          socketId: socket.id,
+          dariSocketId: socket.id,
+          stroke: data.stroke,
+        });
+      } catch (err) {
+        // abaikan
+      }
+    });
+
+    // ------------------------------------------------------------------------
+    // 2c. papan:coret_selesai {boardId}
+    // ------------------------------------------------------------------------
+    socket.on('papan:coret_selesai', (data: { boardId?: string }) => {
+      try {
+        if (!data?.boardId) return;
+        socket.to(`papan:${data.boardId}`).emit('papan:coret_selesai', {
+          socketId: socket.id,
+          dariSocketId: socket.id,
+        });
+      } catch (err) {
+        // abaikan
+      }
+    });
+
+    // ------------------------------------------------------------------------
+    // 2d. papan:geser_live {boardId, objs} (Streaming posisi objek yang sedang digeser)
+    // ------------------------------------------------------------------------
+    socket.on('papan:geser_live', (data: { boardId?: string; objs?: any[] }) => {
+      try {
+        if (!data?.boardId || !data?.objs) return;
+        const roomMap = boardRooms.get(data.boardId);
+        const peserta = roomMap?.get(socket.id);
+        if (!peserta || peserta.peran === 'viewer') return;
+
+        socket.to(`papan:${data.boardId}`).emit('papan:geser_live', {
+          socketId: socket.id,
+          dariSocketId: socket.id,
+          objs: data.objs,
+        });
+      } catch (err) {
+        // abaikan
+      }
+    });
+
+    // ------------------------------------------------------------------------
+    // 2e. papan:geser_selesai {boardId}
+    // ------------------------------------------------------------------------
+    socket.on('papan:geser_selesai', (data: { boardId?: string }) => {
+      try {
+        if (!data?.boardId) return;
+        socket.to(`papan:${data.boardId}`).emit('papan:geser_selesai', {
+          socketId: socket.id,
+          dariSocketId: socket.id,
+        });
+      } catch (err) {
+        // abaikan
+      }
+    });
+
+    // ------------------------------------------------------------------------
+    // 2f. papan:hapus_live {boardId, removedIds, addedObjs} (Streaming pratinjau pemotongan/penghapusan)
+    // ------------------------------------------------------------------------
+    socket.on('papan:hapus_live', (data: { boardId?: string; removedIds?: string[]; addedObjs?: any[] }) => {
+      try {
+        if (!data?.boardId) return;
+        const roomMap = boardRooms.get(data.boardId);
+        const peserta = roomMap?.get(socket.id);
+        if (!peserta || peserta.peran === 'viewer') return;
+
+        socket.to(`papan:${data.boardId}`).emit('papan:hapus_live', {
+          socketId: socket.id,
+          dariSocketId: socket.id,
+          removedIds: data.removedIds || [],
+          addedObjs: data.addedObjs || [],
+        });
+      } catch (err) {
+        // abaikan
+      }
+    });
+
+    // ------------------------------------------------------------------------
+    // 2g. papan:hapus_selesai {boardId}
+    // ------------------------------------------------------------------------
+    socket.on('papan:hapus_selesai', (data: { boardId?: string }) => {
+      try {
+        if (!data?.boardId) return;
+        socket.to(`papan:${data.boardId}`).emit('papan:hapus_selesai', {
+          socketId: socket.id,
+          dariSocketId: socket.id,
+        });
+      } catch (err) {
+        // abaikan
       }
     });
 
