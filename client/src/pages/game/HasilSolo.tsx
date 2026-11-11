@@ -10,7 +10,6 @@ import {
   Home,
   Loader2,
   RotateCcw,
-  Sparkles,
   Trophy,
   Zap,
 } from 'lucide-react';
@@ -272,7 +271,6 @@ export default function HasilSolo() {
         {/* Power-Up & Riwayat Pergerakan Tali */}
         <div className="bg-[#fbf6e9] rounded-3xl p-6 border-2 border-[#e0d5b8] space-y-4">
           <h2 className="text-lg font-black text-[#1d3b2e] flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-[#b45309]" />
             <span>Riwayat Pergerakan Tali &amp; Power-Up</span>
           </h2>
 

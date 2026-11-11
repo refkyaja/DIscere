@@ -221,7 +221,7 @@ function jalankanUnitTests() {
   for (let i = 0; i < 6; i++) {
     const soal = SAMPLE_SOAL[i % SAMPLE_SOAL.length];
     const pres = buatPresentasiSoalPanjat(soal, i + 1, false, i * 1000);
-    const keyBenar = soal.jawabanBenar as 'A' | 'B' | 'C';
+    const keyBenar = soal.jawabanBenar as 'A' | 'B' | 'C' | 'D' | 'E';
     const r = prosesJawabanPanjatPinang({
       peserta: pStreak,
       presentasi: pres,

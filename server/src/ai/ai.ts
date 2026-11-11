@@ -2,28 +2,42 @@ import crypto from 'crypto';
 import { z } from 'zod';
 import { prisma } from '../db.js';
 import { config } from '../config.js';
+import {
+  KODE_OPSI_VALID,
+  extractActiveOptions,
+  normalizeOptionalOption,
+} from '../utils/questionOptions.js';
 
-// Skema Soal dari AI
+// Skema Soal dari AI (mendukung 2 hingga 5 pilihan: A sampai E)
 export const aiQuestionSchema = z
   .object({
     teks: z.string().min(5, 'Teks soal minimal 5 karakter.'),
     opsiA: z.string().min(1, 'Opsi A wajib diisi.'),
     opsiB: z.string().min(1, 'Opsi B wajib diisi.'),
-    opsiC: z.string().min(1, 'Opsi C wajib diisi.'),
-    jawabanBenar: z.enum(['A', 'B', 'C']),
+    opsiC: z.string().nullable().optional().transform((v) => normalizeOptionalOption(v)),
+    opsiD: z.string().nullable().optional().transform((v) => normalizeOptionalOption(v)),
+    opsiE: z.string().nullable().optional().transform((v) => normalizeOptionalOption(v)),
+    jawabanBenar: z.enum(KODE_OPSI_VALID),
     penjelasan: z.string().min(1, 'Penjelasan wajib diisi.'),
     kesulitan: z.enum(['mudah', 'sedang', 'sulit']).optional().default('sedang'),
     dibuatAi: z.literal(true),
   })
-  .refine(
-    (q) => {
-      const a = q.opsiA.trim().toLowerCase();
-      const b = q.opsiB.trim().toLowerCase();
-      const c = q.opsiC.trim().toLowerCase();
-      return a !== b && b !== c && a !== c;
-    },
-    { message: 'Ketiga pilihan jawaban soal AI harus berbeda satu sama lain.' }
-  );
+  .superRefine((q, ctx) => {
+    const aktif = extractActiveOptions(q);
+    const nilaiUnik = new Set(aktif.map((o) => o.teks.toLowerCase()));
+    if (nilaiUnik.size !== aktif.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Pilihan jawaban soal AI harus berbeda satu sama lain.',
+      });
+    }
+    if (!aktif.some((o) => o.key === q.jawabanBenar)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Kunci jawaban "${q.jawabanBenar}" tidak cocok dengan opsi aktif.`,
+      });
+    }
+  });
 
 export const aiGenerateQuestionsResponseSchema = z.object({
   soal: z.array(aiQuestionSchema).min(1),
@@ -178,7 +192,7 @@ function generateFallbackQuestions(
     let opsiA = '';
     let opsiB = '';
     let opsiC = '';
-    let jawabanBenar: 'A' | 'B' | 'C' = 'A';
+    let jawabanBenar: 'A' | 'B' | 'C' | 'D' | 'E' = 'A';
     let penjelasan = '';
 
     const pola = i % 3;
@@ -210,6 +224,8 @@ function generateFallbackQuestions(
       opsiA,
       opsiB,
       opsiC,
+      opsiD: null,
+      opsiE: null,
       jawabanBenar,
       penjelasan,
       kesulitan,
@@ -696,7 +712,9 @@ Kriteria wajib:
             teks: q.teks,
             opsiA: q.opsiA,
             opsiB: q.opsiB,
-            opsiC: q.opsiC,
+            opsiC: normalizeOptionalOption(q.opsiC),
+            opsiD: normalizeOptionalOption(q.opsiD),
+            opsiE: normalizeOptionalOption(q.opsiE),
             jawabanBenar: q.jawabanBenar,
             penjelasan: q.penjelasan || null,
             dibuatAi: true,
@@ -975,7 +993,16 @@ export async function obrolDenganAI(params: {
       });
 
       if (!response.ok) {
-        throw new Error(`Layanan AI memberikan kode respon ${response.status}`);
+        let errDetail = '';
+        try {
+          const errJson = (await response.json()) as any;
+          errDetail = errJson?.error?.message || '';
+        } catch {}
+
+        if (response.status === 429) {
+          throw new Error('Batas kecepatan / kuota API Google Gemini tercapai (Too Many Requests). Silakan tunggu sebentar.');
+        }
+        throw new Error(`Layanan AI memberikan kode respon ${response.status}${errDetail ? `: ${errDetail}` : ''}`);
       }
 
       const data = (await response.json()) as any;
@@ -1047,7 +1074,16 @@ export async function obrolDenganAI(params: {
       });
 
       if (!response.ok) {
-        throw new Error(`Layanan AI memberikan kode respon ${response.status}`);
+        let errDetail = '';
+        try {
+          const errJson = (await response.json()) as any;
+          errDetail = errJson?.error?.message || '';
+        } catch {}
+
+        if (response.status === 429) {
+          throw new Error('Batas kecepatan / kuota API Google Gemini tercapai (Too Many Requests). Silakan tunggu sebentar.');
+        }
+        throw new Error(`Layanan AI memberikan kode respon ${response.status}${errDetail ? `: ${errDetail}` : ''}`);
       }
 
       const data = (await response.json()) as any;
@@ -1059,8 +1095,12 @@ export async function obrolDenganAI(params: {
       return { jawaban: textOut.trim() };
     }
   } catch (err: any) {
+    console.error('[AI Obrol Error]:', err?.message || err);
     if (err?.name === 'TimeoutError' || err?.name === 'AbortError') {
       throw new Error('Waktu respon AI terlalu lama (melebihi 60 detik).');
+    }
+    if (err?.message && !err.message.includes('at ')) {
+      throw err;
     }
     throw new Error('Gagal menghubungi layanan AI. Silakan coba kembali.');
   }

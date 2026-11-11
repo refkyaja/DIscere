@@ -25,7 +25,6 @@ import {
   Flag,
   RefreshCw,
   ArrowLeft,
-  Sparkles,
   CheckCircle2,
 } from 'lucide-react';
 
@@ -1029,7 +1028,6 @@ export default function LayarHostPanjatPinang() {
                 key={item.id}
                 className={`shrink-0 px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 ${warna}`}
               >
-                <Sparkles className="w-3.5 h-3.5 shrink-0" />
                 <span>{item.teks}</span>
               </div>
             );

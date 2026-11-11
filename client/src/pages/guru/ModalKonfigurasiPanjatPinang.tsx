@@ -4,7 +4,6 @@ import {
   Flame,
   ShieldAlert,
   Users,
-  Sparkles,
   Droplets,
   Shield,
   HandMetal,
@@ -495,7 +494,7 @@ export default function ModalKonfigurasiPanjatPinang({
           <div className="bg-[#fcf8ed] border border-[#e0d5b8] p-3 rounded-xl flex items-center justify-between gap-2">
             <div>
               <div className="text-xs font-bold flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-600" /> Gabung Susulan
+                Gabung Susulan
               </div>
               <p className="text-[10px] text-[#6b7d6c]">
                 Izinkan siswa masuk walau lomba sudah mulai

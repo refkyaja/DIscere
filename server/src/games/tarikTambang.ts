@@ -1,5 +1,10 @@
 import crypto from 'crypto';
 import { z } from 'zod';
+import {
+  KunciPilihan,
+  extractActiveOptions,
+  normalizeOptionKey,
+} from '../utils/questionOptions.js';
 
 /**
  * Logika inti (Single Source of Truth) permainan Tarik Tambang Challenge Discere.
@@ -122,7 +127,9 @@ export interface SoalBankTarikTambang {
   teks: string;
   opsiA: string;
   opsiB: string;
-  opsiC: string;
+  opsiC?: string | null;
+  opsiD?: string | null;
+  opsiE?: string | null;
   jawabanBenar: string;
   penjelasan: string | null;
   kesulitan?: string | null;
@@ -130,7 +137,7 @@ export interface SoalBankTarikTambang {
 
 export interface PilihanSoalTarikPublic {
   choiceId: string;
-  label: 'A' | 'B' | 'C';
+  label: KunciPilihan;
   teks: string;
 }
 
@@ -141,12 +148,12 @@ export interface PresentasiSoalTarik {
   teks: string;
   pilihanList: Array<{
     choiceId: string;
-    originalKey: 'A' | 'B' | 'C';
-    label: 'A' | 'B' | 'C';
+    originalKey: KunciPilihan;
+    label: KunciPilihan;
     teks: string;
   }>;
   correctChoiceId: string;
-  jawabanBenarKode: 'A' | 'B' | 'C';
+  jawabanBenarKode: KunciPilihan;
   jawabanBenarTeks: string;
   penjelasan: string | null;
 }
@@ -161,14 +168,13 @@ export function validasiStrukturSoal(q: SoalBankTarikTambang): boolean {
   const teks = (q.teks || '').trim();
   const a = (q.opsiA || '').trim();
   const b = (q.opsiB || '').trim();
-  const c = (q.opsiC || '').trim();
+  const aktif = extractActiveOptions(q);
   const kunci = (q.jawabanBenar || '').trim().toUpperCase();
   return Boolean(
     teks.length > 0 &&
       a.length > 0 &&
       b.length > 0 &&
-      c.length > 0 &&
-      (kunci === 'A' || kunci === 'B' || kunci === 'C')
+      aktif.some((o) => o.key === kunci)
   );
 }
 
@@ -275,20 +281,16 @@ export function buatPresentasiSoalTarik(
   kesulitanDefault: KesulitanSoalTarik = 'sedang',
   acakPilihan: boolean = false
 ): PresentasiSoalTarik {
-  const keys: Array<'A' | 'B' | 'C'> = acakPilihan ? acakArray(['A', 'B', 'C']) : ['A', 'B', 'C'];
-  const teksMap: Record<'A' | 'B' | 'C', string> = {
-    A: soal.opsiA,
-    B: soal.opsiB,
-    C: soal.opsiC,
-  };
-  const labelDisplay: Array<'A' | 'B' | 'C'> = ['A', 'B', 'C'];
-  const kunciKode = ((soal.jawabanBenar || 'A').trim().toUpperCase() as 'A' | 'B' | 'C');
+  const opsiAktif = extractActiveOptions(soal);
+  const labelDisplay = opsiAktif.map((o) => o.key);
+  const orderedOpsi = acakPilihan ? acakArray(opsiAktif) : opsiAktif;
+  const kunciKode = normalizeOptionKey(soal.jawabanBenar, labelDisplay, 'A');
 
-  const pilihanList = keys.map((origKey, idx) => ({
+  const pilihanList = orderedOpsi.map((opsi, idx) => ({
     choiceId: `tt_${crypto.randomUUID().slice(0, 12)}`,
-    originalKey: origKey,
+    originalKey: opsi.key,
     label: labelDisplay[idx],
-    teks: teksMap[origKey],
+    teks: opsi.teks,
   }));
 
   const benarEntry = pilihanList.find((p) => p.originalKey === kunciKode) || pilihanList[0];
@@ -323,6 +325,8 @@ export function serialisasiSoalUntukClient(
     opsiA: pres.pilihanList[0]?.teks || '',
     opsiB: pres.pilihanList[1]?.teks || '',
     opsiC: pres.pilihanList[2]?.teks || '',
+    opsiD: pres.pilihanList[3]?.teks || '',
+    opsiE: pres.pilihanList[4]?.teks || '',
     pilihan: pres.pilihanList.map((p) => ({
       choiceId: p.choiceId,
       label: p.label,

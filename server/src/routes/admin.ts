@@ -4,6 +4,10 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../db.js';
 import { authMiddleware, AuthRequest } from '../middleware/auth.js';
 import { roleMiddleware } from '../middleware/role.js';
+import {
+  buildPrismaQuestionData,
+  questionInputSchema,
+} from '../utils/questionOptions.js';
 
 export const adminRouter = Router();
 
@@ -281,22 +285,11 @@ adminRouter.delete('/guru/:id', async (req: AuthRequest, res: Response) => {
 // ============================================================================
 // 3. PUSTAKA TEMPLATE RESMI ADMIN (Kelola Template Contoh untuk Disalin Guru)
 // ============================================================================
-const pustakaSoalSchema = z.object({
-  urutan: z.number().int().default(0),
-  teks: z.string().min(1, 'Teks soal wajib diisi.'),
-  opsiA: z.string().min(1, 'Opsi A wajib diisi.'),
-  opsiB: z.string().min(1, 'Opsi B wajib diisi.'),
-  opsiC: z.string().min(1, 'Opsi C wajib diisi.'),
-  jawabanBenar: z.enum(['A', 'B', 'C']),
-  penjelasan: z.string().nullable().optional(),
-  dibuatAi: z.boolean().default(false),
-});
-
 const pustakaTemplateSchema = z.object({
   judul: z.string().min(3, 'Judul minimal 3 karakter.'),
   game: z.string().default('tarik_tambang'),
   mode: z.enum(['solo', 'multi']).default('solo'),
-  questions: z.array(pustakaSoalSchema).min(1, 'Minimal sertakan 1 soal.'),
+  questions: z.array(questionInputSchema).min(1, 'Minimal sertakan 1 soal.'),
 });
 
 // GET /api/admin/pustaka - Daftar template resmi
@@ -331,16 +324,7 @@ adminRouter.post('/pustaka', async (req: AuthRequest, res: Response) => {
         resmi: true,
         ownerId: null, // Template resmi tidak terikat ke akun guru privat
         questions: {
-          create: parsed.questions.map((q, idx) => ({
-            urutan: q.urutan || idx + 1,
-            teks: q.teks,
-            opsiA: q.opsiA,
-            opsiB: q.opsiB,
-            opsiC: q.opsiC,
-            jawabanBenar: q.jawabanBenar,
-            penjelasan: q.penjelasan || null,
-            dibuatAi: q.dibuatAi || false,
-          })),
+          create: parsed.questions.map((q, idx) => buildPrismaQuestionData(q, idx)),
         },
       },
       include: { questions: true },
@@ -393,16 +377,7 @@ adminRouter.put('/pustaka/:id', async (req: AuthRequest, res: Response) => {
           game: parsed.game,
           mode: parsed.mode,
           questions: {
-            create: parsed.questions.map((q, idx) => ({
-              urutan: q.urutan || idx + 1,
-              teks: q.teks,
-              opsiA: q.opsiA,
-              opsiB: q.opsiB,
-              opsiC: q.opsiC,
-              jawabanBenar: q.jawabanBenar,
-              penjelasan: q.penjelasan || null,
-              dibuatAi: q.dibuatAi || false,
-            })),
+            create: parsed.questions.map((q, idx) => buildPrismaQuestionData(q, idx)),
           },
         },
         include: { questions: true },

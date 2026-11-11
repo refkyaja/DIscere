@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Modal } from '../../components';
 import {
-  Sparkles,
   Target,
   Play,
   AlertTriangle,
@@ -353,7 +352,6 @@ export default function ModalKonfigurasiKerupuk({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-[#c8362f]" />
               3. Preset Kesulitan &amp; Probabilitas Gigitan
             </label>
             <span className="text-[11px] font-bold text-[#6b7d6c] flex items-center gap-1">

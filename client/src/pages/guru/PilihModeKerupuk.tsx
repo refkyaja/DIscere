@@ -17,7 +17,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   Target,
-  Sparkles,
   Play,
   Loader2,
   BookOpen,
@@ -44,8 +43,10 @@ interface QuestionItem {
   teks: string;
   opsiA: string;
   opsiB: string;
-  opsiC: string;
-  jawabanBenar: 'A' | 'B' | 'C';
+  opsiC?: string | null;
+  opsiD?: string | null;
+  opsiE?: string | null;
+  jawabanBenar: 'A' | 'B' | 'C' | 'D' | 'E';
   penjelasan?: string | null;
   dibuatAi?: boolean;
 }
@@ -273,7 +274,9 @@ export default function PilihModeKerupuk() {
           teks: q.teks,
           opsiA: q.opsiA,
           opsiB: q.opsiB,
-          opsiC: q.opsiC,
+          opsiC: q.opsiC ?? null,
+          opsiD: q.opsiD ?? null,
+          opsiE: q.opsiE ?? null,
           jawabanBenar: q.jawabanBenar,
           penjelasan: q.penjelasan || null,
           dibuatAi: Boolean(q.dibuatAi),
@@ -446,7 +449,7 @@ export default function PilihModeKerupuk() {
           <section className="space-y-6">
             <div className="bg-[#fcf8ed] border-2 border-[#e0d5b8] rounded-3xl p-6 shadow-xs">
               <span className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-[#c8362f] mb-1">
-                <Sparkles className="w-4 h-4" /> Langkah 1 dari 2
+                Langkah 1 dari 2
               </span>
               <h2 className="text-2xl font-black text-[#1d3b2e]">
                 Pilih Cara Bermain di Kelas
@@ -488,7 +491,7 @@ export default function PilihModeKerupuk() {
                     <Play className="w-4 h-4" /> Langsung Soal #1
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4" /> Karakter 2D Proyektor
+                    Karakter 2D Proyektor
                   </span>
                   <span className="flex items-center gap-1.5">
                     <Target className="w-4 h-4" /> Mouse / Keyboard / Sentuh
@@ -899,7 +902,7 @@ export default function PilihModeKerupuk() {
               <div className="lg:col-span-6 bg-[#fcf8ed] border-2 border-[#e0d5b8] rounded-3xl p-5 space-y-4 shadow-xs">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-[#c8362f]" /> 3. Tingkat Kesulitan &amp; Peluang Gigitan
+                    3. Tingkat Kesulitan &amp; Peluang Gigitan
                   </label>
                   <span className="text-[11px] font-bold text-[#6b7d6c] flex items-center gap-1">
                     <Sliders className="w-3.5 h-3.5" />

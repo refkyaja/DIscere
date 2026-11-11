@@ -22,7 +22,9 @@ interface SoalStat {
   teks: string;
   opsiA: string;
   opsiB: string;
-  opsiC: string;
+  opsiC?: string | null;
+  opsiD?: string | null;
+  opsiE?: string | null;
   jawabanBenar: string;
   penjelasan: string | null;
   jumlahBenar: number;

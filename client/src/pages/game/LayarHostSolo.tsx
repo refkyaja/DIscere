@@ -15,7 +15,6 @@ import {
   Lock,
   Pause,
   Play,
-  Sparkles,
   StopCircle,
   Trophy,
   Volume2,
@@ -26,7 +25,7 @@ import {
 
 interface PilihanSoalClient {
   choiceId: string;
-  label: 'A' | 'B' | 'C';
+  label: 'A' | 'B' | 'C' | 'D' | 'E';
   teks: string;
 }
 
@@ -39,7 +38,9 @@ interface SoalTimClient {
   teks: string;
   opsiA: string;
   opsiB: string;
-  opsiC: string;
+  opsiC?: string | null;
+  opsiD?: string | null;
+  opsiE?: string | null;
   pilihan: PilihanSoalClient[];
   endsAt?: number;
   duration?: number;
@@ -505,7 +506,6 @@ export default function LayarHostSolo() {
           <div className="px-5 py-2.5 bg-[#f4ecd9] border-b border-[#e0d5b8] flex items-center justify-between gap-2">
             {stats.powerUpAktifRondeBerikutnya ? (
               <div className="text-xs font-black text-[#b45309] flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4" />
                 <span>
                   Aktif Ronde Depan:{' '}
                   {INFO_POWERUP[stats.powerUpAktifRondeBerikutnya]?.label ||

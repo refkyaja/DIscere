@@ -18,6 +18,7 @@ import {
 import { multiManager } from './multiManager.js';
 import { panjatPinangManager } from './panjatPinangManager.js';
 import { prisma } from '../db.js';
+import { mapDbQuestionForGame } from '../utils/questionOptions.js';
 
 export interface SoalPublikBalap {
   presentationId: string;
@@ -429,16 +430,7 @@ export const balapKarungManager = {
       sessionDb.token,
       sessionDb.hostId,
       { id: sessionDb.template.id, judul: sessionDb.template.judul },
-      sessionDb.template.questions.map((q) => ({
-        id: q.id,
-        urutan: q.urutan,
-        teks: q.teks,
-        opsiA: q.opsiA,
-        opsiB: q.opsiB,
-        opsiC: q.opsiC,
-        jawabanBenar: q.jawabanBenar,
-        penjelasan: q.penjelasan,
-      })),
+      sessionDb.template.questions.map(mapDbQuestionForGame),
       parsedConfig
     );
 

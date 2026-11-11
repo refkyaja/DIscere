@@ -56,13 +56,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           {/* Header Chat */}
           <div className="ch chat-header">
             <span className="chat-header-title">
-              <svg viewBox="0 0 24 24" width="20" height="20" style={{ color: '#fbbf24', flexShrink: 0 }}>
-                <path
-                  d="M9 6l1.8 4.2L15 12l-4.2 1.8L9 18l-1.8-4.2L3 12l4.2-1.8z"
-                  fill="currentColor"
-                />
-                <path d="M18 3v4M16 5h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
               <strong>Asisten AI</strong>
               <span className="ai-badge-header">Dibuat AI</span>
             </span>

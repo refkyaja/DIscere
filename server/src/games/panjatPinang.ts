@@ -1,5 +1,13 @@
 import crypto from 'crypto';
 import { z } from 'zod';
+import {
+  KODE_OPSI_VALID,
+  KunciPilihan,
+  extractActiveOptions,
+  normalizeOptionKey,
+} from '../utils/questionOptions.js';
+
+export type { KunciPilihan };
 
 export type KesulitanPanjatPinang = 'mudah' | 'normal' | 'sulit' | 'custom';
 
@@ -8,8 +16,6 @@ export type JenisRintangan =
   | 'kulit_pisang'
   | 'pegangan_kuat'
   | 'hadiah_kejutan';
-
-export type KunciPilihan = 'A' | 'B' | 'C';
 
 export interface PresetPanjatPinangConfig {
   naikBenar: number;
@@ -275,7 +281,9 @@ export interface SoalPanjat {
   teks: string;
   opsiA: string;
   opsiB: string;
-  opsiC: string;
+  opsiC?: string | null;
+  opsiD?: string | null;
+  opsiE?: string | null;
   jawabanBenar: string;
   penjelasan: string | null;
 }
@@ -296,15 +304,18 @@ export function buatPresentasiSoalPanjat(
   isBonusKulitPisang: boolean,
   ditampilkanPadaMs: number = Date.now()
 ): PresentasiSoalPanjat {
-  const cleanKunci = soal.jawabanBenar.trim().toUpperCase();
-  const kunciKey: KunciPilihan =
-    cleanKunci === 'B' ? 'B' : cleanKunci === 'C' ? 'C' : 'A';
+  const activeOpsi = extractActiveOptions(soal);
+  const kunciKey = normalizeOptionKey(
+    soal.jawabanBenar,
+    activeOpsi.map((o) => o.key),
+    'A'
+  );
 
-  const pilihan: OpsiPilihanPanjat[] = [
-    { choiceId: buatChoiceId(soal.id, 'A'), key: 'A', teks: soal.opsiA },
-    { choiceId: buatChoiceId(soal.id, 'B'), key: 'B', teks: soal.opsiB },
-    { choiceId: buatChoiceId(soal.id, 'C'), key: 'C', teks: soal.opsiC },
-  ];
+  const pilihan: OpsiPilihanPanjat[] = activeOpsi.map((opsi) => ({
+    choiceId: buatChoiceId(soal.id, opsi.key),
+    key: opsi.key,
+    teks: opsi.teks,
+  }));
 
   return {
     presentationId: crypto.randomUUID(),
@@ -330,8 +341,8 @@ export function validasiPilihanDenganChoiceId(
   let targetChoiceId = (choiceId || '').trim();
   if (!targetChoiceId && fallbackKey) {
     const k = fallbackKey.trim().toUpperCase();
-    if (k === 'A' || k === 'B' || k === 'C') {
-      targetChoiceId = buatChoiceId(presentasi.questionId, k);
+    if ((KODE_OPSI_VALID as readonly string[]).includes(k)) {
+      targetChoiceId = buatChoiceId(presentasi.questionId, k as KunciPilihan);
     }
   }
 

@@ -68,7 +68,7 @@ async function runTest() {
   // Verifikasi struktur Zod setiap soal
   for (let i = 0; i < aiSoalData.soal.length; i++) {
     const s = aiSoalData.soal[i];
-    if (!s.teks || !s.opsiA || !s.opsiB || !s.opsiC || !['A', 'B', 'C'].includes(s.jawabanBenar) || !s.penjelasan || !s.dibuatAi) {
+    if (!s.teks || !s.opsiA || !s.opsiB || !s.opsiC || !['A', 'B', 'C', 'D', 'E'].includes(s.jawabanBenar) || !s.penjelasan || !s.dibuatAi) {
       throw new Error(`Struktur soal #${i + 1} tidak valid: ${JSON.stringify(s)}`);
     }
   }

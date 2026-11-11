@@ -1,21 +1,40 @@
+export const KODE_OPSI_SOAL = ['A', 'B', 'C', 'D', 'E'] as const;
+export type KunciOpsi = (typeof KODE_OPSI_SOAL)[number];
+
 export interface QuestionItem {
   urutan: number;
   teks: string;
   opsiA: string;
   opsiB: string;
-  opsiC: string;
-  jawabanBenar: 'A' | 'B' | 'C';
+  opsiC?: string | null;
+  opsiD?: string | null;
+  opsiE?: string | null;
+  jawabanBenar: KunciOpsi;
   penjelasan?: string;
   kesulitan?: 'mudah' | 'sedang' | 'sulit';
   dibuatAi?: boolean;
+  /** Jumlah pilihan aktif pada editor UI (2..5, tidak dikirim ke API). */
+  opsiAktif?: number;
 }
 
-export const PROMPT_TEMPLATE = `Buatkan [jumlah] soal pilihan ganda tentang [topik] untuk kuis interaktif (3 pilihan jawaban: A, B, C), masing-masing dengan format persis seperti contoh ini:
+export function hitungJumlahOpsiAktif(q: {
+  opsiC?: string | null;
+  opsiD?: string | null;
+  opsiE?: string | null;
+}): number {
+  if (q.opsiE && q.opsiE.trim()) return 5;
+  if (q.opsiD && q.opsiD.trim()) return 4;
+  if (q.opsiC && q.opsiC.trim()) return 3;
+  return 2;
+}
+
+export const PROMPT_TEMPLATE = `Buatkan [jumlah] soal pilihan ganda tentang [topik] untuk kuis interaktif (bisa 2 hingga 5 pilihan jawaban dari A hingga E), masing-masing dengan format persis seperti contoh ini:
 
 1. Apa ibu kota Indonesia?
 A. Bandung
 B. Jakarta
 C. Surabaya
+D. Medan
 Jawaban: B
 Pembahasan: Jakarta adalah ibu kota Indonesia
 
@@ -72,7 +91,7 @@ export function parseAiQuizText(rawText: string): QuestionItem[] {
     let opsiC = '';
     let opsiD = '';
     let opsiE = '';
-    let jawabanBenar: 'A' | 'B' | 'C' = 'A';
+    let jawabanBenar: KunciOpsi = 'A';
     let kunciDitemukan = '';
     let penjelasan = '';
 
@@ -123,18 +142,23 @@ export function parseAiQuizText(rawText: string): QuestionItem[] {
 
     // Pastikan pertanyaan dan minimal opsi A & B ada
     if (teksSoal && opsiA && opsiB) {
-      // Jika opsi C kosong tetapi ada D
-      if (!opsiC && opsiD) opsiC = opsiD;
+      const cleanC = opsiC.trim();
+      const cleanD = cleanC ? opsiD.trim() : '';
+      const cleanE = cleanD ? opsiE.trim() : '';
 
-      // Adaptasi kunci jika jatuh di D atau E agar cocok dengan 3 opsi mini-game Discere
-      if (kunciDitemukan === 'D' && opsiD) {
-        opsiC = opsiD;
-        jawabanBenar = 'C';
-      } else if (kunciDitemukan === 'E' && opsiE) {
-        opsiC = opsiE;
-        jawabanBenar = 'C';
-      } else if (['A', 'B', 'C'].includes(kunciDitemukan)) {
-        jawabanBenar = kunciDitemukan as 'A' | 'B' | 'C';
+      const availableMap: Record<KunciOpsi, string> = {
+        A: opsiA,
+        B: opsiB,
+        C: cleanC,
+        D: cleanD,
+        E: cleanE,
+      };
+
+      if (
+        (KODE_OPSI_SOAL as readonly string[]).includes(kunciDitemukan) &&
+        availableMap[kunciDitemukan as KunciOpsi]
+      ) {
+        jawabanBenar = kunciDitemukan as KunciOpsi;
       }
 
       hasil.push({
@@ -142,10 +166,13 @@ export function parseAiQuizText(rawText: string): QuestionItem[] {
         teks: teksSoal,
         opsiA,
         opsiB,
-        opsiC: opsiC || 'Pilihan lainnya',
+        opsiC: cleanC || null,
+        opsiD: cleanD || null,
+        opsiE: cleanE || null,
         jawabanBenar,
         penjelasan,
         dibuatAi: true,
+        opsiAktif: cleanE ? 5 : cleanD ? 4 : cleanC ? 3 : 2,
       });
     }
   }

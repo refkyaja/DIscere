@@ -194,10 +194,6 @@ export function AiPopup({
         title="Klik dan seret untuk memindahkan jendela"
       >
         <span className="at">
-          <svg viewBox="0 0 24 24" style={{ width: 20, height: 20 }}>
-            <path d="M9 6l1.8 4.2L15 12l-4.2 1.8L9 18l-1.8-4.2L3 12l4.2-1.8z" />
-            <path d="M18 3v4M16 5h4" />
-          </svg>
           Tanya AI Soal Ini
         </span>
         <span className="bd">Dibuat AI</span>
@@ -282,10 +278,6 @@ export function AiPopup({
               className="ai-submit-btn"
               disabled={loading}
             >
-              <svg viewBox="0 0 24 24" style={{ width: 18, height: 18 }}>
-                <path d="M9 6l1.8 4.2L15 12l-4.2 1.8L9 18l-1.8-4.2L3 12l4.2-1.8z" />
-                <path d="M18 3v4M16 5h4" />
-              </svg>
               <span>{loading ? 'Memproses…' : 'Dapatkan Jawaban'}</span>
             </button>
           )}

@@ -111,10 +111,18 @@
 }
 
 .portal-shell.minimized .portal-brand {
+  display: flex;
   justify-content: center;
   align-items: center;
   width: 100%;
+  margin: 0 auto;
+  padding: 0;
   gap: 0;
+}
+
+.portal-shell.minimized .portal-brand svg {
+  display: block;
+  margin: 0 auto;
 }
 
 .portal-shell.minimized .portal-brand span {
@@ -1252,7 +1260,7 @@ select.portal-select {
 
 /* WOODEN CHALK LEDGE (100% FULL WIDTH EDGE TO EDGE) */
 .portal-ledge {
-  height: 78px;
+  height: 86px;
   position: relative;
   width: 100%;
   margin-top: 24px;
@@ -1261,20 +1269,32 @@ select.portal-select {
   display: block;
 }
 
-.portal-ledge svg {
+.portal-ledge > svg {
   width: 100%;
   height: 100%;
   display: block;
 }
 
-.portal-chalks {
+.portal-ledge-props {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.portal-ledge-chalk-cluster {
   position: absolute;
   left: 24px;
   bottom: 26px;
   display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.portal-chalks {
+  display: flex;
   flex-direction: column;
   gap: 3px;
-  z-index: 5;
 }
 
 .portal-chalks i {
@@ -1282,6 +1302,235 @@ select.portal-select {
   height: 12px;
   border-radius: 3px;
   box-shadow: inset 0 -2px rgba(0, 0, 0, 0.2);
+}
+
+.portal-chalk-extras {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 1px;
+}
+
+.portal-chalk-stick {
+  display: block;
+  height: 9px;
+  border-radius: 3px;
+  box-shadow: inset 0 -2px rgba(0, 0, 0, 0.18), 0 1px 2px rgba(0, 0, 0, 0.22);
+}
+
+.portal-chalk-white {
+  width: 44px;
+  background: linear-gradient(180deg, #faf7ee 0%, #e7decb 100%);
+  transform: rotate(-6deg);
+}
+
+.portal-chalk-yellow {
+  width: 54px;
+  background: linear-gradient(180deg, #f8d463 0%, #dfad31 100%);
+  transform: rotate(2deg);
+}
+
+.portal-chalk-coral {
+  width: 34px;
+  background: linear-gradient(180deg, #f09e97 0%, #d47068 100%);
+  transform: rotate(4deg);
+}
+
+.portal-chalk-sky {
+  width: 46px;
+  background: linear-gradient(180deg, #8fd2d6 0%, #5ca1a7 100%);
+  transform: rotate(-2deg);
+}
+
+.portal-chalk-cream-nub {
+  width: 30px;
+  background: linear-gradient(180deg, #faf7ee 0%, #e4dbc7 100%);
+  transform: rotate(-8deg);
+  margin-bottom: 2px;
+}
+
+.portal-chalk-crumb {
+  position: absolute;
+  width: 5px;
+  height: 3.5px;
+  border-radius: 50%;
+  background: rgba(246, 241, 228, 0.85);
+}
+
+/* Penghapus papan tulis kayu + busa felt berdebu kapur */
+.portal-prop-eraser {
+  position: absolute;
+  left: 26%;
+  bottom: 24px;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.portal-eraser-body {
+  width: 90px;
+  display: flex;
+  flex-direction: column;
+  transform: rotate(-1.5deg);
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.28));
+}
+
+.portal-eraser-wood {
+  position: relative;
+  height: 15px;
+  border-radius: 5px 5px 2px 2px;
+  background: linear-gradient(180deg, #e1b56c 0%, #c88d42 65%, #9f6726 100%);
+  box-shadow: inset 0 1px rgba(255, 245, 215, 0.45);
+}
+
+.portal-eraser-groove {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 6px;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(110, 62, 16, 0.45);
+}
+
+.portal-eraser-felt {
+  position: relative;
+  height: 10px;
+  margin: 0 2px;
+  border-radius: 1px 1px 4px 4px;
+  background: linear-gradient(180deg, #2d3733 0%, #1d2421 100%);
+  box-shadow: inset 0 -2px rgba(0, 0, 0, 0.35);
+}
+
+.portal-eraser-felt::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  right: 10px;
+  bottom: 1px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgba(246, 241, 228, 0.45), rgba(246, 241, 228, 0.25), transparent);
+}
+
+/* Penggaris segitiga kayu + kapur biru */
+.portal-prop-ruler {
+  position: absolute;
+  left: 55%;
+  bottom: 29px;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.portal-prop-ruler svg {
+  display: block;
+  width: 86px;
+  height: 44px;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.24));
+}
+
+/* Sepasang spidol papan (hitam & merah) */
+.portal-prop-markers {
+  position: absolute;
+  right: 26px;
+  bottom: 25px;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.portal-marker {
+  display: flex;
+  align-items: center;
+  height: 12px;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.26));
+}
+
+.portal-marker-black {
+  transform: rotate(-2.5deg);
+}
+
+.portal-marker-red {
+  transform: rotate(2deg) translateY(2px);
+}
+
+.portal-marker-barrel {
+  width: 52px;
+  height: 11px;
+  background: linear-gradient(180deg, #fffdf8 0%, #efe6d2 62%, #d5cab0 100%);
+}
+
+.portal-marker-plug {
+  width: 7px;
+  height: 11px;
+  border-radius: 3px;
+}
+
+.portal-marker-cap {
+  position: relative;
+  width: 24px;
+  height: 12px;
+  border-radius: 3px 5px 5px 3px;
+}
+
+.portal-marker-red .portal-marker-cap {
+  border-radius: 5px 3px 3px 5px;
+}
+
+.portal-marker-clip {
+  position: absolute;
+  top: -3px;
+  left: 3px;
+  width: 15px;
+  height: 3px;
+  border-radius: 2px 2px 0 0;
+  background: inherit;
+}
+
+.portal-marker-black .portal-marker-plug,
+.portal-marker-black .portal-marker-cap {
+  background: linear-gradient(180deg, #334155 0%, #1e293b 70%, #0f172a 100%);
+}
+
+.portal-marker-red .portal-marker-plug,
+.portal-marker-red .portal-marker-cap {
+  background: linear-gradient(180deg, #e0483e 0%, #c8362f 70%, #99221d 100%);
+}
+
+@media (max-width: 960px) {
+  .portal-prop-ruler {
+    display: none;
+  }
+  .portal-prop-eraser {
+    left: 32%;
+  }
+}
+
+@media (max-width: 640px) {
+  .portal-ledge-chalk-cluster {
+    left: 14px;
+  }
+  .portal-chalk-extras,
+  .portal-chalk-cream-nub,
+  .portal-prop-eraser .portal-chalk-coral,
+  .portal-marker-red {
+    display: none;
+  }
+  .portal-prop-eraser {
+    left: auto;
+    right: 118px;
+    bottom: 24px;
+    transform: scale(0.84);
+    transform-origin: bottom right;
+  }
+  .portal-prop-markers {
+    right: 14px;
+    bottom: 24px;
+    transform: scale(0.9);
+    transform-origin: bottom right;
+  }
 }
 
 /* RESPONSIVE */

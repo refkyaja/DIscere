@@ -15,13 +15,12 @@ import {
   Flame,
   Crown,
   Medal,
-  Sparkles,
   ArrowRight,
 } from 'lucide-react';
 
 interface PilihanSoalKerupuk {
   choiceId: string;
-  label: 'A' | 'B' | 'C';
+  label: 'A' | 'B' | 'C' | 'D' | 'E';
   teks: string;
 }
 
@@ -556,7 +555,7 @@ export default function MainKerupuk({
     <div className="min-h-screen bg-[#1d3b2e] text-[#f4ecd8] p-4 flex flex-col justify-between max-w-md mx-auto w-full">
       <div className="text-center pt-2 space-y-1">
         <span className="inline-flex items-center gap-1 px-3 py-1 bg-[#f2c230] text-[#1d3b2e] text-[10px] font-black rounded-full uppercase">
-          <Sparkles className="w-3 h-3" /> Lomba Selesai
+          Lomba Selesai
         </span>
         <h1 className="text-2xl font-black">Podium Pemenang</h1>
       </div>

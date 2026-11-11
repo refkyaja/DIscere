@@ -271,9 +271,9 @@ export function ProfilAdminView({}: ProfilAdminViewProps) {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                 <div>
-                  <label className="block text-xs font-bold text-[#1d3b2e] uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-bold text-[#1d3b2e] uppercase tracking-wider mb-1.5 min-h-[2rem] flex items-end">
                     Kata Sandi Baru
                   </label>
                   <input
@@ -287,8 +287,8 @@ export function ProfilAdminView({}: ProfilAdminViewProps) {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#1d3b2e] uppercase tracking-wider mb-1.5">
-                    Konfirmasi Kata Sandi Baru
+                  <label className="block text-xs font-bold text-[#1d3b2e] uppercase tracking-wider mb-1.5 min-h-[2rem] flex items-end">
+                    Konfirmasi Kata Sandi
                   </label>
                   <input
                     type="password"

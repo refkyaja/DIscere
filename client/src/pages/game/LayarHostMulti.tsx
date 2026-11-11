@@ -18,7 +18,6 @@ import {
   RotateCcw,
   ShieldAlert,
   Shuffle,
-  Sparkles,
   StopCircle,
   Trophy,
   Users,
@@ -48,7 +47,7 @@ interface SoalTimHost {
   nomorRonde: number;
   kesulitan: 'mudah' | 'sedang' | 'sulit';
   teks: string;
-  pilihan: Array<{ choiceId: string; label: 'A' | 'B' | 'C'; teks: string }>;
+  pilihan: Array<{ choiceId: string; label: 'A' | 'B' | 'C' | 'D' | 'E'; teks: string }>;
   endsAt?: number;
   duration?: number;
 }
@@ -949,7 +948,6 @@ export default function LayarHostMulti() {
               <div className="bg-[#244a39] text-[#fbf6e9] rounded-3xl p-5 border-2 border-[#f2c230] shadow-lg space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="font-black text-base flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-[#f2c230]" />
                     <span>Rekap Ronde #{rekapRonde.nomorRonde}</span>
                   </div>
                   <div className="text-sm font-black text-[#f2c230]">

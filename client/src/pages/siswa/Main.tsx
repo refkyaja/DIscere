@@ -13,7 +13,6 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  Sparkles,
   LogOut,
   ShieldAlert,
   Loader2,
@@ -33,8 +32,10 @@ interface SoalData {
   teks: string;
   opsiA: string;
   opsiB: string;
-  opsiC: string;
-  pilihan?: Array<{ choiceId: string; label: 'A' | 'B' | 'C'; teks: string }>;
+  opsiC?: string | null;
+  opsiD?: string | null;
+  opsiE?: string | null;
+  pilihan?: Array<{ choiceId: string; label: 'A' | 'B' | 'C' | 'D' | 'E'; teks: string }>;
   endsAt?: number;
   duration?: number;
 }
@@ -127,7 +128,7 @@ export default function MainSiswa() {
   });
   const [soalAktif, setSoalAktif] = useState<SoalData | null>(null);
   const [sisaDetik, setSisaDetik] = useState<number>(20);
-  const [jawabanDipilih, setJawabanDipilih] = useState<'A' | 'B' | 'C' | null>(null);
+  const [jawabanDipilih, setJawabanDipilih] = useState<'A' | 'B' | 'C' | 'D' | 'E' | null>(null);
   const [pickedChoiceId, setPickedChoiceId] = useState<string | null>(null);
   const [sudahKirim, setSudahKirim] = useState(false);
   const [feedback, setFeedback] = useState<{
@@ -612,8 +613,8 @@ export default function MainSiswa() {
     );
   };
 
-  // Handler: Siswa Mengirim Jawaban (choiceId / A / B / C)
-  const handlePilihJawaban = (opsi: 'A' | 'B' | 'C', choiceId?: string) => {
+  // Handler: Siswa Mengirim Jawaban (choiceId / A-E)
+  const handlePilihJawaban = (opsi: 'A' | 'B' | 'C' | 'D' | 'E', choiceId?: string) => {
     if (sudahKirim || !sessionId || !pesertaId || !soalAktif) return;
 
     setJawabanDipilih(opsi);
@@ -1564,7 +1565,6 @@ export default function MainSiswa() {
               <div className="pt-1 flex items-center justify-between gap-2 text-xs font-bold">
                 {powerUpTim.aktifBerikutnya ? (
                   <span className="text-amber-700 inline-flex items-center gap-1">
-                    <Sparkles className="w-3.5 h-3.5" />
                     Power-up {powerUpTim.aktifBerikutnya} aktif ronde berikutnya!
                   </span>
                 ) : (
@@ -1618,16 +1618,25 @@ export default function MainSiswa() {
             <div className="space-y-3">
               {(soalAktif?.pilihan && soalAktif.pilihan.length > 0
                 ? soalAktif.pilihan
-                : (['A', 'B', 'C'] as const).map((k) => ({
-                    choiceId: k,
-                    label: k,
-                    teks:
-                      (k === 'A'
-                        ? soalAktif?.opsiA
-                        : k === 'B'
-                        ? soalAktif?.opsiB
-                        : soalAktif?.opsiC) || '',
-                  }))
+                : (['A', 'B', 'C', 'D', 'E'] as const)
+                    .map((k) => ({
+                      choiceId: k,
+                      label: k,
+                      teks:
+                        (k === 'A'
+                          ? soalAktif?.opsiA
+                          : k === 'B'
+                          ? soalAktif?.opsiB
+                          : k === 'C'
+                          ? soalAktif?.opsiC
+                          : k === 'D'
+                          ? soalAktif?.opsiD
+                          : soalAktif?.opsiE) || '',
+                    }))
+                    .filter(
+                      (item) =>
+                        item.label === 'A' || item.label === 'B' || item.teks.trim().length > 0
+                    )
               ).map((opsiItem) => {
                 const isSelected =
                   (pickedChoiceId && pickedChoiceId === opsiItem.choiceId) ||

@@ -358,7 +358,10 @@ export default function Landing() {
               <Link className="btn sm" to={ctaUrl}>
                 <span>
                   {user ? 'Dashboard' : 'Mulai'}
-                  <span className="xs"> {user ? 'Guru' : 'Sekarang'}</span>
+                  <span className="xs">
+                    {' '}
+                    {user ? (user.role === 'admin' ? 'Admin' : 'Guru') : 'Sekarang'}
+                  </span>
                 </span>{' '}
                 →
               </Link>

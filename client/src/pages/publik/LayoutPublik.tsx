@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router';
 import { useAuth } from '../../lib/auth';
 import { Button } from '../../components';
-import { Menu, X, ArrowRight, Sparkles, Shield, Heart } from 'lucide-react';
+import { Menu, X, ArrowRight, Shield, Heart } from 'lucide-react';
 
 export function LayoutPublik({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -149,7 +149,6 @@ export function LayoutPublik({ children }: { children: React.ReactNode }) {
                 Platform kelas interaktif untuk guru: papan tulis digital tak terbatas untuk materi pelajaran dan lomba 17 Agustusan yang seru. Belajar serius, bermain gembira!
               </p>
               <div className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/60 px-3 py-1.5 rounded-xl">
-                <Sparkles className="w-3.5 h-3.5 text-[#f2c230]" />
                 LOGICODIX 2026 Hackathon — Smart & Fun Education
               </div>
             </div>

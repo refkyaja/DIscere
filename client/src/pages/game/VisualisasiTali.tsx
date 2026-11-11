@@ -1,5 +1,5 @@
 import React from 'react';
-import { Flame, Flag, Sparkles, Users } from 'lucide-react';
+import { Flame, Flag, Users } from 'lucide-react';
 import KarakterTarikTambang, { EkspresiTarikTambang } from '../siswa/KarakterTarikTambang';
 
 interface VisualisasiTaliProps {
@@ -154,7 +154,7 @@ export const VisualisasiTali: React.FC<VisualisasiTaliProps> = ({
               )}
               {powerUpTim1Aktif && (
                 <span className="inline-flex items-center gap-0.5 text-[11px] px-2 py-0.5 rounded-full bg-[#c8362f] text-white font-bold">
-                  <Sparkles className="w-3 h-3" /> {LABEL_POWERUP[powerUpTim1Aktif] || powerUpTim1Aktif}
+                  {LABEL_POWERUP[powerUpTim1Aktif] || powerUpTim1Aktif}
                 </span>
               )}
             </div>
@@ -210,7 +210,7 @@ export const VisualisasiTali: React.FC<VisualisasiTaliProps> = ({
             <div className="flex flex-wrap items-center justify-end gap-1.5">
               {powerUpTim2Aktif && (
                 <span className="inline-flex items-center gap-0.5 text-[11px] px-2 py-0.5 rounded-full bg-[#2563eb] text-white font-bold">
-                  <Sparkles className="w-3 h-3" /> {LABEL_POWERUP[powerUpTim2Aktif] || powerUpTim2Aktif}
+                  {LABEL_POWERUP[powerUpTim2Aktif] || powerUpTim2Aktif}
                 </span>
               )}
               {streakTim2 !== undefined && streakTim2 > 0 && (
