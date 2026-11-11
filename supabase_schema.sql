@@ -56,10 +56,13 @@ CREATE TABLE IF NOT EXISTS public.questions (
   "opsiC" TEXT NOT NULL,
   "jawabanBenar" TEXT NOT NULL,
   penjelasan TEXT,
+  kesulitan TEXT NOT NULL DEFAULT 'sedang',
   "dibuatAi" BOOLEAN NOT NULL DEFAULT false,
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE public.questions ADD COLUMN IF NOT EXISTS kesulitan TEXT NOT NULL DEFAULT 'sedang';
 
 CREATE INDEX IF NOT EXISTS idx_questions_template ON public.questions("templateId");
 
@@ -90,6 +93,7 @@ CREATE TABLE IF NOT EXISTS public.session_players (
   id TEXT PRIMARY KEY,
   "sessionId" TEXT NOT NULL REFERENCES public.sessions(id) ON DELETE CASCADE,
   nama TEXT NOT NULL,
+  tim TEXT,
   posisi INTEGER NOT NULL DEFAULT 0,
   keseimbangan INTEGER NOT NULL DEFAULT 100,
   "jumlahJatuh" INTEGER NOT NULL DEFAULT 0,
@@ -110,6 +114,8 @@ CREATE TABLE IF NOT EXISTS public.session_players (
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE public.session_players ADD COLUMN IF NOT EXISTS tim TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_session_players_session ON public.session_players("sessionId");
 
