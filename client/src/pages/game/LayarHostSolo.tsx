@@ -254,8 +254,8 @@ export default function LayarHostSolo() {
   }
 
   return (
-    <div className="portal-bg min-h-screen p-4 sm:p-6 md:p-8 flex flex-col justify-between select-none">
-      <div className="max-w-6xl mx-auto w-full space-y-6">
+    <div className="portal-bg min-h-screen flex flex-col justify-between select-none">
+      <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 md:px-8 pt-4 sm:pt-6 md:pt-8 space-y-6">
         {/* Header Layar Proyektor */}
         <header className="flex flex-wrap items-center justify-between gap-4 portal-card p-4 sm:p-6 rounded-3xl border-2 border-[#e0d5b8] shadow-[0_6px_0_rgba(0,0,0,0.18)]">
           <div className="space-y-1">
@@ -338,6 +338,19 @@ export default function LayarHostSolo() {
           skorMerah={sesi.skorMerah}
           skorPutih={sesi.skorPutih}
           timAktif={sesi.state === 'PLAYING' ? sesi.currentTurn : undefined}
+          reaksiTim={
+            feedback
+              ? sesi.currentTurn === 'merah'
+                ? {
+                    merah: feedback.benar ? 'bahagia' : 'sedih',
+                    putih: feedback.benar ? 'sedih' : 'semangat',
+                  }
+                : {
+                    putih: feedback.benar ? 'bahagia' : 'sedih',
+                    merah: feedback.benar ? 'sedih' : 'semangat',
+                  }
+              : undefined
+          }
           theme="chalk"
         />
 
@@ -526,12 +539,16 @@ export default function LayarHostSolo() {
         )}
       </div>
 
-      {/* Dudukan Kapur Chalkboard */}
-      <div className="portal-ledge mt-8">
+      {/* Dudukan Papan Tulis Kayu & Kapur Chalkboard */}
+      <div className="portal-ledge" aria-hidden="true">
+        <svg viewBox="0 0 1440 80" preserveAspectRatio="none">
+          <path d="M0 34C240 6 480 62 720 34S1200 6 1440 34V80H0z" fill="#a6783c" />
+          <path d="M0 56C260 34 520 80 760 56S1220 36 1440 58V80H0z" fill="#8d6444" />
+        </svg>
         <div className="portal-chalks">
-          <div className="portal-chalk portal-chalk-white" />
-          <div className="portal-chalk portal-chalk-yellow" />
-          <div className="portal-chalk portal-chalk-pink" />
+          <i style={{ width: '84px', background: '#7a9c85' }} />
+          <i style={{ width: '70px', background: '#f2c230' }} />
+          <i style={{ width: '92px', background: '#f4ecd8' }} />
         </div>
       </div>
 

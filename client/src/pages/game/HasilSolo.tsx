@@ -153,6 +153,7 @@ export default function HasilSolo() {
           posisi={hasil.posisiAkhir}
           skorMerah={hasil.skorMerah}
           skorPutih={hasil.skorPutih}
+          pemenang={hasil.timMenang}
           theme="chalk"
         />
 
