@@ -9,6 +9,8 @@ export interface MenuPopupProps {
   onOpenJson: () => void;
   onExportPng: () => void;
   onClearAll: () => void;
+  onInsertTemplate?: (type: 'mind' | 'kanban' | 'swot' | 'alur') => void;
+  onOpenFormula?: () => void;
 }
 
 export function MenuPopup({
@@ -20,6 +22,8 @@ export function MenuPopup({
   onOpenJson,
   onExportPng,
   onClearAll,
+  onInsertTemplate,
+  onOpenFormula,
 }: MenuPopupProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -67,6 +71,57 @@ export function MenuPopup({
       >
         Papan baru
       </button>
+      <hr />
+      {onInsertTemplate && (
+        <>
+          <button
+            onClick={() => {
+              onClose();
+              onInsertTemplate('mind');
+            }}
+          >
+            🧠 Template: Mind Map
+          </button>
+          <button
+            onClick={() => {
+              onClose();
+              onInsertTemplate('kanban');
+            }}
+          >
+            📋 Template: Kanban
+          </button>
+          <button
+            onClick={() => {
+              onClose();
+              onInsertTemplate('swot');
+            }}
+          >
+            📊 Template: Kuadran SWOT
+          </button>
+          <button
+            onClick={() => {
+              onClose();
+              onInsertTemplate('alur');
+            }}
+          >
+            🔀 Template: Diagram Alur
+          </button>
+          <hr />
+        </>
+      )}
+      {onOpenFormula && (
+        <>
+          <button
+            onClick={() => {
+              onClose();
+              onOpenFormula();
+            }}
+          >
+            ∑ Sisipkan Rumus Matematika…
+          </button>
+          <hr />
+        </>
+      )}
       <button
         onClick={() => {
           onClose();

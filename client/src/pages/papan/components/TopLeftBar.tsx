@@ -17,7 +17,7 @@ export function TopLeftBar({
   isReconnecting = false,
   onTitleChange,
   onOpenMenu,
-  onExportPng,
+  onExportPng: _onExportPng,
 }: TopLeftBarProps) {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     e.stopPropagation();
@@ -56,19 +56,6 @@ export function TopLeftBar({
         onChange={(e) => onTitleChange && onTitleChange(e.target.value)}
         onKeyDown={handleKeyDown}
       />
-
-      {onExportPng && (
-        <button
-          className="ib"
-          title="Ekspor PNG"
-          aria-label="Ekspor PNG"
-          onClick={onExportPng}
-        >
-          <svg viewBox="0 0 24 24">
-            <path d="M12 15V4M8 8l4-4 4 4M5 14v5h14v-5" />
-          </svg>
-        </button>
-      )}
 
       {/* Badge Mode Lihat jika peran Viewer */}
       {hanyaLihat && (

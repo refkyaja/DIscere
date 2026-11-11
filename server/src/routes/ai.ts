@@ -11,6 +11,7 @@ import {
   cekBatasHarian,
   catatPemakaianAi,
   obrolDenganAI,
+  generateKuisPapan,
 } from '../ai/ai.js';
 import { config } from '../config.js';
 
@@ -46,15 +47,29 @@ aiRouter.get('/kuota', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// Skema validasi POST /api/ai/soal
-const buatSoalSchema = z.object({
-  materi: z.string().trim().min(20, 'Teks materi minimal 20 karakter agar AI dapat menyusun soal yang mendidik.'),
-  jumlah: z.number().int().min(1).max(15).default(5),
-  tingkat: z.enum(['SD', 'SMP']).default('SD'),
-});
+// Skema validasi POST /api/ai/soal & POST /api/ai/generate-soal
+const buatSoalSchema = z.preprocess(
+  (val: any) => {
+    if (typeof val === 'object' && val !== null) {
+      return {
+        materi: val.materi,
+        jumlah: val.jumlah ?? val.jumlahSoal ?? 5,
+        tingkat: val.tingkat ?? val.jenjang ?? 'SD',
+        kesulitan: val.kesulitan ?? 'sedang',
+      };
+    }
+    return val;
+  },
+  z.object({
+    materi: z.string().trim().min(20, 'Teks materi minimal 20 karakter agar AI dapat menyusun soal yang mendidik.'),
+    jumlah: z.coerce.number().int().min(1).max(15).default(5),
+    tingkat: z.enum(['SD', 'SMP']).default('SD'),
+    kesulitan: z.enum(['mudah', 'sedang', 'sulit']).default('sedang'),
+  })
+);
 
-// POST /api/ai/soal - Buat soal dari teks materi
-aiRouter.post('/soal', async (req: AuthRequest, res: Response) => {
+// Handler bersama untuk buat soal dari teks materi
+const handleBuatSoal = async (req: AuthRequest, res: Response) => {
   try {
     const parsed = buatSoalSchema.parse(req.body);
 
@@ -62,6 +77,7 @@ aiRouter.post('/soal', async (req: AuthRequest, res: Response) => {
     const kuotaCheck = await periksaDanPakaiKuota(req.user!.id);
     if (!kuotaCheck.bisaPakai) {
       return res.status(429).json({
+        sukses: false,
         pesan: `Batas kuota harian AI Anda (${kuotaCheck.batasHarian} request/hari) telah tercapai. Kuota akan direset besok hari.`,
         kuota: kuotaCheck,
       });
@@ -72,11 +88,14 @@ aiRouter.post('/soal', async (req: AuthRequest, res: Response) => {
       materi: parsed.materi,
       jumlah: parsed.jumlah,
       tingkat: parsed.tingkat,
+      kesulitan: parsed.kesulitan,
     });
 
     return res.json({
+      sukses: true,
       pesan: `Berhasil membuat ${soal.length} soal dengan AI.`,
       soal,
+      questions: soal, // Kompatibilitas alias frontend
       dariCache,
       kuota: {
         sisaKuota: kuotaCheck.sisaKuota,
@@ -86,11 +105,15 @@ aiRouter.post('/soal', async (req: AuthRequest, res: Response) => {
     });
   } catch (err: any) {
     if (err instanceof z.ZodError) {
-      return res.status(400).json({ pesan: err.issues[0]?.message || 'Input materi tidak valid.' });
+      return res.status(400).json({ sukses: false, pesan: err.issues[0]?.message || 'Input materi tidak valid.' });
     }
-    return res.status(500).json({ pesan: err.message || 'Gagal menghasilkan soal dengan AI.' });
+    return res.status(500).json({ sukses: false, pesan: err.message || 'Gagal menghasilkan soal dengan AI.' });
   }
-});
+};
+
+// POST /api/ai/soal dan POST /api/ai/generate-soal
+aiRouter.post('/soal', handleBuatSoal);
+aiRouter.post('/generate-soal', handleBuatSoal);
 
 // Skema validasi POST /api/ai/jawab
 const jawabPapanSchema = z.object({
@@ -250,3 +273,62 @@ aiRouter.post('/obrol', async (req: AuthRequest, res: Response) => {
     return res.status(500).json({ pesan: safeMessage });
   }
 });
+
+// Skema validasi POST /api/ai/kuis-papan
+const kuisPapanSchema = z.object({
+  topik: z.string().max(200, 'Topik maksimal 200 karakter.').optional(),
+  gambarPapan: z.string().min(10, 'Gambar papan tidak valid.').optional(),
+  jumlah: z.number().int().min(1).max(10).default(5),
+  tingkat: z.enum(['SD', 'SMP']).default('SD'),
+  game: z.enum(['tarik_tambang', 'panjat_pinang', 'balap_karung']).default('tarik_tambang'),
+  simpanTemplate: z.boolean().default(true),
+}).refine((data) => (data.topik && data.topik.trim().length > 0) || Boolean(data.gambarPapan), {
+  message: 'Wajib mengisi topik materi atau melampirkan gambar isi papan tulis.',
+});
+
+// POST /api/ai/kuis-papan - Buat kuis interaktif AI dari topik & isi papan tulis
+aiRouter.post('/kuis-papan', async (req: AuthRequest, res: Response) => {
+  try {
+    const parsed = kuisPapanSchema.parse(req.body);
+
+    // 1. Periksa batas kuota harian
+    const kuotaCheck = await periksaDanPakaiKuota(req.user!.id);
+    if (!kuotaCheck.bisaPakai) {
+      return res.status(429).json({
+        pesan: `Batas kuota harian AI Anda (${kuotaCheck.batasHarian} request/hari) telah tercapai. Kuota akan direset besok hari.`,
+        kuota: kuotaCheck,
+      });
+    }
+
+    // 2. Generate kuis dari topik dan/atau kanvas
+    const hasil = await generateKuisPapan({
+      userId: req.user!.id,
+      topik: parsed.topik?.trim(),
+      gambarPapan: parsed.gambarPapan,
+      jumlah: parsed.jumlah,
+      tingkat: parsed.tingkat,
+      game: parsed.game,
+      simpanTemplate: parsed.simpanTemplate,
+    });
+
+    return res.json({
+      pesan: `Berhasil membuat ${hasil.soal.length} soal kuis dengan AI.`,
+      soal: hasil.soal,
+      template: hasil.template,
+      kuota: {
+        sisaKuota: kuotaCheck.sisaKuota,
+        totalTerpakai: kuotaCheck.totalTerpakai,
+        batasHarian: kuotaCheck.batasHarian,
+      },
+    });
+  } catch (err: any) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ pesan: err.issues[0]?.message || 'Input kuis tidak valid.' });
+    }
+    const safeMessage = err?.message && !err.message.includes('at ')
+      ? err.message
+      : 'Gagal membuat kuis dengan AI. Silakan coba kembali.';
+    return res.status(500).json({ pesan: safeMessage });
+  }
+});
+

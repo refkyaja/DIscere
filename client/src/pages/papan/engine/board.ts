@@ -10,8 +10,13 @@ import {
   UbahEventPayload,
   TextObj,
   TableObj,
+  FormulaObj,
+  ConnObj,
   HandleKey,
+  BoardPage,
+  BoardDataFormat,
 } from './types';
+import { generateTemplate, TemplateType } from './templates';
 import { COL, LCOL } from './color';
 import {
   move,
@@ -39,9 +44,11 @@ export interface BoardOptions {
   onOpenTextEditor?: (editor: TextEditorState) => void;
   onCloseTextEditor?: () => void;
   onContextMenu?: (pos: { x: number; y: number } | null) => void;
+  onOpenFormulaDialog?: (obj: FormulaObj | null, pos: Pt) => void;
   onToast?: (msg: string) => void;
   onLassoChange?: (lasso: Pt[] | null) => void;
   onHistoryChange?: (canUndo: boolean, canRedo: boolean) => void;
+  onPageChange?: (activePageIndex: number, totalPages: number, pages: BoardPage[]) => void;
 }
 
 export class Board {
@@ -70,14 +77,19 @@ export class Board {
   public lasso: Pt[] | null = null;
   public laser: LaserPoint[] = [];
   public cur: CanvasObj | null = null;
+  public cfrom: string | null = null;
+  public hov: string | null = null;
   public hanyaLihat = false;
+  public pages: BoardPage[] = [];
+  public activePageIndex = 0;
 
   private clip: CanvasObj[] = [];
   private pasteCount = 0;
   private mouse: Pt | null = null;
   private activePointers: Map<number, Pt> = new Map();
   private drag: {
-    k: 'pan' | 'er' | 'ai' | 'mv' | 'ls' | 'resize' | 'rot' | 'pinch' | 'mq';
+    k: 'pan' | 'er' | 'ai' | 'mv' | 'ls' | 'resize' | 'rot' | 'pinch' | 'mq' | 'conn';
+    id?: string;
     x?: number;
     y?: number;
     vx?: number;
@@ -107,14 +119,71 @@ export class Board {
   private options: BoardOptions;
   private resizeObserver: ResizeObserver | null = null;
 
-  constructor(canvas: HTMLCanvasElement, initialObjs: CanvasObj[] = [], options: BoardOptions = {}) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    initialData: CanvasObj[] | BoardPage[] | BoardDataFormat = [],
+    options: BoardOptions = {}
+  ) {
     this.canvas = canvas;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas 2D context tidak didukung');
     this.ctx = ctx;
-    this.objs = initialObjs.map(cloneObj);
     this.options = options;
     this.hanyaLihat = !!options.hanyaLihat;
+
+    // Normalisasi struktur data halaman
+    if (Array.isArray(initialData)) {
+      if (initialData.length > 0 && 'objs' in initialData[0] && Array.isArray((initialData[0] as any).objs)) {
+        this.pages = (initialData as BoardPage[]).map((p) => ({
+          id: p.id || crypto.randomUUID(),
+          objs: (p.objs || []).map(cloneObj),
+          view: p.view ? { ...p.view } : { x: 0, y: 0, z: 1 },
+          judul: p.judul,
+        }));
+      } else {
+        this.pages = [
+          {
+            id: crypto.randomUUID(),
+            objs: (initialData as CanvasObj[]).map(cloneObj),
+            view: { x: 0, y: 0, z: 1 },
+          },
+        ];
+      }
+    } else if (initialData && typeof initialData === 'object') {
+      if (Array.isArray(initialData.pages) && initialData.pages.length > 0) {
+        this.pages = initialData.pages.map((p) => ({
+          id: p.id || crypto.randomUUID(),
+          objs: (p.objs || []).map(cloneObj),
+          view: p.view ? { ...p.view } : { x: 0, y: 0, z: 1 },
+          judul: p.judul,
+        }));
+        if (
+          typeof initialData.currentPageIndex === 'number' &&
+          initialData.currentPageIndex >= 0 &&
+          initialData.currentPageIndex < this.pages.length
+        ) {
+          this.activePageIndex = initialData.currentPageIndex;
+        }
+      } else if (Array.isArray(initialData.objs)) {
+        this.pages = [
+          {
+            id: crypto.randomUUID(),
+            objs: initialData.objs.map(cloneObj),
+            view: { x: 0, y: 0, z: 1 },
+          },
+        ];
+      }
+    }
+
+    if (this.pages.length === 0) {
+      this.pages = [{ id: crypto.randomUUID(), objs: [], view: { x: 0, y: 0, z: 1 } }];
+    }
+
+    const curPage = this.pages[this.activePageIndex] || this.pages[0];
+    this.objs = curPage.objs;
+    if (curPage.view) {
+      this.view = { ...curPage.view };
+    }
 
     this.history = new HistoryManager(
       (payload) => {
@@ -158,6 +227,8 @@ export class Board {
       marq: this.marq,
       laser: this.laser,
       mouse: this.mouse,
+      cfrom: this.cfrom,
+      hov: this.hov,
       onImageLoad: () => this.rd(),
     });
 
@@ -203,6 +274,10 @@ export class Board {
       return;
     }
     this.closeLasso();
+    if (tool !== 'conn') {
+      this.cfrom = null;
+      this.hov = null;
+    }
     this.state.tool = tool;
     if (tool !== 'select') {
       this.setSelection(null);
@@ -694,6 +769,113 @@ export class Board {
     }
   }
 
+  public makeConnection(sourceId: string, targetId: string): void {
+    if (this.hanyaLihat) return;
+    if (sourceId === targetId) return;
+
+    const exists = this.objs.some(
+      (o) =>
+        o.type === 'conn' &&
+        ((o.a === sourceId && o.b === targetId) || (o.a === targetId && o.b === sourceId))
+    );
+    if (exists) {
+      this.toast('Kedua objek sudah terhubung');
+      return;
+    }
+
+    const o: ConnObj = {
+      id: crypto.randomUUID(),
+      type: 'conn',
+      a: sourceId,
+      b: targetId,
+      color: this.state.color,
+      size: this.state.ss || 3,
+      op: this.state.op ?? 1,
+      ar: this.state.cs !== 'line',
+    };
+    this.objs.push(o);
+    this.history.commit({ tambah: [o] });
+    this.toast('Terhubung ✓');
+    this.rd();
+  }
+
+  public insertTemplate(kind: TemplateType): void {
+    if (this.hanyaLihat) return;
+    const items = generateTemplate(kind);
+    if (items.length === 0) return;
+
+    const c = this.getCenter();
+    let minX = 1e9,
+      minY = 1e9,
+      maxX = -1e9,
+      maxY = -1e9;
+    items.forEach((o) => {
+      const r = bounds(o, items);
+      minX = Math.min(minX, r.x);
+      minY = Math.min(minY, r.y);
+      maxX = Math.max(maxX, r.x + r.w);
+      maxY = Math.max(maxY, r.y + r.h);
+    });
+
+    const dx = c.x - (minX + maxX) / 2;
+    const dy = c.y - (minY + maxY) / 2;
+    items.forEach((o) => move(o, dx, dy));
+
+    this.objs.push(...items);
+    this.setTool('select');
+    this.setSelection(items.map((o) => o.id));
+
+    const w = this.canvas.clientWidth || window.innerWidth;
+    const h = this.canvas.clientHeight || window.innerHeight;
+    const targetW = Math.max(100, maxX - minX);
+    const targetH = Math.max(100, maxY - minY);
+    const z = Math.min(1, Math.max(0.4, Math.min((w - 240) / targetW, (h - 200) / targetH)));
+
+    this.view.z = z;
+    this.view.x = w / 2 - c.x * z;
+    this.view.y = h / 2 - c.y * z;
+    if (this.options.onViewChange) {
+      this.options.onViewChange({ ...this.view });
+    }
+
+    this.history.commit({ tambah: items });
+    this.toast(`Template ${kind.toUpperCase()} berhasil dimuat`);
+    this.rd();
+  }
+
+  public addFormula(tex: string, fs = 32, existingObj?: FormulaObj): FormulaObj | null {
+    if (this.hanyaLihat) return null;
+    const cleanTex = tex.trim();
+    if (!cleanTex) return null;
+
+    if (existingObj) {
+      const sebelum = cloneObj(existingObj);
+      existingObj.tex = cleanTex;
+      existingObj.fs = fs;
+      this.history.commit({ ubah: [{ sebelum, sesudah: cloneObj(existingObj) }] });
+      this.rd();
+      return existingObj;
+    }
+
+    const c = this.getCenter();
+    const o: FormulaObj = {
+      id: crypto.randomUUID(),
+      type: 'formula',
+      x: c.x - 60,
+      y: c.y - 20,
+      tex: cleanTex,
+      fs,
+      color: this.state.color === '#ffffff' ? '#111827' : this.state.color,
+      size: 1,
+    };
+    this.objs.push(o);
+    this.setSelection(o.id);
+    this.history.commit({ tambah: [o] });
+    this.toast('Rumus matematika ditambahkan');
+    this.rd();
+    return o;
+  }
+
   public commitTextEdit(editor: TextEditorState, value: string): void {
     if (this.hanyaLihat) return;
     const trimmed = value.slice(0, 5000);
@@ -750,7 +932,7 @@ export class Board {
     this.rd();
   }
 
-  // --- Mode Presentasi ---
+  // --- Mode Presentasi & Halaman ---
   public setPresentation(on: boolean): void {
     document.body.classList.toggle('pres', on);
     if (on) {
@@ -766,6 +948,126 @@ export class Board {
         document.exitFullscreen().catch(() => {});
       }
     }
+    if (this.options.onPageChange) {
+      this.options.onPageChange(this.activePageIndex, this.pages.length, this.pages);
+    }
+  }
+
+  // --- Manajemen Halaman / Slide ---
+  public getPages(): BoardPage[] {
+    this.saveCurrentPageSnapshot();
+    return this.pages;
+  }
+
+  public getActivePageIndex(): number {
+    return this.activePageIndex;
+  }
+
+  public saveCurrentPageSnapshot(): void {
+    if (this.pages[this.activePageIndex]) {
+      this.pages[this.activePageIndex].objs = this.objs;
+      this.pages[this.activePageIndex].view = { ...this.view };
+    }
+  }
+
+  public goPage(index: number): boolean {
+    if (index < 0 || index >= this.pages.length || index === this.activePageIndex) {
+      return false;
+    }
+    this.saveCurrentPageSnapshot();
+    this.activePageIndex = index;
+    const targetPage = this.pages[index];
+    this.objs = targetPage.objs;
+    if (targetPage.view) {
+      this.view = { ...targetPage.view };
+    }
+    this.setSelection(null);
+    this.closeLasso();
+    this.history.clear();
+    this.rd();
+    if (this.options.onPageChange) {
+      this.options.onPageChange(this.activePageIndex, this.pages.length, this.pages);
+    }
+    if (this.options.onViewChange) {
+      this.options.onViewChange(this.view);
+    }
+    if (this.options.onHistoryChange) {
+      this.options.onHistoryChange(this.canUndo(), this.canRedo());
+    }
+    return true;
+  }
+
+  public addPage(): void {
+    this.saveCurrentPageSnapshot();
+    const newPage: BoardPage = {
+      id: crypto.randomUUID(),
+      objs: [],
+      view: { x: 0, y: 0, z: 1 },
+    };
+    const nextIdx = this.activePageIndex + 1;
+    this.pages.splice(nextIdx, 0, newPage);
+    this.goPage(nextIdx);
+    this.toast(`Halaman ${this.activePageIndex + 1} ditambahkan`);
+  }
+
+  public deletePage(index?: number): boolean {
+    if (this.pages.length <= 1) {
+      this.toast('Minimal harus ada satu halaman');
+      return false;
+    }
+    const idx = index !== undefined ? index : this.activePageIndex;
+    this.saveCurrentPageSnapshot();
+    this.pages.splice(idx, 1);
+    const nextIdx = Math.min(idx, this.pages.length - 1);
+    this.activePageIndex = nextIdx;
+    const targetPage = this.pages[nextIdx];
+    this.objs = targetPage.objs;
+    if (targetPage.view) {
+      this.view = { ...targetPage.view };
+    }
+    this.setSelection(null);
+    this.closeLasso();
+    this.history.clear();
+    this.rd();
+    if (this.options.onPageChange) {
+      this.options.onPageChange(this.activePageIndex, this.pages.length, this.pages);
+    }
+    if (this.options.onViewChange) {
+      this.options.onViewChange(this.view);
+    }
+    if (this.options.onHistoryChange) {
+      this.options.onHistoryChange(this.canUndo(), this.canRedo());
+    }
+    this.toast('Halaman dihapus');
+    return true;
+  }
+
+  public duplicatePage(index?: number): void {
+    const idx = index !== undefined ? index : this.activePageIndex;
+    this.saveCurrentPageSnapshot();
+    const sourcePage = this.pages[idx];
+    const dupPage: BoardPage = {
+      id: crypto.randomUUID(),
+      objs: sourcePage.objs.map(cloneObj),
+      view: sourcePage.view ? { ...sourcePage.view } : { x: 0, y: 0, z: 1 },
+      judul: sourcePage.judul ? `${sourcePage.judul} (Salinan)` : undefined,
+    };
+    this.pages.splice(idx + 1, 0, dupPage);
+    this.goPage(idx + 1);
+    this.toast(`Halaman digandakan`);
+  }
+
+  public getFullData(): BoardDataFormat {
+    this.saveCurrentPageSnapshot();
+    return {
+      versi: 2,
+      pages: this.pages.map((p) => ({
+        ...p,
+        objs: p.objs.map(cloneObj),
+        view: p.view ? { ...p.view } : undefined,
+      })),
+      currentPageIndex: this.activePageIndex,
+    };
   }
 
   // --- Event Handlers Pointer & Window ---
@@ -1018,7 +1320,7 @@ export class Board {
       this.history.commit({ tambah: [o] });
     } else if (t === 'fill') {
       const o = topAt(this.objs, p, 2 / this.view.z);
-      if (o && o.type !== 'stroke' && o.type !== 'image') {
+      if (o && (o.type === 'shape' || o.type === 'text' || o.type === 'table')) {
         const sebelum = cloneObj(o);
         o.fill = this.state.fill || null;
         this.history.commit({ ubah: [{ sebelum, sesudah: cloneObj(o) }] });
@@ -1041,6 +1343,26 @@ export class Board {
     } else if (t === 'ai') {
       this.lasso = [p];
       this.drag = { k: 'ai' };
+    } else if (t === 'conn') {
+      const o = topAt(this.objs, p, 12 / this.view.z);
+      if (o && o.type !== 'conn') {
+        if (this.cfrom && this.cfrom !== o.id) {
+          this.makeConnection(this.cfrom, o.id);
+          this.cfrom = null;
+          this.hov = null;
+        } else if (this.cfrom === o.id) {
+          this.cfrom = null;
+        } else {
+          this.cfrom = o.id;
+          this.drag = { k: 'conn', id: o.id, p };
+        }
+      } else {
+        this.cfrom = null;
+      }
+    } else if (t === 'formula') {
+      if (this.options.onOpenFormulaDialog) {
+        this.options.onOpenFormulaDialog(null, p);
+      }
     }
 
     this.rd();
@@ -1251,6 +1573,13 @@ export class Board {
           this.cur.h = Math.sign(this.cur.h || 1) * m;
         }
       }
+    } else if (this.state.tool === 'conn') {
+      const o = topAt(this.objs, p, 12 / this.view.z);
+      const id = o && o.type !== 'conn' && o.id !== this.cfrom ? o.id : null;
+      if (id !== this.hov) {
+        this.hov = id;
+        this.canvas.style.cursor = id ? 'pointer' : 'crosshair';
+      }
     } else if (this.state.tool === 'select') {
       const X = this.xform();
       let hovered = false;
@@ -1365,6 +1694,14 @@ export class Board {
         this.canvas.style.cursor = this.state.tool === 'hand' ? 'grab' : 'crosshair';
       } else if (this.drag.k === 'rot' || this.drag.k === 'resize') {
         this.canvas.style.cursor = 'default';
+      } else if (this.drag.k === 'conn' && this.drag.id && e) {
+        const p = this.toWorld(e.clientX, e.clientY);
+        const o2 = topAt(this.objs, p, 12 / this.view.z);
+        if (o2 && o2.id !== this.drag.id && o2.type !== 'conn') {
+          this.makeConnection(this.drag.id, o2.id);
+        }
+        this.cfrom = null;
+        this.hov = null;
       }
 
       this.drag = null;
@@ -1423,6 +1760,10 @@ export class Board {
             text: o.cells[`${r},${c}`] || '',
           });
         }
+      }
+    } else if (o.type === 'formula') {
+      if (this.options.onOpenFormulaDialog) {
+        this.options.onOpenFormulaDialog(o, { x: o.x, y: o.y });
       }
     }
   };
@@ -1519,6 +1860,19 @@ export class Board {
       this.zoomOut();
       return;
     }
+    if (document.body.classList.contains('pres')) {
+      if (k === 'arrowright' || k === 'pagedown' || k === ' ') {
+        e.preventDefault();
+        this.goPage(this.activePageIndex + 1);
+        return;
+      }
+      if (k === 'arrowleft' || k === 'pageup') {
+        e.preventDefault();
+        this.goPage(this.activePageIndex - 1);
+        return;
+      }
+    }
+
     if (k === 'escape') {
       if (this.options.onContextMenu) {
         this.options.onContextMenu(null);

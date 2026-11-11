@@ -405,7 +405,23 @@ export function setupBoardSocket(io: Server) {
     });
 
     // ------------------------------------------------------------------------
-    // 3. Disconnect: bersihkan peserta & simpan jika peserta terakhir keluar
+    // 3. papan:cabut_akses {boardId, token}
+    // ------------------------------------------------------------------------
+    socket.on('papan:cabut_akses', async (data: { boardId?: string; token?: string }) => {
+      try {
+        if (!data?.boardId || !data?.token) return;
+        await prisma.boardShare.updateMany({
+          where: { boardId: data.boardId, token: data.token },
+          data: { aktif: false },
+        });
+        broadcastTokenRevocation(data.boardId, data.token);
+      } catch (err) {
+        console.error('Gagal mencabut akses via socket:', err);
+      }
+    });
+
+    // ------------------------------------------------------------------------
+    // 4. Disconnect: bersihkan peserta & simpan jika peserta terakhir keluar
     // ------------------------------------------------------------------------
     socket.on('disconnect', async () => {
       rateLimitMap.delete(socket.id);

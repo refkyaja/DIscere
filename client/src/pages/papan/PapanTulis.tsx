@@ -5,9 +5,9 @@ import { apiRequest } from '../../lib/api';
 import { getSocket } from '../../lib/socket';
 import { useAuth } from '../../lib/auth';
 import { Board } from './engine/board';
-import { CanvasObj, BoardState, BoardView, TextEditorState, ToolType, PenStyle, UbahEventPayload } from './engine/types';
+import { BoardState, BoardView, TextEditorState, ToolType, PenStyle, UbahEventPayload, FormulaObj, Pt } from './engine/types';
 import { COL, LCOL } from './engine/color';
-import { downloadPng, downloadJson, toJson, potongArea, pngDataUrl } from './engine/export';
+import { downloadPng, downloadPdf, downloadJson, toJson, potongArea, pngDataUrl } from './engine/export';
 import {
   TopLeftBar,
   ToolRail,
@@ -28,9 +28,12 @@ import {
   PromptBar,
   ChatPanel,
   ContextMenu,
+  FormulaDialog,
+  PageBar,
 } from './components';
 import { wrap, LampiranObrolan } from './lib/obrol';
 import { useObrol } from './lib/useObrol';
+import { playTimerAlarm } from './lib/timerAudio';
 
 export default function PapanTulis() {
   const { id: boardId } = useParams<{ id: string }>();
@@ -45,7 +48,7 @@ export default function PapanTulis() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [title, setTitle] = useState('Papan Pembelajaran Baru');
   const [saveStatus, setSaveStatus] = useState<'saved' | 'busy' | 'error'>('saved');
-  const [loadedObjs, setLoadedObjs] = useState<CanvasObj[] | null>(null);
+  const [loadedObjs, setLoadedObjs] = useState<any>(null);
   const [isReconnecting, setIsReconnecting] = useState(false);
 
   // Kolaborasi Real-time & Share Modal
@@ -85,6 +88,9 @@ export default function PapanTulis() {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isPresentation, setIsPresentation] = useState(false);
 
   const isGrouped = useMemo(() => {
     if (!boardRef.current || selectedIds.length === 0) return false;
@@ -108,6 +114,13 @@ export default function PapanTulis() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [showClearModal, setShowClearModal] = useState(false);
   const [isGamePanelOpen, setIsGamePanelOpen] = useState(false);
+  const [panelCategory, setPanelCategory] = useState<'game' | 'alat'>('game');
+  const [timerSeconds, setTimerSeconds] = useState(300);
+  const [timerTotal, setTimerTotal] = useState(300);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [isFormulaOpen, setIsFormulaOpen] = useState(false);
+  const [editingFormula, setEditingFormula] = useState<FormulaObj | null>(null);
+  const [formulaPos, setFormulaPos] = useState<Pt | null>(null);
 
   // File Inputs Ref
   const fileImgRef = useRef<HTMLInputElement>(null);
@@ -122,6 +135,23 @@ export default function PapanTulis() {
       setToastMsg((prev) => (prev === msg ? null : prev));
     }, 2200);
   }, []);
+
+  // Interval Countdown Timer Kelas
+  useEffect(() => {
+    if (!isTimerRunning) return;
+    const interval = setInterval(() => {
+      setTimerSeconds((prev) => {
+        if (prev <= 1) {
+          setIsTimerRunning(false);
+          playTimerAlarm();
+          showToast('Waktu timer habis!');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isTimerRunning, showToast]);
 
   // Simpan Otomatis ke Server dengan Debounce 2 detik
   const triggerAutosave = useCallback(
@@ -138,7 +168,7 @@ export default function PapanTulis() {
         if (!board) return;
 
         const currentTitle = customTitle !== undefined ? customTitle : title;
-        const jsonString = toJson(board.objs);
+        const jsonString = toJson(board.getFullData());
 
         try {
           await apiRequest(`/papan/${boardId}`, {
@@ -201,11 +231,13 @@ export default function PapanTulis() {
         const remoteTitle = res.board?.judul || 'Papan Pembelajaran Baru';
         setTitle(remoteTitle);
 
-        let initialObjs: CanvasObj[] = [];
+        let initialData: any = [];
         try {
           const parsed = JSON.parse(res.board?.data || '{}');
-          if (parsed && parsed.versi === 1 && Array.isArray(parsed.objs)) {
-            initialObjs = parsed.objs;
+          if (parsed && Array.isArray(parsed.pages)) {
+            initialData = parsed;
+          } else if (parsed && parsed.versi === 1 && Array.isArray(parsed.objs)) {
+            initialData = parsed.objs;
           }
         } catch {
           try {
@@ -213,17 +245,20 @@ export default function PapanTulis() {
             if (draft) {
               const parsedDraft = JSON.parse(draft);
               const dataObj = JSON.parse(parsedDraft.data || '{}');
-              if (dataObj && Array.isArray(dataObj.objs)) {
-                initialObjs = dataObj.objs;
+              if (dataObj && Array.isArray(dataObj.pages)) {
+                initialData = dataObj;
+                showToast('Memulihkan draf lokal yang tersimpan');
+              } else if (dataObj && Array.isArray(dataObj.objs)) {
+                initialData = dataObj.objs;
                 showToast('Memulihkan draf lokal yang tersimpan');
               }
             }
           } catch {
-            initialObjs = [];
+            initialData = [];
           }
         }
 
-        setLoadedObjs(initialObjs);
+        setLoadedObjs(initialData);
       } catch (err: any) {
         if (!isMounted) return;
         setLoadError(
@@ -343,6 +378,11 @@ export default function PapanTulis() {
       onContextMenu: (pos) => {
         setContextMenuPos(pos);
       },
+      onOpenFormulaDialog: (formulaObj, pos) => {
+        setEditingFormula(formulaObj);
+        setFormulaPos(pos);
+        setIsFormulaOpen(true);
+      },
       onLassoChange: (pts) => {
         if (pts && pts.length >= 8) {
           setActiveLasso(pts);
@@ -357,6 +397,12 @@ export default function PapanTulis() {
       onToast: (m) => {
         showToast(m);
       },
+      onPageChange: (activeIdx, total) => {
+        setPageIndex(activeIdx);
+        setTotalPages(total);
+        setIsPresentation(document.body.classList.contains('pres'));
+        triggerAutosave();
+      },
     });
 
     boardRef.current = board;
@@ -364,6 +410,8 @@ export default function PapanTulis() {
     setView({ ...board.view });
     setCanUndo(board.canUndo());
     setCanRedo(board.canRedo());
+    setPageIndex(board.getActivePageIndex());
+    setTotalPages(board.pages.length);
 
     return () => {
       if (boardRef.current) {
@@ -495,7 +543,7 @@ export default function PapanTulis() {
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
-    const jsonString = toJson(board.objs);
+    const jsonString = toJson(board.getFullData());
     try {
       await apiRequest(`/papan/${boardId}`, {
         method: 'PUT',
@@ -580,6 +628,13 @@ export default function PapanTulis() {
       return;
     }
 
+    if (tool === 'formula') {
+      setEditingFormula(null);
+      setFormulaPos(null);
+      setIsFormulaOpen(true);
+      return;
+    }
+
     const wasFlyout = activeFlyout === tool;
     if (boardRef.current) {
       boardRef.current.setTool(tool);
@@ -618,21 +673,33 @@ export default function PapanTulis() {
     file.text().then((text) => {
       try {
         const j = JSON.parse(text);
-        if (j && j.versi === 1 && Array.isArray(j.objs)) {
-          boardRef.current!.objs = j.objs;
+        if (j && Array.isArray(j.pages)) {
+          boardRef.current!.pages = j.pages;
+          boardRef.current!.goPage(j.currentPageIndex || 0);
           if (j.judul) {
             setTitle(j.judul);
           }
-          boardRef.current!.setSelection(null);
-          boardRef.current!.rd();
+          setPageIndex(boardRef.current!.getActivePageIndex());
+          setTotalPages(boardRef.current!.pages.length);
+          triggerAutosave(j.judul);
+          showToast('Papan slide multi-halaman berhasil dimuat');
+        } else if (j && j.versi === 1 && Array.isArray(j.objs)) {
+          boardRef.current!.pages = [{ id: crypto.randomUUID(), objs: j.objs, view: { x: 0, y: 0, z: 1 } }];
+          boardRef.current!.goPage(0);
+          if (j.judul) {
+            setTitle(j.judul);
+          }
+          setPageIndex(0);
+          setTotalPages(1);
           triggerAutosave(j.judul);
           showToast('Papan berhasil dimuat dari JSON');
         } else if (j && Array.isArray(j.o)) {
           // Kompatibilitas dengan file json referensi
-          boardRef.current!.objs = j.o;
+          boardRef.current!.pages = [{ id: crypto.randomUUID(), objs: j.o, view: { x: 0, y: 0, z: 1 } }];
+          boardRef.current!.goPage(0);
           if (j.t) setTitle(j.t);
-          boardRef.current!.setSelection(null);
-          boardRef.current!.rd();
+          setPageIndex(0);
+          setTotalPages(1);
           triggerAutosave(j.t);
           showToast('Papan berhasil dimuat dari JSON referensi');
         } else {
@@ -772,29 +839,101 @@ export default function PapanTulis() {
         onPaste={() => board?.paste()}
         onZOrder={(act) => board?.zOrder(act)}
         onToggleLock={() => board?.toggleLockSelected()}
+        onOpenFormula={() => {
+          setEditingFormula(null);
+          setFormulaPos(null);
+          setIsFormulaOpen(true);
+        }}
       />
 
-      {/* Top Right Panel: Undo, Redo, Game, Avatar, Presentasi, Share */}
+      {/* Top Right Panel: Undo, Redo, Game, Alat Kelas, Avatar, Presentasi, Share */}
       <TopRightBar
         canUndo={canUndo}
         canRedo={canRedo}
         pesertaList={pesertaList}
-        isGameOpen={isGamePanelOpen}
+        isGameOpen={isGamePanelOpen && panelCategory === 'game'}
+        isToolsOpen={isGamePanelOpen && panelCategory === 'alat'}
         onUndo={() => boardRef.current?.undo()}
         onRedo={() => boardRef.current?.redo()}
-        onPresentation={() => boardRef.current?.setPresentation(true)}
+        onPresentation={() => {
+          boardRef.current?.setPresentation(true);
+          setIsPresentation(true);
+        }}
         onOpenShare={() => setIsShareOpen(true)}
-        onOpenGame={() => setIsGamePanelOpen((prev) => !prev)}
+        onOpenGame={() => {
+          if (isGamePanelOpen && panelCategory === 'game') {
+            setIsGamePanelOpen(false);
+          } else {
+            setPanelCategory('game');
+            setIsGamePanelOpen(true);
+          }
+        }}
+        onOpenTools={() => {
+          if (isGamePanelOpen && panelCategory === 'alat') {
+            setIsGamePanelOpen(false);
+          } else {
+            setPanelCategory('alat');
+            setIsGamePanelOpen(true);
+          }
+        }}
       />
 
-      {/* Panel Template Game Interaktif */}
+      {/* Floating Timer Badge saat Panel Tertutup */}
+      {(isTimerRunning || (timerSeconds < timerTotal && timerSeconds > 0)) && !isGamePanelOpen && (
+        <button
+          id="tp"
+          type="button"
+          className={`floating-timer-badge ${timerSeconds <= 10 && timerSeconds > 0 ? 'red' : ''}`}
+          onClick={() => {
+            setPanelCategory('alat');
+            setIsGamePanelOpen(true);
+          }}
+          title="Klik untuk membuka alat kelas"
+        >
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="13" r="8" />
+            <path d="M12 9v4l2 2M5 3L2 6M22 6l-3-3M10 2h4" />
+          </svg>
+          <span>
+            {String(Math.floor(timerSeconds / 60)).padStart(2, '0')}:
+            {String(timerSeconds % 60).padStart(2, '0')}
+          </span>
+        </button>
+      )}
+
+      {/* Panel Template Game & Alat Kelas */}
       <GameTemplatesPanel
         isOpen={isGamePanelOpen}
         boardId={boardId || ''}
+        initialCategory={panelCategory}
         onClose={() => setIsGamePanelOpen(false)}
         onBeforeStartGame={handleFlushSave}
         onPasteLastGameResult={handlePasteLastGameResult}
+        onPasteToBoard={(text) => {
+          boardRef.current?.addNote(text);
+          showToast('Ditempel ke papan');
+        }}
+        getBoardPng={() => (boardRef.current ? pngDataUrl(boardRef.current.objs) : null)}
         onToast={showToast}
+        timerSeconds={timerSeconds}
+        timerTotal={timerTotal}
+        isTimerRunning={isTimerRunning}
+        onStartTimer={() => {
+          if (timerSeconds <= 0) {
+            setTimerSeconds(timerTotal);
+          }
+          setIsTimerRunning(true);
+        }}
+        onPauseTimer={() => setIsTimerRunning(false)}
+        onResetTimer={() => {
+          setIsTimerRunning(false);
+          setTimerSeconds(timerTotal);
+        }}
+        onChangeTimerTotal={(sec) => {
+          setIsTimerRunning(false);
+          setTimerTotal(sec);
+          setTimerSeconds(sec);
+        }}
       />
 
       {/* Share Modal Dialog */}
@@ -804,6 +943,21 @@ export default function PapanTulis() {
         pesertaList={pesertaList}
         onClose={() => setIsShareOpen(false)}
         onToast={showToast}
+        onDownloadPng={() => {
+          if (board) {
+            const ok = downloadPng(board.objs, title);
+            if (!ok) showToast('Kanvas masih kosong.');
+            else showToast('Foto PNG berhasil diunduh!');
+          }
+        }}
+        onDownloadPdf={() => {
+          if (board) {
+            const allPages = board.getPages();
+            const ok = downloadPdf(allPages && allPages.length > 1 ? allPages : board.objs, title);
+            if (!ok) showToast('Kanvas masih kosong.');
+            else showToast('Dokumen PDF berhasil diunduh!');
+          }
+        }}
       />
 
       {/* Zoom Bar: Zoom in/out, 100%, Grid, Center */}
@@ -926,8 +1080,8 @@ export default function PapanTulis() {
         }}
         onSaveJson={() => {
           if (board) {
-            downloadJson(board.objs, title);
-            showToast('JSON diunduh');
+            downloadJson(board.getFullData(), title);
+            showToast('JSON multi-halaman diunduh');
           }
         }}
         onOpenJson={() => {
@@ -940,6 +1094,15 @@ export default function PapanTulis() {
             downloadPng(board.objs, title);
             showToast('PNG diunduh');
           }
+        }}
+        onInsertTemplate={(tpl) => {
+          board?.insertTemplate(tpl);
+          showToast(`Template ${tpl.toUpperCase()} berhasil disisipkan`);
+        }}
+        onOpenFormula={() => {
+          setEditingFormula(null);
+          setFormulaPos(null);
+          setIsFormulaOpen(true);
         }}
         onClearAll={() => setShowClearModal(true)}
       />
@@ -1006,13 +1169,49 @@ export default function PapanTulis() {
         onUngroup={() => board?.ungroup()}
       />
 
+      {/* Dialog Pembuat & Pengubah Rumus Matematika (LaTeX Ringan) */}
+      <FormulaDialog
+        isOpen={isFormulaOpen}
+        obj={editingFormula}
+        pos={formulaPos}
+        onClose={() => {
+          setIsFormulaOpen(false);
+          setEditingFormula(null);
+          setFormulaPos(null);
+        }}
+        onSave={(tex, fs, existing) => {
+          board?.addFormula(tex, fs, existing);
+          showToast(existing ? 'Rumus matematika diperbarui' : 'Rumus matematika disisipkan');
+        }}
+      />
+
+      {/* Bilah Manajemen Halaman / Slide & Kontrol Presentasi */}
+      <PageBar
+        pageIndex={pageIndex}
+        totalPages={totalPages}
+        isPresentation={isPresentation}
+        onPrevPage={() => board?.goPage(pageIndex - 1)}
+        onNextPage={() => board?.goPage(pageIndex + 1)}
+        onAddPage={() => board?.addPage()}
+        onDeletePage={() => board?.deletePage()}
+        onDuplicatePage={() => board?.duplicatePage()}
+        onSelectPage={(idx) => board?.goPage(idx)}
+        onExitPresentation={() => {
+          board?.setPresentation(false);
+          setIsPresentation(false);
+        }}
+      />
+
       {/* Tombol Keluar Mode Presentasi */}
       <button
         id="ex"
         className="btn-exit-pres"
-        onClick={() => board?.setPresentation(false)}
+        onClick={() => {
+          board?.setPresentation(false);
+          setIsPresentation(false);
+        }}
       >
-        Keluar presentasi (Esc)
+        Keluar presentasi (Esc) · Halaman {pageIndex + 1}/{totalPages} · ← →
       </button>
 
       {/* Toast Notifikasi */}

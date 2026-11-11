@@ -76,14 +76,35 @@ papanRouter.get('/share/:token', async (req, res: Response) => {
   }
 });
 
+// Helper validasi format data kanvas (mendukung format v1 tunggal dan format v2 multi-halaman/slide)
+export const isValidCanvasData = (parsed: any): boolean => {
+  if (!parsed || typeof parsed !== 'object') return false;
+  // Format v1: { versi: 1, objs: [...] }
+  if (parsed.versi === 1 && Array.isArray(parsed.objs)) return true;
+  // Format v2: { versi: 2, pages: [...] }
+  if (parsed.versi === 2 && Array.isArray(parsed.pages)) return true;
+  // Format kompatibel: objek memiliki array objs atau pages
+  if (Array.isArray(parsed.objs) || Array.isArray(parsed.pages)) return true;
+  return false;
+};
+
 // PUT /api/papan/share/:token - Simpan perubahan kanvas oleh Editor via token berbagi
 const simpanShareSchema = z.object({
   data: z.union([
-    z.string().min(1, 'Data kanvas tidak boleh kosong.'),
+    z.string().refine((str) => {
+      try {
+        const parsed = JSON.parse(str);
+        return isValidCanvasData(parsed);
+      } catch {
+        return false;
+      }
+    }, 'Format data kanvas tidak valid'),
     z.object({
-      versi: z.literal(1),
-      objs: z.array(z.any()),
-    }),
+      versi: z.number().int().min(1).max(2).optional(),
+      objs: z.array(z.any()).optional(),
+      pages: z.array(z.any()).optional(),
+      currentPageIndex: z.number().int().optional(),
+    }).refine(isValidCanvasData, 'Format data kanvas tidak valid'),
   ]).transform((val) => (typeof val === 'string' ? val : JSON.stringify(val))),
 });
 
@@ -242,15 +263,17 @@ const putPapanSchema = z.object({
     z.string().refine((str) => {
       try {
         const parsed = JSON.parse(str);
-        return parsed && parsed.versi === 1 && Array.isArray(parsed.objs);
+        return isValidCanvasData(parsed);
       } catch {
         return false;
       }
     }, 'Format data kanvas tidak valid'),
     z.object({
-      versi: z.literal(1),
-      objs: z.array(z.any()),
-    }),
+      versi: z.number().int().min(1).max(2).optional(),
+      objs: z.array(z.any()).optional(),
+      pages: z.array(z.any()).optional(),
+      currentPageIndex: z.number().int().optional(),
+    }).refine(isValidCanvasData, 'Format data kanvas tidak valid'),
   ]).transform((val) => (typeof val === 'string' ? val : JSON.stringify(val))).optional(),
 });
 
@@ -295,6 +318,54 @@ papanRouter.put('/:id', async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ pesan: err.issues[0]?.message || 'Input tidak valid.' });
     }
     return res.status(500).json({ pesan: err.message || 'Gagal menyimpan perubahan papan.' });
+  }
+});
+
+// PATCH /api/papan/:id/judul - Ganti judul papan tulis
+const patchJudulSchema = z.object({
+  judul: z.string().min(1, 'Judul papan tidak boleh kosong').max(100, 'Judul papan maksimal 100 karakter'),
+});
+
+papanRouter.patch('/:id/judul', async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { judul } = patchJudulSchema.parse(req.body);
+
+    const board = await prisma.board.findUnique({
+      where: { id },
+      select: { ownerId: true },
+    });
+
+    if (!board) {
+      return res.status(404).json({ pesan: 'Papan tulis tidak ditemukan.' });
+    }
+
+    if (board.ownerId !== req.user!.id) {
+      return res.status(403).json({ pesan: 'Anda tidak memiliki hak akses mengubah papan ini.' });
+    }
+
+    const updated = await prisma.board.update({
+      where: { id },
+      data: {
+        judul: judul.trim(),
+        updatedAt: new Date(),
+      },
+      select: {
+        id: true,
+        judul: true,
+        updatedAt: true,
+      },
+    });
+
+    return res.json({
+      pesan: 'Judul papan tulis berhasil diperbarui.',
+      board: updated,
+    });
+  } catch (err: any) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ pesan: err.issues[0]?.message || 'Input tidak valid.' });
+    }
+    return res.status(500).json({ pesan: err.message || 'Gagal mengubah judul papan.' });
   }
 });
 
@@ -345,6 +416,7 @@ papanRouter.get('/:id/bagikan', async (req: AuthRequest, res: Response) => {
 
     const share = await prisma.boardShare.findFirst({
       where: { boardId: id, aktif: true },
+      orderBy: { updatedAt: 'desc' },
     });
 
     const baseUrl = getNetworkBaseUrl(req);
@@ -396,21 +468,12 @@ papanRouter.post('/:id/bagikan', async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ pesan: 'Anda tidak berwenang membagikan papan ini.' });
     }
 
-    // Cari tautan aktif yang sudah ada untuk papan ini
+    // Cari tautan aktif dengan peran yang sama, jika ada gunakan kembali, atau jika belum ada buat token baru untuk peran tersebut
     let share = await prisma.boardShare.findFirst({
-      where: { boardId: id, aktif: true },
+      where: { boardId: id, peran, aktif: true },
     });
 
-    if (share) {
-      // Perbarui peran jika sudah ada
-      share = await prisma.boardShare.update({
-        where: { id: share.id },
-        data: {
-          peran,
-          updatedAt: new Date(),
-        },
-      });
-    } else {
+    if (!share) {
       // Buat tautan baru dengan token acak panjang yang sulit ditebak (32 karakter hex)
       const token = crypto.randomBytes(16).toString('hex');
       share = await prisma.boardShare.create({

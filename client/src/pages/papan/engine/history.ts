@@ -15,9 +15,14 @@ export function cloneObj<T extends CanvasObj>(o: T): T {
 
 export function cloneSet(objsToClone: CanvasObj[], dx = 0, dy = 0): CanvasObj[] {
   const groupMap = new Map<string, string>();
-  return objsToClone.map((o) => {
+  const idMap = new Map<string, string>();
+
+  const cloned = objsToClone.map((o) => {
     const c = cloneObj(o);
+    const oldId = c.id;
     c.id = crypto.randomUUID();
+    idMap.set(oldId, c.id);
+
     if (c.g) {
       if (!groupMap.has(c.g)) {
         groupMap.set(c.g, 'g_' + crypto.randomUUID().slice(0, 8));
@@ -26,6 +31,16 @@ export function cloneSet(objsToClone: CanvasObj[], dx = 0, dy = 0): CanvasObj[] 
     }
     move(c, dx, dy);
     return c;
+  });
+
+  return cloned.filter((c) => {
+    if (c.type !== 'conn') return true;
+    if (idMap.has(c.a) && idMap.has(c.b)) {
+      c.a = idMap.get(c.a)!;
+      c.b = idMap.get(c.b)!;
+      return true;
+    }
+    return false;
   });
 }
 

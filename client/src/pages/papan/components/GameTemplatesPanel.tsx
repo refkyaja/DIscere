@@ -7,14 +7,25 @@ import {
   MOCK_TEMPLATES_PUSTAKA,
   USE_MOCK_TEMPLATE_FALLBACK,
 } from '../mock-template';
+import { ClassToolsView } from './ClassToolsView';
 
 export interface GameTemplatesPanelProps {
   isOpen: boolean;
   boardId: string;
+  initialCategory?: 'game' | 'alat';
   onClose: () => void;
   onBeforeStartGame: () => Promise<void>;
   onPasteLastGameResult?: () => void;
+  onPasteToBoard?: (text: string) => void;
+  getBoardPng?: () => string | null;
   onToast: (msg: string) => void;
+  timerSeconds?: number;
+  timerTotal?: number;
+  isTimerRunning?: boolean;
+  onStartTimer?: () => void;
+  onPauseTimer?: () => void;
+  onResetTimer?: () => void;
+  onChangeTimerTotal?: (sec: number) => void;
 }
 
 // Ikon Game SVG murni (bukan emoji)
@@ -62,13 +73,30 @@ function GameIcon({ game }: { game: string }) {
 export function GameTemplatesPanel({
   isOpen,
   boardId,
+  initialCategory = 'game',
   onClose,
   onBeforeStartGame,
-  onPasteLastGameResult,
+  onPasteLastGameResult: _onPasteLastGameResult,
+  onPasteToBoard,
+  getBoardPng: _getBoardPng = () => null,
   onToast,
+  timerSeconds = 300,
+  timerTotal = 300,
+  isTimerRunning = false,
+  onStartTimer = () => {},
+  onPauseTimer = () => {},
+  onResetTimer = () => {},
+  onChangeTimerTotal = () => {},
 }: GameTemplatesPanelProps) {
   const navigate = useNavigate();
+  const [category, setCategory] = useState<'game' | 'alat'>('game');
   const [activeTab, setActiveTab] = useState<'saya' | 'pustaka'>('saya');
+
+  useEffect(() => {
+    if (isOpen) {
+      setCategory(initialCategory);
+    }
+  }, [isOpen, initialCategory]);
   const [searchQuery, setSearchQuery] = useState('');
   const [templatesSaya, setTemplatesSaya] = useState<GameTemplateItem[]>([]);
   const [templatesPustaka, setTemplatesPustaka] = useState<GameTemplateItem[]>([]);
@@ -156,12 +184,14 @@ export function GameTemplatesPanel({
         return;
       }
 
-      // 2. Buat sesi di server
+      // 2. Buat sesi di server (Solo / Multiplayer mengikuti template.mode)
       const res = await apiRequest<{ session: { id: string } }>('/sesi', {
         method: 'POST',
         body: JSON.stringify({
           templateId: template.id,
           mode: template.mode,
+          playMode: template.mode === 'multi' ? 'MULTIPLAYER' : 'SOLO',
+          autoStart: template.game === 'tarik_tambang' && template.mode !== 'multi',
           game: template.game,
         }),
       });
@@ -202,66 +232,122 @@ export function GameTemplatesPanel({
       tabIndex={-1}
       onKeyDown={handleKeyDown}
     >
-      {/* Header Panel */}
-      <div className="qth">
-        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <svg viewBox="0 0 24 24" style={{ width: 22, height: 22, stroke: 'var(--pu)' }}>
-            <rect x="2" y="6" width="20" height="12" rx="4" />
-            <path d="M6 12h4M8 10v4M15 11h.01M18 13h.01" />
-          </svg>
-          <span>Template Game</span>
-        </span>
+      {/* Header Panel Terpadu: Switcher Game vs Alat Kelas */}
+      <div className="qth" style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--ln)' }}>
+        <div style={{ display: 'flex', gap: 6, background: 'rgba(0,0,0,0.2)', padding: 3, borderRadius: 10 }}>
+          <button
+            type="button"
+            onClick={() => setCategory('game')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              background: category === 'game' ? 'var(--pu)' : 'transparent',
+              color: category === 'game' ? '#fff' : '#94a3b8',
+              border: 'none',
+              borderRadius: 8,
+              padding: '6px 12px',
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="2" y="6" width="20" height="12" rx="4" />
+              <path d="M6 12h4M8 10v4M15 11h.01M18 13h.01" />
+            </svg>
+            <span>Game & Kuis</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCategory('alat')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              background: category === 'alat' ? 'var(--pu)' : 'transparent',
+              color: category === 'alat' ? '#fff' : '#94a3b8',
+              border: 'none',
+              borderRadius: 8,
+              padding: '6px 12px',
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="13" r="8" />
+              <path d="M12 9v4l2 2M5 3L2 6M22 6l-3-3M10 2h4" />
+            </svg>
+            <span>Alat Kelas</span>
+          </button>
+        </div>
+
         <button
           className="ib"
           id="qzx"
           aria-label="Tutup Panel (Esc)"
           title="Tutup Panel (Esc)"
           onClick={onClose}
-          style={{ width: 32, height: 32 }}
+          style={{ width: 30, height: 30 }}
         >
-          <svg viewBox="0 0 24 24" style={{ width: 16, height: 16 }}>
+          <svg viewBox="0 0 24 24" style={{ width: 15, height: 15 }}>
             <path d="M18 6L6 18M6 6l12 12" />
           </svg>
         </button>
       </div>
 
-      {/* Tombol Tempel Hasil Sesi Game Terakhir */}
-      {onPasteLastGameResult && (
-        <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--ln)' }}>
-          <button
-            type="button"
-            className="game-paste-result-btn"
-            onClick={onPasteLastGameResult}
-            title="Tempel kartu ringkasan hasil sesi game terakhir ke kanvas papan tulis"
-          >
-            <svg viewBox="0 0 24 24" style={{ width: 16, height: 16, stroke: '#fbbf24' }}>
-              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-              <rect x="8" y="2" width="8" height="4" rx="1" />
-            </svg>
-            <span>Tempel Hasil Game ke Papan</span>
-          </button>
-        </div>
-      )}
-
-      {/* Navigasi Tab */}
-      <div className="game-tabs" role="tablist" aria-label="Kategori Template">
-        <button
-          role="tab"
-          aria-selected={activeTab === 'saya'}
-          className={`game-tab-btn ${activeTab === 'saya' ? 'active' : ''}`}
-          onClick={() => setActiveTab('saya')}
+      {category === 'alat' ? (
+        <ClassToolsView
+          onPasteToBoard={onPasteToBoard || (() => {})}
+          onToast={onToast}
+          timerSeconds={timerSeconds}
+          timerTotal={timerTotal}
+          isTimerRunning={isTimerRunning}
+          onStartTimer={onStartTimer}
+          onPauseTimer={onPauseTimer}
+          onResetTimer={onResetTimer}
+          onChangeTimerTotal={onChangeTimerTotal}
+        />
+      ) : (
+        <div
+          id="qzb"
+          className="game-template-list"
+          style={{
+            flex: '1 1 auto',
+            minHeight: 0,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            padding: '10px 14px 40px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+          }}
         >
-          Template Saya ({templatesSaya.length})
-        </button>
-        <button
-          role="tab"
-          aria-selected={activeTab === 'pustaka'}
-          className={`game-tab-btn ${activeTab === 'pustaka' ? 'active' : ''}`}
-          onClick={() => setActiveTab('pustaka')}
-        >
-          Pustaka Resmi ({templatesPustaka.length})
-        </button>
-      </div>
+          {/* Navigasi Tab Game */}
+          <div className="game-tabs" role="tablist" aria-label="Kategori Template">
+            <button
+              role="tab"
+              aria-selected={activeTab === 'saya'}
+              className={`game-tab-btn ${activeTab === 'saya' ? 'active' : ''}`}
+              onClick={() => setActiveTab('saya')}
+            >
+              <span>Template Saya</span>
+              <span className="game-tab-badge">{templatesSaya.length}</span>
+            </button>
+            <button
+              role="tab"
+              aria-selected={activeTab === 'pustaka'}
+              className={`game-tab-btn ${activeTab === 'pustaka' ? 'active' : ''}`}
+              onClick={() => setActiveTab('pustaka')}
+            >
+              <span>Pustaka Resmi</span>
+              <span className="game-tab-badge">{templatesPustaka.length}</span>
+            </button>
+          </div>
 
       {/* Input Pencarian */}
       <div className="game-search-box">
@@ -292,7 +378,7 @@ export function GameTemplatesPanel({
       </div>
 
       {/* Konten Daftar Kartu Template */}
-      <div id="qzb" className="game-template-list">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {loading && (
           <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--mu)' }}>
             <span>Memuat template…</span>
@@ -374,7 +460,9 @@ export function GameTemplatesPanel({
               </button>
             </div>
           ))}
+        </div>
       </div>
+      )}
     </aside>
   );
 }

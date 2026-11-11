@@ -6,11 +6,13 @@ export interface TopRightBarProps {
   pesertaList?: PesertaItem[];
   hanyaLihat?: boolean;
   isGameOpen?: boolean;
+  isToolsOpen?: boolean;
   onUndo: () => void;
   onRedo: () => void;
   onPresentation: () => void;
   onOpenShare?: () => void;
   onOpenGame?: () => void;
+  onOpenTools?: () => void;
 }
 
 export function TopRightBar({
@@ -19,11 +21,13 @@ export function TopRightBar({
   pesertaList = [],
   hanyaLihat = false,
   isGameOpen = false,
+  isToolsOpen = false,
   onUndo,
   onRedo,
   onPresentation,
   onOpenShare,
   onOpenGame,
+  onOpenTools,
 }: TopRightBarProps) {
   const totalPeserta = Math.max(1, pesertaList.length);
 
@@ -74,6 +78,22 @@ export function TopRightBar({
           <svg viewBox="0 0 24 24">
             <rect x="2" y="6" width="20" height="12" rx="4" />
             <path d="M6 12h4M8 10v4M15 11h.01M18 13h.01" />
+          </svg>
+        </button>
+      )}
+
+      {/* Tombol Alat Kelas (Timer, Acak Nama, Poling, Skor) */}
+      {!hanyaLihat && onOpenTools && (
+        <button
+          className={`ib ${isToolsOpen ? 'active' : ''}`}
+          id="kl"
+          title="Alat Kelas (Timer, Acak Nama, Poling, Skor)"
+          aria-label="Buka Alat Kelas"
+          onClick={onOpenTools}
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="13" r="8" />
+            <path d="M12 9v4l2 2M5 3L2 6M22 6l-3-3M10 2h4" />
           </svg>
         </button>
       )}

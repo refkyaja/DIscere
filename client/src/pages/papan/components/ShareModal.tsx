@@ -12,6 +12,8 @@ export interface ShareModalProps {
   pesertaList: PesertaItem[];
   onClose: () => void;
   onToast: (msg: string) => void;
+  onDownloadPng?: () => void;
+  onDownloadPdf?: () => void;
 }
 
 const AVATAR_COLORS = [
@@ -41,6 +43,8 @@ export function ShareModal({
   pesertaList,
   onClose,
   onToast,
+  onDownloadPng,
+  onDownloadPdf,
 }: ShareModalProps) {
   const [peran, setPeran] = useState<'editor' | 'viewer'>('editor');
   const [joinUrl, setJoinUrl] = useState<string>('');
@@ -218,6 +222,46 @@ export function ShareModal({
         </svg>
         <span>{isAktif ? 'Salin tautan' : 'Buat dan salin tautan'}</span>
       </button>
+
+      {/* Tombol Unduh Foto & PDF */}
+      <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+        <button
+          type="button"
+          className="shb-export"
+          onClick={() => {
+            if (onDownloadPng) {
+              onDownloadPng();
+            }
+          }}
+          title="Unduh papan tulis sebagai gambar PNG"
+        >
+          <svg viewBox="0 0 24 24" style={{ width: 16, height: 16, fill: 'none', stroke: 'currentColor', strokeWidth: 2 }}>
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <path d="M21 15l-5-5L5 21" />
+          </svg>
+          <span>Unduh Foto</span>
+        </button>
+
+        <button
+          type="button"
+          className="shb-export"
+          onClick={() => {
+            if (onDownloadPdf) {
+              onDownloadPdf();
+            }
+          }}
+          title="Unduh papan tulis sebagai dokumen PDF"
+        >
+          <svg viewBox="0 0 24 24" style={{ width: 16, height: 16, fill: 'none', stroke: 'currentColor', strokeWidth: 2 }}>
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="12" y1="18" x2="12" y2="12" />
+            <line x1="9" y1="15" x2="15" y2="15" />
+          </svg>
+          <span>Unduh PDF</span>
+        </button>
+      </div>
 
       {/* Tombol Cabut Tautan */}
       {isAktif && (

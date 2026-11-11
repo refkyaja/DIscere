@@ -140,6 +140,18 @@ export const TOOLS: [ToolType, string, string, string][] = [
   ],
   ['pick', 'Pipet', 'I', '<path d="M15 4l5 5-3 1-7 7-4 1 1-4 7-7zM4 20l3-3"/>'],
   [
+    'conn',
+    'Konektor',
+    'C',
+    '<circle cx="5" cy="12" r="2"/><path d="M7 12h10M14 8l4 4-4 4"/>',
+  ],
+  [
+    'formula',
+    'Rumus',
+    'M',
+    '<path d="M4 4h16l-7 8 7 8H4v-3l8-5-8-5z"/>',
+  ],
+  [
     'ai',
     'Tanya AI',
     'A',

@@ -55,23 +55,25 @@ async function runTest() {
   // 4. Autosave Kanvas Fabric.js
   console.log('4. Menguji Autosave Kanvas (PUT /api/papan/:id)...');
   const sampleCanvasJson = JSON.stringify({
-    version: '7.4.0',
-    objects: [
+    versi: 1,
+    objs: [
       {
-        type: 'rect',
-        left: 100,
-        top: 100,
-        width: 150,
-        height: 100,
-        fill: '#D7262E',
+        id: 'obj-rect-1',
+        t: 'rect',
+        x: 100,
+        y: 100,
+        w: 150,
+        h: 100,
+        c: '#D7262E',
       },
       {
-        type: 'i-text',
-        left: 300,
-        top: 120,
+        id: 'obj-text-1',
+        t: 'text',
+        x: 300,
+        y: 120,
         text: 'Gaya Gravitasi',
         fontSize: 28,
-        fill: '#1E2A5A',
+        c: '#1E2A5A',
       },
     ],
   });
@@ -170,7 +172,7 @@ async function runTest() {
     viewerJoinPromise,
   ]);
 
-  if (!ownerJoin.success || ownerJoin.peran !== 'owner') {
+  if (!ownerJoin.success || (!ownerJoin.isOwner && ownerJoin.peran !== 'owner')) {
     throw new Error(`Owner join gagal: ${JSON.stringify(ownerJoin)}`);
   }
   if (!editorJoin.success || editorJoin.peran !== 'editor') {
@@ -189,12 +191,11 @@ async function runTest() {
 
   editorSocket.emit('papan:ubah', {
     boardId,
-    aksi: 'tambah',
-    objekData: { type: 'circle', left: 400, top: 200, radius: 40, fill: '#10B981' },
+    tambah: [{ id: 'obj-circ-1', type: 'shape', t: 'circle', x: 400, y: 200, w: 80, h: 80, c: '#10B981' }],
   });
 
   const updateDiterima = await viewerTerimaPromise;
-  if (!updateDiterima || updateDiterima.aksi !== 'tambah') {
+  if (!updateDiterima || !updateDiterima.tambah || updateDiterima.tambah.length === 0) {
     throw new Error(`Viewer tidak menerima pembaruan real-time: ${JSON.stringify(updateDiterima)}`);
   }
   console.log('✓ Viewer berhasil menerima pembaruan objek secara real-time dari Editor.');
@@ -206,8 +207,7 @@ async function runTest() {
       'papan:ubah',
       {
         boardId,
-        aksi: 'tambah',
-        objekData: { type: 'rect', left: 10, top: 10 },
+        tambah: [{ id: 'obj-rect-illegal', type: 'shape', t: 'rect', x: 10, y: 10, w: 50, h: 50 }],
       },
       resolve
     );

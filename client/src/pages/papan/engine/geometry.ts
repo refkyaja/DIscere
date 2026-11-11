@@ -1,4 +1,14 @@
-import { Pt, Bounds, CanvasObj, TextObj, ResizeCorner, HandleKey, SelectionHandle } from './types';
+import {
+  Pt,
+  Bounds,
+  CanvasObj,
+  TextObj,
+  ConnObj,
+  ResizeCorner,
+  HandleKey,
+  SelectionHandle,
+} from './types';
+import { fmLay } from './formula';
 
 const mc = typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null;
 
@@ -29,7 +39,48 @@ export function ew(o: CanvasObj): number {
   return o.size;
 }
 
-export function bounds(o: CanvasObj): Bounds {
+export function edge(b: Bounds, t: Pt): Pt {
+  const x = b.x + b.w / 2;
+  const y = b.y + b.h / 2;
+  const dx = t.x - x;
+  const dy = t.y - y;
+  if (!dx && !dy) return { x, y };
+  const k = Math.min((b.w / 2 + 4) / (Math.abs(dx) || 1e-9), (b.h / 2 + 4) / (Math.abs(dy) || 1e-9));
+  return { x: x + dx * k, y: y + dy * k };
+}
+
+export function connEnds(
+  objs: CanvasObj[],
+  o: ConnObj
+): { a: Pt; b: Pt; bad?: boolean } {
+  const A = objs.find((x) => x.id === o.a);
+  const B = objs.find((x) => x.id === o.b);
+  if (!A || !B || A.type === 'conn' || B.type === 'conn') {
+    return { a: { x: 0, y: 0 }, b: { x: 0, y: 0 }, bad: true };
+  }
+  const ba = bounds(A, objs);
+  const bb = bounds(B, objs);
+  const ca = { x: ba.x + ba.w / 2, y: ba.y + ba.h / 2 };
+  const cb = { x: bb.x + bb.w / 2, y: bb.y + bb.h / 2 };
+  return { a: edge(ba, cb), b: edge(bb, ca) };
+}
+
+export function bounds(o: CanvasObj, allObjs?: CanvasObj[]): Bounds {
+  if (o.type === 'formula') {
+    const L = fmLay(o);
+    return { x: o.x, y: o.y, w: L.w + 12, h: L.u + L.d + 12 };
+  }
+
+  if (o.type === 'conn') {
+    const e = connEnds(allObjs || [], o);
+    return {
+      x: Math.min(e.a.x, e.b.x),
+      y: Math.min(e.a.y, e.b.y),
+      w: Math.abs(e.a.x - e.b.x),
+      h: Math.abs(e.a.y - e.b.y),
+    };
+  }
+
   if (o.type === 'stroke') {
     const cached = strokeBoundsCache.get(o);
     if (cached) return cached;
@@ -162,10 +213,15 @@ export function inUnion(objs: CanvasObj[], p: Pt): boolean {
   return p.x >= b.x - 8 && p.x <= b.x + b.w + 8 && p.y >= b.y - 8 && p.y <= b.y + b.h + 8;
 }
 
-export function hit(o: CanvasObj, p: Pt, t = 6): boolean {
+export function hit(o: CanvasObj, p: Pt, t = 6, allObjs?: CanvasObj[]): boolean {
+  if (o.type === 'conn') {
+    const e = connEnds(allObjs || [], o);
+    return !e.bad && dseg(p, e.a, e.b) <= (o.size || 3) / 2 + t + 2;
+  }
+
   let pt = p;
   if (o.rot) {
-    const b = bounds(o);
+    const b = bounds(o, allObjs);
     const cx = b.x + b.w / 2;
     const cy = b.y + b.h / 2;
     const c = Math.cos(-o.rot);
@@ -184,7 +240,7 @@ export function hit(o: CanvasObj, p: Pt, t = 6): boolean {
     }
     return false;
   }
-  const b = bounds(o);
+  const b = bounds(o, allObjs);
   return pt.x >= b.x - t && pt.x <= b.x + b.w + t && pt.y >= b.y - t && pt.y <= b.y + b.h + t;
 }
 
@@ -197,12 +253,13 @@ export function topAt(
   for (let i = objs.length - 1; i >= 0; i--) {
     const o = objs[i];
     if (!includeLocked && o.lock) continue;
-    if (hit(o, p, t)) return o;
+    if (hit(o, p, t, objs)) return o;
   }
   return undefined;
 }
 
 export function move(o: CanvasObj, dx: number, dy: number): void {
+  if (o.type === 'conn') return;
   if (o.type === 'stroke') {
     for (const p of o.pts) {
       p.x += dx;

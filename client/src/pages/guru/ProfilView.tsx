@@ -13,7 +13,6 @@ import {
   Trophy,
   PenTool,
   Cpu,
-  ShieldCheck,
 } from 'lucide-react';
 
 interface ProfilViewProps {
@@ -182,12 +181,13 @@ export function ProfilView({ stats }: ProfilViewProps) {
                     Nama Lengkap
                   </label>
                   <div className="relative">
-                    <UserIcon className="w-4 h-4 text-[#6b7d6c] absolute left-3.5 top-3" />
+                    <UserIcon className="w-4 h-4 text-[#6b7d6c] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
                       value={nama}
                       onChange={(e) => setNama(e.target.value)}
-                      className="portal-input pl-10"
+                      className="portal-input has-icon !pl-11"
+                      style={{ paddingLeft: '42px' }}
                       placeholder="Nama lengkap Anda"
                       required
                     />
@@ -199,12 +199,13 @@ export function ProfilView({ stats }: ProfilViewProps) {
                     Asal Sekolah / Instansi
                   </label>
                   <div className="relative">
-                    <School className="w-4 h-4 text-[#6b7d6c] absolute left-3.5 top-3" />
+                    <School className="w-4 h-4 text-[#6b7d6c] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
                       value={sekolah}
                       onChange={(e) => setSekolah(e.target.value)}
-                      className="portal-input pl-10"
+                      className="portal-input has-icon !pl-11"
+                      style={{ paddingLeft: '42px' }}
                       placeholder="Contoh: SD Negeri Merdeka 01"
                     />
                   </div>
@@ -216,12 +217,13 @@ export function ProfilView({ stats }: ProfilViewProps) {
                   Alamat Email (Akun Masuk)
                 </label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 text-[#6b7d6c] absolute left-3.5 top-3" />
+                  <Mail className="w-4 h-4 text-[#6b7d6c] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="email"
                     value={user?.email || ''}
                     disabled
-                    className="portal-input pl-10 opacity-75 cursor-not-allowed bg-[#efe6d0]"
+                    className="portal-input has-icon !pl-11 opacity-75 cursor-not-allowed bg-[#efe6d0]"
+                    style={{ paddingLeft: '42px' }}
                   />
                 </div>
                 <span className="text-[11px] text-[#6b7d6c] mt-1 block">
@@ -374,19 +376,10 @@ export function ProfilView({ stats }: ProfilViewProps) {
                 <span className="text-xs text-[#6b7d6c] font-bold">Sisa Kuota AI</span>
               </div>
             </div>
-
-            <div className="p-3.5 rounded-xl bg-[#f2ebd9] border border-[#e5dcc7] space-y-2 text-xs text-[#6b7d6c]">
-              <div className="flex items-center gap-2 text-[#1d3b2e] font-bold">
-                <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                <span>Privasi Data Terjamin</span>
-              </div>
-              <p className="leading-relaxed">
-                Soal kuis privat dan kanvas papan tulis Anda sepenuhnya terisolasi dan aman di bawah akun Anda.
-              </p>
-            </div>
           </div>
         </div>
       </div>
     </div>
   );
 }
+

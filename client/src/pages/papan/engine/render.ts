@@ -1,6 +1,7 @@
 import { CanvasObj, BoardView, BoardState, Pt, Bounds, LaserPoint } from './types';
-import { bounds, ew, lines, intersects, wb, hsFor, ubox } from './geometry';
+import { bounds, ew, lines, intersects, wb, hsFor, ubox, connEnds } from './geometry';
 import { up } from './shapes';
+import { fmLay } from './formula';
 
 let fontLoaded = false;
 export async function ensureFontLoaded(onReady?: () => void): Promise<void> {
@@ -19,26 +20,28 @@ export async function ensureFontLoaded(onReady?: () => void): Promise<void> {
 export function drawObj(
   c: CanvasRenderingContext2D,
   o: CanvasObj,
-  onImageLoad?: () => void
+  onImageLoad?: () => void,
+  allObjs?: CanvasObj[]
 ): void {
   c.save();
   c.globalAlpha = (o.op ?? 1) * (o.type === 'stroke' && o.st === 'marker' ? 0.75 : 1);
   if (o.rot) {
-    const b = bounds(o);
+    const b = bounds(o, allObjs);
     const cx = b.x + b.w / 2;
     const cy = b.y + b.h / 2;
     c.translate(cx, cy);
     c.rotate(o.rot);
     c.translate(-cx, -cy);
   }
-  drawObj0(c, o, onImageLoad);
+  drawObj0(c, o, onImageLoad, allObjs);
   c.restore();
 }
 
 export function drawObj0(
   c: CanvasRenderingContext2D,
   o: CanvasObj,
-  onImageLoad?: () => void
+  onImageLoad?: () => void,
+  allObjs?: CanvasObj[]
 ): void {
   c.lineCap = c.lineJoin = 'round';
   c.strokeStyle = o.color;
@@ -222,6 +225,27 @@ export function drawObj0(
     if (o._i.complete && o._i.naturalWidth > 0) {
       c.drawImage(o._i, o.x, o.y, o.w, o.h);
     }
+  } else if (o.type === 'conn') {
+    const e = connEnds(allObjs || [], o);
+    if (e.bad) return;
+    c.beginPath();
+    c.moveTo(e.a.x, e.a.y);
+    c.lineTo(e.b.x, e.b.y);
+    c.stroke();
+    if (o.ar !== false) {
+      const a = Math.atan2(e.b.y - e.a.y, e.b.x - e.a.x);
+      const q = 12 + o.size * 1.5;
+      c.beginPath();
+      c.moveTo(e.b.x, e.b.y);
+      c.lineTo(e.b.x - q * Math.cos(a - 0.45), e.b.y - q * Math.sin(a - 0.45));
+      c.moveTo(e.b.x, e.b.y);
+      c.lineTo(e.b.x - q * Math.cos(a + 0.45), e.b.y - q * Math.sin(a + 0.45));
+      c.stroke();
+    }
+  } else if (o.type === 'formula') {
+    const L = fmLay(o);
+    c.fillStyle = o.color;
+    L.dr(c, o.x + 6, o.y + 6 + L.u);
   }
 }
 
@@ -237,6 +261,8 @@ export interface DrawSceneParams {
   marq?: Bounds | null;
   laser: LaserPoint[];
   mouse: Pt | null;
+  cfrom?: string | null;
+  hov?: string | null;
   onImageLoad?: () => void;
 }
 
@@ -252,6 +278,8 @@ export function drawScene({
   marq,
   laser,
   mouse,
+  cfrom,
+  hov,
   onImageLoad,
 }: DrawSceneParams): void {
   const d = window.devicePixelRatio || 1;
@@ -291,7 +319,7 @@ export function drawScene({
     if (!intersects(b, viewportBounds)) {
       continue;
     }
-    drawObj(ctx, o, onImageLoad);
+    drawObj(ctx, o, onImageLoad, objs);
 
     if (o.lock) {
       drawLockIcon(ctx, b.x + b.w, b.y, view.z);
@@ -300,7 +328,7 @@ export function drawScene({
 
   // Objek yang sedang digambar (preview)
   if (cur) {
-    drawObj(ctx, cur, onImageLoad);
+    drawObj(ctx, cur, onImageLoad, objs);
   }
 
   // Lasso Tanya AI
@@ -316,6 +344,50 @@ export function drawScene({
     ctx.setLineDash([10 / view.z, 7 / view.z]);
     ctx.stroke();
     ctx.restore();
+  }
+
+  // Visualisasi mode konektor: sorot objek hover & garis ke kursor
+  if (state.tool === 'conn') {
+    const hl = (id: string, col: string) => {
+      const o = objs.find((x) => x.id === id);
+      if (!o) return;
+      const b = bounds(o, objs);
+      ctx.save();
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 3 / view.z;
+      ctx.strokeRect(b.x - 5, b.y - 5, b.w + 10, b.h + 10);
+      ctx.fillStyle = col;
+      [
+        [b.x + b.w / 2, b.y - 5],
+        [b.x + b.w + 5, b.y + b.h / 2],
+        [b.x + b.w / 2, b.y + b.h + 5],
+        [b.x - 5, b.y + b.h / 2],
+      ].forEach((q) => {
+        ctx.beginPath();
+        ctx.arc(q[0], q[1], 4.5 / view.z, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.restore();
+    };
+
+    if (hov) hl(hov, '#22c55e');
+    if (cfrom) {
+      hl(cfrom, '#9b17f5');
+      const A = objs.find((x) => x.id === cfrom);
+      if (A && mouse) {
+        const b = bounds(A, objs);
+        const q = { x: (mouse.x - view.x) / view.z, y: (mouse.y - view.y) / view.z };
+        ctx.save();
+        ctx.strokeStyle = '#9b17f5';
+        ctx.lineWidth = 2 / view.z;
+        ctx.setLineDash([6 / view.z, 5 / view.z]);
+        ctx.beginPath();
+        ctx.moveTo(b.x + b.w / 2, b.y + b.h / 2);
+        ctx.lineTo(q.x, q.y);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
   }
 
   // Kotak seleksi objek aktif & Pegangan Resize + Rotasi (Tunggal & Multi-Select)

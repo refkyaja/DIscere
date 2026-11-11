@@ -20,6 +20,7 @@ export interface OptionsBarProps {
   onPaste?: () => void;
   onZOrder?: (action: 'front' | 'back' | 'fwd' | 'bwd') => void;
   onToggleLock?: () => void;
+  onOpenFormula?: () => void;
 }
 
 export function OptionsBar({
@@ -40,6 +41,7 @@ export function OptionsBar({
   onPaste,
   onZOrder,
   onToggleLock,
+  onOpenFormula,
 }: OptionsBarProps) {
   const t = state.tool;
 
@@ -60,6 +62,8 @@ export function OptionsBar({
     pick: 'PIPET',
     ai: 'TANYA AI',
     upload: 'UPLOAD',
+    conn: 'KONEKTOR',
+    formula: 'RUMUS',
   };
 
   const label = toolLabels[t] || t.toUpperCase();
@@ -325,6 +329,54 @@ export function OptionsBar({
           >
             Hapus
           </button>
+        </>
+      )}
+
+      {/* CONNECTOR OPTIONS */}
+      {t === 'conn' && (
+        <>
+          {colorButton}
+          <span className="bl">
+            Tebal: <b>{state.ss}px</b>
+          </span>
+          <input
+            type="range"
+            className="rg"
+            min={1}
+            max={20}
+            value={state.ss}
+            aria-label="Tebal Konektor"
+            onChange={(e) => onUpdateState({ ss: +e.target.value })}
+          />
+          <button
+            className={`chip ${state.cs !== 'line' ? 'on' : ''}`}
+            onClick={() => onUpdateState({ cs: 'arrow' })}
+          >
+            Panah
+          </button>
+          <button
+            className={`chip ${state.cs === 'line' ? 'on' : ''}`}
+            onClick={() => onUpdateState({ cs: 'line' })}
+          >
+            Garis Lurus
+          </button>
+          <span className="hint">
+            Klik/seret dari objek pertama ke objek kedua untuk menghubungkan
+          </span>
+        </>
+      )}
+
+      {/* FORMULA OPTIONS */}
+      {t === 'formula' && (
+        <>
+          <span className="hint">
+            Klik pada kanvas atau tekan tombol di sebelah kanan untuk menyisipkan rumus
+          </span>
+          {onOpenFormula && (
+            <button className="chip on" onClick={onOpenFormula}>
+              ∑ Buka Editor Rumus
+            </button>
+          )}
         </>
       )}
 
