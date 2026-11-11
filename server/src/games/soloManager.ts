@@ -1,4 +1,5 @@
 import { prisma } from '../db.js';
+import { mapDbQuestionForGame } from '../utils/questionOptions.js';
 import {
   TimTarikTambang,
   HasilPemenang,
@@ -412,6 +413,7 @@ function evaluasiDanTutupRondeInternal(sesi: ActiveSoloSession): {
     bonusAktif: sesi.config.bonusAktif,
     powerUpTim1Aktif: ronde.powerUpTim1Dipakai,
     powerUpTim2Aktif: ronde.powerUpTim2Dipakai,
+    batasMenang: sesi.config.batasMenang,
   });
 
   sesi.taliPosition = evalRonde.posisiBaru;
@@ -452,7 +454,7 @@ function evaluasiDanTutupRondeInternal(sesi: ActiveSoloSession): {
   catatStatSoalDanLog(sesi, ronde.nomorRonde, 'merah', ronde.soalTim1, j1, res1.benar, evalRonde.posisiBaru);
   catatStatSoalDanLog(sesi, ronde.nomorRonde, 'putih', ronde.soalTim2, j2, res2.benar, evalRonde.posisiBaru);
 
-  const selesai = cekKondisiSelesai(evalRonde.posisiBaru);
+  const selesai = cekKondisiSelesai(evalRonde.posisiBaru, sesi.config.batasMenang);
   if (selesai) {
     sesi.state = 'FINISHED';
     sesi.waktuSelesaiMs = Date.now();
@@ -513,6 +515,65 @@ export const soloManager = {
     if (!sesi) return undefined;
     if (hostId && sesi.hostId !== hostId) return undefined;
     return sesi;
+  },
+
+  async pulihkanSesiDariDb(sessionId: string): Promise<ActiveSoloSession | null> {
+    const existing = sesiSoloMap.get(sessionId);
+    if (existing) return existing;
+
+    const sessionDb = await prisma.session.findUnique({
+      where: { id: sessionId },
+      include: {
+        template: {
+          include: { questions: { orderBy: { urutan: 'asc' } } },
+        },
+        result: true,
+      },
+    });
+
+    if (!sessionDb || sessionDb.template.game !== 'tarik_tambang' || sessionDb.mode !== 'solo') {
+      return null;
+    }
+
+    let parsedConfig: Partial<KonfigurasiTarikTambang> | undefined;
+    if (sessionDb.konfigurasi) {
+      try {
+        const parsed = JSON.parse(sessionDb.konfigurasi);
+        parsedConfig = parsed?.config || parsed;
+      } catch {
+        parsedConfig = undefined;
+      }
+    }
+
+    try {
+      const mappedQuestions = sessionDb.template.questions.map(mapDbQuestionForGame);
+      const sesi = this.inisialisasiSesi(
+        sessionDb.id,
+        sessionDb.hostId,
+        { id: sessionDb.template.id, judul: sessionDb.template.judul },
+        mappedQuestions,
+        parsedConfig
+      );
+
+      sesi.waktuMulaiMs = sessionDb.mulaiPada ? sessionDb.mulaiPada.getTime() : null;
+
+      if (sessionDb.status === 'selesai') {
+        sesi.state = 'FINISHED';
+        sesi.waktuSelesaiMs = sessionDb.selesaiPada ? sessionDb.selesaiPada.getTime() : Date.now();
+        if (sessionDb.result) {
+          sesi.taliPosition = sessionDb.result.posisiAkhir;
+          sesi.skorMerah = sessionDb.result.skorMerah;
+          sesi.skorPutih = sessionDb.result.skorPutih;
+        }
+        sesi.hasil = (await this.muatLaporanDariDatabase(sessionDb.id)) || undefined;
+      } else if (sessionDb.status === 'jalan') {
+        this.mulaiSesi(sessionDb.id, sessionDb.hostId);
+      }
+
+      return sesi;
+    } catch {
+      return null;
+    }
   },
 
   mulaiSesi(sessionId: string, hostId: string): ActiveSoloSession {

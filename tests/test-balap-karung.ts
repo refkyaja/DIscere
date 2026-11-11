@@ -147,11 +147,25 @@ function jalankanUnitTests() {
   assert.strictEqual(cfgCustom.penurunanJatuhJarak, 6);
   assert.ok(Object.isFrozen(cfgCustom), 'Snapshot konfigurasi harus immutable');
 
-  const invalidProb = konfigurasiBalapKarungSchema.safeParse({
+  const customWeightValid = konfigurasiBalapKarungSchema.safeParse({
     rintanganAktif: true,
-    probabilitasRintangan: { kulit_pisang: 50, perisai: 10, lompatan_kuat: 10, jalan_berlumpur: 10 }, // sum 80 != 100
+    probabilitasRintangan: { kulit_pisang: 50, perisai: 10, lompatan_kuat: 10, jalan_berlumpur: 10 }, // bobot > 0 tetap valid (dinormalisasi otomatis)
   });
-  assert.strictEqual(invalidProb.success, false, 'Probabilitas rintangan tidak sama dengan 100% harus ditolak');
+  assert.strictEqual(
+    customWeightValid.success,
+    true,
+    'Bobot rintangan kustom bernilai positif (> 0) harus diterima tanpa wajib berjumlah 100'
+  );
+
+  const zeroWeightInvalid = konfigurasiBalapKarungSchema.safeParse({
+    rintanganAktif: true,
+    probabilitasRintangan: { kulit_pisang: 0, perisai: 0, lompatan_kuat: 0, jalan_berlumpur: 0 },
+  });
+  assert.strictEqual(
+    zeroWeightInvalid.success,
+    false,
+    'Total bobot rintangan terpilih <= 0 harus ditolak ketika rintangan aktif'
+  );
   console.log('   OK Preset jarak, kesulitan, custom snapshot immutable, dan Zod validation lolos');
 
   // Test 1 & 2 & 8: Jawaban benar (+jarak, +keseimbangan <=100%) & salah (-jarak, -keseimbangan)
@@ -618,7 +632,10 @@ async function jalankanIntegrationDanSimulasi40Pemain() {
 
     // 3. Hubungkan Host & 40 pelari ke Sesi 1
     console.log('3. Menghubungkan Host & 40 pelari bersamaan ke Socket.IO...');
-    const host1 = ioClient(baseUrl, { transports: ['websocket'] });
+    const host1 = ioClient(baseUrl, {
+      transports: ['websocket'],
+      extraHeaders: { cookie: tokenCookie },
+    });
     sockets.push(host1);
     await waitForEvent(host1, 'connect');
     host1.emit('sesi:host_join', { sessionId: s1Id });
@@ -862,7 +879,10 @@ async function jalankanIntegrationDanSimulasi40Pemain() {
 
     // 9. Sesi 2: Semua pelari finis -> Sesi otomatis berakhir (#26)
     console.log('9. Menguji Sesi 2 berakhir otomatis ketika semua pelari mencapai garis finis 50m...');
-    const host2 = ioClient(baseUrl, { transports: ['websocket'] });
+    const host2 = ioClient(baseUrl, {
+      transports: ['websocket'],
+      extraHeaders: { cookie: tokenCookie },
+    });
     const pS2 = ioClient(baseUrl, { transports: ['websocket'] });
     sockets.push(host2, pS2);
     await Promise.all([waitForEvent(host2, 'connect'), waitForEvent(pS2, 'connect')]);

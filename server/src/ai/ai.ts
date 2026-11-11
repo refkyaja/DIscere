@@ -273,11 +273,11 @@ export async function generateSoalFromMateri(params: {
 Buatlah ${jumlah} soal pilihan ganda berdasarkan teks materi berikut untuk tingkat ${tingkat} dengan tingkat kesulitan "${kesulitan}".
 Kriteria wajib:
 1. Setiap soal memiliki teks soal yang jelas, mendidik, dan tingkat kesulitan "${kesulitan}".
-2. Tepat memiliki 3 pilihan jawaban berbeda: opsiA, opsiB, opsiC.
-3. Tentukan jawabanBenar persis salah satu dari: "A", "B", atau "C".
+2. Sediakan 2 hingga 5 pilihan jawaban berbeda (wajib opsiA & opsiB; opsiC, opsiD, opsiE opsional atau null jika tidak dipakai — umum dipakai 3 atau 4 pilihan).
+3. Tentukan jawabanBenar persis salah satu huruf opsi yang aktif terisi ("A", "B", "C", "D", atau "E").
 4. Berikan penjelasan singkat mengapa jawaban tersebut benar.
 5. Format jawaban WAJIB berupa JSON murni tanpa markdown, tanpa tanda kutip backtick, dengan struktur:
-{"soal": [{"teks": "...", "opsiA": "...", "opsiB": "...", "opsiC": "...", "jawabanBenar": "A", "penjelasan": "...", "kesulitan": "${kesulitan}", "dibuatAi": true}]}
+{"soal": [{"teks": "...", "opsiA": "...", "opsiB": "...", "opsiC": "...", "opsiD": null, "opsiE": null, "jawabanBenar": "A", "penjelasan": "...", "kesulitan": "${kesulitan}", "dibuatAi": true}]}
 
 Materi:
 ${materi}`;
@@ -598,11 +598,11 @@ Tugas Anda: Buatlah ${targetJumlah} soal pilihan ganda untuk kuis kelas tingkat 
 
 Kriteria wajib:
 1. Soal mendidik, bahasa ramah siswa, jelas dan mudah dipahami.
-2. Setiap soal tepat memiliki 3 pilihan jawaban: opsiA, opsiB, opsiC.
-3. Tentukan jawabanBenar persis salah satu dari: "A", "B", atau "C".
+2. Setiap soal memiliki 2 hingga 5 pilihan jawaban berbeda (wajib opsiA & opsiB; opsiC, opsiD, opsiE opsional atau null bila tidak dipakai — umumnya 3 atau 4 pilihan).
+3. Tentukan jawabanBenar persis salah satu huruf opsi yang aktif terisi ("A", "B", "C", "D", atau "E").
 4. Berikan penjelasan edukatif singkat.
 5. Format jawaban WAJIB berupa JSON murni tanpa markdown, tanpa backtick, dengan skema:
-{"soal": [{"teks": "...", "opsiA": "...", "opsiB": "...", "opsiC": "...", "jawabanBenar": "A", "penjelasan": "...", "dibuatAi": true}]}`;
+{"soal": [{"teks": "...", "opsiA": "...", "opsiB": "...", "opsiC": "...", "opsiD": null, "opsiE": null, "jawabanBenar": "A", "penjelasan": "...", "dibuatAi": true}]}`;
 
       const isClaude = model.includes('claude') || model.includes('anthropic');
       if (!isClaude) {
@@ -661,7 +661,7 @@ Kriteria wajib:
             'anthropic-version': '2023-06-01',
           },
           body: JSON.stringify({
-            model: 'claude-3-5-sonnet-20241022',
+            model,
             max_tokens: 3000,
             messages: [{ role: 'user', content: userContent }],
           }),
@@ -1081,7 +1081,7 @@ export async function obrolDenganAI(params: {
         } catch {}
 
         if (response.status === 429) {
-          throw new Error('Batas kecepatan / kuota API Google Gemini tercapai (Too Many Requests). Silakan tunggu sebentar.');
+          throw new Error('Batas kecepatan / kuota API Anthropic Claude tercapai (Too Many Requests). Silakan tunggu sebentar.');
         }
         throw new Error(`Layanan AI memberikan kode respon ${response.status}${errDetail ? `: ${errDetail}` : ''}`);
       }

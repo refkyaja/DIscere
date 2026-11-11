@@ -8,6 +8,7 @@ import {
   buildPrismaQuestionData,
   questionInputSchema,
 } from '../utils/questionOptions.js';
+import { containsInsensitive } from '../utils/prismaFilters.js';
 
 export const adminRouter = Router();
 
@@ -141,9 +142,9 @@ adminRouter.get('/guru', async (req: AuthRequest, res: Response) => {
 
     if (q) {
       where.OR = [
-        { nama: { contains: q } },
-        { email: { contains: q } },
-        { sekolah: { contains: q } },
+        { nama: containsInsensitive(q) },
+        { email: containsInsensitive(q) },
+        { sekolah: containsInsensitive(q) },
       ];
     }
 
@@ -287,7 +288,9 @@ adminRouter.delete('/guru/:id', async (req: AuthRequest, res: Response) => {
 // ============================================================================
 const pustakaTemplateSchema = z.object({
   judul: z.string().min(3, 'Judul minimal 3 karakter.'),
-  game: z.string().default('tarik_tambang'),
+  game: z
+    .enum(['tarik_tambang', 'makan_kerupuk', 'panjat_pinang', 'balap_karung'])
+    .default('tarik_tambang'),
   mode: z.enum(['solo', 'multi']).default('solo'),
   questions: z.array(questionInputSchema).min(1, 'Minimal sertakan 1 soal.'),
 });
@@ -315,12 +318,13 @@ adminRouter.get('/pustaka', async (_req: AuthRequest, res: Response) => {
 adminRouter.post('/pustaka', async (req: AuthRequest, res: Response) => {
   try {
     const parsed = pustakaTemplateSchema.parse(req.body);
+    const resolvedMode = parsed.game === 'panjat_pinang' ? 'multi' : parsed.mode;
 
     const created = await prisma.template.create({
       data: {
         judul: parsed.judul,
         game: parsed.game,
-        mode: parsed.mode,
+        mode: resolvedMode,
         resmi: true,
         ownerId: null, // Template resmi tidak terikat ke akun guru privat
         questions: {
@@ -355,6 +359,7 @@ adminRouter.put('/pustaka/:id', async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
     const parsed = pustakaTemplateSchema.parse(req.body);
+    const resolvedMode = parsed.game === 'panjat_pinang' ? 'multi' : parsed.mode;
 
     const existing = await prisma.template.findUnique({
       where: { id },
@@ -375,7 +380,7 @@ adminRouter.put('/pustaka/:id', async (req: AuthRequest, res: Response) => {
         data: {
           judul: parsed.judul,
           game: parsed.game,
-          mode: parsed.mode,
+          mode: resolvedMode,
           questions: {
             create: parsed.questions.map((q, idx) => buildPrismaQuestionData(q, idx)),
           },

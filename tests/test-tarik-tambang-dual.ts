@@ -22,6 +22,7 @@ import {
   perbaruiStreakIndividu,
   hitungBonusKekompakan,
   evaluasiRondeTarikTambang,
+  cekKondisiSelesai,
   tentukanPemenang,
   tentukanHadiahPowerUp,
 } from '../server/src/games/tarikTambang.js';
@@ -130,6 +131,10 @@ function jalankanUnitTests() {
     maxPeserta: 50,
   });
   assert.strictEqual(conf.durasiRonde, 20);
+  assert.strictEqual(conf.batasMenang, 100);
+  assert.strictEqual(konfigurasiTarikTambangSchema.parse({ batasMenang: 25 }).batasMenang, 25);
+  assert.throws(() => konfigurasiTarikTambangSchema.parse({ batasMenang: 5 }));
+  assert.throws(() => konfigurasiTarikTambangSchema.parse({ batasMenang: 150 }));
   assert.throws(() => konfigurasiTarikTambangSchema.parse({ durasiRonde: 99 }));
   assert.throws(() => filterBankSoalSetara(MOCK_QUESTIONS_MIXED, 'sulit'));
   const poolSedang = filterBankSoalSetara(MOCK_QUESTIONS_MIXED, 'sedang');
@@ -229,6 +234,42 @@ function jalankanUnitTests() {
   assert.strictEqual(tentukanPemenang(BATAS_MAX_TALI), 'merah');
   assert.strictEqual(tentukanPemenang(BATAS_MIN_TALI), 'putih');
   assert.strictEqual(tentukanPemenang(0), 'seri');
+
+  // Uji batasan menang kustom (contoh: batasMenang = 25)
+  const evalBelumBatas25 = evaluasiRondeTarikTambang({
+    mode: 'SOLO',
+    posisiLama: 0,
+    tim1Benar: 1,
+    tim1TotalAnggota: 1,
+    tim2Benar: 0,
+    tim2TotalAnggota: 1,
+    bonusStreakTim1: 0,
+    bonusStreakTim2: 0,
+    bonusAktif: false,
+    powerUpTim1Aktif: null,
+    powerUpTim2Aktif: null,
+    batasMenang: 25,
+  });
+  assert.strictEqual(evalBelumBatas25.posisiBaru, 15);
+  assert.strictEqual(cekKondisiSelesai(evalBelumBatas25.posisiBaru, 25), false);
+
+  const evalLewatBatas25 = evaluasiRondeTarikTambang({
+    mode: 'SOLO',
+    posisiLama: 15,
+    tim1Benar: 1,
+    tim1TotalAnggota: 1,
+    tim2Benar: 0,
+    tim2TotalAnggota: 1,
+    bonusStreakTim1: 0,
+    bonusStreakTim2: 0,
+    bonusAktif: false,
+    powerUpTim1Aktif: null,
+    powerUpTim2Aktif: null,
+    batasMenang: 25,
+  });
+  assert.strictEqual(evalLewatBatas25.posisiBaru, 25);
+  assert.strictEqual(cekKondisiSelesai(evalLewatBatas25.posisiBaru, 25), true);
+  assert.strictEqual(tentukanPemenang(evalLewatBatas25.posisiBaru), 'merah');
 
   // Non-stacking Power-Up bank
   assert.strictEqual(
@@ -530,6 +571,95 @@ async function jalankanIntegrationTests() {
     assert.strictEqual(dbPlayersSolo.length, 2, '2 siswa lokal Solo wajib tersimpan ke DB');
     console.log('   ✓ Solo Mode 1v1, penguncian sisi, anti-bocor kunci, lanjut ronde & DB tervalidasi.');
 
+    // 2b. Uji Batasan Menang Kustom (batasMenang: 25 -> otomatis selesai saat melewati 25)
+    console.log('2b. Menguji batasan menang kustom (batasMenang = 25)...');
+    const soloBatasCreate = await fetch(`${baseUrl}/api/sesi`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: guruCookie },
+      body: JSON.stringify({
+        templateId: createdTemplateId,
+        game: 'tarik_tambang',
+        playMode: 'SOLO',
+        mode: 'solo',
+        autoStart: true,
+        tarikTambangConfig: {
+          kesulitan: 'sedang',
+          durasiRonde: 20,
+          bonusAktif: false,
+          powerUpAktif: false,
+          batasMenang: 25,
+        },
+      }),
+    });
+    assert.strictEqual(soloBatasCreate.status, 201);
+    const soloBatasJson: any = await soloBatasCreate.json();
+    const soloBatasId: string = soloBatasJson.session.id;
+    createdSessionIds.push(soloBatasId);
+    assert.strictEqual(soloBatasJson.session.config.batasMenang, 25);
+
+    const br1 = soloBatasJson.session.rondeSaatIni;
+    await fetch(`${baseUrl}/api/sesi/${soloBatasId}/jawab`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: guruCookie },
+      body: JSON.stringify({
+        tim: 'merah',
+        presentationId: br1.soalTim1.presentationId,
+        choiceId: br1.soalTim1.pilihan.find((c: any) => c.teks === kunciPerSoal.get(br1.soalTim1.questionId))!.choiceId,
+      }),
+    });
+    const bJ2Res = await fetch(`${baseUrl}/api/sesi/${soloBatasId}/jawab`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: guruCookie },
+      body: JSON.stringify({
+        tim: 'putih',
+        presentationId: br1.soalTim2.presentationId,
+        choiceId: br1.soalTim2.pilihan.find((c: any) => c.teks !== kunciPerSoal.get(br1.soalTim2.questionId))!.choiceId,
+      }),
+    });
+    const bJ2: any = await bJ2Res.json();
+    assert.strictEqual(bJ2.taliPosition, 15);
+    assert.strictEqual(bJ2.isFinished, false, 'Pada posisi +15 (< 25), permainan belum boleh selesai');
+
+    const bLanjutRes = await fetch(`${baseUrl}/api/sesi/${soloBatasId}/lanjut-ronde`, {
+      method: 'POST',
+      headers: { Cookie: guruCookie },
+    });
+    const bLanjutJson: any = await bLanjutRes.json();
+    const br2 = bLanjutJson.session.rondeSaatIni;
+
+    await fetch(`${baseUrl}/api/sesi/${soloBatasId}/jawab`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: guruCookie },
+      body: JSON.stringify({
+        tim: 'merah',
+        presentationId: br2.soalTim1.presentationId,
+        choiceId: br2.soalTim1.pilihan.find((c: any) => c.teks === kunciPerSoal.get(br2.soalTim1.questionId))!.choiceId,
+      }),
+    });
+    const bR2CloseRes = await fetch(`${baseUrl}/api/sesi/${soloBatasId}/jawab`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: guruCookie },
+      body: JSON.stringify({
+        tim: 'putih',
+        presentationId: br2.soalTim2.presentationId,
+        choiceId: br2.soalTim2.pilihan.find((c: any) => c.teks !== kunciPerSoal.get(br2.soalTim2.questionId))!.choiceId,
+      }),
+    });
+    const bR2Close: any = await bR2CloseRes.json();
+    assert.strictEqual(bR2Close.taliPosition, 25);
+    assert.strictEqual(bR2Close.isFinished, true, 'Setelah melewati batasMenang = 25, game harus langsung selesai');
+    assert.strictEqual(bR2Close.winner, 'merah');
+    assert.strictEqual(bR2Close.session.state, 'FINISHED');
+
+    const hasilBatasRes = await fetch(`${baseUrl}/api/sesi/${soloBatasId}/hasil`, {
+      headers: { Cookie: guruCookie },
+    });
+    const hasilBatasJson: any = await hasilBatasRes.json();
+    assert.strictEqual(hasilBatasJson.hasil.timMenang, 'merah');
+    assert.strictEqual(hasilBatasJson.hasil.posisiAkhir, 25);
+    assert.strictEqual(hasilBatasJson.hasil.konfigurasi.batasMenang, 25);
+    console.log('   ✓ Batasan menang kustom (batasMenang = 25) langsung menuntaskan game & menyimpan pemenang.');
+
     // 3. Uji Multiplayer Mode dengan 40 Siswa Real + Acak/Pindah Tim + Anti Late Join + Rumus Kolektif
     console.log('3. Menguji Multiplayer Mode (40 siswa real, acak/pindah tim lobi, lock post-start, isolasi soal)...');
     const multiCreateRes = await fetch(`${baseUrl}/api/sesi`, {
@@ -568,7 +698,10 @@ async function jalankanIntegrationTests() {
     assert.strictEqual(badSoloCall.status, 400);
 
     // Hubungkan Host
-    const hostSocket = ioClient(baseUrl, { transports: ['websocket'] });
+    const hostSocket = ioClient(baseUrl, {
+      transports: ['websocket'],
+      extraHeaders: { cookie: guruCookie },
+    });
     openSockets.push(hostSocket);
     await new Promise<void>((r) => hostSocket.on('connect', () => r()));
     hostSocket.emit('sesi:host_join', { sessionId: multiId });
@@ -781,6 +914,93 @@ async function jalankanIntegrationTests() {
     const dbPlayersMulti = await prisma.sessionPlayer.findMany({ where: { sessionId: multiId } });
     assert.strictEqual(dbPlayersMulti.length, 40, 'Semua 40 siswa wajib tersimpan di SessionPlayer');
     console.log('   ✓ 40 siswa Multiplayer, acak/pindah tim, isolasi soal, rumus akurasi+kekompakan, reconnect & DB lulus 100%!');
+
+    // 4. Uji Multiplayer dengan batasMenang = 25 -> 1 ronde menang (+25) langsung selesai otomatis!
+    console.log('4. Menguji Multiplayer batasan menang kustom (batasMenang = 25)...');
+    const multiBatasRes = await fetch(`${baseUrl}/api/sesi`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: guruCookie },
+      body: JSON.stringify({
+        templateId: createdTemplateId,
+        game: 'tarik_tambang',
+        playMode: 'MULTIPLAYER',
+        mode: 'multi',
+        tarikTambangConfig: {
+          kesulitan: 'sedang',
+          durasiRonde: 15,
+          bonusAktif: false,
+          powerUpAktif: false,
+          batasMenang: 25,
+        },
+      }),
+    });
+    assert.strictEqual(multiBatasRes.status, 201);
+    const multiBatasJson: any = await multiBatasRes.json();
+    const multiBatasId: string = multiBatasJson.session.id;
+    const multiBatasToken: string = multiBatasJson.session.token;
+    createdSessionIds.push(multiBatasId);
+    assert.strictEqual(multiBatasJson.session.config.batasMenang, 25);
+
+    const mHostSock = ioClient(baseUrl, {
+      transports: ['websocket'],
+      extraHeaders: { cookie: guruCookie },
+    });
+    const mP1Sock = ioClient(baseUrl, { transports: ['websocket'] });
+    const mP2Sock = ioClient(baseUrl, { transports: ['websocket'] });
+    openSockets.push(mHostSock, mP1Sock, mP2Sock);
+    await Promise.all([
+      new Promise<void>((r) => mHostSock.on('connect', () => r())),
+      new Promise<void>((r) => mP1Sock.on('connect', () => r())),
+      new Promise<void>((r) => mP2Sock.on('connect', () => r())),
+    ]);
+    mHostSock.emit('sesi:host_join', { sessionId: multiBatasId });
+
+    const j1Ack = await emitWithAck<any>(mP1Sock, 'sesi:gabung', { token: multiBatasToken, nama: 'BatasA' });
+    const j2Ack = await emitWithAck<any>(mP2Sock, 'sesi:gabung', { token: multiBatasToken, nama: 'BatasB' });
+    assert.strictEqual(j1Ack.config?.batasMenang, 25);
+    assert.strictEqual(j2Ack.config?.batasMenang, 25);
+
+    const p1SoalProm = waitForEvent<any>(mP1Sock, 'soal:tampil');
+    const p2SoalProm = waitForEvent<any>(mP2Sock, 'soal:tampil');
+    const mSelesaiProm = waitForEvent<any>(mHostSock, 'sesi:selesai');
+    await emitWithAck<any>(mHostSock, 'sesi:mulai', { sessionId: multiBatasId });
+    const [mSoal1, mSoal2] = await Promise.all([p1SoalProm, p2SoalProm]);
+
+    const mSesiLive = multiManager.dapatkanSesi(multiBatasId)!;
+    const timP1 = mSesiLive.peserta.get(j1Ack.pesertaId)!.tim!;
+    const qBenarP1 = kunciPerSoal.get(mSoal1.questionId)!;
+    const qBenarP2 = kunciPerSoal.get(mSoal2.questionId)!;
+
+    // Tim Merah jawab benar, Tim Biru jawab salah -> delta +25 -> langsung capai batasMenang 25!
+    const pickP1 =
+      timP1 === 'merah'
+        ? mSoal1.pilihan.find((c: any) => c.teks === qBenarP1)!
+        : mSoal1.pilihan.find((c: any) => c.teks !== qBenarP1)!;
+    const pickP2 =
+      timP1 === 'merah'
+        ? mSoal2.pilihan.find((c: any) => c.teks !== qBenarP2)!
+        : mSoal2.pilihan.find((c: any) => c.teks === qBenarP2)!;
+
+    await emitWithAck<any>(mP1Sock, 'jawab:kirim', {
+      sessionId: multiBatasId,
+      pesertaId: j1Ack.pesertaId,
+      pesertaSecret: j1Ack.pesertaSecret,
+      presentationId: mSoal1.presentationId,
+      choiceId: pickP1.choiceId,
+    });
+    await emitWithAck<any>(mP2Sock, 'jawab:kirim', {
+      sessionId: multiBatasId,
+      pesertaId: j2Ack.pesertaId,
+      pesertaSecret: j2Ack.pesertaSecret,
+      presentationId: mSoal2.presentationId,
+      choiceId: pickP2.choiceId,
+    });
+
+    const mAutoSelesai = await mSelesaiProm;
+    assert.strictEqual(mAutoSelesai.hasil.timMenang, 'merah');
+    assert.strictEqual(mAutoSelesai.hasil.posisiAkhir, 25);
+    assert.strictEqual(mAutoSelesai.hasil.konfigurasi.batasMenang, 25);
+    console.log('   ✓ Multiplayer batasMenang = 25 langsung menuntaskan pertandingan otomatis!');
   } finally {
     for (const s of openSockets) {
       if (s.connected) s.disconnect();

@@ -7,6 +7,7 @@ import {
   buildPrismaQuestionData,
   questionInputSchema,
 } from '../utils/questionOptions.js';
+import { containsInsensitive } from '../utils/prismaFilters.js';
 
 export const templateRouter = Router();
 
@@ -30,7 +31,7 @@ templateRouter.get('/', async (req: AuthRequest, res: Response) => {
     const where: any = { ownerId: req.user!.id };
 
     if (q) {
-      where.judul = { contains: q };
+      where.judul = containsInsensitive(q);
     }
 
     const templates = await prisma.template.findMany({
@@ -56,7 +57,7 @@ templateRouter.get('/pustaka', async (req: AuthRequest, res: Response) => {
     const where: any = { resmi: true };
 
     if (q) {
-      where.judul = { contains: q };
+      where.judul = containsInsensitive(q);
     }
 
     const templates = await prisma.template.findMany({

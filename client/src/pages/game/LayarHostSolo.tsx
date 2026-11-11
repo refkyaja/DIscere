@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router';
+import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { apiRequest } from '../../lib/api';
 import { VisualisasiTali } from './VisualisasiTali';
 import KarakterTarikTambang, { EkspresiTarikTambang } from '../siswa/KarakterTarikTambang';
@@ -95,6 +95,7 @@ interface SesiSoloDetail {
     powerUpAktif: boolean;
     namaTim1: string;
     namaTim2: string;
+    batasMenang?: number;
   };
   nomorRonde: number;
   taliPosition: number;
@@ -129,6 +130,8 @@ const INFO_POWERUP: Record<string, { label: string; efek: string }> = {
 export default function LayarHostSolo() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnUrl = searchParams.get('kembali') || '/guru';
 
   const [sesi, setSesi] = useState<SesiSoloDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -417,10 +420,10 @@ export default function LayarHostSolo() {
           <p className="text-sm text-[#6b7d6c] mb-6">{errorPesan}</p>
           <button
             type="button"
-            onClick={() => navigate('/guru')}
+            onClick={() => navigate(returnUrl)}
             className="portal-btn red w-full justify-center"
           >
-            Kembali ke Dashboard
+            {returnUrl.includes('tarik-tambang') ? 'Kembali ke Pengaturan' : 'Kembali ke Dashboard'}
           </button>
         </div>
       </div>
@@ -654,9 +657,9 @@ export default function LayarHostSolo() {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => navigate('/guru')}
+              onClick={() => navigate(returnUrl)}
               className="p-2 rounded-xl bg-[#f1e7ce] hover:bg-[#e5d8b8] text-[#1d3b2e] border border-[#d6c8a4]"
-              title="Kembali ke Dashboard"
+              title={returnUrl.includes('tarik-tambang') ? 'Kembali ke Pengaturan' : 'Kembali ke Dashboard'}
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
@@ -731,9 +734,10 @@ export default function LayarHostSolo() {
           </div>
         )}
 
-        {/* Arena Visualisasi Tali (-100 .. +100) */}
+        {/* Arena Visualisasi Tali */}
         <VisualisasiTali
           posisi={sesi.taliPosition}
+          batasMenang={sesi.config.batasMenang ?? 100}
           skorMerah={sesi.skorMerah}
           skorPutih={sesi.skorPutih}
           namaTim1={sesi.config.namaTim1}

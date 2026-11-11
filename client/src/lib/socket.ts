@@ -16,6 +16,7 @@ export function getSocket(): Socket {
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
       transports: ['websocket', 'polling'],
+      withCredentials: true,
     });
   }
 
@@ -24,4 +25,11 @@ export function getSocket(): Socket {
   }
 
   return socket;
+}
+
+export function resetSocket(): void {
+  if (socket) {
+    socket.disconnect();
+    socket = null;
+  }
 }

@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router';
+import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { apiRequest } from '../../lib/api';
 import { getSocket } from '../../lib/socket';
+import { bindHostReconnect } from '../../lib/socketReconnect';
 import { VisualisasiTali } from './VisualisasiTali';
 import KarakterTarikTambang, { EkspresiTarikTambang } from '../siswa/KarakterTarikTambang';
 import { Modal } from '../../components';
@@ -81,7 +82,7 @@ interface HasilRondeMulti {
 interface HasilAkhirMulti {
   sessionId: string;
   timMenang: 'merah' | 'putih' | 'seri';
-  konfigurasi?: { namaTim1?: string; namaTim2?: string };
+  konfigurasi?: { namaTim1?: string; namaTim2?: string; batasMenang?: number };
   namaTim1?: string;
   namaTim2?: string;
   posisiAkhir: number;
@@ -115,6 +116,7 @@ interface ConfigTarikMulti {
   namaTim1: string;
   namaTim2: string;
   maxPeserta: number;
+  batasMenang?: number;
 }
 
 const DEFAULT_CONFIG: ConfigTarikMulti = {
@@ -125,6 +127,7 @@ const DEFAULT_CONFIG: ConfigTarikMulti = {
   namaTim1: 'Tim Merah',
   namaTim2: 'Tim Biru',
   maxPeserta: 60,
+  batasMenang: 100,
 };
 
 function formatDurasi(ms?: number): string {
@@ -138,6 +141,8 @@ function formatDurasi(ms?: number): string {
 export default function LayarHostMulti() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnUrl = searchParams.get('kembali') || '/guru';
 
   const [loading, setLoading] = useState(true);
   const [errorPesan, setErrorPesan] = useState<string | null>(null);
@@ -263,8 +268,7 @@ export default function LayarHostMulti() {
   useEffect(() => {
     if (!id || loading) return;
     const socket = getSocket();
-
-    socket.emit('sesi:host_join', { sessionId: id });
+    const unbindHost = bindHostReconnect(socket, id);
 
     const onLobiUpdate = (data: any) => {
       if (data.daftarPeserta) setDaftarPeserta(data.daftarPeserta);
@@ -352,6 +356,7 @@ export default function LayarHostMulti() {
     socket.on('sesi:error', onSesiError);
 
     return () => {
+      unbindHost();
       socket.off('lobi:update', onLobiUpdate);
       socket.off('teams_assigned', onTeamsAssigned);
       socket.off('ronde:host_update', onRondeHostUpdate);
@@ -433,7 +438,7 @@ export default function LayarHostMulti() {
       const res = await apiRequest<{ sessionId: string }>(`/sesi/${id}/main-lagi`, {
         method: 'POST',
       });
-      navigate(`/guru/sesi/${res.sessionId}`);
+      navigate(`/guru/sesi/${res.sessionId}?kembali=${encodeURIComponent(returnUrl)}`);
     } catch (err: any) {
       alert(err.pesan || 'Gagal membuat sesi main lagi.');
       setIsMainLagiLoading(false);
@@ -521,6 +526,7 @@ export default function LayarHostMulti() {
 
           <VisualisasiTali
             posisi={hasilAkhir.posisiAkhir}
+            batasMenang={hasilAkhir.konfigurasi?.batasMenang ?? config.batasMenang ?? 100}
             skorMerah={hasilAkhir.skorMerah}
             skorPutih={hasilAkhir.skorPutih}
             namaTim1={namaTim1}
@@ -661,8 +667,9 @@ export default function LayarHostMulti() {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => navigate('/guru')}
+              onClick={() => navigate(returnUrl)}
               className="p-2 rounded-xl bg-[#f1e7ce] hover:bg-[#e5d8b8] text-[#1d3b2e] border border-[#d6c8a4]"
+              title={returnUrl.includes('tarik-tambang') ? 'Kembali ke Pengaturan' : 'Kembali ke Dashboard'}
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
@@ -766,6 +773,7 @@ export default function LayarHostMulti() {
               <div className="p-3 rounded-xl bg-[#f4ecd9] text-[11px] font-bold text-[#4a6252] text-left space-y-1">
                 <div>• Kesulitan: {config.kesulitan.toUpperCase()}</div>
                 <div>• Timer Ronde: {config.durasiRonde} detik</div>
+                <div>• Batasan Menang: ±{config.batasMenang ?? 100} poin</div>
                 <div>• Bonus Streak &amp; Kekompakan: {config.bonusAktif ? 'Aktif' : 'Nonaktif'}</div>
                 <div>• Power-Up Tim: {config.powerUpAktif ? 'Aktif' : 'Nonaktif'}</div>
               </div>
@@ -875,6 +883,7 @@ export default function LayarHostMulti() {
           <div className="space-y-5">
             <VisualisasiTali
               posisi={taliPosition}
+              batasMenang={config.batasMenang ?? 100}
               skorMerah={skorMerah}
               skorPutih={skorPutih}
               namaTim1={config.namaTim1}

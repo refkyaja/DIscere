@@ -413,6 +413,82 @@ function bangunFeedback(
   };
 }
 
+function parseJsonArraySafe<T>(raw: string | null | undefined): T[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function rekonstruksiPemainBalapSoloDariDb(
+  target: PesertaBalapKarungState,
+  pl: {
+    id: string;
+    nama: string;
+    posisi: number;
+    keseimbangan: number;
+    jumlahJatuh: number;
+    efekAktif: string;
+    totalBenar: number;
+    totalSalah: number;
+    streakSaatIni: number;
+    streakTertinggi: number;
+    totalWaktuJawabMs: number;
+    jumlahJawab: number;
+    status: string;
+    waktuSelesaiMs: number | null;
+    selesaiPada: Date | null;
+    riwayatPosisi: string;
+    riwayatRintangan: string;
+    riwayatJawaban: string;
+  } | undefined,
+  keseimbanganAktif: boolean
+): PesertaBalapKarungState {
+  if (!pl) return target;
+  const riwayatJarak = parseJsonArraySafe<RiwayatJarakEntry>(pl.riwayatPosisi);
+  const riwayatRintangan = parseJsonArraySafe<RiwayatRintanganBalapEntry>(pl.riwayatRintangan);
+  const riwayatJawaban = parseJsonArraySafe<PesertaBalapKarungState['riwayatJawaban'][number]>(
+    pl.riwayatJawaban
+  );
+  const meta = parseEfekMeta(pl.efekAktif);
+
+  return {
+    ...target,
+    id: pl.id,
+    nama: pl.nama,
+    jarak: pl.posisi,
+    keseimbangan: keseimbanganAktif ? pl.keseimbangan : 100,
+    jumlahJatuh: pl.jumlahJatuh,
+    totalBenar: pl.totalBenar,
+    totalSalah: pl.totalSalah,
+    streakSaatIni: pl.streakSaatIni,
+    streakTertinggi: pl.streakTertinggi,
+    bonus3DalamStreak: Boolean(meta.bonus3DalamStreak ?? pl.streakSaatIni >= 3),
+    bonus5DalamStreak: Boolean(meta.bonus5DalamStreak ?? pl.streakSaatIni >= 5),
+    totalBonusStreakKali: meta.totalBonusStreakKali ?? 0,
+    totalBonusStreakMeter: meta.totalBonusStreakMeter ?? 0,
+    status: pl.status === 'selesai' ? 'selesai' : 'bermain',
+    waktuSelesaiMs: pl.waktuSelesaiMs,
+    selesaiPada: pl.selesaiPada ? pl.selesaiPada.getTime() : null,
+    totalWaktuJawabMs: pl.totalWaktuJawabMs,
+    jumlahJawab: pl.jumlahJawab,
+    rataRataWaktuJawabMs:
+      pl.jumlahJawab > 0 ? Math.round(pl.totalWaktuJawabMs / pl.jumlahJawab) : 0,
+    efekAktif: {
+      perisai: Boolean(meta.perisai),
+      lompatanKuat: Boolean(meta.lompatanKuat),
+      jalanBerlumpur: Boolean(meta.jalanBerlumpur),
+    },
+    riwayatJarak,
+    riwayatRintangan,
+    riwayatJawaban,
+    nomorSoalPemain: riwayatJawaban.length,
+  };
+}
+
 export const balapKarungSoloManager = {
   inisialisasiSesi(
     sessionId: string,
@@ -511,66 +587,16 @@ export const balapKarungSoloManager = {
     const p1Db = sessionDb.players.find((p) => p.id.endsWith('__p1')) || sessionDb.players[0];
     const p2Db = sessionDb.players.find((p) => p.id.endsWith('__p2')) || sessionDb.players[1];
 
-    const terapkanPemain = (
-      target: PesertaBalapKarungState,
-      pl?: typeof p1Db
-    ): PesertaBalapKarungState => {
-      if (!pl) return target;
-      let riwayatJarak: RiwayatJarakEntry[] = [];
-      let riwayatRintangan: RiwayatRintanganBalapEntry[] = [];
-      let riwayatJawaban: PesertaBalapKarungState['riwayatJawaban'] = [];
-      try {
-        riwayatJarak = JSON.parse(pl.riwayatPosisi || '[]');
-      } catch {
-        riwayatJarak = [];
-      }
-      try {
-        riwayatRintangan = JSON.parse(pl.riwayatRintangan || '[]');
-      } catch {
-        riwayatRintangan = [];
-      }
-      try {
-        riwayatJawaban = JSON.parse(pl.riwayatJawaban || '[]');
-      } catch {
-        riwayatJawaban = [];
-      }
-      const meta = parseEfekMeta(pl.efekAktif);
-      return {
-        ...target,
-        id: pl.id,
-        nama: pl.nama,
-        jarak: pl.posisi,
-        keseimbangan: sesi.config.keseimbanganAktif ? pl.keseimbangan : 100,
-        jumlahJatuh: pl.jumlahJatuh,
-        totalBenar: pl.totalBenar,
-        totalSalah: pl.totalSalah,
-        streakSaatIni: pl.streakSaatIni,
-        streakTertinggi: pl.streakTertinggi,
-        bonus3DalamStreak: Boolean(meta.bonus3DalamStreak ?? pl.streakSaatIni >= 3),
-        bonus5DalamStreak: Boolean(meta.bonus5DalamStreak ?? pl.streakSaatIni >= 5),
-        totalBonusStreakKali: meta.totalBonusStreakKali ?? 0,
-        totalBonusStreakMeter: meta.totalBonusStreakMeter ?? 0,
-        status: pl.status === 'selesai' ? 'selesai' : 'bermain',
-        waktuSelesaiMs: pl.waktuSelesaiMs,
-        selesaiPada: pl.selesaiPada ? pl.selesaiPada.getTime() : null,
-        totalWaktuJawabMs: pl.totalWaktuJawabMs,
-        jumlahJawab: pl.jumlahJawab,
-        rataRataWaktuJawabMs:
-          pl.jumlahJawab > 0 ? Math.round(pl.totalWaktuJawabMs / pl.jumlahJawab) : 0,
-        efekAktif: {
-          perisai: Boolean(meta.perisai),
-          lompatanKuat: Boolean(meta.lompatanKuat),
-          jalanBerlumpur: Boolean(meta.jalanBerlumpur),
-        },
-        riwayatJarak,
-        riwayatRintangan,
-        riwayatJawaban,
-        nomorSoalPemain: riwayatJawaban.length,
-      };
-    };
-
-    sesi.pemain1 = terapkanPemain(sesi.pemain1, p1Db);
-    sesi.pemain2 = terapkanPemain(sesi.pemain2, p2Db);
+    sesi.pemain1 = rekonstruksiPemainBalapSoloDariDb(
+      sesi.pemain1,
+      p1Db,
+      sesi.config.keseimbanganAktif
+    );
+    sesi.pemain2 = rekonstruksiPemainBalapSoloDariDb(
+      sesi.pemain2,
+      p2Db,
+      sesi.config.keseimbanganAktif
+    );
 
     for (const st of sessionDb.questionStats) {
       sesi.questionStatsMap.set(st.questionId, { benar: st.jumlahBenar, salah: st.jumlahSalah });

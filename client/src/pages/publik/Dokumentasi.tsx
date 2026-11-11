@@ -982,7 +982,7 @@ export default function Dokumentasi() {
                 <div className="tc">
                   <b>Mode Solo</b>
                   <span>
-                    Satu layar, tanpa HP. Soal tampil besar dengan tiga pilihan, tim bergantian maju menyentuh jawaban.
+                    Satu layar, tanpa HP. Soal tampil besar dengan dua hingga lima pilihan (A–E), tim bergantian maju menyentuh jawaban.
                   </span>
                 </div>
                 <div className="tc">

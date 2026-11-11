@@ -6,7 +6,7 @@ import { prisma } from '../db.js';
 import { config } from '../config.js';
 import { authMiddleware, AuthRequest } from '../middleware/auth.js';
 import { roleMiddleware } from '../middleware/role.js';
-import { broadcastTokenRevocation } from '../realtime/papan.js';
+import { broadcastTokenRevocation, syncBoardMemoryFromData } from '../realtime/papan.js';
 
 export const papanRouter = Router();
 
@@ -141,6 +141,8 @@ papanRouter.put('/share/:token', async (req, res: Response) => {
         updatedAt: true,
       },
     });
+
+    syncBoardMemoryFromData(share.boardId, data, updatedBoard.judul);
 
     return res.json({
       pesan: 'Perubahan papan berhasil disimpan.',
@@ -308,6 +310,10 @@ papanRouter.put('/:id', async (req: AuthRequest, res: Response) => {
         updatedAt: true,
       },
     });
+
+    if (data || judul) {
+      syncBoardMemoryFromData(id, data, updated.judul);
+    }
 
     return res.json({
       pesan: 'Papan tulis berhasil disimpan.',

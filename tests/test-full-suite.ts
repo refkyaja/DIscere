@@ -170,7 +170,9 @@ async function runTestSuite() {
     assert(buatMultiRes.ok && multiToken.length === 6, `Sesi Multi dibuat (PIN: ${multiToken})`, 'Multiplayer');
 
     // 4.2 Koneksikan Socket Host & 2 Siswa
-    const hostSocket = ClientIO(BASE_URL);
+    const hostSocket = ClientIO(BASE_URL, {
+      extraHeaders: { cookie: guruCookie },
+    });
     const siswa1Socket = ClientIO(BASE_URL);
     const siswa2Socket = ClientIO(BASE_URL);
 

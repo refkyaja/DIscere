@@ -214,6 +214,12 @@ interface DetailData {
   totalBenar: number;
   totalSalah: number;
   totalSoalDimainkan: number;
+  laporanTarikSolo?: {
+    konfigurasi?: { batasMenang?: number };
+  } | null;
+  laporanTarikMulti?: {
+    konfigurasi?: { batasMenang?: number };
+  } | null;
   laporanPanjatPinang?: LaporanPanjatDetail | null;
   laporanBalapKarung?: LaporanBalapDetail | null;
   laporanKerupukSolo?: LaporanKerupukSoloDetail | null;
@@ -273,9 +279,17 @@ export function RiwayatDetailModal({
     fetchDetail();
   }, [sessionId, isOpen]);
 
-  // Posisi visual tali (-5 sampai +5) dipetakan ke persentase 10% - 90%
-  const ropePos = detail ? Math.max(-5, Math.min(5, detail.posisiAkhir)) : 0;
-  const ropeLeftPercent = 50 + ropePos * 8;
+  // Posisi visual tali (-batasMenang sampai +batasMenang; Merah positif di kiri -> 10%, Putih negatif di kanan -> 90%)
+  const batasTali = Math.max(
+    1,
+    detail?.laporanTarikMulti?.konfigurasi?.batasMenang ??
+      detail?.laporanTarikSolo?.konfigurasi?.batasMenang ??
+      100
+  );
+  const ropePos = detail
+    ? Math.max(-batasTali, Math.min(batasTali, detail.posisiAkhir))
+    : 0;
+  const ropeLeftPercent = 50 - (ropePos / batasTali) * 40;
 
   return (
     <Modal
@@ -890,8 +904,8 @@ export function RiwayatDetailModal({
                     <i style={{ left: `${ropeLeftPercent}%` }} />
                   </div>
                   <div className="portal-rl">
-                    <span className="text-[#c8362f]">Tim Merah (Kiri)</span>
-                    <span className="text-[#1d3b2e]">Tim Putih (Kanan)</span>
+                    <span className="text-[#c8362f]">Tim Merah (Kiri +{batasTali})</span>
+                    <span className="text-[#1d3b2e]">Tim Putih (Kanan -{batasTali})</span>
                   </div>
                 </div>
               )}

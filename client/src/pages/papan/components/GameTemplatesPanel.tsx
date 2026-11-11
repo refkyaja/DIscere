@@ -165,35 +165,39 @@ export function GameTemplatesPanel({
     item.judul.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Handler Tombol Main: Simpan Papan -> POST /api/sesi -> Pindah ke /guru/sesi/:id?kembali=/papan/:boardId
+  // Handler Tombol Main: Simpan Papan -> Buka halaman pengaturan seragam (/guru/<game>)
   const handleStartGame = async (template: GameTemplateItem) => {
     if (startingId) return;
     setStartingId(template.id);
-    onToast('Menyiapkan sesi game…');
+    onToast('Menyiapkan pengaturan permainan…');
 
     try {
       // 1. Flush simpan otomatis kanvas terlebih dahulu
       await onBeforeStartGame();
 
-      // 1b. Bila game adalah Makan Kerupuk Challenge atau Balap Karung Challenge, arahkan ke halaman Pemilihan Mode
-      if (template.game === 'makan_kerupuk' || template.game === 'balap_karung') {
-        const gamePath =
-          template.game === 'makan_kerupuk' ? '/guru/makan-kerupuk' : '/guru/balap-karung';
+      // 2. Arahkan seluruh 4 game ke halaman pemilihan mode & konfigurasi seragam
+      const gameSlugMap: Record<string, string> = {
+        makan_kerupuk: '/guru/makan-kerupuk',
+        balap_karung: '/guru/balap-karung',
+        panjat_pinang: '/guru/panjat-pinang',
+        tarik_tambang: '/guru/tarik-tambang',
+      };
+      const targetPath = gameSlugMap[template.game || 'tarik_tambang'];
+      if (targetPath) {
         onClose();
         navigate(
-          `${gamePath}?templateId=${encodeURIComponent(template.id)}&kembali=${encodeURIComponent(`/papan/${boardId}`)}`
+          `${targetPath}?templateId=${encodeURIComponent(template.id)}&kembali=${encodeURIComponent(`/papan/${boardId}`)}`
         );
         return;
       }
 
-      // 2. Buat sesi di server (Solo / Multiplayer mengikuti template.mode)
+      // Fallback bila tipe game kustom di masa depan
       const res = await apiRequest<{ session: { id: string } }>('/sesi', {
         method: 'POST',
         body: JSON.stringify({
           templateId: template.id,
           mode: template.mode,
           playMode: template.mode === 'multi' ? 'MULTIPLAYER' : 'SOLO',
-          autoStart: template.game === 'tarik_tambang' && template.mode !== 'multi',
           game: template.game,
         }),
       });
@@ -226,6 +230,7 @@ export function GameTemplatesPanel({
   };
 
   return (
+    <>
     <aside
       id="qz"
       className={`pn game-template-panel ${isOpen ? 'open' : ''}`}
@@ -441,18 +446,18 @@ export function GameTemplatesPanel({
                     style={{
                       textTransform: 'capitalize',
                       color:
-                        item.game === 'makan_kerupuk' || item.game === 'balap_karung'
+                        item.game === 'makan_kerupuk' ||
+                        item.game === 'balap_karung' ||
+                        item.game === 'tarik_tambang'
                           ? '#f59e0b'
-                          : item.mode === 'multi'
-                          ? '#60a5fa'
-                          : '#34d399',
+                          : '#60a5fa',
                     }}
                   >
-                    {item.game === 'makan_kerupuk' || item.game === 'balap_karung'
+                    {item.game === 'makan_kerupuk' ||
+                    item.game === 'balap_karung' ||
+                    item.game === 'tarik_tambang'
                       ? 'Multi / Solo'
-                      : item.mode === 'multi'
-                      ? 'Multiplayer'
-                      : 'Solo'}
+                      : 'Multiplayer'}
                   </span>
                 </small>
               </div>
@@ -471,5 +476,6 @@ export function GameTemplatesPanel({
       </div>
       )}
     </aside>
+    </>
   );
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getSocket } from '../../lib/socket';
+import { bindStudentReconnect } from '../../lib/socketReconnect';
 import { soundEffects } from '../../lib/soundEffects';
 import KerupukVirtual, {
   HasilGachaGigitanProps,
@@ -275,6 +276,36 @@ export default function MainKerupuk({
       socket.off('sesi:selesai', handleSesiSelesai);
     };
   }, [pesertaId, startStopwatch, stopStopwatch]);
+
+  useEffect(() => {
+    const socket = getSocket();
+    return bindStudentReconnect(socket, {
+      token,
+      nama,
+      pesertaId,
+      pesertaSecret,
+      onReconnectSuccess: (res: any) => {
+        if (!res?.success) return;
+        if (res.peserta) setMyState(res.peserta);
+        if (res.leaderboard) {
+          setLeaderboard(res.leaderboard);
+          setTotalPeserta(res.leaderboard.length);
+        }
+        if (res.status === 'jalan') {
+          setStage('PLAYING');
+          if (res.soalAktif) {
+            setSoalAktif((prev) =>
+              prev && prev.presentationId === res.soalAktif.presentationId ? prev : res.soalAktif
+            );
+          }
+        } else if (res.status === 'selesai') {
+          stopStopwatch();
+          if (res.hasil) setHasilAkhir(res.hasil);
+          setStage('SELESAI');
+        }
+      },
+    });
+  }, [token, nama, pesertaId, pesertaSecret, stopStopwatch]);
 
   const handlePilihJawaban = (pil: PilihanSoalKerupuk) => {
     if (sudahKirim || !soalAktif) return;

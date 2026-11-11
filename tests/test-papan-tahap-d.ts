@@ -15,8 +15,8 @@ import {
 } from '../client/src/pages/papan/engine/types';
 import {
   bounds,
-  hitResizeCorner,
-  applyResize,
+  hitSelectionHandle,
+  rsz,
   intersects,
 } from '../client/src/pages/papan/engine/geometry';
 import { HistoryManager, cloneObj } from '../client/src/pages/papan/engine/history';
@@ -91,6 +91,14 @@ async function runStepDTests() {
             opsiC: '1/4',
             jawabanBenar: 'A',
           },
+          {
+            urutan: 2,
+            teks: 'Berapakah 3/4 - 1/4?',
+            opsiA: '1/2',
+            opsiB: '1/4',
+            opsiC: '3/4',
+            jawabanBenar: 'A',
+          },
         ],
       },
     },
@@ -151,22 +159,23 @@ async function runStepDTests() {
   };
 
   const bRect = bounds(rect);
-  const cornerSE = hitResizeCorner(bRect, { x: 306, y: 256 }, 10, 6);
-  assert(cornerSE === 'se', 'Hit corner kanan-bawah (SE) terdeteksi tepat');
+  const cornerSE = hitSelectionHandle(bRect, 0, { x: 306, y: 256 }, 1);
+  assert(cornerSE?.k === 'se', 'Hit corner kanan-bawah (SE) terdeteksi tepat');
 
-  const cornerNW = hitResizeCorner(bRect, { x: 94, y: 94 }, 10, 6);
-  assert(cornerNW === 'nw', 'Hit corner kiri-atas (NW) terdeteksi tepat');
+  const cornerNW = hitSelectionHandle(bRect, 0, { x: 94, y: 94 }, 1);
+  assert(cornerNW?.k === 'nw', 'Hit corner kiri-atas (NW) terdeteksi tepat');
 
   // Resize Shape ke kanan-bawah (+50px, +30px)
   const initialRect = cloneObj(rect);
-  applyResize(rect, 'se', initialRect, { x: 306, y: 256 }, { x: 356, y: 286 }, false);
+  rsz(rect, bRect, { x: bRect.x, y: bRect.y, w: 250, h: 180 });
   assert(rect.w === 250, `Lebar bentuk bertambah menjadi 250 (aktual: ${rect.w})`);
   assert(rect.h === 180, `Tinggi bentuk bertambah menjadi 180 (aktual: ${rect.h})`);
 
-  // Resize dengan Shift (Menjaga Proporsi Aspek Rasio)
+  // Resize dengan Proporsi Aspek Rasio
   const rectAspect = cloneObj(initialRect);
-  applyResize(rectAspect, 'se', initialRect, { x: 306, y: 256 }, { x: 406, y: 256 }, true);
+  const bInit = bounds(rectAspect);
   const ratioBefore = initialRect.w / initialRect.h;
+  rsz(rectAspect, bInit, { x: bInit.x, y: bInit.y, w: 300, h: Math.round(300 / ratioBefore) });
   const ratioAfter = rectAspect.w / rectAspect.h;
   assert(
     Math.abs(ratioBefore - ratioAfter) < 0.05,
@@ -184,9 +193,8 @@ async function runStepDTests() {
     color: '#000',
     size: 1,
   };
-  const initText = cloneObj(textObj);
   const bText = bounds(textObj);
-  applyResize(textObj, 'se', initText, { x: bText.x + bText.w, y: bText.y + bText.h }, { x: bText.x + bText.w + 100, y: bText.y + bText.h }, false);
+  rsz(textObj, bText, { x: bText.x, y: bText.y, w: bText.w + 100, h: bText.h + 50 });
   assert(textObj.fs > 24, `Ukuran font teks membesar saat di-resize (aktual: ${textObj.fs}px)`);
 
   // Resize Tabel (cw dan ch menyesuaikan)
@@ -204,9 +212,8 @@ async function runStepDTests() {
     size: 2,
     fill: null,
   };
-  const initTable = cloneObj(tableObj);
   const bTable = bounds(tableObj);
-  applyResize(tableObj, 'se', initTable, { x: bTable.x + bTable.w, y: bTable.y + bTable.h }, { x: bTable.x + bTable.w + 60, y: bTable.y + bTable.h + 30 }, false);
+  rsz(tableObj, bTable, { x: bTable.x, y: bTable.y, w: bTable.w + 60, h: bTable.h + 30 });
   assert(tableObj.cw > 100, `Lebar kolom tabel (cw) bertambah (aktual: ${tableObj.cw}px)`);
   assert(tableObj.ch > 40, `Tinggi baris tabel (ch) bertambah (aktual: ${tableObj.ch}px)`);
 

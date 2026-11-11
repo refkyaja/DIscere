@@ -58,7 +58,7 @@ model Question {
   opsiE        String?
   jawabanBenar String         // "A" | "B" | "C" | "D" | "E"
   penjelasan   String?
-  kesulitan    String         @default("sedang")
+  kesulitan    String         @default("sedang") // "mudah" | "sedang" | "sulit"
   dibuatAi     Boolean        @default(false)
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt

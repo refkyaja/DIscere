@@ -328,9 +328,10 @@ export default function LayarHostKerupuk() {
       if (sesi.state === 'FINISHED' || sesi.state === 'STOPPED') {
         const res = await apiRequest<{ sessionId: string }>(`/sesi/${id}/main-lagi`, {
           method: 'POST',
+          body: JSON.stringify({ autoStart: true }),
         });
         setFeedback(null);
-        setMood('ready');
+        setMood('playing');
         navigate(
           `/guru/sesi/${res.sessionId}${returnUrl !== '/guru' ? `?kembali=${encodeURIComponent(returnUrl)}` : ''}`,
           { replace: true }
@@ -338,9 +339,10 @@ export default function LayarHostKerupuk() {
       } else {
         const res = await apiRequest<{ session: SesiKerupukClient }>(`/sesi/${id}/ulang`, {
           method: 'POST',
+          body: JSON.stringify({ autoStart: true }),
         });
         setFeedback(null);
-        setMood('ready');
+        setMood('playing');
         setSesi(res.session);
       }
     } catch (err: any) {
@@ -417,7 +419,7 @@ export default function LayarHostKerupuk() {
               type="button"
               onClick={() => navigate(returnUrl)}
               className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-[#f4ecd8] transition-colors cursor-pointer shrink-0"
-              title="Kembali ke Dashboard"
+              title={returnUrl.includes('makan-kerupuk') ? 'Kembali ke Pemilihan Mode' : 'Kembali ke Dashboard'}
             >
               <ArrowLeft className="w-5 h-5" />
             </button>

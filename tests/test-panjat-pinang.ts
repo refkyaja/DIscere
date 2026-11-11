@@ -603,7 +603,10 @@ async function jalankanIntegrationDanSimulasi40Pemain() {
 
     // 3. Hubungkan Host & 40 Siswa via Socket.IO
     console.log('3. Menghubungkan Host dan 40 siswa secara bersamaan...');
-    const hostSocket = ioClient(baseUrl, { transports: ['websocket'] });
+    const hostSocket = ioClient(baseUrl, {
+      transports: ['websocket'],
+      extraHeaders: { cookie: tokenCookie },
+    });
     sockets.push(hostSocket);
     await waitForEvent(hostSocket, 'connect');
     hostSocket.emit('sesi:host_join', { sessionId });
@@ -871,7 +874,10 @@ async function jalankanIntegrationDanSimulasi40Pemain() {
     const s2Token: string = sesi2Data.session.token;
     createdSessionIds.push(s2Id);
 
-    const host2 = ioClient(baseUrl, { transports: ['websocket'] });
+    const host2 = ioClient(baseUrl, {
+      transports: ['websocket'],
+      extraHeaders: { cookie: tokenCookie },
+    });
     sockets.push(host2);
     await waitForEvent(host2, 'connect');
     host2.emit('sesi:host_join', { sessionId: s2Id });

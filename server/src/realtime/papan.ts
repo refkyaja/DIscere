@@ -1,8 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { z } from 'zod';
-import jwt from 'jsonwebtoken';
 import { prisma } from '../db.js';
-import { config } from '../config.js';
+import { getVerifiedUserIdFromSocket } from './socketAuth.js';
 
 // ============================================================================
 // TIPE & STRUKTUR DATA DI MEMORI
@@ -20,7 +19,10 @@ export interface PesertaPapan {
 interface BoardMemory {
   boardId: string;
   judul: string;
-  objs: Map<string, any>; // id -> Objek Kanvas
+  versi: 1 | 2;
+  pages: any[] | null;
+  currentPageIndex: number;
+  objs: Map<string, any>; // id -> Objek Kanvas pada halaman aktif / versi 1
   debounceTimer: NodeJS.Timeout | null;
 }
 
@@ -43,7 +45,7 @@ const canvasObjSchema = z.object({
   size: z.number().max(500).optional(),
   op: z.number().min(0).max(1).optional(),
   fill: z.string().max(40).nullable().optional(),
-  type: z.enum(['stroke', 'shape', 'text', 'table', 'image']),
+  type: z.enum(['stroke', 'shape', 'text', 'table', 'image', 'formula', 'conn']),
 }).passthrough().refine((obj) => {
   // Batas keamanan: teks maksimal 5000 karakter, coretan maksimal 5000 titik
   if (obj.type === 'text') {
@@ -68,19 +70,98 @@ const opsSchema = z.object({
 // HELPER OTORISASI & DATABASE
 // ============================================================================
 
-function getUserIdFromSocket(socket: Socket): string | null {
+function parseBoardDataSnapshot(rawData: unknown): {
+  versi: 1 | 2;
+  pages: any[] | null;
+  currentPageIndex: number;
+  objs: any[];
+} {
   try {
-    const rawCookie = socket.handshake.headers.cookie || '';
-    const match = rawCookie.match(/(?:^|;\s*)discere_token=([^;]+)/);
-    const token = match
-      ? decodeURIComponent(match[1])
-      : (socket.handshake.auth?.token as string);
+    const parsed = typeof rawData === 'string' ? JSON.parse(rawData) : (rawData as any);
+    if (!parsed || typeof parsed !== 'object') {
+      return { versi: 1, pages: null, currentPageIndex: 0, objs: [] };
+    }
 
-    if (!token) return null;
-    const decoded = jwt.verify(token, config.jwtSecret) as { userId?: string; id?: string };
-    return decoded.userId || decoded.id || null;
-  } catch {
-    return null;
+    if (parsed.versi === 2 && Array.isArray(parsed.pages) && parsed.pages.length > 0) {
+      const idx =
+        typeof parsed.currentPageIndex === 'number' &&
+        Number.isInteger(parsed.currentPageIndex) &&
+        parsed.currentPageIndex >= 0 &&
+        parsed.currentPageIndex < parsed.pages.length
+          ? parsed.currentPageIndex
+          : 0;
+      const activeObjs = Array.isArray(parsed.objs)
+        ? parsed.objs
+        : Array.isArray(parsed.pages[idx]?.objs)
+          ? parsed.pages[idx].objs
+          : [];
+      return {
+        versi: 2,
+        pages: parsed.pages,
+        currentPageIndex: idx,
+        objs: activeObjs,
+      };
+    }
+
+    return {
+      versi: 1,
+      pages: null,
+      currentPageIndex: 0,
+      objs: Array.isArray(parsed.objs) ? parsed.objs : [],
+    };
+  } catch (err) {
+    console.error('Gagal membaca data papan:', err);
+    return { versi: 1, pages: null, currentPageIndex: 0, objs: [] };
+  }
+}
+
+function buildBoardPayload(mem: BoardMemory): Record<string, any> {
+  const objsArray = Array.from(mem.objs.values());
+  if (mem.versi === 2 && Array.isArray(mem.pages) && mem.pages.length > 0) {
+    const idx = Math.min(Math.max(0, mem.currentPageIndex), mem.pages.length - 1);
+    const updatedPages = mem.pages.map((page, i) =>
+      i === idx && page && typeof page === 'object' ? { ...page, objs: objsArray } : page
+    );
+    mem.pages = updatedPages;
+    mem.currentPageIndex = idx;
+    return {
+      versi: 2,
+      pages: updatedPages,
+      currentPageIndex: idx,
+      objs: objsArray,
+    };
+  }
+
+  return {
+    versi: 1,
+    objs: objsArray,
+  };
+}
+
+export function syncBoardMemoryFromData(boardId: string, rawData?: unknown, judul?: string): void {
+  const mem = boardMemoryMap.get(boardId);
+  if (!mem) return;
+
+  if (mem.debounceTimer) {
+    clearTimeout(mem.debounceTimer);
+    mem.debounceTimer = null;
+  }
+
+  if (judul !== undefined) {
+    mem.judul = judul;
+  }
+
+  if (rawData !== undefined) {
+    const snapshot = parseBoardDataSnapshot(rawData);
+    mem.versi = snapshot.versi;
+    mem.pages = snapshot.pages;
+    mem.currentPageIndex = snapshot.currentPageIndex;
+    mem.objs.clear();
+    for (const obj of snapshot.objs) {
+      if (obj && obj.id) {
+        mem.objs.set(obj.id, obj);
+      }
+    }
   }
 }
 
@@ -95,23 +176,20 @@ async function getOrLoadBoard(boardId: string): Promise<BoardMemory | null> {
 
   if (!board) return null;
 
+  const snapshot = parseBoardDataSnapshot(board.data);
   const objsMap = new Map<string, any>();
-  try {
-    const parsed = typeof board.data === 'string' ? JSON.parse(board.data) : board.data;
-    if (parsed && Array.isArray(parsed.objs)) {
-      for (const obj of parsed.objs) {
-        if (obj && obj.id) {
-          objsMap.set(obj.id, obj);
-        }
-      }
+  for (const obj of snapshot.objs) {
+    if (obj && obj.id) {
+      objsMap.set(obj.id, obj);
     }
-  } catch (err) {
-    console.error('Gagal membaca data papan:', err);
   }
 
   const mem: BoardMemory = {
     boardId,
     judul: board.judul,
+    versi: snapshot.versi,
+    pages: snapshot.pages,
+    currentPageIndex: snapshot.currentPageIndex,
     objs: objsMap,
     debounceTimer: null,
   };
@@ -124,11 +202,7 @@ async function saveBoardToDatabase(boardId: string): Promise<void> {
   const mem = boardMemoryMap.get(boardId);
   if (!mem) return;
 
-  const objsArray = Array.from(mem.objs.values());
-  const serialized = JSON.stringify({
-    versi: 1,
-    objs: objsArray,
-  });
+  const serialized = JSON.stringify(buildBoardPayload(mem));
 
   try {
     await prisma.board.update({
@@ -217,7 +291,7 @@ export function setupBoardSocket(io: Server) {
           }
           // B. Jalur Pemilik (Login)
           else if (boardId) {
-            const socketUserId = getUserIdFromSocket(socket) || data?.userId;
+            const socketUserId = getVerifiedUserIdFromSocket(socket);
             if (!socketUserId) {
               callback?.({
                 success: false,
@@ -296,10 +370,7 @@ export function setupBoardSocket(io: Server) {
             judul: mem.judul,
             peran,
             isOwner,
-            data: {
-              versi: 1,
-              objs: Array.from(mem.objs.values()),
-            },
+            data: buildBoardPayload(mem),
           });
         } catch (err: any) {
           console.error('Error pada papan:gabung:', err);
@@ -407,18 +478,57 @@ export function setupBoardSocket(io: Server) {
     // ------------------------------------------------------------------------
     // 3. papan:cabut_akses {boardId, token}
     // ------------------------------------------------------------------------
-    socket.on('papan:cabut_akses', async (data: { boardId?: string; token?: string }) => {
-      try {
-        if (!data?.boardId || !data?.token) return;
-        await prisma.boardShare.updateMany({
-          where: { boardId: data.boardId, token: data.token },
-          data: { aktif: false },
-        });
-        broadcastTokenRevocation(data.boardId, data.token);
-      } catch (err) {
-        console.error('Gagal mencabut akses via socket:', err);
+    socket.on(
+      'papan:cabut_akses',
+      async (
+        data: { boardId?: string; token?: string },
+        callback?: (res: { success: boolean; pesan?: string }) => void
+      ) => {
+        try {
+          if (!data?.boardId || !data?.token) {
+            callback?.({ success: false, pesan: 'Parameter boardId dan token wajib diisi.' });
+            return;
+          }
+
+          const userId = getVerifiedUserIdFromSocket(socket);
+          if (!userId) {
+            callback?.({
+              success: false,
+              pesan: 'Akses ditolak: Anda harus login untuk mencabut tautan berbagi.',
+            });
+            return;
+          }
+
+          const board = await prisma.board.findUnique({
+            where: { id: data.boardId },
+            select: { ownerId: true },
+          });
+
+          if (!board) {
+            callback?.({ success: false, pesan: 'Papan tulis tidak ditemukan.' });
+            return;
+          }
+
+          if (board.ownerId !== userId) {
+            callback?.({
+              success: false,
+              pesan: 'Akses ditolak: hanya pemilik papan yang dapat mencabut tautan berbagi.',
+            });
+            return;
+          }
+
+          await prisma.boardShare.updateMany({
+            where: { boardId: data.boardId, token: data.token },
+            data: { aktif: false },
+          });
+          broadcastTokenRevocation(data.boardId, data.token);
+          callback?.({ success: true });
+        } catch (err) {
+          console.error('Gagal mencabut akses via socket:', err);
+          callback?.({ success: false, pesan: 'Gagal mencabut akses via socket.' });
+        }
       }
-    });
+    );
 
     // ------------------------------------------------------------------------
     // 4. Disconnect: bersihkan peserta & simpan jika peserta terakhir keluar

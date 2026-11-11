@@ -1,15 +1,19 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { apiRequest } from '../../lib/api';
-import { PortalLedge } from '../../components';
 import {
-  ArrowLeft,
+  extractApiErrorMessage,
+  GameConfigCardHeader,
+  GameConfigFooter,
+  GameConfigPageShell,
+  GameConfigSection,
+  GameModeCard,
+} from '../../components';
+import {
   Users,
   Monitor,
-  CheckCircle2,
   AlertTriangle,
   Play,
-  Loader2,
   UserCheck,
   QrCode,
   Trophy,
@@ -23,7 +27,6 @@ import {
   CloudRain,
   Bot,
   Swords,
-  Lock,
   Clock,
   ChevronDown,
   ChevronUp,
@@ -200,10 +203,10 @@ export default function PilihModeBalapKarung() {
             if (!hasCustomTimer.current) setWaktuPerSoalDetik(10);
           }
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (active) {
           setSelectedTemplate(null);
-          setErrorPesan(err.pesan || 'Gagal memuat detail template kuis.');
+          setErrorPesan(extractApiErrorMessage(err, 'Gagal memuat detail template kuis.'));
         }
       } finally {
         if (active) setLoadingTemplate(false);
@@ -403,295 +406,83 @@ export default function PilihModeBalapKarung() {
         selectedTemplate.id
       )}&kembali=${encodeURIComponent(queryKembali)}`;
       navigate(`/guru/sesi/${res.session.id}?kembali=${encodeURIComponent(backTarget)}`);
-    } catch (err: any) {
-      setErrorPesan(err.pesan || 'Gagal membuat sesi Balap Karung Challenge.');
+    } catch (err: unknown) {
+      setErrorPesan(extractApiErrorMessage(err, 'Gagal membuat sesi Balap Karung Challenge.'));
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loadingTemplate) {
-    return (
-      <div className="portal-bg min-h-screen flex flex-col items-center justify-center">
-        <Loader2 className="w-10 h-10 animate-spin text-[#f2c230] mb-3" />
-        <p className="portal-cv text-2xl text-[#f4ecd8]">Menyiapkan Pengaturan Balap Karung...</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="portal-bg relative">
-      {/* Filter SVG tekstur kapur tulis kasar khusus judul materi */}
-      <svg aria-hidden="true" width="0" height="0" className="absolute pointer-events-none">
-        <defs>
-          <filter
-            id="discere-chalk-title"
-            x="-5%"
-            y="-15%"
-            width="110%"
-            height="130%"
-            colorInterpolationFilters="sRGB"
-          >
-            <feTurbulence
-              type="fractalNoise"
-              baseFrequency="0.65"
-              numOctaves="3"
-              seed="7"
-              result="grain"
+    <GameConfigPageShell
+      loading={loadingTemplate}
+      loadingText="Menyiapkan Pengaturan Balap Karung..."
+      title="Balap Karung Challenge"
+      subtitle="Atur mode permainan, target lintasan, keseimbangan, dan rintangan sebelum memulai lomba."
+      onBack={() => navigate(queryKembali)}
+      errorMessage={errorPesan}
+      templateTitle={selectedTemplate?.judul}
+      isOfficialTemplate={Boolean(selectedTemplate?.resmi)}
+      questionCount={jumlahSoal}
+      missingTemplateMessage="Tidak dapat memuat pengaturan karena materi kuis Balap Karung belum tersedia."
+    >
+      <form onSubmit={handleMulaiPermainan} className="space-y-6">
+        {/* 1. Pilih Mode Permainan */}
+        <GameConfigSection
+          title="1. Pilih Mode Permainan"
+          description="Multiplayer membagi siswa ke 3 atau 4 tim di HP masing-masing; Solo Mode menyajikan duel 1 vs 1 di satu layar proyektor."
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <GameModeCard
+              selected={playMode === 'MULTIPLAYER'}
+              variant="green"
+              onClick={() => handleUbahPlayMode('MULTIPLAYER')}
+              badgeIcon={<Users className="w-3.5 h-3.5" />}
+              badgeLabel="Multiplayer Tim"
+              title="Siswa Bermain di HP • Adu Cepat 3–4 Tim"
+              description="Guru membuka PIN & QR Code lalu memilih 3 atau 4 tim. Peserta otomatis dibagi merata dan setiap jawaban benar memajukan tim menuju garis finis."
+              features={[
+                { icon: <QrCode className="w-3.5 h-3.5 text-[#f2c230]" />, label: 'PIN & QR Gabung' },
+                { icon: <Users className="w-3.5 h-3.5 text-[#f2c230]" />, label: '3 atau 4 Tim Seimbang' },
+                { icon: <Trophy className="w-3.5 h-3.5 text-[#f2c230]" />, label: 'Podium Tim Real-Time' },
+                { icon: <Flag className="w-3.5 h-3.5 text-[#f2c230]" />, label: 'Heatmap Analisis Soal' },
+              ]}
             />
-            <feColorMatrix
-              in="grain"
-              type="matrix"
-              values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  2.0 0 0 0 -0.16"
-              result="alphaGrain"
+
+            <GameModeCard
+              selected={playMode === 'SOLO'}
+              variant="red"
+              onClick={() => handleUbahPlayMode('SOLO')}
+              badgeIcon={<Monitor className="w-3.5 h-3.5" />}
+              badgeLabel="Solo Mode (1 vs 1)"
+              title="Satu Perangkat Guru • 1 vs 1 dengan Lawan"
+              description="Tanpa HP siswa, PIN, atau QR Code. Di layar proyektor hanya tampil tepat 2 avatar balap karung (1 vs 1) melawan Bot AI atau pemain ke-2 lokal."
+              features={[
+                { icon: <Monitor className="w-3.5 h-3.5" />, label: 'Tanpa PIN / QR Code' },
+                { icon: <Swords className="w-3.5 h-3.5" />, label: 'Tepat 2 Avatar (1 vs 1)' },
+                { icon: <Bot className="w-3.5 h-3.5" />, label: 'Lawan Bot / Duel Lokal' },
+                { icon: <Play className="w-3.5 h-3.5" />, label: 'Kontrol Jeda & Ulang' },
+              ]}
             />
-            <feTurbulence
-              type="turbulence"
-              baseFrequency="0.055"
-              numOctaves="2"
-              seed="11"
-              result="brushEdge"
-            />
-            <feDisplacementMap
-              in="SourceGraphic"
-              in2="brushEdge"
-              scale="2.2"
-              xChannelSelector="R"
-              yChannelSelector="G"
-              result="roughLetters"
-            />
-            <feComposite in="roughLetters" in2="alphaGrain" operator="in" />
-          </filter>
-        </defs>
-      </svg>
-
-      <div className="max-w-6xl mx-auto w-full p-6 md:p-10 space-y-6 flex-1">
-        {/* Header Bar Papan Tulis Kapur (selaras Dashboard Guru / Admin) */}
-        <div className="portal-head flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0 pr-2">
-            <h1>Balap Karung Challenge</h1>
-            <p>
-              Atur mode permainan, target lintasan, keseimbangan, dan rintangan sebelum memulai lomba.
-            </p>
           </div>
+        </GameConfigSection>
 
-          <div className="shrink-0 self-start pt-1">
-            <button
-              type="button"
-              onClick={() => navigate(queryKembali)}
-              className="portal-btn ghost sm"
-            >
-              <ArrowLeft className="w-4 h-4" /> Kembali
-            </button>
-          </div>
-        </div>
-
-        {/* Judul Materi Kuis Terpilih (Tengah papan tulis tanpa kotak & garis pembatas, font kapur kasar) */}
-        {selectedTemplate && (
-          <div className="flex flex-col items-center text-center gap-3 pb-2">
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#cfd9c3] inline-flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-[#f2c230]" /> Materi Kuis Terpilih
-              </span>
-              {selectedTemplate.resmi && (
-                <span className="portal-tag xs yellow">Resmi Admin</span>
-              )}
-            </div>
-
-            <h2
-              className="text-5xl sm:text-6xl md:text-[72px] text-white leading-[1.12] tracking-wide break-words max-w-full"
-              style={{
-                fontFamily: "'Permanent Marker', 'Caveat Brush', cursive",
-                filter: 'url(#discere-chalk-title)',
-              }}
-            >
-              {selectedTemplate.judul}
-            </h2>
-
-            <div className="flex flex-wrap items-center justify-center gap-2 pt-0.5">
-              <span className="portal-tag yellow">{jumlahSoal} Soal Tersedia</span>
-              <span className="portal-tag green">Acak Berulang</span>
-            </div>
-          </div>
-        )}
-
-        {errorPesan && (
-          <div className="portal-banner error">
-            <AlertTriangle className="w-5 h-5 shrink-0 text-[#ffdcd9]" />
-            <div className="flex-1">
-              <p className="font-bold">{errorPesan}</p>
-            </div>
-          </div>
-        )}
-
-        {!selectedTemplate ? (
-          <div className="portal-card p-8 text-center space-y-4">
-            <p className="text-sm font-bold text-[#6b7d6c]">
-              Tidak dapat memuat pengaturan karena materi kuis Balap Karung belum tersedia.
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate(queryKembali)}
-              className="portal-btn red"
-            >
-              <ArrowLeft className="w-4 h-4" /> Kembali ke Daftar Materi
-            </button>
-          </div>
-        ) : (
-          <form onSubmit={handleMulaiPermainan} className="space-y-6">
-            {/* 1. Pilih Mode Permainan */}
-            <section className="space-y-3">
-              <div>
-                <h2 className="portal-cv text-2xl sm:text-3xl text-[#f4ecd8]">
-                  1. Pilih Mode Permainan
-                </h2>
-                <p className="text-xs text-[#cfd9c3] mt-0.5">
-                  Multiplayer membagi siswa ke 3 atau 4 tim di HP masing-masing; Solo Mode menyajikan duel 1 vs 1 di satu layar proyektor.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {/* Kartu A: Multiplayer Tim Mode */}
-                <button
-                  type="button"
-                  onClick={() => handleUbahPlayMode('MULTIPLAYER')}
-                  className={`rounded-[24px] p-6 text-left transition-all cursor-pointer flex flex-col justify-between gap-4 border-2 ${
-                    playMode === 'MULTIPLAYER'
-                      ? 'bg-[#163a2b] text-[#f4ecd8] border-[#f2c230] shadow-[0_6px_0_rgba(0,0,0,0.3)] -translate-y-0.5'
-                      : 'portal-card border-[#e0d5b8] hover:border-[#f2c230]'
-                  }`}
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="portal-tag yellow uppercase tracking-wide">
-                        <Users className="w-3.5 h-3.5" /> Multiplayer Tim
-                      </span>
-                      {playMode === 'MULTIPLAYER' && (
-                        <CheckCircle2 className="w-6 h-6 text-[#f2c230]" />
-                      )}
-                    </div>
-                    <h3 className="portal-cv text-2xl sm:text-[26px] leading-tight">
-                      Siswa Bermain di HP • Adu Cepat 3–4 Tim
-                    </h3>
-                    <p
-                      className={`text-xs leading-relaxed ${
-                        playMode === 'MULTIPLAYER' ? 'text-[#cfd9c3]' : 'text-[#6b7d6c]'
-                      }`}
-                    >
-                      Guru membuka PIN &amp; QR Code lalu memilih 3 atau 4 tim. Peserta otomatis dibagi merata dan setiap jawaban benar memajukan tim menuju garis finis.
-                    </p>
-                  </div>
-
-                  <div
-                    className={`grid grid-cols-2 gap-2 text-[11px] font-bold pt-3 border-t-2 border-dashed ${
-                      playMode === 'MULTIPLAYER'
-                        ? 'border-[#f4ecd8]/20 text-[#f4ecd8]'
-                        : 'border-[#e0d5b8] text-[#1d3b2e]'
-                    }`}
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <QrCode className="w-3.5 h-3.5 text-[#f2c230]" /> PIN &amp; QR Gabung
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <Users className="w-3.5 h-3.5 text-[#f2c230]" /> 3 atau 4 Tim Seimbang
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <Trophy className="w-3.5 h-3.5 text-[#f2c230]" /> Podium Tim Real-Time
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <Flag className="w-3.5 h-3.5 text-[#f2c230]" /> Heatmap Analisis Soal
-                    </span>
-                  </div>
-                </button>
-
-                {/* Kartu B: Solo Mode (1 vs 1) */}
-                <button
-                  type="button"
-                  onClick={() => handleUbahPlayMode('SOLO')}
-                  className={`rounded-[24px] p-6 text-left transition-all cursor-pointer flex flex-col justify-between gap-4 border-2 ${
-                    playMode === 'SOLO'
-                      ? 'bg-gradient-to-br from-[#c8362f] to-[#a92a24] text-[#f4ecd8] border-[#f2c230] shadow-[0_6px_0_rgba(0,0,0,0.3)] -translate-y-0.5'
-                      : 'portal-card border-[#e0d5b8] hover:border-[#c8362f]/60'
-                  }`}
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <span
-                        className={`portal-tag uppercase tracking-wide ${
-                          playMode === 'SOLO'
-                            ? 'bg-[#f4ecd8] text-[#c8362f]'
-                            : 'red'
-                        }`}
-                      >
-                        <Monitor className="w-3.5 h-3.5" /> Solo Mode (1 vs 1)
-                      </span>
-                      {playMode === 'SOLO' && (
-                        <CheckCircle2 className="w-6 h-6 text-[#f2c230]" />
-                      )}
-                    </div>
-                    <h3 className="portal-cv text-2xl sm:text-[26px] leading-tight">
-                      Satu Perangkat Guru • 1 vs 1 dengan Lawan
-                    </h3>
-                    <p
-                      className={`text-xs leading-relaxed ${
-                        playMode === 'SOLO' ? 'text-[#f4ecd8]/90' : 'text-[#6b7d6c]'
-                      }`}
-                    >
-                      Tanpa HP siswa, PIN, atau QR Code. Di layar proyektor hanya tampil tepat 2 avatar balap karung (1 vs 1) melawan Bot AI atau pemain ke-2 lokal.
-                    </p>
-                  </div>
-
-                  <div
-                    className={`grid grid-cols-2 gap-2 text-[11px] font-bold pt-3 border-t-2 border-dashed ${
-                      playMode === 'SOLO'
-                        ? 'border-[#f4ecd8]/25 text-[#f4ecd8]'
-                        : 'border-[#e0d5b8] text-[#1d3b2e]'
-                    }`}
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <Monitor className="w-3.5 h-3.5" /> Tanpa PIN / QR Code
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <Swords className="w-3.5 h-3.5" /> Tepat 2 Avatar (1 vs 1)
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <Bot className="w-3.5 h-3.5" /> Lawan Bot / Duel Lokal
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <Play className="w-3.5 h-3.5" /> Kontrol Jeda &amp; Ulang
-                    </span>
-                  </div>
-                </button>
-              </div>
-            </section>
-
-            {/* 2. Konfigurasi Parameter Lomba */}
-            <section className="space-y-3">
-              <div>
-                <h2 className="portal-cv text-2xl sm:text-3xl text-[#f4ecd8]">
-                  2. Pengaturan Aturan &amp; Lintasan
-                </h2>
-                <p className="text-xs text-[#cfd9c3] mt-0.5">
-                  Sesuaikan target jarak, aturan lawan atau kapasitas peserta, tingkat kesulitan, keseimbangan, dan rintangan.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* Kolom Kiri: Target Jarak & Pengaturan Peserta/Lawan */}
-                <div className="lg:col-span-5 space-y-5">
-                  {/* Target Jarak Finis */}
-                  <div className="portal-card p-5 space-y-4">
-                    <div className="flex items-center justify-between gap-2 pb-3 border-b-2 border-dashed border-[#e0d5b8]">
-                      <div className="flex items-center gap-2">
-                        <Flag className="w-4 h-4 text-[#c8362f]" />
-                        <h3 className="portal-cv text-2xl text-[#1d3b2e]">
-                          Target Jarak Finis
-                        </h3>
-                      </div>
-                      <span className="portal-tag yellow font-mono">
-                        {isValidTarget ? `${targetJarakFinal} m` : 'Invalid'}
-                      </span>
-                    </div>
+        {/* 2. Konfigurasi Parameter Lomba */}
+        <GameConfigSection
+          title="2. Pengaturan Aturan & Lintasan"
+          description="Sesuaikan target jarak, aturan lawan atau kapasitas peserta, tingkat kesulitan, keseimbangan, dan rintangan."
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Kolom Kiri: Target Jarak & Pengaturan Peserta/Lawan */}
+            <div className="lg:col-span-5 space-y-5">
+              {/* Target Jarak Finis */}
+              <div className="portal-card p-5 space-y-4">
+                <GameConfigCardHeader
+                  icon={<Flag className="w-4 h-4 text-[#c8362f]" />}
+                  title="Target Jarak Finis"
+                  tagLabel={isValidTarget ? `${targetJarakFinal} m` : 'Invalid'}
+                  tagColor="yellow"
+                />
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-2">
                       {(
@@ -747,15 +538,12 @@ export default function PilihModeBalapKarung() {
                   {/* Pengaturan Khusus Solo 1 vs 1 ATAU Multiplayer */}
                   {playMode === 'SOLO' ? (
                     <div className="portal-card p-5 space-y-4">
-                      <div className="flex items-center justify-between gap-2 pb-3 border-b-2 border-dashed border-[#e0d5b8]">
-                        <div className="flex items-center gap-2">
-                          <Swords className="w-4 h-4 text-[#c8362f]" />
-                          <h3 className="portal-cv text-2xl text-[#1d3b2e]">
-                            Pengaturan Duel 1 vs 1
-                          </h3>
-                        </div>
-                        <span className="portal-tag red">Tepat 2 Avatar</span>
-                      </div>
+                      <GameConfigCardHeader
+                        icon={<Swords className="w-4 h-4 text-[#c8362f]" />}
+                        title="Pengaturan Duel 1 vs 1"
+                        tagLabel="Tepat 2 Avatar"
+                        tagColor="red"
+                      />
 
                       <div className="grid grid-cols-2 gap-2.5">
                         <button
@@ -865,15 +653,12 @@ export default function PilihModeBalapKarung() {
                     </div>
                   ) : (
                     <div className="portal-card p-5 space-y-4">
-                      <div className="flex items-center justify-between gap-2 pb-3 border-b-2 border-dashed border-[#e0d5b8]">
-                        <div className="flex items-center gap-2">
-                          <UserCheck className="w-4 h-4 text-[#1d3b2e]" />
-                          <h3 className="portal-cv text-2xl text-[#1d3b2e]">
-                            Pengaturan Tim &amp; Peserta
-                          </h3>
-                        </div>
-                        <span className="portal-tag green">{jumlahTim} Tim Aktif</span>
-                      </div>
+                      <GameConfigCardHeader
+                        icon={<UserCheck className="w-4 h-4 text-[#1d3b2e]" />}
+                        title="Pengaturan Tim & Peserta"
+                        tagLabel={`${jumlahTim} Tim Aktif`}
+                        tagColor="green"
+                      />
 
                       <div>
                         <label className="text-xs font-bold uppercase tracking-wider text-[#6b7d6c] block mb-1.5">
@@ -947,17 +732,12 @@ export default function PilihModeBalapKarung() {
 
                 {/* Kolom Kanan: Timer Soal, Aturan Lomba & Opsional Lanjutan */}
                 <div className="lg:col-span-7 portal-card p-5 sm:p-6 space-y-5">
-                  <div className="flex items-center justify-between gap-2 pb-3 border-b-2 border-dashed border-[#e0d5b8]">
-                    <div className="flex items-center gap-2">
-                      <Sliders className="w-4 h-4 text-[#c8362f]" />
-                      <h3 className="portal-cv text-2xl text-[#1d3b2e]">
-                        Waktu Soal &amp; Aturan Balap
-                      </h3>
-                    </div>
-                    <span className="portal-tag green font-mono">
-                      {waktuPerSoalDetik} detik / soal
-                    </span>
-                  </div>
+                  <GameConfigCardHeader
+                    icon={<Sliders className="w-4 h-4 text-[#c8362f]" />}
+                    title="Waktu Soal & Aturan Balap"
+                    tagLabel={`${waktuPerSoalDetik} detik / soal`}
+                    tagColor="green"
+                  />
 
                   {/* Timer Per Soal */}
                   <div className="p-4 rounded-2xl bg-[#fffdf6] border-2 border-[#e0d5b8] space-y-3">
@@ -1492,48 +1272,27 @@ export default function PilihModeBalapKarung() {
                   )}
 
                   {/* Tombol Mulai */}
-                  <div className="pt-2 border-t-2 border-dashed border-[#e0d5b8] flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <div className="text-xs text-[#6b7d6c]">
-                      Mode:{' '}
-                      <strong className="text-[#1d3b2e]">
-                        {playMode === 'MULTIPLAYER'
-                          ? `Multiplayer Tim (${jumlahTim} tim · ${waktuPerSoalDetik}dtk/soal)`
-                          : `Solo 1 vs 1 (${namaPemain1.trim() || 'Pemain 1'} vs ${
-                              namaPemain2.trim() || (tipeLawanSolo === 'bot' ? 'Lawan Bot' : 'Pemain 2')
-                            } · ${waktuPerSoalDetik}dtk/soal)`}
-                      </strong>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={!canSubmit}
-                      className={`portal-btn w-full sm:w-auto justify-center ${
-                        playMode === 'SOLO' ? 'red' : ''
-                      } ${
-                        !canSubmit
-                          ? 'opacity-50 cursor-not-allowed'
-                          : playMode === 'MULTIPLAYER'
-                          ? '!bg-[#1d3b2e] !text-[#f4ecd8] hover:!bg-[#254b3b]'
-                          : ''
-                      }`}
-                    >
-                      <Play className="w-4 h-4 fill-current" />
-                      {submitting
-                        ? 'Mempersiapkan Sesi...'
-                        : playMode === 'MULTIPLAYER'
+                  <GameConfigFooter
+                    modeSummary={
+                      playMode === 'MULTIPLAYER'
+                        ? `Multiplayer Tim (${jumlahTim} tim · ${waktuPerSoalDetik}dtk/soal)`
+                        : `Solo 1 vs 1 (${namaPemain1.trim() || 'Pemain 1'} vs ${
+                            namaPemain2.trim() || (tipeLawanSolo === 'bot' ? 'Lawan Bot' : 'Pemain 2')
+                          } · ${waktuPerSoalDetik}dtk/soal)`
+                    }
+                    canSubmit={canSubmit}
+                    submitting={submitting}
+                    isSolo={playMode === 'SOLO'}
+                    submitLabel={
+                      playMode === 'MULTIPLAYER'
                         ? 'Buat Sesi Multiplayer & Buka Lobi PIN'
-                        : 'Mulai Balap Karung Solo (1 vs 1)'}
-                    </button>
-                  </div>
+                        : 'Mulai Balap Karung Solo (1 vs 1)'
+                    }
+                  />
                 </div>
               </div>
-            </section>
-          </form>
-        )}
-      </div>
-
-      {/* Dudukan Papan Tulis Kayu di Paling Bawah (selaras Guru & Admin) */}
-      <PortalLedge />
-    </div>
+        </GameConfigSection>
+      </form>
+    </GameConfigPageShell>
   );
 }

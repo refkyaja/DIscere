@@ -5,13 +5,6 @@ import { apiRequest } from '../../lib/api';
 import { Modal, PortalLedge } from '../../components';
 import { ProfilView } from './ProfilView';
 import { RiwayatDetailModal } from './RiwayatDetailModal';
-import ModalKonfigurasiKerupuk, { KonfigurasiKerupukPayload } from './ModalKonfigurasiKerupuk';
-import ModalKonfigurasiPanjatPinang, {
-  KonfigurasiPanjatPinangPayload,
-} from './ModalKonfigurasiPanjatPinang';
-import ModalKonfigurasiTarikTambang, {
-  KonfigurasiTarikTambangPayload,
-} from './ModalKonfigurasiTarikTambang';
 import {
   LogOut,
   LayoutDashboard,
@@ -43,11 +36,11 @@ function labelJenisGame(game?: string): string {
   return 'Tarik Tambang';
 }
 
-function labelTombolMulai(game?: string, mode?: string): string {
+function labelTombolMulai(game?: string): string {
   if (game === 'makan_kerupuk') return 'Makan Kerupuk';
   if (game === 'panjat_pinang') return 'Panjat Pinang';
   if (game === 'balap_karung') return 'Balap Karung';
-  return mode === 'multi' ? 'Mulai Lomba' : 'Mulai Solo';
+  return 'Tarik Tambang';
 }
 
 interface TemplateItem {
@@ -183,25 +176,6 @@ export default function DashboardGuru() {
   const [modalHapusPapanId, setModalHapusPapanId] = useState<string | null>(null);
   const [modalGantiNamaPapan, setModalGantiNamaPapan] = useState<{ id: string; judul: string } | null>(null);
   const [inputGantiNama, setInputGantiNama] = useState('');
-  const [modalKerupukTemplate, setModalKerupukTemplate] = useState<{
-    id: string;
-    judul: string;
-    totalSoal: number;
-  } | null>(null);
-  const [kerupukCreating, setKerupukCreating] = useState(false);
-  const [modalPanjatTemplate, setModalPanjatTemplate] = useState<{
-    id: string;
-    judul: string;
-    totalSoal: number;
-  } | null>(null);
-  const [panjatCreating, setPanjatCreating] = useState(false);
-  const [modalTarikTemplate, setModalTarikTemplate] = useState<{
-    id: string;
-    judul: string;
-    mode: 'solo' | 'multi';
-    totalSoal: number;
-  } | null>(null);
-  const [tarikCreating, setTarikCreating] = useState(false);
   const [modalKeluarOpen, setModalKeluarOpen] = useState(false);
   const [sisaAi, setSisaAi] = useState<number>(30);
 
@@ -320,47 +294,25 @@ export default function DashboardGuru() {
     }
   };
 
-  // Handler: Mulai Game dari Template
+  // Handler: Mulai Game dari Template (semua 4 game diarahkan ke halaman pengaturan seragam)
   const handleMulaiGame = async (templateId: string, mode?: string, gameType?: string) => {
-    const cariTemplate = () =>
-      templates.find((t) => t.id === templateId) ||
-      pustakaResmi.find((t) => t.id === templateId) ||
-      ringkasan?.templateTerbaru?.find((t) => t.id === templateId);
-
-    // Jika game adalah Makan Kerupuk Challenge, arahkan ke halaman Pemilihan Mode (Multiplayer / Solo)
     if (gameType === 'makan_kerupuk') {
       navigate(`/guru/makan-kerupuk?templateId=${encodeURIComponent(templateId)}&kembali=/guru`);
       return;
     }
 
-    // Jika game adalah Tarik Tambang Challenge, mode diambil langsung dari template (solo / multi) lalu buka pengaturan ronde
-    if (!gameType || gameType === 'tarik_tambang') {
-      const tmpl = cariTemplate();
-      const resolvedMode: 'solo' | 'multi' =
-        (mode || tmpl?.mode) === 'multi' ? 'multi' : 'solo';
-      setModalTarikTemplate({
-        id: templateId,
-        judul: tmpl?.judul || 'Tarik Tambang Challenge',
-        mode: resolvedMode,
-        totalSoal: (tmpl as TemplateItem)?._count?.questions || tmpl?.jumlahSoal || 0,
-      });
-      return;
-    }
-
-    // Jika game adalah Panjat Pinang, buka modal konfigurasi Panjat Pinang
     if (gameType === 'panjat_pinang') {
-      const tmpl = cariTemplate();
-      setModalPanjatTemplate({
-        id: templateId,
-        judul: tmpl?.judul || 'Panjat Pinang',
-        totalSoal: (tmpl as TemplateItem)?._count?.questions || tmpl?.jumlahSoal || 0,
-      });
+      navigate(`/guru/panjat-pinang?templateId=${encodeURIComponent(templateId)}&kembali=/guru`);
       return;
     }
 
-    // Jika game adalah Balap Karung Challenge, arahkan ke halaman Pemilihan Mode & Pengaturan
     if (gameType === 'balap_karung') {
       navigate(`/guru/balap-karung?templateId=${encodeURIComponent(templateId)}&kembali=/guru`);
+      return;
+    }
+
+    if (!gameType || gameType === 'tarik_tambang') {
+      navigate(`/guru/tarik-tambang?templateId=${encodeURIComponent(templateId)}&kembali=/guru`);
       return;
     }
 
@@ -374,94 +326,6 @@ export default function DashboardGuru() {
     } catch (err: any) {
       alert(err.pesan || 'Gagal memulai sesi game.');
       setActionLoadingId(null);
-    }
-  };
-
-  // Handler: Konfirmasi & Mulai Sesi Tarik Tambang Dual Mode (Mode ditentukan oleh template)
-  const handleKonfirmasiTarik = async (config: KonfigurasiTarikTambangPayload) => {
-    if (!modalTarikTemplate) return;
-    try {
-      setTarikCreating(true);
-      const isMulti = modalTarikTemplate.mode === 'multi';
-      const res = await apiRequest<{ session: { id: string } }>('/sesi', {
-        method: 'POST',
-        body: JSON.stringify({
-          templateId: modalTarikTemplate.id,
-          game: 'tarik_tambang',
-          mode: modalTarikTemplate.mode,
-          playMode: isMulti ? 'MULTIPLAYER' : 'SOLO',
-          autoStart: !isMulti,
-          tarikTambangConfig: config,
-        }),
-      });
-      setModalTarikTemplate(null);
-      navigate(`/guru/sesi/${res.session.id}`);
-    } catch (err: any) {
-      alert(err.pesan || 'Gagal membuat sesi Tarik Tambang.');
-    } finally {
-      setTarikCreating(false);
-    }
-  };
-
-  // Handler: Konfirmasi & Mulai Sesi Panjat Pinang dengan Konfigurasi
-  const handleKonfirmasiPanjat = async (config: KonfigurasiPanjatPinangPayload) => {
-    if (!modalPanjatTemplate) return;
-    try {
-      setPanjatCreating(true);
-      const res = await apiRequest<{ session: { id: string } }>('/sesi', {
-        method: 'POST',
-        body: JSON.stringify({
-          templateId: modalPanjatTemplate.id,
-          game: 'panjat_pinang',
-          mode: 'multi',
-          panjatPinangConfig: config,
-        }),
-      });
-      setModalPanjatTemplate(null);
-      navigate(`/guru/sesi/${res.session.id}`);
-    } catch (err: any) {
-      alert(err.pesan || 'Gagal membuat sesi Panjat Pinang.');
-    } finally {
-      setPanjatCreating(false);
-    }
-  };
-
-  // Handler: Konfirmasi & Mulai Sesi Makan Kerupuk Dual Mode dengan Konfigurasi
-  const handleKonfirmasiKerupuk = async (config: KonfigurasiKerupukPayload) => {
-    if (!modalKerupukTemplate) return;
-    try {
-      setKerupukCreating(true);
-      const isMulti = config.playMode === 'MULTIPLAYER';
-      const baseCfg = {
-        targetKerupuk: config.targetKerupuk,
-        targetPreset: config.targetPreset,
-        kesulitan: config.kesulitan,
-        probabilitas: config.probabilitas,
-      };
-      const res = await apiRequest<{ session: { id: string } }>('/sesi', {
-        method: 'POST',
-        body: JSON.stringify({
-          templateId: modalKerupukTemplate.id,
-          game: 'makan_kerupuk',
-          mode: isMulti ? 'multi' : 'solo',
-          playMode: config.playMode,
-          ...(isMulti
-            ? {
-                kerupukMultiConfig: {
-                  ...baseCfg,
-                  maxPeserta: config.maxPeserta ?? 45,
-                  allowLateJoin: config.allowLateJoin ?? true,
-                },
-              }
-            : { kerupukConfig: baseCfg }),
-        }),
-      });
-      setModalKerupukTemplate(null);
-      navigate(`/guru/sesi/${res.session.id}`);
-    } catch (err: any) {
-      alert(err.pesan || 'Gagal membuat sesi Makan Kerupuk.');
-    } finally {
-      setKerupukCreating(false);
     }
   };
 
@@ -1063,7 +927,7 @@ export default function DashboardGuru() {
                                 onClick={() => handleMulaiGame(tmpl.id, tmpl.mode, tmpl.game)}
                                 className="portal-chip"
                               >
-                                {labelTombolMulai(tmpl.game, tmpl.mode)}
+                                {labelTombolMulai(tmpl.game)}
                               </button>
                             </div>
                           </div>
@@ -1293,13 +1157,12 @@ export default function DashboardGuru() {
                                 {labelJenisGame(tmpl.game)}
                               </span>
                               <span className="portal-tag xs yellow whitespace-nowrap shrink-0">
-                                {tmpl.game === 'makan_kerupuk' || tmpl.game === 'balap_karung'
+                                {tmpl.game === 'makan_kerupuk' ||
+                                tmpl.game === 'balap_karung' ||
+                                tmpl.game === 'tarik_tambang' ||
+                                !tmpl.game
                                   ? 'Dual Mode'
-                                  : tmpl.game === 'panjat_pinang'
-                                  ? 'Individu'
-                                  : tmpl.mode === 'multi'
-                                  ? 'Multiplayer'
-                                  : 'Solo'}
+                                  : 'Individu'}
                               </span>
                               {isAdminOfficial && (
                                 <span className="portal-tag xs blue font-bold whitespace-nowrap shrink-0">
@@ -1325,7 +1188,7 @@ export default function DashboardGuru() {
                                   className="portal-btn red xs whitespace-nowrap shrink-0"
                                 >
                                   <Play className="w-3.5 h-3.5 fill-current" />
-                                  <span>{labelTombolMulai(tmpl.game, tmpl.mode)}</span>
+                                  <span>{labelTombolMulai(tmpl.game)}</span>
                                 </button>
 
                                 <div className="inline-flex items-center gap-1 shrink-0">
@@ -1364,7 +1227,7 @@ export default function DashboardGuru() {
                                   title="Gunakan langsung template buatan admin ini"
                                 >
                                   <Play className="w-3.5 h-3.5 fill-current shrink-0" />
-                                  <span className="truncate">{labelTombolMulai(tmpl.game, tmpl.mode)}</span>
+                                  <span className="truncate">{labelTombolMulai(tmpl.game)}</span>
                                 </button>
                                 <button
                                   type="button"
@@ -2026,37 +1889,6 @@ export default function DashboardGuru() {
           </div>
         </div>
       </Modal>
-      {/* Modal Konfigurasi Sesi Makan Kerupuk Challenge */}
-      <ModalKonfigurasiKerupuk
-        isOpen={Boolean(modalKerupukTemplate)}
-        onClose={() => setModalKerupukTemplate(null)}
-        templateJudul={modalKerupukTemplate?.judul || ''}
-        totalSoal={modalKerupukTemplate?.totalSoal || 0}
-        onMulai={handleKonfirmasiKerupuk}
-        loading={kerupukCreating}
-      />
-
-      {/* Modal Konfigurasi Sesi Panjat Pinang */}
-      <ModalKonfigurasiPanjatPinang
-        isOpen={Boolean(modalPanjatTemplate)}
-        onClose={() => setModalPanjatTemplate(null)}
-        templateJudul={modalPanjatTemplate?.judul || ''}
-        totalSoal={modalPanjatTemplate?.totalSoal || 0}
-        onMulai={handleKonfirmasiPanjat}
-        loading={panjatCreating}
-      />
-
-      {/* Modal Konfigurasi Sesi Tarik Tambang (Solo / Multi ditentukan oleh template) */}
-      <ModalKonfigurasiTarikTambang
-        isOpen={Boolean(modalTarikTemplate)}
-        onClose={() => setModalTarikTemplate(null)}
-        templateId={modalTarikTemplate?.id || ''}
-        templateJudul={modalTarikTemplate?.judul || ''}
-        templateMode={modalTarikTemplate?.mode || 'solo'}
-        totalSoal={modalTarikTemplate?.totalSoal || 0}
-        onMulai={handleKonfirmasiTarik}
-        loading={tarikCreating}
-      />
 
       {/* Modal Konfirmasi Keluar Akun Guru */}
       <Modal

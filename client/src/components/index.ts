@@ -6,4 +6,5 @@ export * from './Badge';
 export * from './Toast';
 export * from './TemplateEditor';
 export * from './PortalLedge';
+export * from './GameConfigShell';
 

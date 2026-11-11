@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { getSocket } from '../../lib/socket';
+import { bindStudentReconnect } from '../../lib/socketReconnect';
 import { soundEffects } from '../../lib/soundEffects';
 import { BalapSackSvg } from '../../components/BalapKarungStadium';
 import { LogOut, Trophy, Clock, Users, Volume2, VolumeX, Loader2 } from 'lucide-react';
@@ -354,6 +355,33 @@ export default function MainBalapKarung({
     const interval = window.setInterval(tick, 50);
     return () => window.clearInterval(interval);
   }, [stage, soalAktif, sudahKirim, defaultTimerDetik, sessionId, pesertaId, pesertaSecret]);
+
+  useEffect(() => {
+    const socket = getSocket();
+    return bindStudentReconnect(socket, {
+      token,
+      nama,
+      pesertaId,
+      pesertaSecret,
+      onReconnectSuccess: (res: any) => {
+        if (!res?.success) return;
+        if (res.config) setActiveConfig((prev: any) => ({ ...prev, ...res.config }));
+        if (res.teams) setTeams(res.teams);
+        if (res.peserta) setMyState(res.peserta);
+        if (res.status === 'jalan') {
+          setStage('PLAYING');
+          if (res.soalAktif) {
+            setSoalAktif((prev) =>
+              prev && prev.presentationId === res.soalAktif.presentationId ? prev : res.soalAktif
+            );
+          }
+        } else if (res.status === 'selesai') {
+          if (res.hasil) setHasilAkhir(res.hasil);
+          setStage('SELESAI');
+        }
+      },
+    });
+  }, [token, nama, pesertaId, pesertaSecret]);
 
   const handlePilihJawaban = (opsi: PilihanBalap) => {
     if (sudahKirim || !soalAktif) return;

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { apiRequest } from '../../lib/api';
 import { getSocket } from '../../lib/socket';
+import { bindHostReconnect } from '../../lib/socketReconnect';
 import { Modal } from '../../components';
 import { soundEffects } from '../../lib/soundEffects';
 import {
@@ -207,11 +208,7 @@ export default function LayarHostBalapKarung() {
   useEffect(() => {
     if (!id) return;
     const socket = getSocket();
-
-    const handleConnect = () => {
-      socket.emit('sesi:host_join', { sessionId: id });
-    };
-    handleConnect();
+    const unbindHost = bindHostReconnect(socket, id);
 
     const handleLobiUpdate = (data: {
       game?: string;
@@ -349,14 +346,13 @@ export default function LayarHostBalapKarung() {
       }, 1200);
     };
 
-    socket.on('connect', handleConnect);
     socket.on('lobi:update', handleLobiUpdate);
     socket.on('game:mulai', handleGameMulai);
     socket.on('balap:update', handleBalapUpdate);
     socket.on('sesi:selesai', handleSesiSelesai);
 
     return () => {
-      socket.off('connect', handleConnect);
+      unbindHost();
       socket.off('lobi:update', handleLobiUpdate);
       socket.off('game:mulai', handleGameMulai);
       socket.off('balap:update', handleBalapUpdate);

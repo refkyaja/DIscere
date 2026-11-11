@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request } from 'express';
 import { z } from 'zod';
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -8,6 +8,26 @@ import { config } from '../config.js';
 import { COOKIE_NAME, authMiddleware, AuthRequest } from '../middleware/auth.js';
 
 export const authRouter = Router();
+
+function isSecureRequest(req: Request): boolean {
+  const forwardedProto = req.headers['x-forwarded-proto'];
+  if (typeof forwardedProto === 'string') {
+    return forwardedProto.split(',')[0].trim().toLowerCase() === 'https';
+  }
+  if (Array.isArray(forwardedProto) && forwardedProto.length > 0) {
+    return forwardedProto[0].trim().toLowerCase() === 'https';
+  }
+  return Boolean(req.secure);
+}
+
+function buildAuthCookieOptions(req: Request) {
+  return {
+    httpOnly: true,
+    secure: isSecureRequest(req),
+    sameSite: 'lax' as const,
+    path: '/',
+  };
+}
 
 export const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -71,11 +91,8 @@ authRouter.post('/daftar', authRateLimiter, async (req, res, next) => {
     });
 
     res.cookie(COOKIE_NAME, token, {
-      httpOnly: true,
-      secure: config.isProduction,
-      sameSite: 'lax',
+      ...buildAuthCookieOptions(req),
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/',
     });
 
     return res.status(201).json({
@@ -121,11 +138,8 @@ authRouter.post('/masuk', authRateLimiter, async (req, res, next) => {
     });
 
     res.cookie(COOKIE_NAME, token, {
-      httpOnly: true,
-      secure: config.isProduction,
-      sameSite: 'lax',
+      ...buildAuthCookieOptions(req),
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/',
     });
 
     return res.json({
@@ -145,13 +159,8 @@ authRouter.post('/masuk', authRateLimiter, async (req, res, next) => {
 });
 
 // POST /api/auth/keluar
-authRouter.post('/keluar', (_req, res) => {
-  res.clearCookie(COOKIE_NAME, {
-    httpOnly: true,
-    secure: config.isProduction,
-    sameSite: 'lax',
-    path: '/',
-  });
+authRouter.post('/keluar', (req, res) => {
+  res.clearCookie(COOKIE_NAME, buildAuthCookieOptions(req));
 
   return res.json({
     pesan: 'Berhasil keluar.',

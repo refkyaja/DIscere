@@ -58,11 +58,16 @@ CREATE TABLE IF NOT EXISTS public.questions (
   "opsiE" TEXT,
   "jawabanBenar" TEXT NOT NULL,
   penjelasan TEXT,
-  "dibuatAi" BOOLEAN NOT NULL DEFAULT false,
   kesulitan TEXT NOT NULL DEFAULT 'sedang',
+  "dibuatAi" BOOLEAN NOT NULL DEFAULT false,
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE public.questions ADD COLUMN IF NOT EXISTS kesulitan TEXT NOT NULL DEFAULT 'sedang';
+ALTER TABLE public.questions ALTER COLUMN "opsiC" DROP NOT NULL;
+ALTER TABLE public.questions ADD COLUMN IF NOT EXISTS "opsiD" TEXT;
+ALTER TABLE public.questions ADD COLUMN IF NOT EXISTS "opsiE" TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_questions_template ON public.questions("templateId");
 
@@ -114,6 +119,8 @@ CREATE TABLE IF NOT EXISTS public.session_players (
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE public.session_players ADD COLUMN IF NOT EXISTS tim TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_session_players_session ON public.session_players("sessionId");
 

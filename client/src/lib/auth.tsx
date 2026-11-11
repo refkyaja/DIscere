@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { Navigate, Outlet, useLocation } from 'react-router';
 import { Loader2 } from 'lucide-react';
 import { apiRequest } from './api';
+import { resetSocket } from './socket';
 
 export interface User {
   id: string;
@@ -47,6 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    resetSocket();
     setUser(res.user);
     return res.user;
   };
@@ -56,6 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    resetSocket();
     setUser(res.user);
     return res.user;
   };
@@ -64,6 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await apiRequest('/auth/keluar', { method: 'POST' });
     } finally {
+      resetSocket();
       setUser(null);
     }
   };
