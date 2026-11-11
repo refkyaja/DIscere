@@ -1041,30 +1041,39 @@ export default function Landing() {
           </h2>
           <div className="faq">
             <details className="reveal stagger-1">
-              <summary>Apakah Discere gratis?</summary>
-              <p>Versi ini gratis dipakai guru.</p>
+              <summary>Bagaimana AI membuat soal, dan apakah saya masih bisa mengubahnya?</summary>
+              <p>
+                AI membuat soal dari materi yang kamu masukkan, atau kamu bisa menulis soal sendiri dari awal. Sebelum dipakai di kelas, semua soal bisa kamu edit, hapus, atau tambah. Jadi AI membantu mempercepat, tapi kualitas soal tetap kamu yang menentukan.
+              </p>
             </details>
             <details className="reveal stagger-2">
-              <summary>Apakah perlu internet?</summary>
+              <summary>Apa bedanya mode solo dan multiplayer, dan kapan sebaiknya pakai yang mana?</summary>
               <p>
-                Kelas dan game berjalan di jaringan lokal. Hanya fitur AI yang butuh internet.
+                Mode solo cocok kalau kelas hanya punya satu layar atau proyektor, semua siswa menjawab bersama secara bergiliran. Mode multiplayer cocok kalau tiap siswa punya HP sendiri dan ingin main serentak dengan skor masing-masing. Keduanya dirancang supaya tidak ada siswa yang tertinggal hanya karena keterbatasan alat.
               </p>
             </details>
             <details className="reveal stagger-3">
-              <summary>Apakah siswa harus punya akun?</summary>
-              <p>Tidak. Siswa masuk dengan token dari guru dan nama panggilan.</p>
+              <summary>Kenapa game-nya bertema lomba 17 Agustusan, bukan kuis biasa?</summary>
+              <p>
+                Supaya sesi belajar terasa seperti permainan, bukan ulangan. Tema yang akrab buat siswa Indonesia (tarik tambang, dan sejenisnya) membuat mereka lebih terlibat dibanding tampilan kuis pilihan ganda yang itu-itu saja.
+              </p>
             </details>
             <details className="reveal stagger-4">
-              <summary>Apakah data kami aman?</summary>
+              <summary>Apa yang tersimpan dari sesi kelas saya, dan siapa yang bisa melihatnya?</summary>
               <p>
-                Admin hanya melihat angka total. Papan, soal, dan hasil sesi hanya bisa dibuka guru
-                pemiliknya.
+                Materi dan template kelas tersimpan di akun guru, bisa dipakai ulang kapan saja. Siswa cukup masuk pakai token sesi, tanpa perlu membuat akun sendiri, jadi tidak ada data pribadi siswa yang disimpan di luar yang memang dibutuhkan untuk sesi itu.
               </p>
             </details>
             <details className="reveal stagger-5">
-              <summary>Bagaimana kalau siswa tidak punya HP?</summary>
+              <summary>Apakah Discere cocok dipakai di semua mata pelajaran?</summary>
               <p>
-                Pakai Mode Solo. Perwakilan tim maju dan menyentuh jawaban di layar guru.
+                Cocok, karena materi dan soalnya memang kamu yang mengisi, baik lewat AI dari bahan ajar yang kamu punya, maupun diketik manual. Discere menyediakan cara menyampaikannya, bukan membatasi kontennya.
+              </p>
+            </details>
+            <details className="reveal stagger-6">
+              <summary>Apakah Discere berbayar?</summary>
+              <p>
+                Saat ini Discere bisa dicoba gratis sebagai bagian dari proyek kompetisi Logicodix 2026. Rencana jangka panjang soal biaya belum diputuskan.
               </p>
             </details>
           </div>
@@ -1208,9 +1217,13 @@ export default function Landing() {
                   </a>
                 </li>
                 <li>
-                  <span className="nav-disabled" style={{ opacity: 0.65, cursor: 'default' }}>
+                  <a
+                    href="https://wa.me/6285885455853"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     Kontak tim
-                  </span>
+                  </a>
                 </li>
               </ul>
             </div>
