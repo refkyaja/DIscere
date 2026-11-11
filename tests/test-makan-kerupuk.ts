@@ -476,7 +476,10 @@ async function jalankanIntegrationDualModeDan40Siswa() {
 
     // 4. Hubungkan Host + 40 SISWA bersamaan via Socket.IO ke Sesi Multiplayer!
     console.log('4. Menghubungkan Host + 40 siswa bersamaan ke Socket.IO Multiplayer...');
-    const hostSock = ioClient(baseUrl, { transports: ['websocket'] });
+    const hostSock = ioClient(baseUrl, {
+      transports: ['websocket'],
+      extraHeaders: { cookie: guruCookie },
+    });
     sockets.push(hostSock);
     await waitForEvent(hostSock, 'connect');
     hostSock.emit('sesi:host_join', { sessionId: multiId });

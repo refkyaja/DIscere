@@ -698,7 +698,10 @@ async function jalankanIntegrationTests() {
     assert.strictEqual(badSoloCall.status, 400);
 
     // Hubungkan Host
-    const hostSocket = ioClient(baseUrl, { transports: ['websocket'] });
+    const hostSocket = ioClient(baseUrl, {
+      transports: ['websocket'],
+      extraHeaders: { cookie: guruCookie },
+    });
     openSockets.push(hostSocket);
     await new Promise<void>((r) => hostSocket.on('connect', () => r()));
     hostSocket.emit('sesi:host_join', { sessionId: multiId });
@@ -938,7 +941,10 @@ async function jalankanIntegrationTests() {
     createdSessionIds.push(multiBatasId);
     assert.strictEqual(multiBatasJson.session.config.batasMenang, 25);
 
-    const mHostSock = ioClient(baseUrl, { transports: ['websocket'] });
+    const mHostSock = ioClient(baseUrl, {
+      transports: ['websocket'],
+      extraHeaders: { cookie: guruCookie },
+    });
     const mP1Sock = ioClient(baseUrl, { transports: ['websocket'] });
     const mP2Sock = ioClient(baseUrl, { transports: ['websocket'] });
     openSockets.push(mHostSock, mP1Sock, mP2Sock);

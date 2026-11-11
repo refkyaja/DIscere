@@ -39,8 +39,24 @@ import {
   bangunKonfigurasiBalapKarung,
   konfigurasiBalapKarungSchema,
 } from '../games/balapKarung.js';
+import { bersihkanTimerSesi } from '../realtime/sesi.js';
 
 export const sesiRouter = Router();
+
+async function cekMultiAtauPulihkanSoloTarik(
+  sessionId: string,
+  hostId: string
+): Promise<'MULTI' | 'OK'> {
+  const multi =
+    multiManager.dapatkanSesi(sessionId) ||
+    (await multiManager.pulihkanSesiDariDb(sessionId));
+  if (multi) return 'MULTI';
+
+  if (!soloManager.dapatkanSesi(sessionId, hostId)) {
+    await soloManager.pulihkanSesiDariDb(sessionId);
+  }
+  return 'OK';
+}
 
 function isTokenDipakaiDiMemori(token: string): boolean {
   return (
@@ -326,8 +342,45 @@ sesiRouter.get('/token/:token', async (req: Request, res: Response) => {
   }
 });
 
-// Seluruh rute sesi berikut membutuhkan login sebagai guru
+// Seluruh rute sesi berikut membutuhkan autentikasi
 sesiRouter.use(authMiddleware);
+
+// DELETE /api/sesi/:id - Hapus sesi permainan milik guru atau admin
+sesiRouter.delete('/:id', roleMiddleware(['guru', 'admin']), async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const session = await prisma.session.findUnique({
+      where: { id },
+    });
+
+    if (!session) {
+      return res.status(404).json({ pesan: 'Sesi tidak ditemukan.' });
+    }
+
+    if (session.hostId !== req.user!.id && req.user!.role !== 'admin') {
+      return res.status(403).json({ pesan: 'Anda tidak berwenang menghapus sesi ini.' });
+    }
+
+    bersihkanTimerSesi(id);
+    balapKarungSoloManager.hapusSesi(id);
+    balapKarungManager.hapusSesi(id);
+    panjatPinangManager.hapusSesi(id);
+    kerupukManager.hapusSesi(id);
+    kerupukMultiManager.hapusSesi(id);
+    soloManager.hapusSesi(id);
+    multiManager.hapusSesi(id);
+
+    await prisma.session.delete({
+      where: { id },
+    });
+
+    return res.json({ pesan: 'Sesi berhasil dihapus.' });
+  } catch (err: any) {
+    return res.status(500).json({ pesan: err.message || 'Gagal menghapus sesi.' });
+  }
+});
+
+// Rute operasional sesi lainnya khusus role guru
 sesiRouter.use(roleMiddleware('guru'));
 
 // 1. GET /api/sesi/riwayat - Daftar riwayat sesi milik guru
@@ -457,7 +510,9 @@ sesiRouter.get('/riwayat/:id', async (req: AuthRequest, res: Response) => {
 
     const laporanBalapKarung =
       session.template.game === 'balap_karung'
-        ? await balapKarungManager.muatLaporanDariDatabase(session.id)
+        ? session.mode === 'solo'
+          ? await balapKarungSoloManager.muatLaporanDariDatabase(session.id)
+          : await balapKarungManager.muatLaporanDariDatabase(session.id)
         : null;
 
     const laporanKerupukSolo =
@@ -549,6 +604,10 @@ sesiRouter.post('/', async (req: AuthRequest, res: Response) => {
 
     if (!template) {
       return res.status(404).json({ pesan: 'Template tidak ditemukan.' });
+    }
+
+    if (!template.resmi && template.ownerId !== req.user!.id) {
+      return res.status(403).json({ pesan: 'Anda tidak memiliki hak akses ke template ini.' });
     }
 
     // Pastikan template memiliki soal
@@ -1129,8 +1188,11 @@ sesiRouter.get('/:id', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // B. Cek di in-memory multiManager (Tarik Tambang Multiplayer)
-    const activeMulti = multiManager.dapatkanSesi(id);
+    // B. Cek di in-memory multiManager atau pulihkan dari DB (Tarik Tambang Multiplayer)
+    let activeMulti = multiManager.dapatkanSesi(id);
+    if (!activeMulti) {
+      activeMulti = (await multiManager.pulihkanSesiDariDb(id)) || undefined;
+    }
     if (activeMulti) {
       if (activeMulti.hostId !== req.user!.id) {
         return res.status(403).json({ pesan: 'Anda tidak memiliki hak akses ke sesi ini.' });
@@ -1143,118 +1205,16 @@ sesiRouter.get('/:id', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // B2. Cek di in-memory active solo manager (Tarik Tambang Solo 1 vs 1)
-    let activeSession = soloManager.dapatkanSesi(id, req.user!.id);
-
-    // C. Jika belum ada di memori (misal guru me-refresh browser), pulihkan dari database
+    // B2. Cek di in-memory soloManager atau pulihkan dari DB (Tarik Tambang Solo 1 vs 1)
+    let activeSession = soloManager.dapatkanSesi(id);
     if (!activeSession) {
-      const sessionDb = await prisma.session.findUnique({
-        where: { id },
-        include: {
-          template: {
-            include: { questions: { orderBy: { urutan: 'asc' } } },
-          },
-          result: true,
-        },
-      });
-
-      if (!sessionDb) {
-        return res.status(404).json({ pesan: 'Sesi permainan tidak ditemukan.' });
-      }
-
-      if (sessionDb.hostId !== req.user!.id) {
-        return res.status(403).json({ pesan: 'Anda tidak memiliki hak akses ke sesi ini.' });
-      }
-
-      const savedConfig = parseTarikTambangConfigFromJson(sessionDb.konfigurasi);
-      const mappedQuestions = mapQuestionsForTarikTambang(sessionDb.template.questions);
-
-      // Jika sesi multiplayer
-      if (sessionDb.mode === 'multi') {
-        const token = sessionDb.token || (await generateTokenUnikSemuaGame());
-        const baseUrl = getNetworkBaseUrl(req);
-        const joinUrl = `${baseUrl}/main?token=${token}`;
-        const qrDataUrl = await QRCode.toDataURL(joinUrl, { margin: 2, width: 320 });
-
-        if (sessionDb.status === 'selesai') {
-          const laporanMulti = await multiManager.muatLaporanDariDatabase(sessionDb.id);
-          return res.json({
-            session: {
-              sessionId: sessionDb.id,
-              game: 'tarik_tambang',
-              mode: 'multi',
-              playMode: 'MULTIPLAYER',
-              token,
-              qrDataUrl,
-              joinUrl,
-              networkUrl: baseUrl,
-              templateId: sessionDb.templateId,
-              templateJudul: sessionDb.template.judul,
-              hostId: sessionDb.hostId,
-              status: 'selesai',
-              config: savedConfig || null,
-              taliPosition: sessionDb.result?.posisiAkhir ?? 0,
-              skorMerah: sessionDb.result?.skorMerah ?? 0,
-              skorPutih: sessionDb.result?.skorPutih ?? 0,
-              totalSoal: sessionDb.template.questions.length,
-              totalPeserta: laporanMulti?.statistikPemain.length ?? 0,
-              daftarPeserta: laporanMulti?.statistikPemain ?? [],
-              isFinished: true,
-              hasil: laporanMulti,
-            },
-          });
-        }
-
-        const multi = multiManager.inisialisasiSesi(
-          sessionDb.id,
-          token,
-          sessionDb.hostId,
-          { id: sessionDb.template.id, judul: sessionDb.template.judul },
-          mappedQuestions,
-          savedConfig
-        );
-
-        return res.json({
-          session: serializeMultiTarikSession(multi, qrDataUrl, joinUrl, baseUrl),
-        });
-      }
-
-      // Jika sesi sudah selesai di database (Solo)
-      if (sessionDb.status === 'selesai') {
-        const laporanSolo = await soloManager.muatLaporanDariDatabase(sessionDb.id);
-        return res.json({
-          session: {
-            sessionId: sessionDb.id,
-            game: 'tarik_tambang',
-            mode: 'solo',
-            playMode: 'SOLO',
-            templateId: sessionDb.templateId,
-            templateJudul: sessionDb.template.judul,
-            hostId: sessionDb.hostId,
-            state: 'FINISHED',
-            config: savedConfig || null,
-            taliPosition: sessionDb.result?.posisiAkhir ?? 0,
-            skorMerah: sessionDb.result?.skorMerah ?? 0,
-            skorPutih: sessionDb.result?.skorPutih ?? 0,
-            totalSoal: sessionDb.template.questions.length,
-            isFinished: true,
-            hasil: laporanSolo,
-          },
-        });
-      }
-
-      // Inisialisasi ulang ke memori jika sesi masih aktif (Solo)
-      activeSession = soloManager.inisialisasiSesi(
-        sessionDb.id,
-        req.user!.id,
-        { id: sessionDb.template.id, judul: sessionDb.template.judul },
-        mappedQuestions,
-        savedConfig
-      );
-
-      if (sessionDb.status === 'jalan') {
-        soloManager.mulaiSesi(sessionDb.id, req.user!.id);
-      }
+      activeSession = (await soloManager.pulihkanSesiDariDb(id)) || undefined;
+    }
+    if (!activeSession) {
+      return res.status(404).json({ pesan: 'Sesi permainan tidak ditemukan.' });
+    }
+    if (activeSession.hostId !== req.user!.id) {
+      return res.status(403).json({ pesan: 'Anda tidak memiliki hak akses ke sesi ini.' });
     }
 
     return res.json({
@@ -1305,39 +1265,14 @@ sesiRouter.post('/:id/mulai', async (req: AuthRequest, res: Response) => {
     }
 
     // B. Tarik Tambang Solo
-    if (multiManager.dapatkanSesi(id)) {
+    const modeCheck = await cekMultiAtauPulihkanSoloTarik(id, req.user!.id);
+    if (modeCheck === 'MULTI') {
       return res
         .status(400)
         .json({ pesan: 'Sesi Multiplayer harus dimulai melalui ruang lobi realtime.' });
     }
-
-    let activeSession = soloManager.dapatkanSesi(id, req.user!.id);
-
-    if (!activeSession) {
-      // Coba pulihkan dari DB
-      const sessionDb = await prisma.session.findUnique({
-        where: { id },
-        include: {
-          template: { include: { questions: { orderBy: { urutan: 'asc' } } } },
-        },
-      });
-
-      if (!sessionDb || sessionDb.hostId !== req.user!.id) {
-        return res.status(404).json({ pesan: 'Sesi permainan tidak ditemukan.' });
-      }
-      if (sessionDb.mode === 'multi') {
-        return res
-          .status(400)
-          .json({ pesan: 'Sesi Multiplayer harus dimulai melalui ruang lobi realtime.' });
-      }
-
-      activeSession = soloManager.inisialisasiSesi(
-        sessionDb.id,
-        req.user!.id,
-        { id: sessionDb.template.id, judul: sessionDb.template.judul },
-        mapQuestionsForTarikTambang(sessionDb.template.questions),
-        parseTarikTambangConfigFromJson(sessionDb.konfigurasi)
-      );
+    if (!soloManager.dapatkanSesi(id, req.user!.id)) {
+      return res.status(404).json({ pesan: 'Sesi permainan tidak ditemukan.' });
     }
 
     const sesi = soloManager.mulaiSesi(id, req.user!.id);
@@ -1391,6 +1326,12 @@ sesiRouter.post('/:id/state', async (req: AuthRequest, res: Response) => {
         state: sesiKerupuk.state,
         session: kerupukManager.serialisasiSesiUntukClient(sesiKerupuk),
       });
+    }
+
+    if ((await cekMultiAtauPulihkanSoloTarik(id, req.user!.id)) === 'MULTI') {
+      return res
+        .status(400)
+        .json({ pesan: 'Sesi Multiplayer dikendalikan melalui ruang lobi realtime.' });
     }
 
     const sesi = soloManager.ubahStateSesi(id, req.user!.id, state);
@@ -1499,7 +1440,7 @@ sesiRouter.post('/:id/jawab', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    if (multiManager.dapatkanSesi(id)) {
+    if ((await cekMultiAtauPulihkanSoloTarik(id, req.user!.id)) === 'MULTI') {
       return res
         .status(400)
         .json({ pesan: 'Sesi Multiplayer tidak dapat dijawab melalui endpoint Solo.' });
@@ -1548,6 +1489,11 @@ sesiRouter.post('/:id/jawab', async (req: AuthRequest, res: Response) => {
 sesiRouter.post('/:id/tutup-ronde', async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
+    if ((await cekMultiAtauPulihkanSoloTarik(id, req.user!.id)) === 'MULTI') {
+      return res
+        .status(400)
+        .json({ pesan: 'Ronde Multiplayer dikendalikan otomatis oleh server.' });
+    }
     const { sesi, hasilRonde, selesai } = soloManager.tutupRonde(id, req.user!.id);
     if (selesai) {
       await soloManager.simpanHasilKeDatabase(sesi);
@@ -1567,6 +1513,11 @@ sesiRouter.post('/:id/tutup-ronde', async (req: AuthRequest, res: Response) => {
 sesiRouter.post('/:id/lanjut-ronde', async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
+    if ((await cekMultiAtauPulihkanSoloTarik(id, req.user!.id)) === 'MULTI') {
+      return res
+        .status(400)
+        .json({ pesan: 'Ronde Multiplayer berlanjut otomatis melalui ruang realtime.' });
+    }
     const sesi = soloManager.lanjutRondeBerikutnya(id, req.user!.id);
     return res.json({
       pesan: 'Ronde berikutnya dimulai.',
@@ -1587,6 +1538,11 @@ sesiRouter.post('/:id/powerup', async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
     const { tim: timRaw } = powerUpSchema.parse(req.body);
+    if ((await cekMultiAtauPulihkanSoloTarik(id, req.user!.id)) === 'MULTI') {
+      return res
+        .status(400)
+        .json({ pesan: 'Power-up Multiplayer diaktifkan melalui Socket.IO siswa.' });
+    }
     const hasil = soloManager.aktifkanPowerUp(id, req.user!.id, timRaw);
     return res.json({
       pesan: 'Power-up berhasil diaktifkan untuk ronde berikutnya.',
@@ -1657,7 +1613,7 @@ sesiRouter.post('/:id/selesai', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    if (multiManager.dapatkanSesi(id)) {
+    if ((await cekMultiAtauPulihkanSoloTarik(id, req.user!.id)) === 'MULTI') {
       return res
         .status(400)
         .json({ pesan: 'Sesi Multiplayer harus diakhiri melalui ruang lobi realtime.' });
@@ -1907,7 +1863,10 @@ sesiRouter.get('/:id/hasil', async (req: AuthRequest, res: Response) => {
     }
 
     if (sessionDb.template.game === 'balap_karung') {
-      const laporanDb = await balapKarungManager.muatLaporanDariDatabase(sessionDb.id);
+      const laporanDb =
+        sessionDb.mode === 'solo'
+          ? await balapKarungSoloManager.muatLaporanDariDatabase(sessionDb.id)
+          : await balapKarungManager.muatLaporanDariDatabase(sessionDb.id);
       if (laporanDb) {
         return res.json({
           hasil: {
@@ -2337,34 +2296,5 @@ sesiRouter.post('/:id/main-lagi', async (req: AuthRequest, res: Response) => {
     });
   } catch (err: any) {
     return res.status(500).json({ pesan: err.message || 'Gagal membuat sesi main lagi.' });
-  }
-});
-
-// 11. DELETE /api/sesi/:id - Hapus sesi permainan milik guru atau admin
-sesiRouter.delete('/:id', async (req: AuthRequest, res: Response) => {
-  try {
-    const id = req.params.id as string;
-    const session = await prisma.session.findUnique({
-      where: { id },
-    });
-
-    if (!session) {
-      return res.status(404).json({ pesan: 'Sesi tidak ditemukan.' });
-    }
-
-    if (session.hostId !== req.user!.id && req.user!.role !== 'admin') {
-      return res.status(403).json({ pesan: 'Anda tidak berwenang menghapus sesi ini.' });
-    }
-
-    balapKarungSoloManager.hapusSesi(id);
-    balapKarungManager.hapusSesi(id);
-
-    await prisma.session.delete({
-      where: { id },
-    });
-
-    return res.json({ pesan: 'Sesi berhasil dihapus.' });
-  } catch (err: any) {
-    return res.status(500).json({ pesan: err.message || 'Gagal menghapus sesi.' });
   }
 });

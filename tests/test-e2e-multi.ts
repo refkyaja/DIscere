@@ -81,7 +81,10 @@ async function runTest() {
 
   // 5. Hubungkan Host dan 2 Siswa melalui Socket.IO
   console.log('5. Menghubungkan Host dan 2 Siswa ke Socket.IO...');
-  const hostSocket = ioClient(BASE_URL, { transports: ['websocket'] });
+  const hostSocket = ioClient(BASE_URL, {
+    transports: ['websocket'],
+    extraHeaders: { cookie: tokenCookie },
+  });
   const siswa1Socket = ioClient(BASE_URL, { transports: ['websocket'] });
   const siswa2Socket = ioClient(BASE_URL, { transports: ['websocket'] });
 

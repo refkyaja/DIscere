@@ -145,7 +145,10 @@ async function runTest() {
 
   // 8. Uji Kolaborasi Real-Time Socket.IO (Owner, Editor, Viewer)
   console.log('8. Menguji Kolaborasi Real-Time Socket.IO...');
-  const ownerSocket = ioClient(BASE_URL, { transports: ['websocket'] });
+  const ownerSocket = ioClient(BASE_URL, {
+    transports: ['websocket'],
+    extraHeaders: { cookie },
+  });
   const editorSocket = ioClient(BASE_URL, { transports: ['websocket'] });
   const viewerSocket = ioClient(BASE_URL, { transports: ['websocket'] });
 
