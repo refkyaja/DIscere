@@ -10,7 +10,6 @@ import {
   AlertTriangle,
   Play,
   Loader2,
-  BookOpen,
   UserCheck,
   QrCode,
   Trophy,
@@ -402,7 +401,51 @@ export default function PilihModeBalapKarung() {
   }
 
   return (
-    <div className="portal-bg">
+    <div className="portal-bg relative">
+      {/* Filter SVG tekstur kapur tulis kasar khusus judul materi */}
+      <svg aria-hidden="true" width="0" height="0" className="absolute pointer-events-none">
+        <defs>
+          <filter
+            id="discere-chalk-title"
+            x="-5%"
+            y="-15%"
+            width="110%"
+            height="130%"
+            colorInterpolationFilters="sRGB"
+          >
+            <feTurbulence
+              type="fractalNoise"
+              baseFrequency="0.65"
+              numOctaves="3"
+              seed="7"
+              result="grain"
+            />
+            <feColorMatrix
+              in="grain"
+              type="matrix"
+              values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  2.0 0 0 0 -0.16"
+              result="alphaGrain"
+            />
+            <feTurbulence
+              type="turbulence"
+              baseFrequency="0.055"
+              numOctaves="2"
+              seed="11"
+              result="brushEdge"
+            />
+            <feDisplacementMap
+              in="SourceGraphic"
+              in2="brushEdge"
+              scale="2.2"
+              xChannelSelector="R"
+              yChannelSelector="G"
+              result="roughLetters"
+            />
+            <feComposite in="roughLetters" in2="alphaGrain" operator="in" />
+          </filter>
+        </defs>
+      </svg>
+
       <div className="max-w-6xl mx-auto w-full p-6 md:p-10 space-y-6 flex-1">
         {/* Header Bar Papan Tulis Kapur (selaras Dashboard Guru / Admin) */}
         <div className="portal-head flex items-start justify-between gap-4">
@@ -424,29 +467,30 @@ export default function PilihModeBalapKarung() {
           </div>
         </div>
 
-        {/* Info Materi Terpilih (Terkunci, tidak dapat dipindah-pindah) */}
+        {/* Judul Materi Kuis Terpilih (Langsung di papan tulis tanpa kotak, font kapur kasar) */}
         {selectedTemplate && (
-          <div className="portal-over flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-11 h-11 rounded-2xl bg-[#f4ecd8]/15 border border-[#f4ecd8]/25 grid place-items-center shrink-0">
-                <BookOpen className="w-5 h-5 text-[#f2c230]" />
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 border-b-2 border-dashed border-[#f4ecd8]/20">
+            <div className="min-w-0 space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#cfd9c3] inline-flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-[#f2c230]" /> Materi Kuis Terpilih
+                </span>
+                {selectedTemplate.resmi && (
+                  <span className="portal-tag xs yellow">Resmi Admin</span>
+                )}
               </div>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#cfd9c3] inline-flex items-center gap-1">
-                    <Lock className="w-3 h-3 text-[#f2c230]" /> Materi Kuis Terpilih
-                  </span>
-                  {selectedTemplate.resmi && (
-                    <span className="portal-tag xs yellow">Resmi Admin</span>
-                  )}
-                </div>
-                <h2 className="portal-cv text-2xl text-[#f4ecd8] truncate mt-0.5">
-                  {selectedTemplate.judul}
-                </h2>
-              </div>
+              <h2
+                className="text-4xl sm:text-5xl md:text-[56px] text-white leading-[1.15] tracking-wide break-words"
+                style={{
+                  fontFamily: "'Permanent Marker', 'Caveat Brush', cursive",
+                  filter: 'url(#discere-chalk-title)',
+                }}
+              >
+                {selectedTemplate.judul}
+              </h2>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 shrink-0 pb-1">
               <span className="portal-tag yellow">{jumlahSoal} Soal Tersedia</span>
               <span className="portal-tag green">Acak Berulang</span>
             </div>
