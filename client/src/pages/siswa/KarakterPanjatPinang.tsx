@@ -8,7 +8,7 @@ export interface KarakterPanjatPinangProps {
   ekspresi?: EkspresiKarakterPanjat;
   pose?: PoseKarakterPanjat;
   podiumRank?: 1 | 2 | 3;
-  size?: 'xs' | 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   streak?: number;
   className?: string;
 }
@@ -38,6 +38,7 @@ const UKURAN_MAP: Record<NonNullable<KarakterPanjatPinangProps['size']>, number>
   sm: 54,
   md: 72,
   lg: 92,
+  xl: 112,
 };
 
 /**
