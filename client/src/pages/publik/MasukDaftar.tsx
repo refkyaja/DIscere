@@ -66,8 +66,9 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
   const location = useLocation();
   const { tampilToast } = useToast();
 
-  // State Animasi Terpadu (Sinkron 100% dengan CSS discere-masuk.html)
+  // State Animasi Terpadu (Sinkron 100% dengan koreografi Tarik Tambang)
   const [isReg, setIsReg] = useState(initialView === 'reg');
+  const [chalkReg, setChalkReg] = useState(initialView === 'reg');
   const [isWalking, setIsWalking] = useState(false);
   const [cardSr, setCardSr] = useState(initialView === 'reg');
   const [cardTilt, setCardTilt] = useState<'tr' | 'tl' | ''>('');
@@ -101,6 +102,13 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
   const pLRef = useRef<SVGSVGElement>(null);
   const pRRef = useRef<SVGSVGElement>(null);
   const busyRef = useRef(false);
+  const timersRef = useRef<number[]>([]);
+
+  const scheduleTimer = (fn: () => void, ms: number) => {
+    const id = window.setTimeout(fn, ms);
+    timersRef.current.push(id);
+    return id;
+  };
 
   // Redirect jika sudah login
   useEffect(() => {
@@ -176,6 +184,8 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
     window.addEventListener('popstate', handlePopState);
 
     return () => {
+      timersRef.current.forEach((id) => window.clearTimeout(id));
+      timersRef.current = [];
       document.documentElement.style.overflow = origHtmlOverflow;
       document.body.style.overflow = origBodyOverflow;
       document.documentElement.style.height = origHtmlHeight;
@@ -200,6 +210,7 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
     const isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (isReducedMotion) {
       setIsReg(targetIsReg);
+      setChalkReg(targetIsReg);
       setCardSr(targetIsReg);
       window.history.replaceState(null, '', targetIsReg ? '/daftar' : '/masuk');
       busyRef.current = false;
@@ -219,18 +230,19 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
         ],
         { duration: 650, easing: 'ease-in-out' }
       );
-      setTimeout(() => {
+      scheduleTimer(() => {
         setCardSr(targetIsReg);
+        setChalkReg(targetIsReg);
         setIsReg(targetIsReg);
       }, 300);
-      setTimeout(() => {
+      scheduleTimer(() => {
         window.history.replaceState(null, '', targetIsReg ? '/daftar' : '/masuk');
         busyRef.current = false;
       }, 650);
       return;
     }
 
-    // KOREOGRAFI DESKTOP: TARIK TAMBANG DENGAN ANIMASI TEKS & KARTU TEPAT WAKTU
+    // KOREOGRAFI DESKTOP: TARIK TAMBANG DENGAN TRANSISI TEKS DI BALIK KARTU
     const pullingRope = targetIsReg ? rR : rL;
     const otherRope = targetIsReg ? rL : rR;
 
@@ -239,22 +251,26 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
     setCardTilt(targetIsReg ? 'tr' : 'tl');
     tweenRope(pullingRope, 12, 0, 380);
 
-    // 2. Di detik 460ms: berhenti tegang, mulai jalan kaki (walk), dan ubah status stage (.reg)
-    //    -> Menggerakkan track sejauh 720px (durasi 1.25s)
-    //    -> Mengubah teks kapur di tengah (opacity .4s) dengan mulus!
-    setTimeout(() => {
+    // 2. Di detik 460ms: mulai jalan kaki (walk) dan gerakkan track (durasi 1.25s)
+    //    Teks kapur di tengah sengaja ditahan agar tidak berubah sebelum tertutup kartu penuh.
+    scheduleTimer(() => {
       setStrainPerson('');
       setIsWalking(true);
       setIsReg(targetIsReg);
 
-      // 3. Di detik 460 + 520 = 980ms: kartu berganti isi (swap card pane via .sr)
-      //    -> Form lama fade-out (0.25s), form baru fade-in (0.3s) di tengah perjalanan
-      setTimeout(() => {
+      // 3a. Di detik 460 + 505ms: kartu menutup penuh area teks kapur (470..740px) dari kedua arah,
+      //     sehingga teks kapur berganti instan di balik kartu sebelum terlihat kembali.
+      scheduleTimer(() => {
+        setChalkReg(targetIsReg);
+      }, 505);
+
+      // 3b. Di detik 460 + 520ms: kartu berganti isi (swap card pane via .sr) di tengah perjalanan
+      scheduleTimer(() => {
         setCardSr(targetIsReg);
       }, 520);
 
       // 4. Di detik 460 + 1300 = 1760ms: perjalanan track selesai, kartu mendarat tegak
-      setTimeout(() => {
+      scheduleTimer(() => {
         setIsWalking(false);
         setCardTilt('');
         setSag(pullingRope, 12);
@@ -264,7 +280,7 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
         tweenRope(otherRope, 14, 0, 300);
 
         // 5. Di detik 1760 + 480 = 2240ms: semua selesai & stabil
-        setTimeout(() => {
+        scheduleTimer(() => {
           setStrainPerson('');
           window.history.replaceState(null, '', targetIsReg ? '/daftar' : '/masuk');
           busyRef.current = false;
@@ -448,7 +464,15 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
 
         .discere-masuk-wrapper .under {
           flex: 1;
-          background: #8b6a4a;
+          background:
+            repeating-linear-gradient(
+              90deg,
+              transparent 0 210px,
+              rgba(72, 48, 28, 0.14) 210px 212px,
+              transparent 212px 460px
+            ),
+            linear-gradient(180deg, #79593c 0%, #684b31 100%);
+          border-top: 2px solid rgba(58, 38, 20, 0.28);
         }
 
         .discere-masuk-wrapper .floor {
@@ -457,8 +481,133 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
           right: 0;
           bottom: 0;
           height: calc(80px * var(--s));
-          background: linear-gradient(#b99672 0 8px, #8b6a4a 8px);
-          border-top: 3px solid #6f5238;
+          background:
+            radial-gradient(ellipse at 22% 16%, rgba(244, 236, 216, 0.14) 0%, transparent 38%),
+            radial-gradient(ellipse at 55% 15%, rgba(244, 236, 216, 0.13) 0%, transparent 34%),
+            radial-gradient(ellipse at 86% 18%, rgba(244, 236, 216, 0.11) 0%, transparent 36%),
+            linear-gradient(
+              180deg,
+              #c7a27a 0px,
+              #b99672 8px,
+              #967350 9px,
+              #8b6a4a 48%,
+              #79593c 100%
+            );
+          border-top: 3px solid #634830;
+          box-shadow: inset 0 2px 0 rgba(255, 240, 214, 0.25);
+        }
+        .discere-masuk-wrapper .floor::after {
+          content: '';
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 46%;
+          height: 2px;
+          background: linear-gradient(
+            180deg,
+            rgba(72, 48, 28, 0.24),
+            rgba(232, 204, 168, 0.12)
+          );
+          pointer-events: none;
+        }
+
+        /* Properti Dekoratif Ruang Kelas di Area Ledge Bawah (Skala 1200px) */
+        .discere-masuk-wrapper .floor-props {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 604px;
+          height: 76px;
+          z-index: 4;
+          pointer-events: none;
+          user-select: none;
+        }
+        .discere-masuk-wrapper .ledge-cluster {
+          position: absolute;
+          bottom: 13px;
+          display: flex;
+          align-items: flex-end;
+        }
+        .discere-masuk-wrapper .ledge-chalk {
+          display: inline-block;
+          height: 7px;
+          border-radius: 3px;
+          box-shadow: 0 2px 3px rgba(0, 0, 0, 0.34);
+          position: relative;
+        }
+        .discere-masuk-wrapper .ledge-chalk::after {
+          content: '';
+          position: absolute;
+          left: 2px;
+          right: 2px;
+          top: 1px;
+          height: 2px;
+          border-radius: 2px;
+          background: rgba(255, 255, 255, 0.38);
+        }
+        .discere-masuk-wrapper .ledge-crumb {
+          position: absolute;
+          width: 4px;
+          height: 3px;
+          border-radius: 50%;
+          background: rgba(244, 236, 216, 0.72);
+        }
+        .discere-masuk-wrapper .ledge-eraser {
+          position: relative;
+          width: 78px;
+          filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.36));
+        }
+        .discere-masuk-wrapper .ledge-eraser-wood {
+          height: 11px;
+          background: linear-gradient(180deg, #b88450 0%, #996636 100%);
+          border: 1.5px solid #59391c;
+          border-bottom: none;
+          border-radius: 5px 5px 1px 1px;
+          position: relative;
+        }
+        .discere-masuk-wrapper .ledge-eraser-wood::after {
+          content: '';
+          position: absolute;
+          left: 10px;
+          right: 10px;
+          top: 4px;
+          height: 2.5px;
+          border-radius: 2px;
+          background: rgba(74, 43, 19, 0.45);
+        }
+        .discere-masuk-wrapper .ledge-eraser-felt {
+          height: 9px;
+          margin: 0 1px;
+          background: linear-gradient(180deg, #4b4f56 0%, #2f3237 100%);
+          border: 1.5px solid #202226;
+          border-top: none;
+          border-radius: 0 0 3px 3px;
+        }
+        .discere-masuk-wrapper .ledge-marker {
+          display: flex;
+          align-items: center;
+          height: 10px;
+          filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.34));
+        }
+        .discere-masuk-wrapper .ledge-marker-cap {
+          width: 24px;
+          height: 10px;
+          border-radius: 3px 2px 2px 3px;
+          border: 1.2px solid #1d2226;
+          position: relative;
+        }
+        .discere-masuk-wrapper .ledge-marker-barrel {
+          width: 48px;
+          height: 9px;
+          background: linear-gradient(180deg, #faf7ef 0%, #dfd9c9 100%);
+          border-top: 1.2px solid #6b6a64;
+          border-bottom: 1.2px solid #6b6a64;
+        }
+        .discere-masuk-wrapper .ledge-marker-plug {
+          width: 7px;
+          height: 8px;
+          border-radius: 0 3px 3px 0;
+          border: 1.2px solid #1d2226;
         }
 
         .discere-masuk-wrapper .brand-wrap {
@@ -617,7 +766,7 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
           50% { transform: translateX(3px); }
         }
 
-        /* ANIMASI TEKS KAPUR DI TENGAH PAPAN TULIS */
+        /* ANIMASI TEKS KAPUR DI TENGAH PAPAN TULIS (BERGANTI SAAT TERTUTUP KARTU) */
         .discere-masuk-wrapper .chalk {
           position: absolute;
           left: 470px;
@@ -633,15 +782,15 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
           left: 0;
           right: 0;
           top: 0;
-          transition: opacity .4s ease-in-out;
+          transition: opacity .05s linear;
         }
         .discere-masuk-wrapper .chalk .b {
           opacity: 0;
         }
-        .discere-masuk-wrapper .stage.reg .chalk .a {
+        .discere-masuk-wrapper .chalk.is-reg .a {
           opacity: 0;
         }
-        .discere-masuk-wrapper .stage.reg .chalk .b {
+        .discere-masuk-wrapper .chalk.is-reg .b {
           opacity: 1;
         }
         .discere-masuk-wrapper .chalk h2 {
@@ -953,6 +1102,7 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
             z-index: 15;
           }
           .discere-masuk-wrapper .floor,
+          .discere-masuk-wrapper .floor-props,
           .discere-masuk-wrapper .ppl,
           .discere-masuk-wrapper .rope,
           .discere-masuk-wrapper .ring,
@@ -1520,8 +1670,8 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
               </svg>
             </div>
 
-            {/* ANIMASI TEKS KAPUR DI TENGAH PAPAN TULIS */}
-            <div className="chalk" aria-hidden="true">
+            {/* ANIMASI TEKS KAPUR DI TENGAH PAPAN TULIS (SINKRON TERTUTUP KARTU) */}
+            <div className={`chalk ${chalkReg ? 'is-reg' : ''}`} aria-hidden="true">
               <div className="t a">
                 <h2 className="hand">Selamat datang kembali!</h2>
                 <p>Masuk dan lanjutkan belajar yang menyenangkan.</p>
@@ -1818,6 +1968,94 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
               {/* Cincin Pengait Tali */}
               <div className="ring" style={{ left: '431px' }} />
               <div className="ring" style={{ left: '31px' }} />
+            </div>
+
+            {/* PROPERTI RUANG KELAS DI AREA LEDGE PAPAN TULIS BAWAH */}
+            <div className="floor-props" aria-hidden="true">
+              {/* Kiri: Tumpukan buku pelajaran & pensil kayu */}
+              <div className="ledge-cluster" style={{ left: '52px', gap: '12px' }}>
+                <svg width="92" height="40" viewBox="0 0 92 40" fill="none">
+                  <rect x="2" y="25" width="84" height="12" rx="2.5" fill="#6d5a45" stroke="#4a3927" strokeWidth="1.2" />
+                  <path d="M10 31h68" stroke="#e9dfc7" strokeWidth="1.8" strokeLinecap="round" />
+                  <rect x="9" y="13" width="74" height="12" rx="2.5" fill="#8a7a64" stroke="#594c3c" strokeWidth="1.2" />
+                  <path d="M16 19h58" stroke="#e9dfc7" strokeWidth="1.8" strokeLinecap="round" />
+                  <rect x="4" y="2" width="78" height="11" rx="2.5" fill="#5a6f5f" stroke="#394a3d" strokeWidth="1.2" />
+                  <path d="M11 7.5h62" stroke="#f4ecd8" strokeWidth="1.6" strokeLinecap="round" />
+                </svg>
+                <svg width="62" height="12" viewBox="0 0 62 12" fill="none" style={{ marginBottom: '2px' }}>
+                  <rect x="10" y="2.5" width="40" height="7" rx="1" fill="#f2c230" stroke="#9e7411" strokeWidth="1.1" />
+                  <rect x="4" y="2.5" width="6" height="7" rx="2" fill="#e07a72" stroke="#8a3d38" strokeWidth="1.1" />
+                  <polygon points="50,2.5 60,6 50,9.5" fill="#f3d4aa" stroke="#9e7411" strokeWidth="1" />
+                  <polygon points="56.5,4.7 60,6 56.5,7.3" fill="#2d3238" />
+                </svg>
+              </div>
+
+              {/* Kiri-Tengah: Sekumpulan kapur tulis warna & remah kapur */}
+              <div className="ledge-cluster" style={{ left: '295px', gap: '7px', paddingBottom: '2px' }}>
+                <span className="ledge-chalk" style={{ width: '36px', background: '#f4ecd8', transform: 'rotate(-4deg)' }} />
+                <span className="ledge-chalk" style={{ width: '28px', background: '#f2c230', transform: 'rotate(2deg)' }} />
+                <span className="ledge-chalk" style={{ width: '24px', background: '#e9786e', transform: 'rotate(-2deg)' }} />
+                <span className="ledge-crumb" style={{ left: '22px', bottom: '-4px' }} />
+                <span className="ledge-crumb" style={{ left: '78px', bottom: '-2px' }} />
+              </div>
+
+              {/* Tengah: Penghapus papan tulis kayu, kapur biru, & penggaris segitiga */}
+              <div className="ledge-cluster" style={{ left: '495px', gap: '16px' }}>
+                <div className="ledge-eraser">
+                  <div className="ledge-eraser-wood" />
+                  <div className="ledge-eraser-felt" />
+                </div>
+                <span className="ledge-chalk" style={{ width: '26px', background: '#7cc4d9', marginBottom: '1px' }} />
+                <svg width="82" height="38" viewBox="0 0 86 44" fill="none">
+                  <path
+                    fillRule="evenodd"
+                    clipRule="evenodd"
+                    d="M4 41L79 41L21 5L4 41ZM17 34L54 34L24 15L17 34Z"
+                    fill="#dfb165"
+                    stroke="#7c5221"
+                    strokeWidth="1.5"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M12 41V37M18 41V38M24 41V37M30 41V38M36 41V37M42 41V38M48 41V37M54 41V38M60 41V37M66 41V38M72 41V37"
+                    stroke="#7c5221"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </div>
+
+              {/* Kanan-Tengah: Sepasang spidol papan tulis & kapur krem */}
+              <div className="ledge-cluster" style={{ left: '795px', gap: '10px', paddingBottom: '1px' }}>
+                <span className="ledge-chalk" style={{ width: '22px', background: '#f4ecd8' }} />
+                <div className="ledge-marker" style={{ transform: 'rotate(-1.5deg)' }}>
+                  <span className="ledge-marker-cap" style={{ background: '#262b30' }} />
+                  <span className="ledge-marker-barrel" />
+                  <span className="ledge-marker-plug" style={{ background: '#262b30' }} />
+                </div>
+                <div className="ledge-marker" style={{ transform: 'rotate(2deg)' }}>
+                  <span className="ledge-marker-cap" style={{ background: '#c8362f' }} />
+                  <span className="ledge-marker-barrel" />
+                  <span className="ledge-marker-plug" style={{ background: '#c8362f' }} />
+                </div>
+              </div>
+
+              {/* Kanan: Apel kelas klasik & kapur cadangan */}
+              <div className="ledge-cluster" style={{ left: '1062px', gap: '10px' }}>
+                <svg width="32" height="34" viewBox="0 0 32 34" fill="none">
+                  <path d="M16 7C16 4 17.5 2 20 1.5" stroke="#5c3d22" strokeWidth="2.2" strokeLinecap="round" />
+                  <path d="M16.5 6.5C19 2.5 24 3 24.5 6.5C21.5 8 18.5 7.5 16.5 6.5Z" fill="#52915c" stroke="#2f5e36" strokeWidth="1" />
+                  <path
+                    d="M16 9C12 6.5 5.5 8.5 5 16C4.5 23.5 9.5 31 13.5 31C14.8 31 15.5 30.2 16 30.2C16.5 30.2 17.2 31 18.5 31C22.5 31 27.5 23.5 27 16C26.5 8.5 20 6.5 16 9Z"
+                    fill="#d63a32"
+                    stroke="#8d211b"
+                    strokeWidth="1.4"
+                  />
+                  <path d="M9.5 14C9.5 12 11 11 12.5 11" stroke="#f7b3ad" strokeWidth="1.8" strokeLinecap="round" opacity="0.75" />
+                </svg>
+                <span className="ledge-chalk" style={{ width: '24px', background: '#f2c230', marginBottom: '2px' }} />
+                <span className="ledge-chalk" style={{ width: '18px', background: '#f4ecd8', marginBottom: '2px' }} />
+              </div>
             </div>
           </div>
         </main>
