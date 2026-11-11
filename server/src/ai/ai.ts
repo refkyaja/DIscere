@@ -4,15 +4,26 @@ import { prisma } from '../db.js';
 import { config } from '../config.js';
 
 // Skema Soal dari AI
-export const aiQuestionSchema = z.object({
-  teks: z.string().min(5, 'Teks soal minimal 5 karakter.'),
-  opsiA: z.string().min(1, 'Opsi A wajib diisi.'),
-  opsiB: z.string().min(1, 'Opsi B wajib diisi.'),
-  opsiC: z.string().min(1, 'Opsi C wajib diisi.'),
-  jawabanBenar: z.enum(['A', 'B', 'C']),
-  penjelasan: z.string().min(1, 'Penjelasan wajib diisi.'),
-  dibuatAi: z.literal(true),
-});
+export const aiQuestionSchema = z
+  .object({
+    teks: z.string().min(5, 'Teks soal minimal 5 karakter.'),
+    opsiA: z.string().min(1, 'Opsi A wajib diisi.'),
+    opsiB: z.string().min(1, 'Opsi B wajib diisi.'),
+    opsiC: z.string().min(1, 'Opsi C wajib diisi.'),
+    jawabanBenar: z.enum(['A', 'B', 'C']),
+    penjelasan: z.string().min(1, 'Penjelasan wajib diisi.'),
+    kesulitan: z.enum(['mudah', 'sedang', 'sulit']).optional().default('sedang'),
+    dibuatAi: z.literal(true),
+  })
+  .refine(
+    (q) => {
+      const a = q.opsiA.trim().toLowerCase();
+      const b = q.opsiB.trim().toLowerCase();
+      const c = q.opsiC.trim().toLowerCase();
+      return a !== b && b !== c && a !== c;
+    },
+    { message: 'Ketiga pilihan jawaban soal AI harus berbeda satu sama lain.' }
+  );
 
 export const aiGenerateQuestionsResponseSchema = z.object({
   soal: z.array(aiQuestionSchema).min(1),
@@ -142,7 +153,12 @@ export async function getInfoKuota(userId: string): Promise<{
  * Generator fallback cerdas untuk pembuatan soal dari materi
  * Dipakai saat offline atau ketika API key tidak disetel
  */
-function generateFallbackQuestions(materi: string, jumlah: number, tingkat: 'SD' | 'SMP'): AiQuestion[] {
+function generateFallbackQuestions(
+  materi: string,
+  jumlah: number,
+  tingkat: 'SD' | 'SMP',
+  kesulitan: 'mudah' | 'sedang' | 'sulit' = 'sedang'
+): AiQuestion[] {
   const cleanMateri = materi.trim();
   const sentences = cleanMateri
     .split(/[.\n;]+/)
@@ -196,6 +212,7 @@ function generateFallbackQuestions(materi: string, jumlah: number, tingkat: 'SD'
       opsiC,
       jawabanBenar,
       penjelasan,
+      kesulitan,
       dibuatAi: true,
     });
   }
@@ -210,9 +227,10 @@ export async function generateSoalFromMateri(params: {
   materi: string;
   jumlah: number;
   tingkat: 'SD' | 'SMP';
+  kesulitan?: 'mudah' | 'sedang' | 'sulit';
 }): Promise<{ soal: AiQuestion[]; dariCache: boolean }> {
-  const { materi, jumlah, tingkat } = params;
-  const hash = generateAiHash(materi, { jumlah, tingkat, jenis: 'soal' });
+  const { materi, jumlah, tingkat, kesulitan = 'sedang' } = params;
+  const hash = generateAiHash(materi, { jumlah, tingkat, kesulitan, jenis: 'soal' });
 
   // 1. Cek Cache Database
   const cached = await prisma.aiCache.findUnique({
@@ -236,14 +254,14 @@ export async function generateSoalFromMateri(params: {
     try {
       const model = config.aiModel || 'gemini-1.5-flash';
       const prompt = `Anda adalah asisten guru cerdas untuk platform Discere.
-Buatlah ${jumlah} soal pilihan ganda berdasarkan teks materi berikut untuk tingkat ${tingkat}.
+Buatlah ${jumlah} soal pilihan ganda berdasarkan teks materi berikut untuk tingkat ${tingkat} dengan tingkat kesulitan "${kesulitan}".
 Kriteria wajib:
-1. Setiap soal memiliki teks soal yang jelas dan mendidik.
-2. Tepat memiliki 3 pilihan jawaban: opsiA, opsiB, opsiC.
+1. Setiap soal memiliki teks soal yang jelas, mendidik, dan tingkat kesulitan "${kesulitan}".
+2. Tepat memiliki 3 pilihan jawaban berbeda: opsiA, opsiB, opsiC.
 3. Tentukan jawabanBenar persis salah satu dari: "A", "B", atau "C".
 4. Berikan penjelasan singkat mengapa jawaban tersebut benar.
 5. Format jawaban WAJIB berupa JSON murni tanpa markdown, tanpa tanda kutip backtick, dengan struktur:
-{"soal": [{"teks": "...", "opsiA": "...", "opsiB": "...", "opsiC": "...", "jawabanBenar": "A", "penjelasan": "...", "dibuatAi": true}]}
+{"soal": [{"teks": "...", "opsiA": "...", "opsiB": "...", "opsiC": "...", "jawabanBenar": "A", "penjelasan": "...", "kesulitan": "${kesulitan}", "dibuatAi": true}]}
 
 Materi:
 ${materi}`;
@@ -276,7 +294,7 @@ ${materi}`;
 
   // 3. Gunakan fallback cerdas jika API Key tidak ada atau gagal
   if (daftarSoal.length === 0) {
-    daftarSoal = generateFallbackQuestions(materi, jumlah, tingkat);
+    daftarSoal = generateFallbackQuestions(materi, jumlah, tingkat, kesulitan);
   }
 
   // 4. Simpan ke Cache

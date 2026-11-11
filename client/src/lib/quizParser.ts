@@ -6,6 +6,7 @@ export interface QuestionItem {
   opsiC: string;
   jawabanBenar: 'A' | 'B' | 'C';
   penjelasan?: string;
+  kesulitan?: 'mudah' | 'sedang' | 'sulit';
   dibuatAi?: boolean;
 }
 

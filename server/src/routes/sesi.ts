@@ -9,6 +9,15 @@ import { authMiddleware, AuthRequest } from '../middleware/auth.js';
 import { roleMiddleware } from '../middleware/role.js';
 import { soloManager } from '../games/soloManager.js';
 import { multiManager } from '../games/multiManager.js';
+import {
+  bangunKonfigurasiTarikTambang,
+  filterBankSoalSetara,
+  konfigurasiTarikTambangSchema,
+  KonfigurasiTarikTambang,
+  normalisasiKodeTim,
+  serialisasiSoalUntukClient,
+  SoalBankTarikTambang,
+} from '../games/tarikTambang.js';
 import { kerupukManager } from '../games/kerupukManager.js';
 import { kerupukMultiManager } from '../games/kerupukMultiManager.js';
 import {
@@ -40,6 +49,145 @@ function isTokenDipakaiDiMemori(token: string): boolean {
   );
 }
 
+function mapQuestionsForTarikTambang(
+  questions: Array<{
+    id: string;
+    urutan: number;
+    teks: string;
+    opsiA: string;
+    opsiB: string;
+    opsiC: string;
+    jawabanBenar: string;
+    penjelasan: string | null;
+    kesulitan?: string | null;
+  }>
+): SoalBankTarikTambang[] {
+  return questions.map((q) => ({
+    id: q.id,
+    urutan: q.urutan,
+    teks: q.teks,
+    opsiA: q.opsiA,
+    opsiB: q.opsiB,
+    opsiC: q.opsiC,
+    jawabanBenar: q.jawabanBenar,
+    penjelasan: q.penjelasan,
+    kesulitan: q.kesulitan || 'sedang',
+  }));
+}
+
+function parseTarikTambangConfigFromJson(
+  rawJson: string | null | undefined
+): Partial<KonfigurasiTarikTambang> | undefined {
+  if (!rawJson) return undefined;
+  try {
+    const parsed = JSON.parse(rawJson);
+    if (parsed?.config && typeof parsed.config === 'object') {
+      return parsed.config as Partial<KonfigurasiTarikTambang>;
+    }
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function serializeMultiTarikSession(
+  sesi: ReturnType<typeof multiManager.dapatkanSesi> & object,
+  qrDataUrl: string,
+  joinUrl: string,
+  networkUrl: string
+) {
+  const ronde = sesi.rondeAktif;
+  const soalTim1 =
+    ronde && sesi.status === 'jalan'
+      ? serialisasiSoalUntukClient(
+          ronde.soalTim1,
+          ronde.nomorRonde,
+          ronde.berakhirPadaMs,
+          sesi.config.durasiRonde
+        )
+      : null;
+  const soalTim2 =
+    ronde && sesi.status === 'jalan'
+      ? serialisasiSoalUntukClient(
+          ronde.soalTim2,
+          ronde.nomorRonde,
+          ronde.berakhirPadaMs,
+          sesi.config.durasiRonde
+        )
+      : null;
+
+  let dijawab1 = 0;
+  let dijawab2 = 0;
+  if (ronde) {
+    for (const j of ronde.jawabanMap.values()) {
+      if (j.tim === 'merah') dijawab1++;
+      else dijawab2++;
+    }
+  }
+
+  return {
+    sessionId: sesi.sessionId,
+    game: 'tarik_tambang' as const,
+    mode: 'multi' as const,
+    playMode: 'MULTIPLAYER' as const,
+    token: sesi.token,
+    qrDataUrl,
+    joinUrl,
+    networkUrl,
+    templateId: sesi.templateId,
+    templateJudul: sesi.templateJudul,
+    status: sesi.status,
+    config: sesi.config,
+    nomorRonde: ronde?.nomorRonde ?? sesi.nomorRondeCounter,
+    currentQuestionIndex: sesi.currentQuestionIndex,
+    totalSoal: sesi.totalSoal,
+    taliPosition: sesi.taliPosition,
+    skorMerah: sesi.skorMerah,
+    skorPutih: sesi.skorPutih,
+    powerUpTim1: {
+      bank: sesi.powerUpTim1.bank,
+      aktifBerikutnya: sesi.powerUpTim1.aktifBerikutnya,
+    },
+    powerUpTim2: {
+      bank: sesi.powerUpTim2.bank,
+      aktifBerikutnya: sesi.powerUpTim2.aktifBerikutnya,
+    },
+    totalPeserta: sesi.peserta.size,
+    daftarPeserta: Array.from(sesi.peserta.values()).map((p) => ({
+      id: p.id,
+      nama: p.nama,
+      tim: p.tim,
+      connected: p.connected,
+      totalBenar: p.totalBenar,
+      totalSalah: p.totalSalah,
+      jumlahJawab: p.jumlahJawab,
+      akurasiPersen: p.jumlahJawab > 0 ? Math.round((p.totalBenar / p.jumlahJawab) * 100) : 0,
+      streakSaatIni: p.streakSaatIni,
+      streakTertinggi: p.streakTertinggi,
+    })),
+    rondeSaatIni:
+      ronde && sesi.status === 'jalan'
+        ? {
+            nomorRonde: ronde.nomorRonde,
+            dimulaiPadaMs: ronde.dimulaiPadaMs,
+            berakhirPadaMs: ronde.berakhirPadaMs,
+            ditutup: ronde.ditutup,
+            progressTim1: { dijawab: dijawab1, total: ronde.anggotaAwalTim1 },
+            progressTim2: { dijawab: dijawab2, total: ronde.anggotaAwalTim2 },
+            powerUpTim1Dipakai: ronde.powerUpTim1Dipakai,
+            powerUpTim2Dipakai: ronde.powerUpTim2Dipakai,
+            soalTim1,
+            soalTim2,
+            hasilRonde: ronde.ditutup ? ronde.hasilRonde : null,
+          }
+        : null,
+    soalSaatIni: soalTim1,
+    riwayatTali: sesi.riwayatTali,
+    isFinished: sesi.status === 'selesai',
+    hasil: sesi.hasil || null,
+  };
+}
+
 async function generateTokenUnikSemuaGame(): Promise<string> {
   for (let i = 0; i < 200; i++) {
     const token = crypto.randomInt(100000, 1000000).toString();
@@ -69,7 +217,25 @@ function getNetworkBaseUrl(req: Request): string {
 sesiRouter.get('/token/:token', async (req: Request, res: Response) => {
   try {
     const token = req.params.token as string;
+    if (soloManager.dapatkanSesi(token) || kerupukManager.dapatkanSesi(token)) {
+      return res.status(400).json({
+        valid: false,
+        pesan: 'Mode Solo dimainkan lokal tanpa PIN dan tidak menerima peserta siswa.',
+      });
+    }
     if (!token || token.length !== 6) {
+      if (token) {
+        const soloDb = await prisma.session.findUnique({
+          where: { id: token },
+          select: { mode: true },
+        });
+        if (soloDb?.mode === 'solo') {
+          return res.status(400).json({
+            valid: false,
+            pesan: 'Mode Solo dimainkan lokal tanpa PIN dan tidak menerima peserta siswa.',
+          });
+        }
+      }
       return res.status(400).json({ valid: false, pesan: 'Kode token harus terdiri dari 6 angka.' });
     }
 
@@ -158,10 +324,10 @@ sesiRouter.get('/token/:token', async (req: Request, res: Response) => {
       return res.status(404).json({ valid: false, pesan: 'Kode token tidak ditemukan atau sudah tidak aktif.' });
     }
 
-    if (sessionDb.template.game === 'makan_kerupuk' && sessionDb.mode === 'solo') {
+    if (sessionDb.mode === 'solo') {
       return res.status(400).json({
         valid: false,
-        pesan: 'Sesi Makan Kerupuk ini berjalan dalam Mode Solo di perangkat guru dan tidak memakai PIN.',
+        pesan: 'Sesi ini berjalan dalam Mode Solo di satu perangkat dan tidak memakai PIN.',
       });
     }
 
@@ -320,6 +486,16 @@ sesiRouter.get('/riwayat/:id', async (req: AuthRequest, res: Response) => {
         ? await kerupukMultiManager.muatLaporanDariDatabase(session.id)
         : null;
 
+    const laporanTarikSolo =
+      session.template.game === 'tarik_tambang' && session.mode === 'solo'
+        ? await soloManager.muatLaporanDariDatabase(session.id)
+        : null;
+
+    const laporanTarikMulti =
+      session.template.game === 'tarik_tambang' && session.mode === 'multi'
+        ? await multiManager.muatLaporanDariDatabase(session.id)
+        : null;
+
     return res.json({
       detail: {
         sessionId: session.id,
@@ -336,6 +512,8 @@ sesiRouter.get('/riwayat/:id', async (req: AuthRequest, res: Response) => {
         totalSoalDimainkan: session.questionStats.length,
         statsPerSoal,
         soalPalingSeringSalah,
+        laporanTarikSolo,
+        laporanTarikMulti,
         laporanPanjatPinang,
         laporanBalapKarung,
         laporanKerupukSolo,
@@ -352,7 +530,9 @@ const buatSesiSchema = z.object({
   templateId: z.string().min(1, 'ID template wajib disertakan.'),
   mode: z.enum(['solo', 'multi']).optional(),
   playMode: z.enum(['SOLO', 'MULTIPLAYER']).optional(),
+  autoStart: z.boolean().optional(),
   game: z.enum(['tarik_tambang', 'makan_kerupuk', 'panjat_pinang', 'balap_karung']).optional(),
+  tarikTambangConfig: konfigurasiTarikTambangSchema.optional(),
   kerupukConfig: konfigurasiKerupukSoloSchema.optional(),
   kerupukMultiConfig: konfigurasiKerupukMultiSchema.optional(),
   probabilitas: z
@@ -663,9 +843,47 @@ sesiRouter.post('/', async (req: AuthRequest, res: Response) => {
     }
 
     // -------------------------------------------------------------
-    // CABANG B: Game Tarik Tambang
+    // CABANG B: Game Tarik Tambang (Solo Local 1v1 / Team Multiplayer)
     // -------------------------------------------------------------
-    const targetMode = parsed.mode || (template.mode === 'multi' ? 'multi' : 'solo');
+    const targetMode =
+      parsed.playMode === 'MULTIPLAYER'
+        ? 'multi'
+        : parsed.playMode === 'SOLO'
+          ? 'solo'
+          : parsed.mode || (template.mode === 'multi' ? 'multi' : 'solo');
+
+    const rawTarikConfig: Partial<KonfigurasiTarikTambang> = {
+      ...(parsed.tarikTambangConfig || {}),
+      ...(parsed.durasiSoalDetik && [15, 20, 30].includes(parsed.durasiSoalDetik)
+        ? { durasiRonde: parsed.durasiSoalDetik as 15 | 20 | 30 }
+        : {}),
+      ...(parsed.maxPeserta ? { maxPeserta: parsed.maxPeserta } : {}),
+    };
+
+    const mappedQuestions = mapQuestionsForTarikTambang(template.questions);
+    const kesulitanEksplisit = req.body?.tarikTambangConfig?.kesulitan;
+    if (!kesulitanEksplisit) {
+      const tersedia = (['sedang', 'mudah', 'sulit'] as const).find((lvl) => {
+        try {
+          filterBankSoalSetara(mappedQuestions, lvl);
+          return true;
+        } catch {
+          return false;
+        }
+      });
+      if (tersedia) {
+        rawTarikConfig.kesulitan = tersedia;
+      }
+    }
+
+    const configTarik = bangunKonfigurasiTarikTambang(rawTarikConfig);
+
+    // Validasi pool soal setara sebelum membuat record sesi di DB
+    try {
+      filterBankSoalSetara(mappedQuestions, configTarik.kesulitan);
+    } catch (poolErr: any) {
+      return res.status(400).json({ pesan: poolErr.message });
+    }
 
     if (targetMode === 'multi') {
       const token = await generateTokenUnikSemuaGame();
@@ -680,6 +898,10 @@ sesiRouter.post('/', async (req: AuthRequest, res: Response) => {
           mode: 'multi',
           token,
           status: 'lobi',
+          konfigurasi: JSON.stringify({
+            playMode: 'MULTIPLAYER',
+            config: configTarik,
+          }),
         },
       });
 
@@ -688,24 +910,17 @@ sesiRouter.post('/', async (req: AuthRequest, res: Response) => {
         token,
         req.user!.id,
         { id: template.id, judul: template.judul },
-        template.questions.map((q) => ({
-          id: q.id,
-          urutan: q.urutan,
-          teks: q.teks,
-          opsiA: q.opsiA,
-          opsiB: q.opsiB,
-          opsiC: q.opsiC,
-          jawabanBenar: q.jawabanBenar,
-          penjelasan: q.penjelasan,
-        }))
+        mappedQuestions,
+        configTarik
       );
 
       return res.status(201).json({
-        pesan: 'Sesi Multiplayer berhasil dibuat.',
+        pesan: 'Sesi Tarik Tambang Multiplayer berhasil dibuat.',
         session: {
           id: session.id,
           game: 'tarik_tambang',
           mode: 'multi',
+          playMode: 'MULTIPLAYER',
           token,
           qrDataUrl,
           joinUrl,
@@ -714,46 +929,47 @@ sesiRouter.post('/', async (req: AuthRequest, res: Response) => {
           templateJudul: template.judul,
           status: 'lobi',
           totalSoal: activeSession.totalSoal,
+          config: activeSession.config,
         },
       });
     }
 
-    // Default: Mode Solo
+    // Mode Solo — Local 1 vs 1 (tanpa token/PIN/QR/lobi)
+    const shouldAutoStart = parsed.autoStart === true;
     const session = await prisma.session.create({
       data: {
         templateId: template.id,
         hostId: req.user!.id,
         mode: 'solo',
-        status: 'lobi',
+        token: null,
+        status: shouldAutoStart ? 'jalan' : 'lobi',
+        mulaiPada: shouldAutoStart ? new Date() : null,
+        konfigurasi: JSON.stringify({
+          playMode: 'SOLO',
+          config: configTarik,
+        }),
       },
     });
 
-    // Inisialisasi state sesi solo di memori server
     const activeSession = soloManager.inisialisasiSesi(
       session.id,
       req.user!.id,
       { id: template.id, judul: template.judul },
-      template.questions.map((q) => ({
-        id: q.id,
-        urutan: q.urutan,
-        teks: q.teks,
-        opsiA: q.opsiA,
-        opsiB: q.opsiB,
-        opsiC: q.opsiC,
-        jawabanBenar: q.jawabanBenar,
-        penjelasan: q.penjelasan,
-      }))
+      mappedQuestions,
+      configTarik
     );
 
+    if (shouldAutoStart) {
+      soloManager.mulaiSesi(session.id, req.user!.id);
+    }
+
     return res.status(201).json({
-      pesan: 'Sesi Solo berhasil dibuat.',
+      pesan: shouldAutoStart
+        ? 'Permainan Solo 1 vs 1 dimulai!'
+        : 'Sesi Tarik Tambang Solo berhasil dibuat.',
       session: {
         id: session.id,
-        mode: 'solo',
-        templateId: template.id,
-        templateJudul: template.judul,
-        state: activeSession.state,
-        totalSoal: activeSession.totalSoal,
+        ...soloManager.serialisasiUntukClient(activeSession),
       },
     });
   } catch (err: any) {
@@ -896,7 +1112,7 @@ sesiRouter.get('/:id', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // B. Cek di in-memory multiManager
+    // B. Cek di in-memory multiManager (Tarik Tambang Multiplayer)
     const activeMulti = multiManager.dapatkanSesi(id);
     if (activeMulti) {
       if (activeMulti.hostId !== req.user!.id) {
@@ -905,49 +1121,12 @@ sesiRouter.get('/:id', async (req: AuthRequest, res: Response) => {
       const baseUrl = getNetworkBaseUrl(req);
       const joinUrl = `${baseUrl}/main?token=${activeMulti.token}`;
       const qrDataUrl = await QRCode.toDataURL(joinUrl, { margin: 2, width: 320 });
-      const soalAktif = activeMulti.questions[activeMulti.currentQuestionIndex] || null;
-
       return res.json({
-        session: {
-          sessionId: activeMulti.sessionId,
-          mode: 'multi',
-          token: activeMulti.token,
-          qrDataUrl,
-          joinUrl,
-          networkUrl: baseUrl,
-          templateId: activeMulti.templateId,
-          templateJudul: activeMulti.templateJudul,
-          status: activeMulti.status,
-          currentQuestionIndex: activeMulti.currentQuestionIndex,
-          totalSoal: activeMulti.totalSoal,
-          taliPosition: activeMulti.taliPosition,
-          skorMerah: activeMulti.skorMerah,
-          skorPutih: activeMulti.skorPutih,
-          totalPeserta: activeMulti.peserta.size,
-          daftarPeserta: Array.from(activeMulti.peserta.values()).map((p) => ({
-            id: p.id,
-            nama: p.nama,
-            tim: p.tim,
-            connected: p.connected,
-          })),
-          soalSaatIni: soalAktif
-            ? {
-                id: soalAktif.id,
-                urutan: soalAktif.urutan,
-                nomorSoal: activeMulti.currentQuestionIndex + 1,
-                teks: soalAktif.teks,
-                opsiA: soalAktif.opsiA,
-                opsiB: soalAktif.opsiB,
-                opsiC: soalAktif.opsiC,
-                endsAt: activeMulti.soalBerakhirPada,
-              }
-            : null,
-          isFinished: activeMulti.status === 'selesai',
-        },
+        session: serializeMultiTarikSession(activeMulti, qrDataUrl, joinUrl, baseUrl),
       });
     }
 
-    // B. Cek di in-memory active solo manager
+    // B2. Cek di in-memory active solo manager (Tarik Tambang Solo 1 vs 1)
     let activeSession = soloManager.dapatkanSesi(id, req.user!.id);
 
     // C. Jika belum ada di memori (misal guru me-refresh browser), pulihkan dari database
@@ -970,6 +1149,9 @@ sesiRouter.get('/:id', async (req: AuthRequest, res: Response) => {
         return res.status(403).json({ pesan: 'Anda tidak memiliki hak akses ke sesi ini.' });
       }
 
+      const savedConfig = parseTarikTambangConfigFromJson(sessionDb.konfigurasi);
+      const mappedQuestions = mapQuestionsForTarikTambang(sessionDb.template.questions);
+
       // Jika sesi multiplayer
       if (sessionDb.mode === 'multi') {
         const token = sessionDb.token || (await generateTokenUnikSemuaGame());
@@ -978,10 +1160,13 @@ sesiRouter.get('/:id', async (req: AuthRequest, res: Response) => {
         const qrDataUrl = await QRCode.toDataURL(joinUrl, { margin: 2, width: 320 });
 
         if (sessionDb.status === 'selesai') {
+          const laporanMulti = await multiManager.muatLaporanDariDatabase(sessionDb.id);
           return res.json({
             session: {
               sessionId: sessionDb.id,
+              game: 'tarik_tambang',
               mode: 'multi',
+              playMode: 'MULTIPLAYER',
               token,
               qrDataUrl,
               joinUrl,
@@ -990,13 +1175,15 @@ sesiRouter.get('/:id', async (req: AuthRequest, res: Response) => {
               templateJudul: sessionDb.template.judul,
               hostId: sessionDb.hostId,
               status: 'selesai',
+              config: savedConfig || null,
               taliPosition: sessionDb.result?.posisiAkhir ?? 0,
               skorMerah: sessionDb.result?.skorMerah ?? 0,
               skorPutih: sessionDb.result?.skorPutih ?? 0,
               totalSoal: sessionDb.template.questions.length,
-              totalPeserta: 0,
-              daftarPeserta: [],
+              totalPeserta: laporanMulti?.statistikPemain.length ?? 0,
+              daftarPeserta: laporanMulti?.statistikPemain ?? [],
               isFinished: true,
+              hasil: laporanMulti,
             },
           });
         }
@@ -1006,70 +1193,35 @@ sesiRouter.get('/:id', async (req: AuthRequest, res: Response) => {
           token,
           sessionDb.hostId,
           { id: sessionDb.template.id, judul: sessionDb.template.judul },
-          sessionDb.template.questions.map((q) => ({
-            id: q.id,
-            urutan: q.urutan,
-            teks: q.teks,
-            opsiA: q.opsiA,
-            opsiB: q.opsiB,
-            opsiC: q.opsiC,
-            jawabanBenar: q.jawabanBenar,
-            penjelasan: q.penjelasan,
-          }))
+          mappedQuestions,
+          savedConfig
         );
 
-        const soalAktif = multi.questions[multi.currentQuestionIndex] || null;
-
         return res.json({
-          session: {
-            sessionId: multi.sessionId,
-            mode: 'multi',
-            token: multi.token,
-            qrDataUrl,
-            joinUrl,
-            networkUrl: baseUrl,
-            templateId: multi.templateId,
-            templateJudul: multi.templateJudul,
-            status: multi.status,
-            currentQuestionIndex: multi.currentQuestionIndex,
-            totalSoal: multi.totalSoal,
-            taliPosition: multi.taliPosition,
-            skorMerah: multi.skorMerah,
-            skorPutih: multi.skorPutih,
-            totalPeserta: multi.peserta.size,
-            daftarPeserta: [],
-            soalSaatIni: soalAktif
-              ? {
-                  id: soalAktif.id,
-                  questionId: soalAktif.id,
-                  urutan: soalAktif.urutan,
-                  nomorSoal: multi.currentQuestionIndex + 1,
-                  teks: soalAktif.teks,
-                  opsiA: soalAktif.opsiA,
-                  opsiB: soalAktif.opsiB,
-                  opsiC: soalAktif.opsiC,
-                }
-              : null,
-            isFinished: false,
-          },
+          session: serializeMultiTarikSession(multi, qrDataUrl, joinUrl, baseUrl),
         });
       }
 
       // Jika sesi sudah selesai di database (Solo)
       if (sessionDb.status === 'selesai') {
+        const laporanSolo = await soloManager.muatLaporanDariDatabase(sessionDb.id);
         return res.json({
           session: {
             sessionId: sessionDb.id,
+            game: 'tarik_tambang',
             mode: 'solo',
+            playMode: 'SOLO',
             templateId: sessionDb.templateId,
             templateJudul: sessionDb.template.judul,
             hostId: sessionDb.hostId,
             state: 'FINISHED',
+            config: savedConfig || null,
             taliPosition: sessionDb.result?.posisiAkhir ?? 0,
             skorMerah: sessionDb.result?.skorMerah ?? 0,
             skorPutih: sessionDb.result?.skorPutih ?? 0,
             totalSoal: sessionDb.template.questions.length,
             isFinished: true,
+            hasil: laporanSolo,
           },
         });
       }
@@ -1079,49 +1231,17 @@ sesiRouter.get('/:id', async (req: AuthRequest, res: Response) => {
         sessionDb.id,
         req.user!.id,
         { id: sessionDb.template.id, judul: sessionDb.template.judul },
-        sessionDb.template.questions.map((q) => ({
-          id: q.id,
-          urutan: q.urutan,
-          teks: q.teks,
-          opsiA: q.opsiA,
-          opsiB: q.opsiB,
-          opsiC: q.opsiC,
-          jawabanBenar: q.jawabanBenar,
-          penjelasan: q.penjelasan,
-        }))
+        mappedQuestions,
+        savedConfig
       );
+
+      if (sessionDb.status === 'jalan') {
+        soloManager.mulaiSesi(sessionDb.id, req.user!.id);
+      }
     }
 
-    // Format data untuk host screen (Solo)
-    const soalSaatIni = activeSession.questions[activeSession.currentQuestionIndex] || null;
-
     return res.json({
-      session: {
-        sessionId: activeSession.sessionId,
-        mode: 'solo',
-        templateId: activeSession.templateId,
-        templateJudul: activeSession.templateJudul,
-        state: activeSession.state,
-        currentQuestionIndex: activeSession.currentQuestionIndex,
-        totalSoal: activeSession.totalSoal,
-        currentTurn: activeSession.currentTurn,
-        taliPosition: activeSession.taliPosition,
-        skorMerah: activeSession.skorMerah,
-        skorPutih: activeSession.skorPutih,
-        soalSaatIni: soalSaatIni
-          ? {
-              id: soalSaatIni.id,
-              urutan: soalSaatIni.urutan,
-              nomorSoal: activeSession.currentQuestionIndex + 1,
-              teks: soalSaatIni.teks,
-              opsiA: soalSaatIni.opsiA,
-              opsiB: soalSaatIni.opsiB,
-              opsiC: soalSaatIni.opsiC,
-              // JANGAN kirim jawabanBenar ke frontend sebelum dijawab!
-            }
-          : null,
-        logJawaban: activeSession.logJawaban,
-      },
+      session: soloManager.serialisasiUntukClient(activeSession),
     });
   } catch (err: any) {
     return res.status(500).json({ pesan: err.message || 'Gagal memuat detail sesi.' });
@@ -1151,6 +1271,12 @@ sesiRouter.post('/:id/mulai', async (req: AuthRequest, res: Response) => {
     }
 
     // B. Tarik Tambang Solo
+    if (multiManager.dapatkanSesi(id)) {
+      return res
+        .status(400)
+        .json({ pesan: 'Sesi Multiplayer harus dimulai melalui ruang lobi realtime.' });
+    }
+
     let activeSession = soloManager.dapatkanSesi(id, req.user!.id);
 
     if (!activeSession) {
@@ -1165,21 +1291,18 @@ sesiRouter.post('/:id/mulai', async (req: AuthRequest, res: Response) => {
       if (!sessionDb || sessionDb.hostId !== req.user!.id) {
         return res.status(404).json({ pesan: 'Sesi permainan tidak ditemukan.' });
       }
+      if (sessionDb.mode === 'multi') {
+        return res
+          .status(400)
+          .json({ pesan: 'Sesi Multiplayer harus dimulai melalui ruang lobi realtime.' });
+      }
 
       activeSession = soloManager.inisialisasiSesi(
         sessionDb.id,
         req.user!.id,
         { id: sessionDb.template.id, judul: sessionDb.template.judul },
-        sessionDb.template.questions.map((q) => ({
-          id: q.id,
-          urutan: q.urutan,
-          teks: q.teks,
-          opsiA: q.opsiA,
-          opsiB: q.opsiB,
-          opsiC: q.opsiC,
-          jawabanBenar: q.jawabanBenar,
-          penjelasan: q.penjelasan,
-        }))
+        mapQuestionsForTarikTambang(sessionDb.template.questions),
+        parseTarikTambangConfigFromJson(sessionDb.konfigurasi)
       );
     }
 
@@ -1194,27 +1317,9 @@ sesiRouter.post('/:id/mulai', async (req: AuthRequest, res: Response) => {
       },
     });
 
-    const soalAktif = sesi.questions[sesi.currentQuestionIndex];
-
     return res.json({
-      pesan: 'Permainan Solo dimulai.',
-      session: {
-        sessionId: sesi.sessionId,
-        state: sesi.state,
-        currentTurn: sesi.currentTurn,
-        taliPosition: sesi.taliPosition,
-        currentQuestionIndex: sesi.currentQuestionIndex,
-        totalSoal: sesi.totalSoal,
-        soalSaatIni: {
-          id: soalAktif.id,
-          urutan: soalAktif.urutan,
-          nomorSoal: 1,
-          teks: soalAktif.teks,
-          opsiA: soalAktif.opsiA,
-          opsiB: soalAktif.opsiB,
-          opsiC: soalAktif.opsiC,
-        },
-      },
+      pesan: 'Permainan Solo 1 vs 1 dimulai.',
+      session: soloManager.serialisasiUntukClient(sesi),
     });
   } catch (err: any) {
     return res.status(400).json({ pesan: err.message || 'Gagal memulai permainan.' });
@@ -1247,6 +1352,7 @@ sesiRouter.post('/:id/state', async (req: AuthRequest, res: Response) => {
     return res.json({
       pesan: `Permainan berhasil di-${state === 'PAUSED' ? 'jeda' : 'lanjutkan'}.`,
       state: sesi.state,
+      session: soloManager.serialisasiUntukClient(sesi),
     });
   } catch (err: any) {
     return res.status(400).json({ pesan: err.message || 'Gagal mengubah status permainan.' });
@@ -1261,9 +1367,11 @@ const jawabKerupukSchema = z.object({
 });
 
 const jawabSchema = z.object({
-  questionId: z.string().min(1),
-  tim: z.enum(['merah', 'putih']),
-  jawabanDipilih: z.enum(['A', 'B', 'C', 'a', 'b', 'c']),
+  tim: z.string().min(1, 'Identitas tim wajib disertakan.'),
+  presentationId: z.string().optional(),
+  choiceId: z.string().optional(),
+  questionId: z.string().optional(),
+  jawabanDipilih: z.string().optional(),
 });
 
 sesiRouter.post('/:id/jawab', async (req: AuthRequest, res: Response) => {
@@ -1312,51 +1420,103 @@ sesiRouter.post('/:id/jawab', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const input = jawabSchema.parse(req.body);
-
-    const hasilProses = soloManager.prosesJawaban(id, req.user!.id, {
-      questionId: input.questionId,
-      tim: input.tim,
-      jawabanDipilih: input.jawabanDipilih.toUpperCase(),
-    });
-
-    const { sesi, benar, jawabanBenar, penjelasan, selesai } = hasilProses;
-
-    // Jika permainan otomatis selesai karena tali mencapai batas atau soal habis
-    if (selesai) {
-      await simpanHasilSesiKeDatabase(sesi);
+    if (multiManager.dapatkanSesi(id)) {
+      return res
+        .status(400)
+        .json({ pesan: 'Sesi Multiplayer tidak dapat dijawab melalui endpoint Solo.' });
     }
 
-    const soalBerikutnya =
-      !selesai && sesi.currentQuestionIndex < sesi.totalSoal
-        ? sesi.questions[sesi.currentQuestionIndex]
-        : null;
+    const input = jawabSchema.parse(req.body);
+    const timNorm = normalisasiKodeTim(input.tim);
+    if (!timNorm) {
+      return res.status(400).json({ pesan: 'Tim tidak valid.' });
+    }
+
+    const hasilProses = soloManager.prosesJawaban(id, req.user!.id, {
+      tim: timNorm,
+      presentationId: input.presentationId,
+      choiceId: input.choiceId,
+      questionId: input.questionId,
+      jawabanDipilih: input.jawabanDipilih,
+    });
+
+    const { sesi, tim, sudahMenjawab, rondeSelesai, hasilRonde, selesai } = hasilProses;
+
+    if (selesai) {
+      await soloManager.simpanHasilKeDatabase(sesi);
+    }
 
     return res.json({
-      benar,
-      jawabanBenar,
-      penjelasan,
+      game: 'tarik_tambang',
+      tim,
+      sudahMenjawab,
+      rondeSelesai,
+      // Kunci jawaban & penjelasan hanya diungkap setelah ronde ditutup
+      hasilRonde: rondeSelesai ? hasilRonde : null,
       taliPosition: sesi.taliPosition,
       skorMerah: sesi.skorMerah,
       skorPutih: sesi.skorPutih,
-      nextTurn: sesi.currentTurn,
-      nextQuestionIndex: sesi.currentQuestionIndex,
       isFinished: selesai,
       winner: sesi.hasil?.timMenang || null,
-      soalBerikutnya: soalBerikutnya
-        ? {
-            id: soalBerikutnya.id,
-            urutan: soalBerikutnya.urutan,
-            nomorSoal: sesi.currentQuestionIndex + 1,
-            teks: soalBerikutnya.teks,
-            opsiA: soalBerikutnya.opsiA,
-            opsiB: soalBerikutnya.opsiB,
-            opsiC: soalBerikutnya.opsiC,
-          }
-        : null,
+      session: soloManager.serialisasiUntukClient(sesi),
     });
   } catch (err: any) {
     return res.status(400).json({ pesan: err.message || 'Gagal memproses jawaban.' });
+  }
+});
+
+// 7b. POST /api/sesi/:id/tutup-ronde - Tutup ronde Solo 1 vs 1 saat waktu habis / evaluasi manual
+sesiRouter.post('/:id/tutup-ronde', async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { sesi, hasilRonde, selesai } = soloManager.tutupRonde(id, req.user!.id);
+    if (selesai) {
+      await soloManager.simpanHasilKeDatabase(sesi);
+    }
+    return res.json({
+      pesan: 'Ronde berhasil ditutup dan dievaluasi.',
+      hasilRonde,
+      isFinished: selesai,
+      session: soloManager.serialisasiUntukClient(sesi),
+    });
+  } catch (err: any) {
+    return res.status(400).json({ pesan: err.message || 'Gagal menutup ronde.' });
+  }
+});
+
+// 7c. POST /api/sesi/:id/lanjut-ronde - Lanjut ke ronde berikutnya pada Solo 1 vs 1
+sesiRouter.post('/:id/lanjut-ronde', async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const sesi = soloManager.lanjutRondeBerikutnya(id, req.user!.id);
+    return res.json({
+      pesan: 'Ronde berikutnya dimulai.',
+      isFinished: sesi.state === 'FINISHED',
+      session: soloManager.serialisasiUntukClient(sesi),
+    });
+  } catch (err: any) {
+    return res.status(400).json({ pesan: err.message || 'Gagal melanjutkan ke ronde berikutnya.' });
+  }
+});
+
+// 7d. POST /api/sesi/:id/powerup - Aktifkan power-up tim pada Solo 1 vs 1
+const powerUpSchema = z.object({
+  tim: z.string().min(1, 'Tim wajib diisi.'),
+});
+
+sesiRouter.post('/:id/powerup', async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { tim: timRaw } = powerUpSchema.parse(req.body);
+    const hasil = soloManager.aktifkanPowerUp(id, req.user!.id, timRaw);
+    return res.json({
+      pesan: 'Power-up berhasil diaktifkan untuk ronde berikutnya.',
+      tim: hasil.tim,
+      powerUp: hasil.powerUp,
+      session: soloManager.serialisasiUntukClient(hasil.sesi),
+    });
+  } catch (err: any) {
+    return res.status(400).json({ pesan: err.message || 'Gagal mengaktifkan power-up.' });
   }
 });
 
@@ -1377,13 +1537,20 @@ sesiRouter.post('/:id/selesai', async (req: AuthRequest, res: Response) => {
       });
     }
 
+    if (multiManager.dapatkanSesi(id)) {
+      return res
+        .status(400)
+        .json({ pesan: 'Sesi Multiplayer harus diakhiri melalui ruang lobi realtime.' });
+    }
+
     const sesi = soloManager.selesaikanSesi(id, req.user!.id);
 
-    await simpanHasilSesiKeDatabase(sesi);
+    await soloManager.simpanHasilKeDatabase(sesi);
 
     return res.json({
       pesan: 'Permainan berhasil diakhiri.',
       hasil: sesi.hasil,
+      session: soloManager.serialisasiUntukClient(sesi),
     });
   } catch (err: any) {
     return res.status(400).json({ pesan: err.message || 'Gagal mengakhiri permainan.' });
@@ -1501,22 +1668,29 @@ sesiRouter.get('/:id/hasil', async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // B. Cek di memori soloManager
+    // B1. Cek di memori multiManager (Tarik Tambang Multiplayer)
+    const activeMulti = multiManager.dapatkanSesi(id);
+    if (activeMulti) {
+      if (activeMulti.hostId !== req.user!.id) {
+        return res.status(403).json({ pesan: 'Anda tidak memiliki hak akses ke sesi ini.' });
+      }
+      if (activeMulti.status === 'selesai' && activeMulti.hasil) {
+        return res.json({
+          hasil: {
+            ...activeMulti.hasil,
+            game: 'tarik_tambang',
+          },
+        });
+      }
+    }
+
+    // B2. Cek di memori soloManager (Tarik Tambang Solo)
     const activeSession = soloManager.dapatkanSesi(id, req.user!.id);
     if (activeSession && activeSession.state === 'FINISHED' && activeSession.hasil) {
       return res.json({
         hasil: {
-          sessionId: activeSession.sessionId,
-          templateJudul: activeSession.templateJudul,
-          templateId: activeSession.templateId,
-          timMenang: activeSession.hasil.timMenang,
-          posisiAkhir: activeSession.hasil.posisiAkhir,
-          skorMerah: activeSession.hasil.skorMerah,
-          skorPutih: activeSession.hasil.skorPutih,
-          totalSoal: activeSession.totalSoal,
-          totalBenar: activeSession.hasil.totalBenar,
-          totalSalah: activeSession.hasil.totalSalah,
-          logJawaban: activeSession.logJawaban,
+          ...activeSession.hasil,
+          game: 'tarik_tambang',
         },
       });
     }
@@ -1595,6 +1769,28 @@ sesiRouter.get('/:id/hasil', async (req: AuthRequest, res: Response) => {
           hasil: {
             ...laporanDb,
             game: 'panjat_pinang',
+            questionStats: sessionDb.questionStats.map((qs) => ({
+              questionId: qs.questionId,
+              nomorSoal: qs.question.urutan,
+              teksSoal: qs.question.teks,
+              jumlahBenar: qs.jumlahBenar,
+              jumlahSalah: qs.jumlahSalah,
+            })),
+          },
+        });
+      }
+    }
+
+    if (sessionDb.template.game === 'tarik_tambang') {
+      const laporanDb =
+        sessionDb.mode === 'multi'
+          ? await multiManager.muatLaporanDariDatabase(sessionDb.id)
+          : await soloManager.muatLaporanDariDatabase(sessionDb.id);
+      if (laporanDb) {
+        return res.json({
+          hasil: {
+            ...laporanDb,
+            game: 'tarik_tambang',
             questionStats: sessionDb.questionStats.map((qs) => ({
               questionId: qs.questionId,
               nomorSoal: qs.question.urutan,
@@ -1873,12 +2069,16 @@ sesiRouter.post('/:id/main-lagi', async (req: AuthRequest, res: Response) => {
       });
     }
 
+    const savedConfig = parseTarikTambangConfigFromJson(sessionLama.konfigurasi);
+    const mappedQuestions = mapQuestionsForTarikTambang(sessionLama.template.questions);
+
     if (sessionLama.mode === 'multi') {
       const token = await generateTokenUnikSemuaGame();
       const baseUrl = getNetworkBaseUrl(req);
       const joinUrl = `${baseUrl}/main?token=${token}`;
       const qrDataUrl = await QRCode.toDataURL(joinUrl, { margin: 2, width: 320 });
 
+      const configTarik = bangunKonfigurasiTarikTambang(savedConfig);
       const sessionBaru = await prisma.session.create({
         data: {
           templateId: sessionLama.templateId,
@@ -1886,6 +2086,10 @@ sesiRouter.post('/:id/main-lagi', async (req: AuthRequest, res: Response) => {
           mode: 'multi',
           token,
           status: 'lobi',
+          konfigurasi: JSON.stringify({
+            playMode: 'MULTIPLAYER',
+            config: configTarik,
+          }),
         },
       });
 
@@ -1894,57 +2098,58 @@ sesiRouter.post('/:id/main-lagi', async (req: AuthRequest, res: Response) => {
         token,
         req.user!.id,
         { id: sessionLama.template.id, judul: sessionLama.template.judul },
-        sessionLama.template.questions.map((q) => ({
-          id: q.id,
-          urutan: q.urutan,
-          teks: q.teks,
-          opsiA: q.opsiA,
-          opsiB: q.opsiB,
-          opsiC: q.opsiC,
-          jawabanBenar: q.jawabanBenar,
-          penjelasan: q.penjelasan,
-        }))
+        mappedQuestions,
+        configTarik
       );
 
       return res.status(201).json({
-        pesan: 'Sesi Multiplayer baru berhasil dibuat.',
+        pesan: 'Sesi Tarik Tambang Multiplayer baru berhasil dibuat.',
         sessionId: sessionBaru.id,
+        game: 'tarik_tambang',
+        playMode: 'MULTIPLAYER',
         token,
         qrDataUrl,
         joinUrl,
       });
     }
 
-    // Default: Mode Solo
+    // Default: Mode Solo 1 vs 1
+    const configTarik = bangunKonfigurasiTarikTambang(savedConfig);
+    const autoStart = req.body?.autoStart === true;
+
     const sessionBaru = await prisma.session.create({
       data: {
         templateId: sessionLama.templateId,
         hostId: req.user!.id,
         mode: 'solo',
-        status: 'lobi',
+        token: null,
+        status: autoStart ? 'jalan' : 'lobi',
+        mulaiPada: autoStart ? new Date() : null,
+        konfigurasi: JSON.stringify({
+          playMode: 'SOLO',
+          config: configTarik,
+        }),
       },
     });
 
-    // Inisialisasi state bersih di memori
-    soloManager.inisialisasiSesi(
+    const activeSolo = soloManager.inisialisasiSesi(
       sessionBaru.id,
       req.user!.id,
       { id: sessionLama.template.id, judul: sessionLama.template.judul },
-      sessionLama.template.questions.map((q) => ({
-        id: q.id,
-        urutan: q.urutan,
-        teks: q.teks,
-        opsiA: q.opsiA,
-        opsiB: q.opsiB,
-        opsiC: q.opsiC,
-        jawabanBenar: q.jawabanBenar,
-        penjelasan: q.penjelasan,
-      }))
+      mappedQuestions,
+      configTarik
     );
 
+    if (autoStart) {
+      soloManager.mulaiSesi(sessionBaru.id, req.user!.id);
+    }
+
     return res.status(201).json({
-      pesan: 'Sesi baru berhasil dibuat.',
+      pesan: 'Sesi Solo baru berhasil dibuat.',
       sessionId: sessionBaru.id,
+      game: 'tarik_tambang',
+      playMode: 'SOLO',
+      session: soloManager.serialisasiUntukClient(activeSolo),
     });
   } catch (err: any) {
     return res.status(500).json({ pesan: err.message || 'Gagal membuat sesi main lagi.' });
@@ -1976,69 +2181,3 @@ sesiRouter.delete('/:id', async (req: AuthRequest, res: Response) => {
     return res.status(500).json({ pesan: err.message || 'Gagal menghapus sesi.' });
   }
 });
-
-/**
- * Fungsi utilitas untuk menyimpan hasil permainan ke database menggunakan transaksi Prisma
- */
-async function simpanHasilSesiKeDatabase(sesi: any) {
-  if (!sesi.hasil) return;
-
-  await prisma.$transaction(async (tx) => {
-    // 1. Update status sesi
-    await tx.session.update({
-      where: { id: sesi.sessionId },
-      data: {
-        status: 'selesai',
-        selesaiPada: new Date(),
-      },
-    });
-
-    // 2. Simpan atau perbarui SessionResult
-    await tx.sessionResult.upsert({
-      where: { sessionId: sesi.sessionId },
-      update: {
-        timMenang: sesi.hasil.timMenang,
-        posisiAkhir: sesi.hasil.posisiAkhir,
-        skorMerah: sesi.hasil.skorMerah,
-        skorPutih: sesi.hasil.skorPutih,
-      },
-      create: {
-        sessionId: sesi.sessionId,
-        timMenang: sesi.hasil.timMenang,
-        posisiAkhir: sesi.hasil.posisiAkhir,
-        skorMerah: sesi.hasil.skorMerah,
-        skorPutih: sesi.hasil.skorPutih,
-      },
-    });
-
-    // 3. Simpan question_stats per soal
-    // Hitung aggregat dari logJawaban
-    const statMap = new Map<string, { jumlahBenar: number; jumlahSalah: number }>();
-
-    for (const log of sesi.logJawaban) {
-      const existing = statMap.get(log.questionId) || { jumlahBenar: 0, jumlahSalah: 0 };
-      if (log.benar) {
-        existing.jumlahBenar += 1;
-      } else {
-        existing.jumlahSalah += 1;
-      }
-      statMap.set(log.questionId, existing);
-    }
-
-    // Hapus stat lama jika ada (idempotent)
-    await tx.questionStat.deleteMany({
-      where: { sessionId: sesi.sessionId },
-    });
-
-    for (const [questionId, stat] of statMap.entries()) {
-      await tx.questionStat.create({
-        data: {
-          sessionId: sesi.sessionId,
-          questionId,
-          jumlahBenar: stat.jumlahBenar,
-          jumlahSalah: stat.jumlahSalah,
-        },
-      });
-    }
-  });
-}
