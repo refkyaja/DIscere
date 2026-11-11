@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router';
-import { useAuth } from '../../lib/auth';
 
 interface SectionMeta {
   id: string;
@@ -24,12 +23,10 @@ const SECTIONS: SectionMeta[] = [
 ];
 
 export default function Dokumentasi() {
-  const { user } = useAuth();
   const [activeSection, setActiveSection] = useState('pengantar');
+  const [searchQuery, setSearchQuery] = useState('');
   const [tocOpen, setTocOpen] = useState(false);
   const mainRef = useRef<HTMLElement | null>(null);
-
-  const dashboardUrl = user?.role === 'admin' ? '/admin' : '/guru';
 
   // IntersectionObserver untuk melacak seksi yang sedang aktif
   useEffect(() => {
@@ -70,6 +67,16 @@ export default function Dokumentasi() {
       setTocOpen(false);
     }
   };
+
+  // Filter daftar isi berdasarkan pencarian
+  const filteredSections = SECTIONS.filter((s) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    const titleMatch = s.title.toLowerCase().includes(q);
+    const el = document.getElementById(s.id);
+    const contentMatch = el ? el.textContent?.toLowerCase().includes(q) : false;
+    return titleMatch || contentMatch;
+  });
 
   return (
     <div className="discere-doc-page">
@@ -152,26 +159,6 @@ export default function Dokumentasi() {
           color: var(--chalk);
         }
 
-        .discere-doc-page .nav-action-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 7px 16px;
-          border-radius: 999px;
-          font-size: 13px;
-          font-weight: 700;
-          text-decoration: none;
-          color: var(--chalk);
-          background: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          transition: all 0.2s;
-        }
-
-        .discere-doc-page .nav-action-btn:hover {
-          background: rgba(255, 255, 255, 0.2);
-          color: #fff;
-        }
-
         .discere-doc-page .hero {
           padding-top: 30px;
           max-width: 680px;
@@ -205,26 +192,78 @@ export default function Dokumentasi() {
           height: 60px;
         }
 
-        /* Sembunyikan scrollbar browser yang mengganggu agar tampilan bersih */
-        .discere-doc-page,
-        .discere-doc-page * {
-          scrollbar-width: none;
-          -ms-overflow-style: none;
-        }
-        .discere-doc-page *::-webkit-scrollbar {
-          display: none;
-          width: 0;
-          height: 0;
-        }
-
-        /* Tata Letak Bersih Tanpa Sidebar Samping */
+        /* Tata Letak */
         .discere-doc-page .layout {
-          display: block;
-          max-width: 860px;
+          display: grid;
+          grid-template-columns: 250px minmax(0, 1fr);
+          gap: 48px;
+          max-width: 1100px;
           margin: 0 auto;
           padding: 10px 24px 60px;
           width: 100%;
           flex: 1;
+        }
+
+        .discere-doc-page .side {
+          position: sticky;
+          top: 16px;
+          align-self: start;
+          max-height: calc(100vh - 32px);
+          overflow-y: auto;
+          overflow-x: hidden;
+          padding: 8px 12px 16px 4px;
+          margin-left: -4px;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(31, 74, 55, 0.25) transparent;
+        }
+
+        .discere-doc-page .side::-webkit-scrollbar {
+          width: 5px;
+        }
+
+        .discere-doc-page .side::-webkit-scrollbar-thumb {
+          background: rgba(31, 74, 55, 0.25);
+          border-radius: 999px;
+        }
+
+        .discere-doc-page .side::-webkit-scrollbar-track {
+          background: transparent;
+        }
+
+        .discere-doc-page .side h2 {
+          font-size: 13px;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: var(--muted);
+          margin-bottom: 8px;
+          padding-left: 2px;
+          font-family: 'Nunito', sans-serif;
+          font-weight: 700;
+        }
+
+        .discere-doc-page .side input[type=search] {
+          width: 100%;
+          margin-bottom: 14px;
+          padding: 9px 12px;
+          border-radius: 12px;
+          border: 1px solid var(--line);
+          background: #fff;
+          font-family: 'Nunito', sans-serif;
+          font-size: 14px;
+          color: var(--ink);
+          box-shadow: inset 0 1px 2px rgba(0,0,0,0.04);
+          transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .discere-doc-page .side input[type=search]:focus,
+        .discere-doc-page .side input[type=search]:focus-visible {
+          outline: none;
+          border-color: var(--yellow);
+          box-shadow: 0 0 0 3px rgba(242, 194, 48, 0.35);
+        }
+
+        .discere-doc-page .side input[type=search]::placeholder {
+          color: var(--muted);
         }
 
         .discere-doc-page .toc a {
@@ -253,7 +292,7 @@ export default function Dokumentasi() {
         }
 
         .discere-doc-page .tocm {
-          display: block;
+          display: none;
           margin-bottom: 24px;
           background: var(--card);
           border: 1px solid var(--line);
@@ -553,7 +592,14 @@ export default function Dokumentasi() {
 
         @media(max-width: 899px) {
           .discere-doc-page .layout {
-            padding: 10px 16px 40px;
+            grid-template-columns: 1fr;
+            gap: 24px;
+          }
+          .discere-doc-page .side {
+            display: none;
+          }
+          .discere-doc-page .tocm {
+            display: block;
           }
         }
 
@@ -618,17 +664,6 @@ export default function Dokumentasi() {
               </svg>
               Discere
             </Link>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Link to="/" className="nav-action-btn">
-                ← Beranda
-              </Link>
-              {user && (
-                <Link to={dashboardUrl} className="nav-action-btn" style={{ background: 'var(--yellow)', color: 'var(--board-d)', borderColor: 'var(--yellow)' }}>
-                  Dashboard
-                </Link>
-              )}
-            </div>
           </nav>
           <div className="hero">
             <h1 className="hand">
@@ -645,13 +680,21 @@ export default function Dokumentasi() {
         </svg>
       </header>
 
-      {/* Tata Letak Konten (Satu Kolom Bersih) */}
+      {/* Tata Letak Konten & Navigasi */}
       <div className="layout">
-        {/* Menu Navigasi Ringkas (Collapsible) */}
-        <details className="tocm" open={tocOpen} onToggle={(e) => setTocOpen(e.currentTarget.open)}>
-          <summary>Daftar isi: {SECTIONS.find((s) => s.id === activeSection)?.title || 'Pilih bagian'}</summary>
-          <nav className="toc" style={{ marginTop: '10px' }}>
-            {SECTIONS.map((s) => (
+        {/* Sidebar Navigasi Desktop */}
+        <aside className="side" aria-label="Daftar isi">
+          <h2>Daftar isi</h2>
+          <input
+            id="q"
+            type="search"
+            placeholder="Cari topik..."
+            aria-label="Cari topik dokumentasi"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <nav className="toc">
+            {filteredSections.map((s) => (
               <a
                 key={s.id}
                 href={`#${s.id}`}
@@ -662,9 +705,28 @@ export default function Dokumentasi() {
               </a>
             ))}
           </nav>
-        </details>
+        </aside>
 
-        <main ref={mainRef}>
+        {/* Konten Utama */}
+        <div>
+          {/* Menu Navigasi Mobile (Collapsible) */}
+          <details className="tocm" open={tocOpen} onToggle={(e) => setTocOpen(e.currentTarget.open)}>
+            <summary>Daftar isi: {SECTIONS.find((s) => s.id === activeSection)?.title || 'Pilih bagian'}</summary>
+            <nav className="toc" style={{ marginTop: '10px' }}>
+              {filteredSections.map((s) => (
+                <a
+                  key={s.id}
+                  href={`#${s.id}`}
+                  className={activeSection === s.id ? 'on' : ''}
+                  onClick={(e) => handleNavClick(e, s.id)}
+                >
+                  {s.title}
+                </a>
+              ))}
+            </nav>
+          </details>
+
+          <main ref={mainRef}>
             {/* 1. Pengantar */}
             <section id="pengantar" data-t="Pengantar">
               <h2 className="hand">
@@ -1084,6 +1146,7 @@ export default function Dokumentasi() {
               </p>
             </section>
           </main>
+        </div>
       </div>
 
       {/* Footer */}
