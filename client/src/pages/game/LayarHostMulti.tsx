@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router';
+import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { apiRequest } from '../../lib/api';
 import { getSocket } from '../../lib/socket';
 import { bindHostReconnect } from '../../lib/socketReconnect';
@@ -141,6 +141,8 @@ function formatDurasi(ms?: number): string {
 export default function LayarHostMulti() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnUrl = searchParams.get('kembali') || '/guru';
 
   const [loading, setLoading] = useState(true);
   const [errorPesan, setErrorPesan] = useState<string | null>(null);
@@ -436,7 +438,7 @@ export default function LayarHostMulti() {
       const res = await apiRequest<{ sessionId: string }>(`/sesi/${id}/main-lagi`, {
         method: 'POST',
       });
-      navigate(`/guru/sesi/${res.sessionId}`);
+      navigate(`/guru/sesi/${res.sessionId}?kembali=${encodeURIComponent(returnUrl)}`);
     } catch (err: any) {
       alert(err.pesan || 'Gagal membuat sesi main lagi.');
       setIsMainLagiLoading(false);
@@ -665,8 +667,9 @@ export default function LayarHostMulti() {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => navigate('/guru')}
+              onClick={() => navigate(returnUrl)}
               className="p-2 rounded-xl bg-[#f1e7ce] hover:bg-[#e5d8b8] text-[#1d3b2e] border border-[#d6c8a4]"
+              title={returnUrl.includes('tarik-tambang') ? 'Kembali ke Pengaturan' : 'Kembali ke Dashboard'}
             >
               <ArrowLeft className="w-4 h-4" />
             </button>

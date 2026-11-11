@@ -17,6 +17,8 @@ const DashboardGuru = lazy(() => import('./pages/guru/Dashboard'));
 const TemplateForm = lazy(() => import('./pages/guru/TemplateForm'));
 const PilihModeKerupuk = lazy(() => import('./pages/guru/PilihModeKerupuk'));
 const PilihModeBalapKarung = lazy(() => import('./pages/guru/PilihModeBalapKarung'));
+const PilihModeTarikTambang = lazy(() => import('./pages/guru/PilihModeTarikTambang'));
+const PilihModePanjatPinang = lazy(() => import('./pages/guru/PilihModePanjatPinang'));
 const LayarHost = lazy(() => import('./pages/game/LayarHost'));
 const HasilSolo = lazy(() => import('./pages/game/HasilSolo'));
 const DashboardAdmin = lazy(() => import('./pages/admin/Statistik'));
@@ -54,6 +56,8 @@ export default function App() {
                 <Route path="/guru" element={<DashboardGuru />} />
                 <Route path="/guru/makan-kerupuk" element={<PilihModeKerupuk />} />
                 <Route path="/guru/balap-karung" element={<PilihModeBalapKarung />} />
+                <Route path="/guru/tarik-tambang" element={<PilihModeTarikTambang />} />
+                <Route path="/guru/panjat-pinang" element={<PilihModePanjatPinang />} />
                 <Route path="/guru/template/baru" element={<TemplateForm />} />
                 <Route path="/guru/template/:id/ubah" element={<TemplateForm />} />
                 <Route path="/guru/sesi/:id" element={<LayarHost />} />

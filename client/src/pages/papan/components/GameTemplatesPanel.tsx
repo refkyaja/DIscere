@@ -8,9 +8,6 @@ import {
   USE_MOCK_TEMPLATE_FALLBACK,
 } from '../mock-template';
 import { ClassToolsView } from './ClassToolsView';
-import ModalKonfigurasiTarikTambang, {
-  KonfigurasiTarikTambangPayload,
-} from '../../guru/ModalKonfigurasiTarikTambang';
 
 export interface GameTemplatesPanelProps {
   isOpen: boolean;
@@ -105,8 +102,6 @@ export function GameTemplatesPanel({
   const [templatesPustaka, setTemplatesPustaka] = useState<GameTemplateItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [startingId, setStartingId] = useState<string | null>(null);
-  const [modalTarikTemplate, setModalTarikTemplate] = useState<GameTemplateItem | null>(null);
-  const [tarikCreating, setTarikCreating] = useState(false);
 
   // Ambil daftar template dari server saat panel dibuka
   useEffect(() => {
@@ -170,42 +165,39 @@ export function GameTemplatesPanel({
     item.judul.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Handler Tombol Main: Simpan Papan -> POST /api/sesi -> Pindah ke /guru/sesi/:id?kembali=/papan/:boardId
+  // Handler Tombol Main: Simpan Papan -> Buka halaman pengaturan seragam (/guru/<game>)
   const handleStartGame = async (template: GameTemplateItem) => {
     if (startingId) return;
     setStartingId(template.id);
-    onToast('Menyiapkan sesi game…');
+    onToast('Menyiapkan pengaturan permainan…');
 
     try {
       // 1. Flush simpan otomatis kanvas terlebih dahulu
       await onBeforeStartGame();
 
-      // 1b. Bila game adalah Makan Kerupuk Challenge atau Balap Karung Challenge, arahkan ke halaman Pemilihan Mode
-      if (template.game === 'makan_kerupuk' || template.game === 'balap_karung') {
-        const gamePath =
-          template.game === 'makan_kerupuk' ? '/guru/makan-kerupuk' : '/guru/balap-karung';
+      // 2. Arahkan seluruh 4 game ke halaman pemilihan mode & konfigurasi seragam
+      const gameSlugMap: Record<string, string> = {
+        makan_kerupuk: '/guru/makan-kerupuk',
+        balap_karung: '/guru/balap-karung',
+        panjat_pinang: '/guru/panjat-pinang',
+        tarik_tambang: '/guru/tarik-tambang',
+      };
+      const targetPath = gameSlugMap[template.game || 'tarik_tambang'];
+      if (targetPath) {
         onClose();
         navigate(
-          `${gamePath}?templateId=${encodeURIComponent(template.id)}&kembali=${encodeURIComponent(`/papan/${boardId}`)}`
+          `${targetPath}?templateId=${encodeURIComponent(template.id)}&kembali=${encodeURIComponent(`/papan/${boardId}`)}`
         );
         return;
       }
 
-      // 1c. Bila game adalah Tarik Tambang, buka modal pengaturan sebelum mulai
-      if (template.game === 'tarik_tambang') {
-        setStartingId(null);
-        setModalTarikTemplate(template);
-        return;
-      }
-
-      // 2. Buat sesi di server (Solo / Multiplayer mengikuti template.mode)
+      // Fallback bila tipe game kustom di masa depan
       const res = await apiRequest<{ session: { id: string } }>('/sesi', {
         method: 'POST',
         body: JSON.stringify({
           templateId: template.id,
           mode: template.mode,
           playMode: template.mode === 'multi' ? 'MULTIPLAYER' : 'SOLO',
-          autoStart: template.game === 'tarik_tambang' && template.mode !== 'multi',
           game: template.game,
         }),
       });
@@ -234,37 +226,6 @@ export function GameTemplatesPanel({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       onClose();
-    }
-  };
-
-  const handleKonfirmasiTarik = async (config: KonfigurasiTarikTambangPayload) => {
-    if (!modalTarikTemplate) return;
-    setTarikCreating(true);
-    try {
-      const isMulti = modalTarikTemplate.mode === 'multi';
-      const res = await apiRequest<{ session: { id: string } }>('/sesi', {
-        method: 'POST',
-        body: JSON.stringify({
-          templateId: modalTarikTemplate.id,
-          mode: modalTarikTemplate.mode,
-          playMode: isMulti ? 'MULTIPLAYER' : 'SOLO',
-          autoStart: !isMulti,
-          game: 'tarik_tambang',
-          tarikTambangConfig: config,
-        }),
-      });
-      const sessionId = res?.session?.id;
-      if (sessionId) {
-        setModalTarikTemplate(null);
-        onToast('Sesi Tarik Tambang berhasil dimulai!');
-        navigate(`/guru/sesi/${sessionId}?kembali=/papan/${boardId}`);
-      } else {
-        throw new Error('Sesi gagal dibuat.');
-      }
-    } catch (err: any) {
-      onToast(`Gagal memulai sesi: ${err.pesan || err.message || 'Terjadi kesalahan'}`);
-    } finally {
-      setTarikCreating(false);
     }
   };
 
@@ -485,18 +446,18 @@ export function GameTemplatesPanel({
                     style={{
                       textTransform: 'capitalize',
                       color:
-                        item.game === 'makan_kerupuk' || item.game === 'balap_karung'
+                        item.game === 'makan_kerupuk' ||
+                        item.game === 'balap_karung' ||
+                        item.game === 'tarik_tambang'
                           ? '#f59e0b'
-                          : item.mode === 'multi'
-                          ? '#60a5fa'
-                          : '#34d399',
+                          : '#60a5fa',
                     }}
                   >
-                    {item.game === 'makan_kerupuk' || item.game === 'balap_karung'
+                    {item.game === 'makan_kerupuk' ||
+                    item.game === 'balap_karung' ||
+                    item.game === 'tarik_tambang'
                       ? 'Multi / Solo'
-                      : item.mode === 'multi'
-                      ? 'Multiplayer'
-                      : 'Solo'}
+                      : 'Multiplayer'}
                   </span>
                 </small>
               </div>
@@ -515,17 +476,6 @@ export function GameTemplatesPanel({
       </div>
       )}
     </aside>
-
-    <ModalKonfigurasiTarikTambang
-      isOpen={Boolean(modalTarikTemplate)}
-      onClose={() => setModalTarikTemplate(null)}
-      templateId={modalTarikTemplate?.id || ''}
-      templateJudul={modalTarikTemplate?.judul || ''}
-      templateMode={modalTarikTemplate?.mode || 'solo'}
-      totalSoal={modalTarikTemplate?.questionsCount || 0}
-      onMulai={handleKonfirmasiTarik}
-      loading={tarikCreating}
-    />
     </>
   );
 }
