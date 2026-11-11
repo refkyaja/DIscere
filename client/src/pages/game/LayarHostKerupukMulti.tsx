@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { apiRequest } from '../../lib/api';
 import { getSocket } from '../../lib/socket';
+import { bindHostReconnect } from '../../lib/socketReconnect';
 import { Modal } from '../../components';
 import { soundEffects } from '../../lib/soundEffects';
 import { HasilGachaGigitanProps } from '../siswa/KerupukVirtual';
@@ -102,7 +103,7 @@ export default function LayarHostKerupukMulti({
 
   useEffect(() => {
     const socket = getSocket();
-    socket.emit('sesi:host_join', { sessionId: id });
+    const unbindHost = bindHostReconnect(socket, id);
 
     const handleLobiUpdate = (data: {
       game?: string;
@@ -167,6 +168,7 @@ export default function LayarHostKerupukMulti({
     socket.on('sesi:selesai', handleSesiSelesai);
 
     return () => {
+      unbindHost();
       socket.off('lobi:update', handleLobiUpdate);
       socket.off('game:mulai', handleGameMulai);
       socket.off('kerupuk:update', handleKerupukUpdate);

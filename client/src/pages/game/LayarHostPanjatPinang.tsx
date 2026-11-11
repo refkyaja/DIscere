@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { apiRequest } from '../../lib/api';
 import { getSocket } from '../../lib/socket';
+import { bindHostReconnect } from '../../lib/socketReconnect';
 import { Button, Card, Modal } from '../../components';
 import { soundEffects } from '../../lib/soundEffects';
 import TiangPinangVisual, { EfekAktifVisual } from '../siswa/TiangPinangVisual';
@@ -235,8 +236,7 @@ export default function LayarHostPanjatPinang() {
   useEffect(() => {
     if (!id) return;
     const socket = getSocket();
-
-    socket.emit('sesi:host_join', { sessionId: id });
+    const unbindHost = bindHostReconnect(socket, id);
 
     const handleLobiUpdate = (data: {
       game?: string;
@@ -371,6 +371,7 @@ export default function LayarHostPanjatPinang() {
     socket.on('sesi:selesai', handleSesiSelesai);
 
     return () => {
+      unbindHost();
       socket.off('lobi:update', handleLobiUpdate);
       socket.off('game:mulai', handleGameMulai);
       socket.off('panjat:update', handlePanjatUpdate);

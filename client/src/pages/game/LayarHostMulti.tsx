@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { apiRequest } from '../../lib/api';
 import { getSocket } from '../../lib/socket';
+import { bindHostReconnect } from '../../lib/socketReconnect';
 import { VisualisasiTali } from './VisualisasiTali';
 import KarakterTarikTambang, { EkspresiTarikTambang } from '../siswa/KarakterTarikTambang';
 import { Modal } from '../../components';
@@ -265,8 +266,7 @@ export default function LayarHostMulti() {
   useEffect(() => {
     if (!id || loading) return;
     const socket = getSocket();
-
-    socket.emit('sesi:host_join', { sessionId: id });
+    const unbindHost = bindHostReconnect(socket, id);
 
     const onLobiUpdate = (data: any) => {
       if (data.daftarPeserta) setDaftarPeserta(data.daftarPeserta);
@@ -354,6 +354,7 @@ export default function LayarHostMulti() {
     socket.on('sesi:error', onSesiError);
 
     return () => {
+      unbindHost();
       socket.off('lobi:update', onLobiUpdate);
       socket.off('teams_assigned', onTeamsAssigned);
       socket.off('ronde:host_update', onRondeHostUpdate);

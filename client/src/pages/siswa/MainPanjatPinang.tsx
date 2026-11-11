@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getSocket } from '../../lib/socket';
+import { bindStudentReconnect } from '../../lib/socketReconnect';
 import { Button } from '../../components';
 import { soundEffects } from '../../lib/soundEffects';
 import TiangPinangVisual, { EfekAktifVisual } from './TiangPinangVisual';
@@ -319,11 +320,44 @@ export default function MainPanjatPinang({
       if (data?.pesan) setSubmitError(data.pesan);
     };
 
-    const handleDisconnect = () => setIsDisconnected(true);
-    const handleConnect = () => setIsDisconnected(false);
+    const unbindReconnect = bindStudentReconnect<{
+      success?: boolean;
+      status?: string;
+      peserta?: PesertaPanjatData;
+      leaderboard?: PesertaPanjatData[];
+      soalAktif?: SoalPanjatData | null;
+      hasil?: HasilAkhirPanjatData;
+    }>(socket, {
+      token,
+      nama,
+      pesertaId,
+      pesertaSecret,
+      onDisconnect: () => setIsDisconnected(true),
+      onReconnectSuccess: (res) => {
+        setIsDisconnected(false);
+        if (!res?.success) return;
+        if (res.peserta) setMyState(res.peserta);
+        if (res.leaderboard) {
+          setLeaderboard(res.leaderboard);
+          setTotalPeserta(res.leaderboard.length);
+        }
+        if (res.status === 'jalan') {
+          setStage('PLAYING');
+          if (res.soalAktif) {
+            setSoalAktif((prev) =>
+              prev && prev.presentationId === res.soalAktif?.presentationId
+                ? prev
+                : res.soalAktif!
+            );
+          }
+        } else if (res.status === 'selesai') {
+          stopStopwatch();
+          if (res.hasil) setHasilAkhir(res.hasil);
+          setStage('SELESAI');
+        }
+      },
+    });
 
-    socket.on('disconnect', handleDisconnect);
-    socket.on('connect', handleConnect);
     socket.on('lobi:update', handleLobiUpdate);
     socket.on('game:mulai', handleGameMulai);
     socket.on('soal:tampil', handleSoalTampil);
@@ -334,8 +368,7 @@ export default function MainPanjatPinang({
     socket.on('sesi:error', handleSesiError);
 
     return () => {
-      socket.off('disconnect', handleDisconnect);
-      socket.off('connect', handleConnect);
+      unbindReconnect();
       socket.off('lobi:update', handleLobiUpdate);
       socket.off('game:mulai', handleGameMulai);
       socket.off('soal:tampil', handleSoalTampil);
@@ -345,7 +378,7 @@ export default function MainPanjatPinang({
       socket.off('sesi:selesai', handleSesiSelesai);
       socket.off('sesi:error', handleSesiError);
     };
-  }, [pesertaId, startStopwatch, stopStopwatch]);
+  }, [token, nama, pesertaId, pesertaSecret, startStopwatch, stopStopwatch]);
 
   const handlePilihJawaban = (opsi: PilihanPanjat) => {
     if (sudahKirim || !soalAktif || myState.status === 'selesai') return;

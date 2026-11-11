@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router';
 import { getSocket } from '../../lib/socket';
+import { bindStudentReconnect } from '../../lib/socketReconnect';
 import { soundEffects } from '../../lib/soundEffects';
 import MainKerupuk from './MainKerupuk';
 import MainPanjatPinang from './MainPanjatPinang';
@@ -196,6 +197,94 @@ export default function MainSiswa() {
     };
   }, []);
 
+  const terapkanHasilGabung = useCallback(
+    (res: any, namaDipakai: string, tokenDipakai: string, fallbackSecret?: string) => {
+      if (!res?.success) return;
+
+      sessionStorage.setItem('discere_multi_token', tokenDipakai);
+      sessionStorage.setItem('discere_multi_peserta_id', res.pesertaId!);
+      sessionStorage.setItem('discere_multi_nama', namaDipakai);
+      if (res.pesertaSecret) {
+        sessionStorage.setItem('discere_multi_peserta_secret', res.pesertaSecret);
+        setPanjatSecret(res.pesertaSecret);
+      } else if (fallbackSecret) {
+        setPanjatSecret(fallbackSecret);
+      }
+
+      setSessionId(res.sessionId!);
+      setPesertaId(res.pesertaId!);
+      setNamaPeserta(namaDipakai);
+      setTokenInput(tokenDipakai);
+      setTemplateJudul(res.templateJudul || '');
+
+      if (res.game === 'makan_kerupuk') {
+        setGameType('makan_kerupuk');
+        setKerupukState(res.peserta);
+        setKerupukLeaderboard(res.leaderboard || []);
+        setKerupukSoalAktif(res.soalAktif || null);
+      } else if (res.game === 'panjat_pinang') {
+        setGameType('panjat_pinang');
+        setPanjatConfig(res.config);
+        setPanjatState(res.peserta);
+        setPanjatLeaderboard(res.leaderboard || []);
+        setPanjatSoalAktif(res.soalAktif || null);
+      } else if (res.game === 'balap_karung') {
+        setGameType('balap_karung');
+        setBalapConfig(res.config);
+        setBalapState(res.peserta);
+        setBalapLeaderboard(res.leaderboard || []);
+        setBalapSoalAktif(res.soalAktif || null);
+      } else {
+        setGameType('tarik_tambang');
+      }
+
+      if (res.tim) setTim(res.tim);
+      if (res.config) setTarikConfig((prev) => ({ ...prev, ...res.config }));
+      if (res.daftarPeserta) {
+        setDaftarPeserta(res.daftarPeserta);
+        setTotalPeserta(res.daftarPeserta.length);
+      }
+      if (res.powerUpTim1 || res.powerUpTim2) {
+        setPowerUpKeduaTim({
+          tim1: res.powerUpTim1?.aktifBerikutnya ?? null,
+          tim2: res.powerUpTim2?.aktifBerikutnya ?? null,
+        });
+      }
+      if (res.powerUpTim) setPowerUpTim(res.powerUpTim);
+      if (res.pesertaStat) setPesertaStat(res.pesertaStat);
+      setTaliPosition(res.taliPosition ?? 0);
+      setSkorMerah(res.skorMerah ?? 0);
+      setSkorPutih(res.skorPutih ?? 0);
+
+      if (res.status === 'jalan') {
+        setStage('PLAYING');
+        if (
+          res.game !== 'makan_kerupuk' &&
+          res.game !== 'panjat_pinang' &&
+          res.game !== 'balap_karung' &&
+          res.soalAktif
+        ) {
+          const resolvedId = res.soalAktif.id || res.soalAktif.questionId || '';
+          setSoalAktif({
+            ...res.soalAktif,
+            id: resolvedId,
+            questionId: resolvedId,
+          });
+          startCountdown(res.soalAktif.endsAt);
+          if (res.sudahJawabRondeAktif || res.sudahJawabSoalAktif) {
+            setSudahKirim(true);
+          }
+        }
+      } else if (res.status === 'selesai') {
+        if (res.hasil) setHasilAkhir(res.hasil);
+        setStage('SELESAI');
+      } else {
+        setStage('LOBBY');
+      }
+    },
+    [startCountdown]
+  );
+
   // Otomatis Reconnect jika ada session tersimpan di sessionStorage
   useEffect(() => {
     const savedToken = sessionStorage.getItem('discere_multi_token');
@@ -209,81 +298,38 @@ export default function MainSiswa() {
         'sesi:gabung',
         { token: savedToken, nama: savedNama, pesertaId: savedPesertaId, pesertaSecret: savedSecret },
         (res: any) => {
-          if (res?.success) {
-            setSessionId(res.sessionId);
-            setPesertaId(res.pesertaId);
-            setNamaPeserta(savedNama);
-            setTokenInput(savedToken);
-            setTemplateJudul(res.templateJudul || '');
-            if (res.pesertaSecret) {
-              sessionStorage.setItem('discere_multi_peserta_secret', res.pesertaSecret);
-              setPanjatSecret(res.pesertaSecret);
-            } else if (savedSecret) {
-              setPanjatSecret(savedSecret);
-            }
-            if (res.game === 'makan_kerupuk') {
-              setGameType('makan_kerupuk');
-              setKerupukState(res.peserta);
-              setKerupukLeaderboard(res.leaderboard || []);
-              setKerupukSoalAktif(res.soalAktif || null);
-            } else if (res.game === 'panjat_pinang') {
-              setGameType('panjat_pinang');
-              setPanjatConfig(res.config);
-              setPanjatState(res.peserta);
-              setPanjatLeaderboard(res.leaderboard || []);
-              setPanjatSoalAktif(res.soalAktif || null);
-            } else if (res.game === 'balap_karung') {
-              setGameType('balap_karung');
-              setBalapConfig(res.config);
-              setBalapState(res.peserta);
-              setBalapLeaderboard(res.leaderboard || []);
-              setBalapSoalAktif(res.soalAktif || null);
-            } else {
-              setGameType('tarik_tambang');
-            }
-            if (res.tim) setTim(res.tim);
-            if (res.config) setTarikConfig((prev) => ({ ...prev, ...res.config }));
-            if (res.daftarPeserta) {
-              setDaftarPeserta(res.daftarPeserta);
-              setTotalPeserta(res.daftarPeserta.length);
-            }
-            if (res.powerUpTim1 || res.powerUpTim2) {
-              setPowerUpKeduaTim({
-                tim1: res.powerUpTim1?.aktifBerikutnya ?? null,
-                tim2: res.powerUpTim2?.aktifBerikutnya ?? null,
-              });
-            }
-            if (res.powerUpTim) setPowerUpTim(res.powerUpTim);
-            if (res.pesertaStat) setPesertaStat(res.pesertaStat);
-            setTaliPosition(res.taliPosition ?? 0);
-            setSkorMerah(res.skorMerah ?? 0);
-            setSkorPutih(res.skorPutih ?? 0);
-
-            if (res.status === 'jalan') {
-              setStage('PLAYING');
-              if (res.game !== 'panjat_pinang' && res.game !== 'balap_karung' && res.soalAktif) {
-                const resolvedId = res.soalAktif.id || (res.soalAktif as any).questionId || '';
-                setSoalAktif({
-                  ...res.soalAktif,
-                  id: resolvedId,
-                  questionId: resolvedId,
-                });
-                startCountdown(res.soalAktif.endsAt);
-                if (res.sudahJawabRondeAktif || res.sudahJawabSoalAktif) {
-                  setSudahKirim(true);
-                }
-              }
-            } else if (res.status === 'selesai') {
-              if (res.hasil) setHasilAkhir(res.hasil);
-              setStage('SELESAI');
-            } else {
-              setStage('LOBBY');
-            }
-          }
+          terapkanHasilGabung(res, savedNama, savedToken, savedSecret);
         }
       );
     }
-  }, [startCountdown]);
+  }, [terapkanHasilGabung]);
+
+  // Re-join room Tarik Tambang secara otomatis ketika Socket.IO putus lalu tersambung kembali
+  useEffect(() => {
+    if (
+      gameType !== 'tarik_tambang' ||
+      stage === 'GABUNG' ||
+      stage === 'SELESAI' ||
+      !pesertaId ||
+      !tokenInput ||
+      !namaPeserta
+    ) {
+      return;
+    }
+
+    const socket = getSocket();
+    return bindStudentReconnect(socket, {
+      token: tokenInput,
+      nama: namaPeserta,
+      pesertaId,
+      pesertaSecret: panjatSecret || undefined,
+      onReconnectSuccess: (res) => {
+        if (res?.success) {
+          terapkanHasilGabung(res, namaPeserta, tokenInput, panjatSecret || undefined);
+        }
+      },
+    });
+  }, [gameType, stage, pesertaId, tokenInput, namaPeserta, panjatSecret, terapkanHasilGabung]);
 
   // Setup Socket listeners (khusus Tarik Tambang; game lain ditangani komponennya masing-masing)
   useEffect(() => {
@@ -531,84 +577,7 @@ export default function MainSiswa() {
           return;
         }
 
-        // Simpan sesi ke sessionStorage
-        sessionStorage.setItem('discere_multi_token', cleanToken);
-        sessionStorage.setItem('discere_multi_peserta_id', res.pesertaId!);
-        sessionStorage.setItem('discere_multi_nama', cleanNama);
-        if ((res as any).pesertaSecret) {
-          sessionStorage.setItem('discere_multi_peserta_secret', (res as any).pesertaSecret);
-          setPanjatSecret((res as any).pesertaSecret);
-        }
-
-        setSessionId(res.sessionId!);
-        setPesertaId(res.pesertaId!);
-        setNamaPeserta(cleanNama);
-        setTemplateJudul(res.templateJudul || '');
-
-        if ((res as any).game === 'makan_kerupuk') {
-          setGameType('makan_kerupuk');
-          setKerupukState((res as any).peserta);
-          setKerupukLeaderboard((res as any).leaderboard || []);
-          setKerupukSoalAktif((res as any).soalAktif || null);
-        } else if ((res as any).game === 'panjat_pinang') {
-          setGameType('panjat_pinang');
-          setPanjatConfig((res as any).config);
-          setPanjatState((res as any).peserta);
-          setPanjatLeaderboard((res as any).leaderboard || []);
-          setPanjatSoalAktif((res as any).soalAktif || null);
-        } else if ((res as any).game === 'balap_karung') {
-          setGameType('balap_karung');
-          setBalapConfig((res as any).config);
-          setBalapState((res as any).peserta);
-          setBalapLeaderboard((res as any).leaderboard || []);
-          setBalapSoalAktif((res as any).soalAktif || null);
-        } else {
-          setGameType('tarik_tambang');
-        }
-
-        if (res.tim) setTim(res.tim);
-        if ((res as any).config) setTarikConfig((prev) => ({ ...prev, ...(res as any).config }));
-        if ((res as any).daftarPeserta) {
-          setDaftarPeserta((res as any).daftarPeserta);
-          setTotalPeserta((res as any).daftarPeserta.length);
-        }
-        if ((res as any).powerUpTim1 || (res as any).powerUpTim2) {
-          setPowerUpKeduaTim({
-            tim1: (res as any).powerUpTim1?.aktifBerikutnya ?? null,
-            tim2: (res as any).powerUpTim2?.aktifBerikutnya ?? null,
-          });
-        }
-        if ((res as any).powerUpTim) setPowerUpTim((res as any).powerUpTim);
-        if ((res as any).pesertaStat) setPesertaStat((res as any).pesertaStat);
-        setTaliPosition(res.taliPosition ?? 0);
-        setSkorMerah(res.skorMerah ?? 0);
-        setSkorPutih(res.skorPutih ?? 0);
-
-        if (res.status === 'jalan') {
-          setStage('PLAYING');
-          if (
-            (res as any).game !== 'makan_kerupuk' &&
-            (res as any).game !== 'panjat_pinang' &&
-            (res as any).game !== 'balap_karung' &&
-            res.soalAktif
-          ) {
-            const resolvedId = res.soalAktif.id || (res.soalAktif as any).questionId || '';
-            setSoalAktif({
-              ...res.soalAktif,
-              id: resolvedId,
-              questionId: resolvedId,
-            });
-            startCountdown(res.soalAktif.endsAt);
-            if ((res as any).sudahJawabRondeAktif || (res as any).sudahJawabSoalAktif) {
-              setSudahKirim(true);
-            }
-          }
-        } else if (res.status === 'selesai') {
-          if ((res as any).hasil) setHasilAkhir((res as any).hasil);
-          setStage('SELESAI');
-        } else {
-          setStage('LOBBY');
-        }
+        terapkanHasilGabung(res, cleanNama, cleanToken);
       }
     );
   };
