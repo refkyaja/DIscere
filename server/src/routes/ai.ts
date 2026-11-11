@@ -6,7 +6,6 @@ import { roleMiddleware } from '../middleware/role.js';
 import {
   generateSoalFromMateri,
   solveQuestionFromBoard,
-  periksaDanPakaiKuota,
   getInfoKuota,
   cekBatasHarian,
   catatPemakaianAi,
@@ -16,6 +15,24 @@ import {
 import { config } from '../config.js';
 
 export const aiRouter = Router();
+
+async function selesaikanPemakaianKuota(
+  userId: string,
+  kuotaSebelum: { sisaKuota: number; totalTerpakai: number; batasHarian: number },
+  catatPemakaian: boolean
+) {
+  if (catatPemakaian) {
+    await catatPemakaianAi(userId);
+  }
+  const totalTerpakai = catatPemakaian
+    ? kuotaSebelum.totalTerpakai + 1
+    : kuotaSebelum.totalTerpakai;
+  return {
+    sisaKuota: Math.max(0, kuotaSebelum.batasHarian - totalTerpakai),
+    totalTerpakai,
+    batasHarian: kuotaSebelum.batasHarian,
+  };
+}
 
 // Batas body JSON khusus rute AI: 12 MB (mendukung lampiran gambar & dokumen)
 aiRouter.use(express.json({ limit: '12mb' }));
@@ -73,8 +90,8 @@ const handleBuatSoal = async (req: AuthRequest, res: Response) => {
   try {
     const parsed = buatSoalSchema.parse(req.body);
 
-    // 1. Periksa batas kuota harian
-    const kuotaCheck = await periksaDanPakaiKuota(req.user!.id);
+    // 1. Periksa batas kuota harian tanpa memotong sebelum cache/sukses
+    const kuotaCheck = await cekBatasHarian(req.user!.id, 'soal');
     if (!kuotaCheck.bisaPakai) {
       return res.status(429).json({
         sukses: false,
@@ -83,7 +100,7 @@ const handleBuatSoal = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // 2. Generate soal
+    // 2. Generate soal (cek cache terlebih dahulu)
     const { soal, dariCache } = await generateSoalFromMateri({
       materi: parsed.materi,
       jumlah: parsed.jumlah,
@@ -91,17 +108,16 @@ const handleBuatSoal = async (req: AuthRequest, res: Response) => {
       kesulitan: parsed.kesulitan,
     });
 
+    // 3. Catat pemakaian hanya jika permintaan benar-benar memanggil AI (bukan dari cache)
+    const kuota = await selesaikanPemakaianKuota(req.user!.id, kuotaCheck, !dariCache);
+
     return res.json({
       sukses: true,
       pesan: `Berhasil membuat ${soal.length} soal dengan AI.`,
       soal,
       questions: soal, // Kompatibilitas alias frontend
       dariCache,
-      kuota: {
-        sisaKuota: kuotaCheck.sisaKuota,
-        totalTerpakai: kuotaCheck.totalTerpakai,
-        batasHarian: kuotaCheck.batasHarian,
-      },
+      kuota,
     });
   } catch (err: any) {
     if (err instanceof z.ZodError) {
@@ -130,8 +146,8 @@ aiRouter.post('/jawab', async (req: AuthRequest, res: Response) => {
     const parsed = jawabPapanSchema.parse(req.body);
     const gambarData = parsed.gambar || parsed.imageBase64 || '';
 
-    // 1. Periksa batas kuota harian per guru
-    const kuotaCheck = await periksaDanPakaiKuota(req.user!.id);
+    // 1. Periksa batas kuota harian per guru tanpa memotong sebelum cache/sukses
+    const kuotaCheck = await cekBatasHarian(req.user!.id, 'jawab');
     if (!kuotaCheck.bisaPakai) {
       return res.status(429).json({
         pesan: `Batas kuota harian Tanya AI (${kuotaCheck.batasHarian} request/hari) telah tercapai. Kuota akan direset besok.`,
@@ -145,17 +161,16 @@ aiRouter.post('/jawab', async (req: AuthRequest, res: Response) => {
       pertanyaan: parsed.pertanyaan,
     });
 
+    // 3. Catat pemakaian hanya jika tidak dilayani dari cache
+    const kuota = await selesaikanPemakaianKuota(req.user!.id, kuotaCheck, !dariCache);
+
     return res.json({
       jawaban: hasil.jawaban,
       rumus: hasil.rumus || '-',
       langkah: hasil.langkah,
       dariCache,
       hasil,
-      kuota: {
-        sisaKuota: kuotaCheck.sisaKuota,
-        totalTerpakai: kuotaCheck.totalTerpakai,
-        batasHarian: kuotaCheck.batasHarian,
-      },
+      kuota,
     });
   } catch (err: any) {
     if (err instanceof z.ZodError) {
@@ -280,7 +295,7 @@ const kuisPapanSchema = z.object({
   gambarPapan: z.string().min(10, 'Gambar papan tidak valid.').optional(),
   jumlah: z.number().int().min(1).max(10).default(5),
   tingkat: z.enum(['SD', 'SMP']).default('SD'),
-  game: z.enum(['tarik_tambang', 'panjat_pinang', 'balap_karung']).default('tarik_tambang'),
+  game: z.enum(['tarik_tambang', 'panjat_pinang', 'balap_karung', 'makan_kerupuk']).default('tarik_tambang'),
   simpanTemplate: z.boolean().default(true),
 }).refine((data) => (data.topik && data.topik.trim().length > 0) || Boolean(data.gambarPapan), {
   message: 'Wajib mengisi topik materi atau melampirkan gambar isi papan tulis.',
@@ -291,8 +306,8 @@ aiRouter.post('/kuis-papan', async (req: AuthRequest, res: Response) => {
   try {
     const parsed = kuisPapanSchema.parse(req.body);
 
-    // 1. Periksa batas kuota harian
-    const kuotaCheck = await periksaDanPakaiKuota(req.user!.id);
+    // 1. Periksa batas kuota harian tanpa memotong sebelum selesai
+    const kuotaCheck = await cekBatasHarian(req.user!.id, 'soal');
     if (!kuotaCheck.bisaPakai) {
       return res.status(429).json({
         pesan: `Batas kuota harian AI Anda (${kuotaCheck.batasHarian} request/hari) telah tercapai. Kuota akan direset besok hari.`,
@@ -311,15 +326,14 @@ aiRouter.post('/kuis-papan', async (req: AuthRequest, res: Response) => {
       simpanTemplate: parsed.simpanTemplate,
     });
 
+    // 3. Catat pemakaian setelah sukses
+    const kuota = await selesaikanPemakaianKuota(req.user!.id, kuotaCheck, true);
+
     return res.json({
       pesan: `Berhasil membuat ${hasil.soal.length} soal kuis dengan AI.`,
       soal: hasil.soal,
       template: hasil.template,
-      kuota: {
-        sisaKuota: kuotaCheck.sisaKuota,
-        totalTerpakai: kuotaCheck.totalTerpakai,
-        batasHarian: kuotaCheck.batasHarian,
-      },
+      kuota,
     });
   } catch (err: any) {
     if (err instanceof z.ZodError) {
