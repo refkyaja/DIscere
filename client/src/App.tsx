@@ -5,6 +5,7 @@ import { ToastProvider } from './components';
 import Landing from './pages/publik/Landing';
 import Daftar from './pages/publik/Daftar';
 import Masuk from './pages/publik/Masuk';
+import Dokumentasi from './pages/publik/Dokumentasi';
 import MainSiswa from './pages/siswa/Main';
 import PapanTulis from './pages/papan/PapanTulis';
 import DaftarPapan from './pages/papan/DaftarPapan';
@@ -28,6 +29,7 @@ export default function App() {
             <Route path="/" element={<Landing />} />
             <Route path="/daftar" element={<Daftar />} />
             <Route path="/masuk" element={<Masuk />} />
+            <Route path="/dokumentasi" element={<Dokumentasi />} />
             <Route path="/join" element={<MainSiswa />} />
             <Route path="/main" element={<MainSiswa />} />
             <Route path="/b/:token" element={<KolaborasiPublik />} />

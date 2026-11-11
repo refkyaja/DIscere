@@ -1184,6 +1184,37 @@ export default function Landing() {
               </ul>
             </div>
             <div>
+              <h5>Proyek</h5>
+              <ul>
+                <li>
+                  <a
+                    href="https://github.com/refkyaja/DIscere"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Repositori GitHub
+                  </a>
+                </li>
+                <li>
+                  <Link to="/dokumentasi">Dokumentasi</Link>
+                </li>
+                <li>
+                  <a
+                    href="https://github.com/refkyaja/DIscere/issues"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Laporkan masalah
+                  </a>
+                </li>
+                <li>
+                  <span className="nav-disabled" style={{ opacity: 0.65, cursor: 'default' }}>
+                    Kontak tim
+                  </span>
+                </li>
+              </ul>
+            </div>
+            <div>
               <h5>Tentang kami</h5>
               <ul>
                 <li>Dibuat untuk LOGICODIX 2026</li>
