@@ -98,15 +98,15 @@ export default function TemplateForm() {
 
   return (
     <div className="portal-bg">
-      <div className="max-w-4xl mx-auto w-full p-6 md:p-10 space-y-6">
+      <div className="max-w-5xl mx-auto w-full p-6 md:p-10 space-y-6">
         {/* Header Bar */}
-        <div className="portal-head">
-          <div>
+        <div className="portal-head flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0 pr-2">
             <h1>{isEdit ? 'Ubah Template Kuis' : 'Buat Template Kuis Baru'}</h1>
             <p>Susun materi soal untuk dimainkan dalam mini-game edukasi interaktif DISCERE.</p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="shrink-0 self-start pt-1">
             <button
               type="button"
               onClick={() => navigate('/guru?tab=template')}
