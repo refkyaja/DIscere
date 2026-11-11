@@ -253,13 +253,17 @@ function jalankanUnitTests() {
     poolSedang,
     { kesulitan: 'sedang', durasiRonde: 15, bonusAktif: true, powerUpAktif: true }
   );
+  // READY -> PAUSED wajib ditolak
+  assert.throws(() => soloManager.ubahStateSesi(sid, 'host-u1', 'PAUSED'));
+
   soloManager.mulaiSesi(sid, 'host-u1');
   const ronde1 = s.rondeAktif!;
   assert.notStrictEqual(ronde1.soalTim1.questionId, ronde1.soalTim2.questionId);
 
-  // Jeda & lanjut tidak menghilangkan ronde
+  // Jeda & lanjut tidak menghilangkan ronde serta mempertahankan batas waktu wajar
   soloManager.ubahStateSesi(sid, 'host-u1', 'PAUSED');
   assert.strictEqual(s.state, 'PAUSED');
+  assert.throws(() => soloManager.tutupRonde(sid, 'host-u1'));
   assert.throws(() =>
     soloManager.prosesJawaban(sid, 'host-u1', {
       tim: 'merah',
@@ -269,13 +273,14 @@ function jalankanUnitTests() {
   );
   soloManager.ubahStateSesi(sid, 'host-u1', 'PLAYING');
 
-  // Tim 1 menjawab benar; Tim 2 tidak menjawab -> tutupRonde menutup ronde dengan +15 untuk Tim 1
-  soloManager.prosesJawaban(sid, 'host-u1', {
+  // Tim 1 menjawab benar; skorMerah tidak boleh bocor sebelum ronde ditutup!
+  const jR1 = soloManager.prosesJawaban(sid, 'host-u1', {
     tim: 'merah',
     presentationId: ronde1.soalTim1.presentationId,
     choiceId: ronde1.soalTim1.correctChoiceId,
   });
-  // Cegah double jawab Tim 1
+  assert.strictEqual(jR1.rondeSelesai, false);
+  assert.strictEqual(jR1.sesi.skorMerah, 0, 'Skor merah tidak boleh bocor sebelum ronde selesai');
   assert.throws(() =>
     soloManager.prosesJawaban(sid, 'host-u1', {
       tim: 'merah',
@@ -283,7 +288,6 @@ function jalankanUnitTests() {
       choiceId: ronde1.soalTim1.correctChoiceId,
     })
   );
-  // Cegah lintas sisi
   assert.throws(() =>
     soloManager.prosesJawaban(sid, 'host-u1', {
       tim: 'putih',
@@ -295,9 +299,32 @@ function jalankanUnitTests() {
   const closed = soloManager.tutupRonde(sid, 'host-u1');
   assert.strictEqual(closed.hasilRonde.perubahanTali, 15);
   assert.strictEqual(closed.sesi.taliPosition, 15);
+  assert.strictEqual(closed.sesi.skorMerah, 1);
   assert.strictEqual(closed.sesi.tim2.streakSaatIni, 0);
+
+  // Power-Up aktivasi diaktifkan untuk ronde berikutnya & tidak boleh bertumpuk
+  closed.sesi.tim1.powerUpTersedia = 'tarikan_super';
+  soloManager.aktifkanPowerUp(sid, 'host-u1', 'merah');
+  assert.strictEqual(closed.sesi.tim1.powerUpAktifRondeBerikutnya, 'tarikan_super');
+  closed.sesi.tim1.powerUpTersedia = 'semangat_tim';
+  assert.throws(() => soloManager.aktifkanPowerUp(sid, 'host-u1', 'merah'));
+  soloManager.lanjutRondeBerikutnya(sid, 'host-u1');
+  assert.strictEqual(s.rondeAktif?.powerUpTim1Dipakai, 'tarikan_super');
+
+  // Akhiri manual saat ronde 2 berjalan -> hasil konsisten & idempoten
+  soloManager.prosesJawaban(sid, 'host-u1', {
+    tim: 'merah',
+    presentationId: s.rondeAktif!.soalTim1.presentationId,
+    choiceId: s.rondeAktif!.soalTim1.correctChoiceId,
+  });
+  const ended1 = soloManager.selesaikanSesi(sid, 'host-u1');
+  const waktuSelesaiPertama = ended1.waktuSelesaiMs;
+  const ended2 = soloManager.selesaikanSesi(sid, 'host-u1');
+  assert.strictEqual(ended1.skorMerah, ended1.tim1.totalBenar);
+  assert.strictEqual(ended2.waktuSelesaiMs, waktuSelesaiPertama);
+
   soloManager.hapusSesi(sid);
-  console.log('   ✓ State lock, pause/resume, proteksi lintas sisi, & tutup ronde tervalidasi.');
+  console.log('   ✓ State lock, pause/resume, anti-bocor skor, power-up, & konsistensi selesaikanSesi tervalidasi.');
 }
 
 async function jalankanIntegrationTests() {

@@ -281,21 +281,24 @@ async function runValidasiJawabanTests() {
   )!;
 
   // Tim Merah menjawab benar dengan choiceId atau label huruf kecil berspasi
+  // Skor publik TIDAK boleh bertambah sebelum ronde selesai (anti bocor kunci)
   const hasilSoloMerah = soloManager.prosesJawaban(sessionSoloId, hostSoloId, {
     presentationId: presSoloMerah.presentationId,
     tim: 'merah',
     jawabanDipilih: ` ${presSoloMerah.jawabanBenarKode.toLowerCase()} `,
   });
   assert.strictEqual(hasilSoloMerah.benar, true, 'Solo tim merah menjawab benar');
-  assert.strictEqual(hasilSoloMerah.sesi.skorMerah, 1, 'Skor merah bertambah');
+  assert.strictEqual(hasilSoloMerah.rondeSelesai, false, 'Ronde belum selesai sebelum sisi lawan menjawab');
+  assert.strictEqual(hasilSoloMerah.sesi.skorMerah, 0, 'Skor merah tidak boleh bocor sebelum ronde ditutup');
 
-  // Tim Putih menjawab salah
+  // Tim Putih menjawab salah -> ronde ditutup -> skor merah terupdate +1 & tali +15
   const hasilSoloPutih = soloManager.prosesJawaban(sessionSoloId, hostSoloId, {
     presentationId: presSoloPutih.presentationId,
     tim: 'putih',
     choiceId: wrongSoloPutih.choiceId,
   });
   assert.strictEqual(hasilSoloPutih.benar, false, 'Solo tim putih menjawab salah');
+  assert.strictEqual(hasilSoloPutih.sesi.skorMerah, 1, 'Skor merah bertambah setelah ronde ditutup');
   assert.strictEqual(hasilSoloPutih.sesi.skorPutih, 0, 'Skor putih tidak bertambah');
   assert.strictEqual(hasilSoloPutih.rondeSelesai, true, 'Ronde selesai setelah kedua tim menjawab');
   assert.strictEqual(sesiSolo.taliPosition, 15, 'Tim Merah menarik +15 poin pada ronde pertama');

@@ -82,6 +82,13 @@ export interface RiwayatRondeSolo {
   powerUpTim2Dipakai: JenisPowerUpTarik | null;
 }
 
+export interface JawabanSisiSolo {
+  choiceId?: string;
+  kodeDipilih: string;
+  benar: boolean;
+  waktuJawabMs: number;
+}
+
 export interface RondeSoloAktif {
   nomorRonde: number;
   soalTim1: PresentasiSoalTarik;
@@ -89,18 +96,8 @@ export interface RondeSoloAktif {
   dimulaiPadaMs: number;
   berakhirPadaMs: number;
   sisaWaktuMsSaatJeda?: number;
-  jawabanTim1: {
-    choiceId?: string;
-    kodeDipilih: string;
-    benar: boolean;
-    waktuJawabMs: number;
-  } | null;
-  jawabanTim2: {
-    choiceId?: string;
-    kodeDipilih: string;
-    benar: boolean;
-    waktuJawabMs: number;
-  } | null;
+  jawabanTim1: JawabanSisiSolo | null;
+  jawabanTim2: JawabanSisiSolo | null;
   powerUpTim1Dipakai: JenisPowerUpTarik | null;
   powerUpTim2Dipakai: JenisPowerUpTarik | null;
   ditutup: boolean;
@@ -188,6 +185,93 @@ function buatStatistikPemainAwal(tim: TimTarikTambang, nama: string): StatistikP
   };
 }
 
+function sinkronkanRingkasanStat(stat: StatistikPemainSolo): void {
+  stat.akurasiPersen =
+    stat.jumlahJawab > 0 ? Math.round((stat.totalBenar / stat.jumlahJawab) * 100) : 0;
+  stat.rataRataWaktuJawabMs =
+    stat.jumlahJawab > 0 ? Math.round(stat.totalWaktuJawabMs / stat.jumlahJawab) : 0;
+}
+
+function prosesStatistikSisiRonde(
+  sesi: ActiveSoloSession,
+  stat: StatistikPemainSolo,
+  jawaban: JawabanSisiSolo | null
+): { benar: boolean; bonusDidapat: number } {
+  const benar = Boolean(jawaban?.benar);
+  stat.jumlahJawab += 1;
+  if (benar) {
+    stat.totalBenar += 1;
+  } else {
+    stat.totalSalah += 1;
+  }
+  if (jawaban) {
+    stat.totalWaktuJawabMs += jawaban.waktuJawabMs;
+  }
+
+  const st = perbaruiStreakIndividu({
+    streakSaatIni: stat.streakSaatIni,
+    streakTertinggi: stat.streakTertinggi,
+    milestone3SudahDapat: stat.milestone3Sudah,
+    milestone5SudahDapat: stat.milestone5Sudah,
+    benar,
+    bonusAktif: sesi.config.bonusAktif,
+  });
+
+  stat.streakSaatIni = st.streakBaru;
+  stat.streakTertinggi = st.streakTertinggiBaru;
+  stat.milestone3Sudah = st.milestone3SudahDapat;
+  stat.milestone5Sudah = st.milestone5SudahDapat;
+  stat.totalBonusStreak += st.bonusDidapat;
+
+  stat.powerUpTersedia = tentukanHadiahPowerUp({
+    powerUpAktif: sesi.config.powerUpAktif,
+    bankSaatIni: stat.powerUpTersedia,
+    streakBaru: stat.streakSaatIni,
+    akurasiRondePersen: 0,
+  });
+
+  sinkronkanRingkasanStat(stat);
+  return { benar, bonusDidapat: st.bonusDidapat };
+}
+
+function catatStatSoalDanLog(
+  sesi: ActiveSoloSession,
+  nomorRonde: number,
+  tim: TimTarikTambang,
+  pres: PresentasiSoalTarik,
+  jawaban: JawabanSisiSolo | null,
+  benar: boolean,
+  posisiSetelah: number
+): void {
+  const qStat = sesi.questionStatsMap.get(pres.questionId) || {
+    jumlahBenar: 0,
+    jumlahSalah: 0,
+  };
+  if (benar) qStat.jumlahBenar += 1;
+  else qStat.jumlahSalah += 1;
+  sesi.questionStatsMap.set(pres.questionId, qStat);
+
+  sesi.logJawaban.push({
+    questionId: pres.questionId,
+    nomorSoal: nomorRonde,
+    nomorRonde,
+    teksSoal: pres.teks,
+    tim,
+    jawabanDipilih: jawaban?.kodeDipilih || '-',
+    jawabanBenar: pres.jawabanBenarKode,
+    benar,
+    waktuJawabMs: jawaban?.waktuJawabMs ?? 0,
+    posisiSetelah,
+  });
+}
+
+function kloningStatPemain(stat: StatistikPemainSolo): StatistikPemainSolo {
+  return {
+    ...stat,
+    riwayatPowerUp: [...stat.riwayatPowerUp],
+  };
+}
+
 const sesiSoloMap = new Map<string, ActiveSoloSession>();
 
 function siapkanRondeBerikutnya(sesi: ActiveSoloSession): RondeSoloAktif {
@@ -246,21 +330,8 @@ function bangunLaporanAkhirSolo(sesi: ActiveSoloSession): LaporanTarikTambangSol
   const totalBenar = sesi.tim1.totalBenar + sesi.tim2.totalBenar;
   const totalSalah = sesi.tim1.totalSalah + sesi.tim2.totalSalah;
 
-  const akurasi1 =
-    sesi.tim1.jumlahJawab > 0
-      ? Math.round((sesi.tim1.totalBenar / sesi.tim1.jumlahJawab) * 100)
-      : 0;
-  const akurasi2 =
-    sesi.tim2.jumlahJawab > 0
-      ? Math.round((sesi.tim2.totalBenar / sesi.tim2.jumlahJawab) * 100)
-      : 0;
-
-  sesi.tim1.akurasiPersen = akurasi1;
-  sesi.tim1.rataRataWaktuJawabMs =
-    sesi.tim1.jumlahJawab > 0 ? Math.round(sesi.tim1.totalWaktuJawabMs / sesi.tim1.jumlahJawab) : 0;
-  sesi.tim2.akurasiPersen = akurasi2;
-  sesi.tim2.rataRataWaktuJawabMs =
-    sesi.tim2.jumlahJawab > 0 ? Math.round(sesi.tim2.totalWaktuJawabMs / sesi.tim2.jumlahJawab) : 0;
+  sinkronkanRingkasanStat(sesi.tim1);
+  sinkronkanRingkasanStat(sesi.tim2);
 
   const endMs = sesi.waktuSelesaiMs ?? Date.now();
   const durasiPermainanMs = sesi.waktuMulaiMs ? Math.max(0, endMs - sesi.waktuMulaiMs) : 0;
@@ -276,8 +347,8 @@ function bangunLaporanAkhirSolo(sesi: ActiveSoloSession): LaporanTarikTambangSol
     jumlahRonde: sesi.riwayatRonde.length,
     skorMerah: sesi.skorMerah,
     skorPutih: sesi.skorPutih,
-    akurasiTim1: akurasi1,
-    akurasiTim2: akurasi2,
+    akurasiTim1: sesi.tim1.akurasiPersen,
+    akurasiTim2: sesi.tim2.akurasiPersen,
     totalBenar,
     totalSalah,
     bonusStreakTim1: sesi.tim1.totalBonusStreak,
@@ -293,9 +364,9 @@ function bangunLaporanAkhirSolo(sesi: ActiveSoloSession): LaporanTarikTambangSol
       })),
     },
     durasiPermainanMs,
-    riwayatTali: sesi.riwayatTali,
-    riwayatRonde: sesi.riwayatRonde,
-    statistikPemain: [sesi.tim1, sesi.tim2],
+    riwayatTali: [...sesi.riwayatTali],
+    riwayatRonde: [...sesi.riwayatRonde],
+    statistikPemain: [kloningStatPemain(sesi.tim1), kloningStatPemain(sesi.tim2)],
   };
 }
 
@@ -303,12 +374,18 @@ function evaluasiDanTutupRondeInternal(sesi: ActiveSoloSession): {
   hasilRonde: RiwayatRondeSolo;
   selesai: boolean;
 } {
-  const ronde = sesi.rondeAktif!;
+  const ronde = sesi.rondeAktif;
+  if (!ronde) {
+    throw new Error('Belum ada ronde aktif pada sesi ini.');
+  }
   if (ronde.ditutup && ronde.hasilRonde) {
     return {
       hasilRonde: ronde.hasilRonde,
       selesai: sesi.state === 'FINISHED',
     };
+  }
+  if (ronde.sedangDiproses) {
+    throw new Error('Evaluasi ronde sedang berlangsung.');
   }
 
   ronde.sedangDiproses = true;
@@ -316,96 +393,28 @@ function evaluasiDanTutupRondeInternal(sesi: ActiveSoloSession): {
 
   const j1 = ronde.jawabanTim1;
   const j2 = ronde.jawabanTim2;
-  const tim1Benar = Boolean(j1?.benar);
-  const tim2Benar = Boolean(j2?.benar);
 
-  // Perbarui statistik jawaban tim 1 (termasuk tidak menjawab = gagal / reset streak)
-  sesi.tim1.jumlahJawab += 1;
-  if (tim1Benar) {
-    sesi.tim1.totalBenar += 1;
-    sesi.tim1.totalWaktuJawabMs += j1?.waktuJawabMs ?? 0;
-  } else {
-    sesi.tim1.totalSalah += 1;
-    if (j1) sesi.tim1.totalWaktuJawabMs += j1.waktuJawabMs;
-  }
-
-  // Perbarui statistik jawaban tim 2
-  sesi.tim2.jumlahJawab += 1;
-  if (tim2Benar) {
-    sesi.tim2.totalBenar += 1;
-    sesi.tim2.totalWaktuJawabMs += j2?.waktuJawabMs ?? 0;
-  } else {
-    sesi.tim2.totalSalah += 1;
-    if (j2) sesi.tim2.totalWaktuJawabMs += j2.waktuJawabMs;
-  }
-
-  // Streak individu
-  const st1 = perbaruiStreakIndividu({
-    streakSaatIni: sesi.tim1.streakSaatIni,
-    streakTertinggi: sesi.tim1.streakTertinggi,
-    milestone3SudahDapat: sesi.tim1.milestone3Sudah,
-    milestone5SudahDapat: sesi.tim1.milestone5Sudah,
-    benar: tim1Benar,
-    bonusAktif: sesi.config.bonusAktif,
-  });
-  sesi.tim1.streakSaatIni = st1.streakBaru;
-  sesi.tim1.streakTertinggi = st1.streakTertinggiBaru;
-  sesi.tim1.milestone3Sudah = st1.milestone3SudahDapat;
-  sesi.tim1.milestone5Sudah = st1.milestone5SudahDapat;
-  sesi.tim1.totalBonusStreak += st1.bonusDidapat;
-
-  const st2 = perbaruiStreakIndividu({
-    streakSaatIni: sesi.tim2.streakSaatIni,
-    streakTertinggi: sesi.tim2.streakTertinggi,
-    milestone3SudahDapat: sesi.tim2.milestone3Sudah,
-    milestone5SudahDapat: sesi.tim2.milestone5Sudah,
-    benar: tim2Benar,
-    bonusAktif: sesi.config.bonusAktif,
-  });
-  sesi.tim2.streakSaatIni = st2.streakBaru;
-  sesi.tim2.streakTertinggi = st2.streakTertinggiBaru;
-  sesi.tim2.milestone3Sudah = st2.milestone3SudahDapat;
-  sesi.tim2.milestone5Sudah = st2.milestone5SudahDapat;
-  sesi.tim2.totalBonusStreak += st2.bonusDidapat;
+  const res1 = prosesStatistikSisiRonde(sesi, sesi.tim1, j1);
+  const res2 = prosesStatistikSisiRonde(sesi, sesi.tim2, j2);
+  if (res1.benar) sesi.skorMerah += 1;
+  if (res2.benar) sesi.skorPutih += 1;
 
   const posisiSebelum = sesi.taliPosition;
   const evalRonde = evaluasiRondeTarikTambang({
     mode: 'SOLO',
     posisiLama: posisiSebelum,
-    tim1Benar: tim1Benar ? 1 : 0,
+    tim1Benar: res1.benar ? 1 : 0,
     tim1TotalAnggota: 1,
-    tim2Benar: tim2Benar ? 1 : 0,
+    tim2Benar: res2.benar ? 1 : 0,
     tim2TotalAnggota: 1,
-    bonusStreakTim1: st1.bonusDidapat,
-    bonusStreakTim2: st2.bonusDidapat,
+    bonusStreakTim1: res1.bonusDidapat,
+    bonusStreakTim2: res2.bonusDidapat,
     bonusAktif: sesi.config.bonusAktif,
     powerUpTim1Aktif: ronde.powerUpTim1Dipakai,
     powerUpTim2Aktif: ronde.powerUpTim2Dipakai,
   });
 
   sesi.taliPosition = evalRonde.posisiBaru;
-  sesi.tim1.akurasiPersen =
-    sesi.tim1.jumlahJawab > 0
-      ? Math.round((sesi.tim1.totalBenar / sesi.tim1.jumlahJawab) * 100)
-      : 0;
-  sesi.tim2.akurasiPersen =
-    sesi.tim2.jumlahJawab > 0
-      ? Math.round((sesi.tim2.totalBenar / sesi.tim2.jumlahJawab) * 100)
-      : 0;
-
-  // Hadiah power-up adil apabila slot kosong & mencapai milestone streak
-  sesi.tim1.powerUpTersedia = tentukanHadiahPowerUp({
-    powerUpAktif: sesi.config.powerUpAktif,
-    bankSaatIni: sesi.tim1.powerUpTersedia,
-    streakBaru: sesi.tim1.streakSaatIni,
-    akurasiRondePersen: 0,
-  });
-  sesi.tim2.powerUpTersedia = tentukanHadiahPowerUp({
-    powerUpAktif: sesi.config.powerUpAktif,
-    bankSaatIni: sesi.tim2.powerUpTersedia,
-    streakBaru: sesi.tim2.streakSaatIni,
-    akurasiRondePersen: 0,
-  });
 
   const riwayatItem: RiwayatRondeSolo = {
     nomorRonde: ronde.nomorRonde,
@@ -413,8 +422,8 @@ function evaluasiDanTutupRondeInternal(sesi: ActiveSoloSession): {
     tim2QuestionId: ronde.soalTim2.questionId,
     tim1Teks: ronde.soalTim1.teks,
     tim2Teks: ronde.soalTim2.teks,
-    tim1Benar,
-    tim2Benar,
+    tim1Benar: res1.benar,
+    tim2Benar: res2.benar,
     tim1JawabanKode: j1?.kodeDipilih ?? null,
     tim2JawabanKode: j2?.kodeDipilih ?? null,
     tim1Kunci: ronde.soalTim1.jawabanBenarKode,
@@ -440,47 +449,8 @@ function evaluasiDanTutupRondeInternal(sesi: ActiveSoloSession): {
     perubahan: evalRonde.perubahanTali,
   });
 
-  // Catat log jawaban & statistik soal
-  const qStat1 = sesi.questionStatsMap.get(ronde.soalTim1.questionId) || {
-    jumlahBenar: 0,
-    jumlahSalah: 0,
-  };
-  if (tim1Benar) qStat1.jumlahBenar += 1;
-  else qStat1.jumlahSalah += 1;
-  sesi.questionStatsMap.set(ronde.soalTim1.questionId, qStat1);
-
-  const qStat2 = sesi.questionStatsMap.get(ronde.soalTim2.questionId) || {
-    jumlahBenar: 0,
-    jumlahSalah: 0,
-  };
-  if (tim2Benar) qStat2.jumlahBenar += 1;
-  else qStat2.jumlahSalah += 1;
-  sesi.questionStatsMap.set(ronde.soalTim2.questionId, qStat2);
-
-  sesi.logJawaban.push({
-    questionId: ronde.soalTim1.questionId,
-    nomorSoal: ronde.nomorRonde,
-    nomorRonde: ronde.nomorRonde,
-    teksSoal: ronde.soalTim1.teks,
-    tim: 'merah',
-    jawabanDipilih: j1?.kodeDipilih || '-',
-    jawabanBenar: ronde.soalTim1.jawabanBenarKode,
-    benar: tim1Benar,
-    waktuJawabMs: j1?.waktuJawabMs ?? 0,
-    posisiSetelah: evalRonde.posisiBaru,
-  });
-  sesi.logJawaban.push({
-    questionId: ronde.soalTim2.questionId,
-    nomorSoal: ronde.nomorRonde,
-    nomorRonde: ronde.nomorRonde,
-    teksSoal: ronde.soalTim2.teks,
-    tim: 'putih',
-    jawabanDipilih: j2?.kodeDipilih || '-',
-    jawabanBenar: ronde.soalTim2.jawabanBenarKode,
-    benar: tim2Benar,
-    waktuJawabMs: j2?.waktuJawabMs ?? 0,
-    posisiSetelah: evalRonde.posisiBaru,
-  });
+  catatStatSoalDanLog(sesi, ronde.nomorRonde, 'merah', ronde.soalTim1, j1, res1.benar, evalRonde.posisiBaru);
+  catatStatSoalDanLog(sesi, ronde.nomorRonde, 'putih', ronde.soalTim2, j2, res2.benar, evalRonde.posisiBaru);
 
   const selesai = cekKondisiSelesai(evalRonde.posisiBaru);
   if (selesai) {
@@ -567,14 +537,34 @@ export const soloManager = {
     if (!sesi) throw new Error('Sesi tidak ditemukan atau Anda tidak berwenang.');
     if (sesi.state === 'FINISHED') throw new Error('Permainan pada sesi ini sudah selesai.');
 
-    if (stateBaru === 'PAUSED' && sesi.state === 'PLAYING' && sesi.rondeAktif && !sesi.rondeAktif.ditutup) {
+    if (sesi.state === 'READY') {
+      if (stateBaru === 'PLAYING') {
+        return this.mulaiSesi(sessionId, hostId);
+      }
+      throw new Error('Permainan belum dimulai sehingga tidak dapat dijeda.');
+    }
+
+    const now = Date.now();
+    if (
+      stateBaru === 'PAUSED' &&
+      sesi.state === 'PLAYING' &&
+      sesi.rondeAktif &&
+      !sesi.rondeAktif.ditutup
+    ) {
       sesi.rondeAktif.sisaWaktuMsSaatJeda = Math.max(
-        1000,
-        sesi.rondeAktif.berakhirPadaMs - Date.now()
+        250,
+        sesi.rondeAktif.berakhirPadaMs - now
       );
-    } else if (stateBaru === 'PLAYING' && sesi.state === 'PAUSED' && sesi.rondeAktif && !sesi.rondeAktif.ditutup) {
-      const sisa = sesi.rondeAktif.sisaWaktuMsSaatJeda ?? sesi.config.durasiRonde * 1000;
-      sesi.rondeAktif.berakhirPadaMs = Date.now() + sisa;
+    } else if (
+      stateBaru === 'PLAYING' &&
+      sesi.state === 'PAUSED' &&
+      sesi.rondeAktif &&
+      !sesi.rondeAktif.ditutup
+    ) {
+      const durasiMs = sesi.config.durasiRonde * 1000;
+      const sisa = sesi.rondeAktif.sisaWaktuMsSaatJeda ?? durasiMs;
+      sesi.rondeAktif.berakhirPadaMs = now + sisa;
+      sesi.rondeAktif.dimulaiPadaMs = now - Math.max(0, durasiMs - sisa);
       sesi.rondeAktif.sisaWaktuMsSaatJeda = undefined;
     }
 
@@ -582,6 +572,9 @@ export const soloManager = {
     return sesi;
   },
 
+  /**
+   * Mengaktifkan Power-Up milik tim untuk ronde berikutnya (maksimal 1 aktif, tidak dapat ditumpuk).
+   */
   aktifkanPowerUp(
     sessionId: string,
     hostId: string,
@@ -607,30 +600,11 @@ export const soloManager = {
     if (!stat.powerUpTersedia) {
       throw new Error('Tim belum memiliki power-up untuk diaktifkan.');
     }
-
-    const powerUp = stat.powerUpTersedia;
-    const ronde = sesi.rondeAktif;
-
-    // Jika ronde sedang berjalan dan tim belum menjawab & belum mengaktifkan power-up pada ronde ini, aktifkan langsung atau untuk ronde berikutnya
-    if (ronde && !ronde.ditutup) {
-      const sudahJawab = tim === 'merah' ? Boolean(ronde.jawabanTim1) : Boolean(ronde.jawabanTim2);
-      const sudahPakaiRondeIni =
-        tim === 'merah' ? ronde.powerUpTim1Dipakai !== null : ronde.powerUpTim2Dipakai !== null;
-
-      if (!sudahJawab && !sudahPakaiRondeIni) {
-        stat.powerUpTersedia = null;
-        if (tim === 'merah') ronde.powerUpTim1Dipakai = powerUp;
-        else ronde.powerUpTim2Dipakai = powerUp;
-        stat.jumlahPowerUpDipakai += 1;
-        stat.riwayatPowerUp.push({ ronde: ronde.nomorRonde, tipe: powerUp });
-        return { tim, powerUp, sesi };
-      }
-    }
-
     if (stat.powerUpAktifRondeBerikutnya !== null) {
       throw new Error('Sudah ada power-up yang diaktifkan untuk ronde berikutnya (maksimal 1).');
     }
 
+    const powerUp = stat.powerUpTersedia;
     stat.powerUpTersedia = null;
     stat.powerUpAktifRondeBerikutnya = powerUp;
     return { tim, powerUp, sesi };
@@ -667,7 +641,8 @@ export const soloManager = {
     }
 
     // Tolak jawaban terlambat melewati batas waktu ronde + toleransi jaringan 600ms
-    if (Date.now() > ronde.berakhirPadaMs + 600) {
+    const now = Date.now();
+    if (now > ronde.berakhirPadaMs + 600) {
       throw new Error('Waktu ronde telah habis. Jawaban terlambat ditolak.');
     }
 
@@ -685,7 +660,7 @@ export const soloManager = {
     const presTarget = tim === 'merah' ? ronde.soalTim1 : ronde.soalTim2;
     const presLawan = tim === 'merah' ? ronde.soalTim2 : ronde.soalTim1;
 
-    // Anti-lintas-sisi: tolak jika presentationId adalah milik tim lawan
+    // Anti-lintas-sisi: tolak jika presentationId milik sisi lawan
     if (input.presentationId && input.presentationId === presLawan.presentationId) {
       throw new Error('Tidak dapat menjawab soal milik sisi lawan.');
     }
@@ -706,8 +681,7 @@ export const soloManager = {
       jawaban: input.jawabanDipilih,
     });
 
-    const now = Date.now();
-    const recordJawaban = {
+    const recordJawaban: JawabanSisiSolo = {
       choiceId: input.choiceId,
       kodeDipilih: hasilVal.kodeDipilih,
       benar: hasilVal.benar,
@@ -716,13 +690,11 @@ export const soloManager = {
 
     if (tim === 'merah') {
       ronde.jawabanTim1 = recordJawaban;
-      if (hasilVal.benar) sesi.skorMerah += 1;
     } else {
       ronde.jawabanTim2 = recordJawaban;
-      if (hasilVal.benar) sesi.skorPutih += 1;
     }
 
-    // Jika kedua sisi sudah menjawab, langsung evaluasi dan tutup ronde
+    // Jika kedua sisi sudah menjawab, evaluasi & tutup ronde (tanpa bocor skor sebelum tutup)
     if (ronde.jawabanTim1 && ronde.jawabanTim2) {
       const { hasilRonde, selesai } = evaluasiDanTutupRondeInternal(sesi);
       return {
@@ -759,6 +731,18 @@ export const soloManager = {
     if (!sesi) throw new Error('Sesi tidak ditemukan atau Anda tidak berwenang.');
     if (!sesi.rondeAktif) throw new Error('Belum ada ronde aktif.');
 
+    if (sesi.rondeAktif.ditutup && sesi.rondeAktif.hasilRonde) {
+      return {
+        sesi,
+        hasilRonde: sesi.rondeAktif.hasilRonde,
+        selesai: sesi.state === 'FINISHED',
+      };
+    }
+
+    if (sesi.state !== 'PLAYING') {
+      throw new Error('Ronde hanya dapat ditutup saat permainan sedang berjalan.');
+    }
+
     const { hasilRonde, selesai } = evaluasiDanTutupRondeInternal(sesi);
     return { sesi, hasilRonde, selesai };
   },
@@ -782,8 +766,22 @@ export const soloManager = {
     const sesi = this.dapatkanSesi(sessionId, hostId);
     if (!sesi) throw new Error('Sesi tidak ditemukan atau Anda tidak berwenang.');
 
-    sesi.state = 'FINISHED';
-    sesi.waktuSelesaiMs = Date.now();
+    if (sesi.state === 'FINISHED' && sesi.hasil) {
+      return sesi;
+    }
+
+    if (sesi.rondeAktif && !sesi.rondeAktif.ditutup) {
+      if (sesi.rondeAktif.jawabanTim1 || sesi.rondeAktif.jawabanTim2) {
+        evaluasiDanTutupRondeInternal(sesi);
+      } else {
+        sesi.rondeAktif.ditutup = true;
+      }
+    }
+
+    if (sesi.state !== 'FINISHED') {
+      sesi.state = 'FINISHED';
+      sesi.waktuSelesaiMs = Date.now();
+    }
     sesi.rondeMenungguLanjut = false;
     sesi.hasil = bangunLaporanAkhirSolo(sesi);
     return sesi;
@@ -828,12 +826,8 @@ export const soloManager = {
       taliPosition: sesi.taliPosition,
       skorMerah: sesi.skorMerah,
       skorPutih: sesi.skorPutih,
-      tim1: {
-        ...sesi.tim1,
-      },
-      tim2: {
-        ...sesi.tim2,
-      },
+      tim1: kloningStatPemain(sesi.tim1),
+      tim2: kloningStatPemain(sesi.tim2),
       rondeSaatIni:
         sedangTampil && r
           ? {
@@ -852,9 +846,8 @@ export const soloManager = {
               hasilRonde: r.ditutup ? r.hasilRonde : null,
             }
           : null,
-      // Alias kompatibilitas untuk test/pemanggil lama
       soalSaatIni: soalTim1Client,
-      riwayatTali: sesi.riwayatTali,
+      riwayatTali: [...sesi.riwayatTali],
       isFinished: sesi.state === 'FINISHED',
       hasil: sesi.hasil || null,
     };
@@ -871,6 +864,7 @@ export const soloManager = {
           status: 'selesai',
           token: null,
           mode: 'solo',
+          mulaiPada: sesi.waktuMulaiMs ? new Date(sesi.waktuMulaiMs) : undefined,
           selesaiPada: new Date(),
           konfigurasi: JSON.stringify({
             playMode: 'SOLO',
@@ -940,21 +934,84 @@ export const soloManager = {
   async muatLaporanDariDatabase(sessionId: string): Promise<LaporanTarikTambangSolo | null> {
     const db = await prisma.session.findUnique({
       where: { id: sessionId },
-      include: { result: true },
+      include: {
+        template: true,
+        result: true,
+        players: true,
+      },
     });
     if (!db || db.mode !== 'solo') return null;
 
+    let parsedConfig: Partial<KonfigurasiTarikTambang> | undefined;
     if (db.konfigurasi) {
       try {
         const parsed = JSON.parse(db.konfigurasi);
         if (parsed?.laporanTarikSolo) {
           return parsed.laporanTarikSolo as LaporanTarikTambangSolo;
         }
+        if (parsed?.config) {
+          parsedConfig = parsed.config;
+        }
       } catch {
-        // lanjut fallback
+        // lanjut fallback rekonstruksi DB
       }
     }
-    return null;
+
+    if (!db.result) return null;
+
+    const configFallback = bangunKonfigurasiTarikTambang(parsedConfig);
+    const p1Db = db.players.find((p) => p.tim === 'tim1');
+    const p2Db = db.players.find((p) => p.tim === 'tim2');
+
+    const susunStatFallback = (
+      tim: TimTarikTambang,
+      namaDefault: string,
+      p?: typeof p1Db
+    ): StatistikPemainSolo => {
+      const stat = buatStatistikPemainAwal(tim, p?.nama || namaDefault);
+      if (p) {
+        stat.totalBenar = p.totalBenar;
+        stat.totalSalah = p.totalSalah;
+        stat.jumlahJawab = p.jumlahJawab || p.totalBenar + p.totalSalah;
+        stat.streakSaatIni = p.streakSaatIni;
+        stat.streakTertinggi = p.streakTertinggi;
+        stat.totalBonusStreak = p.poinBonus;
+        stat.totalWaktuJawabMs = p.totalWaktuJawabMs;
+        sinkronkanRingkasanStat(stat);
+      }
+      return stat;
+    };
+
+    const tim1 = susunStatFallback('merah', configFallback.namaTim1, p1Db);
+    const tim2 = susunStatFallback('putih', configFallback.namaTim2, p2Db);
+    const durasiMs =
+      db.mulaiPada && db.selesaiPada
+        ? Math.max(0, db.selesaiPada.getTime() - db.mulaiPada.getTime())
+        : 0;
+
+    return {
+      sessionId: db.id,
+      playMode: 'SOLO',
+      templateId: db.templateId,
+      templateJudul: db.template.judul,
+      konfigurasi: configFallback,
+      timMenang: (db.result.timMenang as HasilPemenang) || tentukanPemenang(db.result.posisiAkhir),
+      posisiAkhir: db.result.posisiAkhir,
+      jumlahRonde: Math.max(tim1.jumlahJawab, tim2.jumlahJawab),
+      skorMerah: db.result.skorMerah,
+      skorPutih: db.result.skorPutih,
+      akurasiTim1: tim1.akurasiPersen,
+      akurasiTim2: tim2.akurasiPersen,
+      totalBenar: tim1.totalBenar + tim2.totalBenar,
+      totalSalah: tim1.totalSalah + tim2.totalSalah,
+      bonusStreakTim1: tim1.totalBonusStreak,
+      bonusStreakTim2: tim2.totalBonusStreak,
+      penggunaanPowerUp: { tim1: [], tim2: [] },
+      durasiPermainanMs: durasiMs,
+      riwayatTali: [{ ronde: 0, posisi: POSISI_AWAL_TALI, perubahan: 0 }],
+      riwayatRonde: [],
+      statistikPemain: [tim1, tim2],
+    };
   },
 
   hapusSesi(sessionId: string): void {
