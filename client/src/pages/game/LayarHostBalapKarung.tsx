@@ -21,7 +21,6 @@ import {
   Check,
   RefreshCw,
   Users,
-  Sliders,
 } from 'lucide-react';
 
 type KodeTim = 'merah' | 'biru' | 'hijau' | 'kuning';
@@ -101,7 +100,6 @@ export default function LayarHostBalapKarung() {
 
   const [loading, setLoading] = useState(true);
   const [errorPesan, setErrorPesan] = useState<string | null>(null);
-  const [templateId, setTemplateId] = useState('');
   const [templateJudul, setTemplateJudul] = useState('Balap Karung Tim');
   const [token, setToken] = useState('');
   const [qrDataUrl, setQrDataUrl] = useState('');
@@ -173,7 +171,6 @@ export default function LayarHostBalapKarung() {
       }>(`/sesi/${id}`);
 
       const s = res.session;
-      setTemplateId(s.templateId || '');
       setTemplateJudul(s.templateJudul);
       setToken(s.token || '');
       setQrDataUrl(s.qrDataUrl || '');
@@ -724,21 +721,7 @@ export default function LayarHostBalapKarung() {
                     </div>
                   )}
 
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        navigate(
-                          `/guru/balap-karung?templateId=${encodeURIComponent(
-                            templateId
-                          )}&kembali=${encodeURIComponent(returnUrl)}`
-                        )
-                      }
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl border-2 border-[#f0dfb4] bg-[#fff3d6] text-xs font-extrabold text-[#2b2a4a] hover:bg-[#fde9b8] cursor-pointer"
-                    >
-                      <Sliders className="w-4 h-4" /> Pengaturan
-                    </button>
-
+                  <div className="flex flex-wrap items-center justify-end gap-2">
                     <button
                       type="button"
                       disabled={totalPeserta === 0 || isStarting}

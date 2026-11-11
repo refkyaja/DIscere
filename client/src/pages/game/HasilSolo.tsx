@@ -112,9 +112,11 @@ export default function HasilSolo() {
 
   if (loading) {
     return (
-      <div className="portal-bg min-h-screen flex flex-col items-center justify-center text-[#f4ecd8]">
-        <Loader2 className="w-10 h-10 animate-spin text-[#f2c230] mb-4" />
-        <p className="portal-cv text-3xl text-[#f4ecd8]">Menyusun Laporan Pertandingan...</p>
+      <div className="portal-bg relative">
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-[#f4ecd8]">
+          <Loader2 className="w-10 h-10 animate-spin text-[#f2c230] mb-4" />
+          <p className="portal-cv text-3xl text-[#f4ecd8]">Menyusun Laporan Pertandingan...</p>
+        </div>
       </div>
     );
   }

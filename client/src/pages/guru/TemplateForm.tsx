@@ -89,9 +89,11 @@ export default function TemplateForm() {
 
   if (loading) {
     return (
-      <div className="portal-bg min-h-screen flex flex-col items-center justify-center">
-        <Loader2 className="w-10 h-10 animate-spin text-[#f2c230] mb-3" />
-        <p className="portal-cv text-2xl text-[#f4ecd8]">Memuat formulir template...</p>
+      <div className="portal-bg relative">
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+          <Loader2 className="w-10 h-10 animate-spin text-[#f2c230] mb-3" />
+          <p className="portal-cv text-2xl text-[#f4ecd8]">Memuat formulir template...</p>
+        </div>
       </div>
     );
   }
