@@ -200,7 +200,14 @@ export const konfigurasiBalapKarungSchema = z
     penurunanKulitPisang: z.number().int().min(1).max(50).default(15),
     bonusLompatanKuat: z.number().int().min(1).max(30).default(5),
     penaltiJalanBerlumpur: z.number().int().min(1).max(30).default(5),
-    maxPeserta: z.number().int().min(1).max(200).default(100),
+    maxPeserta: z
+      .preprocess((v) => {
+        if (v === undefined || v === null || v === '') return 36;
+        const num = Number(v);
+        if (!Number.isFinite(num)) return 36;
+        return Math.min(36, Math.max(1, Math.round(num)));
+      }, z.number().int().min(1).max(36))
+      .default(36),
     allowLateJoin: z.boolean().default(true),
     jumlahTim: z
       .preprocess((v) => (v === 4 || v === '4' ? 4 : 3), z.union([z.literal(3), z.literal(4)]))

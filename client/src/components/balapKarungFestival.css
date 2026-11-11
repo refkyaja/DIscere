@@ -14,7 +14,7 @@
   --gold: #ffb81c;
   --ok: #1f9d55;
   --bad: #d63b3b;
-  --rw: 60px;
+  --rw: clamp(42px, 5vw, 52px);
 
   background: var(--bg);
   color: var(--ink);
@@ -36,38 +36,44 @@
   overflow: hidden;
   border-bottom: 4px solid #c99247;
   box-shadow: 0 10px 26px rgba(43, 42, 74, 0.14);
-  background: #6cc8ff;
+  background: linear-gradient(180deg, #6cc8ff 0%, #cdeeff 45%, #eaf8ff 100%);
 }
 
-/* Sky + Sun + Clouds */
+/* Sky + Sun + Clouds + Panorama Desa & Kota */
 .bk-sky {
   position: relative;
-  height: 122px;
-  background: linear-gradient(180deg, #6cc8ff 0%, #cdeeff 52%, #eaf8ff 100%);
+  height: 276px;
+  background: linear-gradient(180deg, #6cc8ff 0%, #cdeeff 45%, #eaf8ff 100%);
   overflow: hidden;
+}
+
+@media (max-width: 640px) {
+  .bk-sky {
+    height: 236px;
+  }
 }
 
 .bk-sun {
   position: absolute;
-  top: 14px;
-  right: 7%;
-  width: 46px;
-  height: 46px;
-  border-radius: 999px;
+  left: 7%;
+  top: 76px;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
   background: #ffd23f;
   box-shadow:
-    0 0 0 12px rgba(255, 210, 63, 0.3),
-    0 0 0 26px rgba(255, 210, 63, 0.15);
+    0 0 0 14px rgba(255, 210, 63, 0.3),
+    0 0 0 30px rgba(255, 210, 63, 0.15);
   z-index: 1;
 }
 
 .bk-cloud {
   position: absolute;
+  height: 28px;
+  border-radius: 28px;
   background: #ffffff;
-  border-radius: 999px;
-  opacity: 0.92;
-  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.06));
-  animation: bkDrift linear infinite;
+  opacity: 0.95;
+  animation: bkDrift 80s linear infinite;
   z-index: 2;
 }
 
@@ -76,29 +82,32 @@
   content: '';
   position: absolute;
   background: #ffffff;
-  border-radius: 999px;
+  border-radius: 50%;
 }
 
 .bk-cloud::before {
-  width: 55%;
-  height: 125%;
-  top: -45%;
-  left: 16%;
+  width: 40px;
+  height: 40px;
+  left: 14px;
+  top: -20px;
 }
 
 .bk-cloud::after {
-  width: 42%;
-  height: 105%;
-  top: -32%;
-  right: 16%;
+  width: 28px;
+  height: 28px;
+  left: 48px;
+  top: -10px;
 }
 
 @keyframes bkDrift {
   0% {
-    transform: translateX(-180px);
+    transform: translateX(-30px);
+  }
+  50% {
+    transform: translateX(50px);
   }
   100% {
-    transform: translateX(calc(100vw + 220px));
+    transform: translateX(-30px);
   }
 }
 
@@ -106,10 +115,12 @@
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
-  height: 92px;
+  bottom: 44px;
+  width: 100%;
+  height: 150px;
   z-index: 3;
   pointer-events: none;
+  display: block;
 }
 
 /* Cheering Crowd */
@@ -117,68 +128,69 @@
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 14px;
-  height: 48px;
+  bottom: 40px;
+  height: 100px;
   display: flex;
-  justify-content: space-around;
   align-items: flex-end;
-  padding: 0 2%;
+  justify-content: space-around;
+  padding: 0 6px;
   z-index: 4;
   pointer-events: none;
+  overflow: hidden;
 }
 
 .bk-spec {
-  width: 24px;
-  height: 44px;
-  flex-shrink: 0;
-  transform-origin: bottom center;
-  animation: bkSway 2.4s ease-in-out infinite;
+  flex: none;
+  overflow: visible;
+  margin-inline: -3px;
+  transform-origin: 50% 100%;
+  animation: bkSway 1.6s ease-in-out infinite;
 }
 
 .bk-crowd.cheer .bk-spec {
-  animation: bkCheer 0.42s ease-in-out infinite;
+  animation: bkCheer 0.35s ease-in-out infinite;
 }
 
 @keyframes bkSway {
   0%,
   100% {
-    transform: rotate(-2deg) translateY(0);
+    transform: rotate(-2deg);
   }
   50% {
-    transform: rotate(2.5deg) translateY(-1px);
+    transform: rotate(2deg);
   }
 }
 
 @keyframes bkCheer {
   0%,
   100% {
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
   50% {
-    transform: translateY(-9px) scale(1.06);
+    transform: translateY(-12px);
   }
 }
 
-/* Bunting Flags + Brick Wall */
+/* Bunting Flags + Brick Wall (persis desain referensi) */
 .bk-bunt {
-  position: relative;
-  z-index: 6;
-  height: 16px;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 44px;
+  z-index: 5;
   display: flex;
   justify-content: space-between;
-  background: #8493a8;
-  border-top: 2px solid #5d6a7d;
-  padding: 0 4px;
+  background: linear-gradient(#5a4a3a, #5a4a3a) 0 2px / 100% 2px no-repeat;
+  pointer-events: none;
   overflow: hidden;
 }
 
 .bk-bunt-tri {
   width: 0;
   height: 0;
-  border-left: 11px solid transparent;
-  border-right: 11px solid transparent;
-  border-top: 13px solid #e2312d;
-  filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.14));
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-top: 20px solid var(--red);
   flex-shrink: 0;
 }
 
@@ -187,43 +199,42 @@
 }
 
 .bk-wall {
-  position: relative;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 6;
-  height: 22px;
+  height: 44px;
   background:
     repeating-linear-gradient(
-      90deg,
-      rgba(255, 255, 255, 0.18) 0 2px,
-      transparent 2px 34px
+      0deg,
+      transparent 0 14px,
+      rgba(0, 0, 0, 0.12) 14px 15px
     ),
-    linear-gradient(180deg, #98a4b7 0%, #7d899d 100%);
-  border-top: 2px solid #6b7688;
-  border-bottom: 3px solid #596373;
+    linear-gradient(#9a9ca6, #7d7f89);
+  border-top: 4px solid #6c6e78;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
 }
 
 .bk-merdeka {
   font-family: 'Baloo 2', cursive, sans-serif;
   font-weight: 800;
-  font-size: 13px;
-  letter-spacing: 0.14em;
+  font-size: clamp(1.15rem, 2.2vw, 1.5rem);
+  letter-spacing: 0.06em;
   color: #ffffff;
-  text-shadow:
-    0 1.5px 0 var(--redd),
-    1.5px 0 0 var(--redd),
-    -1.5px 0 0 var(--redd);
-  transform: rotate(-1.5deg);
+  text-shadow: 2px 2px 0 var(--redd);
+  transform: rotate(-2deg);
   user-select: none;
 }
 
 /* Sandy Race Track */
 .bk-track {
   position: relative;
+  z-index: 7;
   background: linear-gradient(180deg, #f0c982 0%, #e0a95a 100%);
-  padding: 8px 0;
+  padding: 0;
 }
 
 .bk-mk50 {
@@ -231,7 +242,7 @@
   top: 0;
   bottom: 0;
   left: 50%;
-  border-left: 2px dashed rgba(255, 255, 255, 0.6);
+  border-left: 3px dashed rgba(255, 255, 255, 0.75);
   pointer-events: none;
   z-index: 1;
 }
@@ -243,7 +254,7 @@
   font-size: 10px;
   font-weight: 800;
   color: rgba(43, 42, 74, 0.65);
-  background: rgba(255, 253, 246, 0.72);
+  background: rgba(255, 253, 246, 0.78);
   padding: 1px 6px;
   border-radius: 999px;
 }
@@ -253,93 +264,88 @@
   top: 0;
   bottom: 0;
   left: 84%;
-  width: 14px;
-  background: repeating-conic-gradient(#2b2a4a 0% 25%, #ffffff 0% 50%) 50% / 14px 14px;
-  box-shadow: 0 0 0 2px rgba(43, 42, 74, 0.18);
-  z-index: 2;
+  width: 22px;
+  background: repeating-conic-gradient(var(--ink) 0 25%, #ffffff 0 50%) 0 0 / 11px 11px;
+  border: 2px solid var(--ink);
+  z-index: 1;
   pointer-events: none;
 }
 
 .bk-finish-tag {
   position: absolute;
-  top: 4px;
+  top: -26px;
   left: 50%;
   transform: translateX(-50%);
   font-family: 'Baloo 2', cursive, sans-serif;
-  font-size: 10px;
+  font-size: 0.72rem;
   font-weight: 800;
   background: var(--red);
   color: #ffffff;
   padding: 1px 8px;
-  border-radius: 999px;
-  border: 2px solid #ffffff;
+  border-radius: 6px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   white-space: nowrap;
+  z-index: 9;
 }
 
 /* Lane & Runner */
 .bk-lane {
   position: relative;
-  display: flex;
-  align-items: center;
-  min-height: 82px;
-  border-top: 2px dashed rgba(255, 255, 255, 0.68);
+  height: 100px;
+  border-top: 3px solid rgba(255, 255, 255, 0.9);
   z-index: 3;
 }
 
 .bk-lane:last-child {
-  border-bottom: 2px dashed rgba(255, 255, 255, 0.68);
+  border-bottom: 3px solid rgba(255, 255, 255, 0.9);
 }
 
 .bk-lane.compact {
-  min-height: 68px;
+  height: 92px;
+  --rw: clamp(38px, 4.4vw, 46px);
 }
 
 .bk-lane.win {
-  background: rgba(255, 184, 28, 0.18);
+  background: rgba(255, 184, 28, 0.22);
 }
 
-.bk-lane-info {
-  position: relative;
+.bk-lh {
+  position: absolute;
+  left: 8px;
+  top: 4px;
   z-index: 5;
-  margin-left: 12px;
   display: flex;
+  align-items: center;
+  gap: 8px;
   flex-wrap: wrap;
+  max-width: calc(82% - 16px);
+  pointer-events: none;
+}
+
+.bk-chip2 {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(255, 253, 246, 0.9);
-  border: 2px solid var(--line);
-  border-radius: 14px;
-  padding: 4px 10px;
-  box-shadow: 0 3px 10px rgba(43, 42, 74, 0.12);
-  max-width: 44%;
-}
-
-.bk-lane-dot {
-  width: 11px;
-  height: 11px;
-  border-radius: 999px;
-  flex-shrink: 0;
-}
-
-.bk-lane-name {
   font-family: 'Baloo 2', cursive, sans-serif;
   font-weight: 800;
-  font-size: 15px;
-  line-height: 1.1;
+  font-size: 0.82rem;
+  color: #ffffff;
+  padding: 1px 6px 1px 10px;
+  border-radius: 99px;
+  box-shadow: 0 2px 6px rgba(43, 42, 74, 0.22);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.16);
 }
 
-.bk-lane-meter {
-  font-family: 'Baloo 2', cursive, sans-serif;
-  font-weight: 800;
-  font-size: 13px;
-  background: #fff3d6;
-  border: 1.5px solid #e6cfa0;
+.bk-chip2-m {
+  background: #ffffff;
   color: var(--ink);
-  padding: 1px 8px;
-  border-radius: 999px;
+  border-radius: 99px;
+  padding: 0 8px;
+  font-size: 0.78rem;
+  line-height: 1.45;
   font-variant-numeric: tabular-nums;
+  text-shadow: none;
 }
 
 /* Member Initial Dots in Team Lane */
@@ -519,22 +525,20 @@
 
 /* Grass & River */
 .bk-grass {
-  height: 12px;
-  background: linear-gradient(180deg, #5fb84f 0%, #3f9b46 100%);
-  border-top: 2px solid #35833b;
+  height: 22px;
+  background: linear-gradient(#5fb84f, #3f9b46);
 }
 
 .bk-river {
-  height: 11px;
-  background: linear-gradient(180deg, #38a3e8 0%, #2486c9 100%);
-  border-top: 2px solid #2b8ecf;
+  height: 12px;
+  background: #38a3e8;
 }
 
 /* Floating Top Header inside Stage */
 .bk-top {
   max-width: 1120px;
   margin: 0 auto;
-  padding: 10px 16px 0;
+  padding: 12px 16px 0;
   position: relative;
   z-index: 12;
 }
@@ -563,19 +567,26 @@
 .bk-chip {
   font-family: 'Baloo 2', cursive, sans-serif;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 800;
   padding: 3px 11px;
   border-radius: 999px;
-  border: 1.5px solid var(--line);
-  background: #fff3d6;
-  color: var(--ink);
+  border: 1.5px solid #9fd4fa;
+  background: #cfeaff;
+  color: #0b4d7a;
   white-space: nowrap;
 }
 
-.bk-chip.live {
-  background: #e9f9ef;
+.bk-chip.live,
+.bk-chip.green {
+  background: #d9f5e3;
   border-color: #9de0b6;
-  color: var(--ok);
+  color: #0f5b32;
+}
+
+.bk-chip.yellow {
+  background: #ffe9a8;
+  border-color: #f3cf6d;
+  color: #7a5200;
 }
 
 .bk-chip.red {
@@ -585,9 +596,9 @@
 }
 
 .bk-chip.blue {
-  background: #e9f4ff;
-  border-color: #add6fa;
-  color: #1368ad;
+  background: #cfeaff;
+  border-color: #9fd4fa;
+  color: #0b4d7a;
 }
 
 /* Festival Cards & Buttons */
@@ -657,6 +668,25 @@
   background: linear-gradient(180deg, #279df0 0%, #1676bd 100%);
   border-color: #12619c;
   box-shadow: 0 4px 0 #0e4c7a;
+}
+
+.bk-btn.green {
+  background: linear-gradient(180deg, #27b164 0%, #178748 100%);
+  border-color: #14703c;
+  box-shadow: 0 4px 0 #0f562e;
+}
+
+.bk-btn.slate {
+  background: linear-gradient(180deg, #69799a 0%, #4e5c7a 100%);
+  border-color: #3d4a66;
+  box-shadow: 0 4px 0 #2d374d;
+}
+
+.bk-btn.gold {
+  background: linear-gradient(180deg, #ffc740 0%, #f5ab00 100%);
+  color: #4a3000;
+  border-color: #c98a00;
+  box-shadow: 0 4px 0 #a36f00;
 }
 
 /* Timer Bar */

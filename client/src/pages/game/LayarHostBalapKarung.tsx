@@ -680,13 +680,13 @@ export default function LayarHostBalapKarung() {
                     {activeTeams.map((t) => (
                       <div
                         key={t.id}
-                        className="rounded-2xl p-3 bg-[#fff3d6] border-[3px]"
-                        style={{ borderColor: t.warna }}
+                        className="rounded-2xl p-3 border-[3px]"
+                        style={{ borderColor: t.warna, backgroundColor: `${t.warna}14` }}
                       >
                         <div className="flex items-center justify-between gap-2 mb-1.5">
                           <span
-                            className="bk-h text-sm font-extrabold"
-                            style={{ color: t.warna }}
+                            className="bk-h text-xs font-extrabold text-white px-2.5 py-0.5 rounded-full"
+                            style={{ background: t.warna }}
                           >
                             {t.nama}
                           </span>
@@ -784,14 +784,13 @@ export default function LayarHostBalapKarung() {
                           {idx + 1}
                         </strong>
                         <span
-                          className="w-3.5 h-3.5 rounded-full shrink-0"
+                          className="bk-h text-xs font-extrabold text-white px-2.5 py-0.5 rounded-full shrink-0"
                           style={{ background: t.warna }}
-                        />
-                        <span className="font-extrabold text-[#2b2a4a] flex-1">
-                          {t.nama}{' '}
-                          <small className="font-bold text-[#6b6a85] ml-1">
-                            {t.anggota.length} orang
-                          </small>
+                        >
+                          {t.nama}
+                        </span>
+                        <span className="font-extrabold text-[#6b6a85] text-xs flex-1">
+                          {t.anggota.length} orang
                         </span>
                         <span className="bk-h font-extrabold text-[#1f9d55] text-base">
                           {t.isWinner || t.meter >= targetJarak
@@ -937,11 +936,13 @@ export default function LayarHostBalapKarung() {
                     >
                       {isWinner ? 'Juara 1 • Pemenang' : `Juara ${tim.peringkat || idx + 1}`}
                     </span>
-                    <h3
-                      className="bk-h text-xl font-extrabold mt-1.5"
-                      style={{ color: tim.warna }}
-                    >
-                      {tim.nama}
+                    <h3 className="mt-1.5">
+                      <span
+                        className="inline-block bk-h text-base font-extrabold text-white px-3 py-0.5 rounded-full"
+                        style={{ background: tim.warna }}
+                      >
+                        {tim.nama}
+                      </span>
                     </h3>
                     <div className="bk-h text-3xl font-extrabold text-[#2b2a4a] mb-2">
                       {Math.round(tim.meter)} m

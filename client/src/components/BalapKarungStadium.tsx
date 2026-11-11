@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useId } from 'react';
 import { Volume2, VolumeX, ArrowLeft, Pause, Play, StopCircle } from 'lucide-react';
 import './balapKarungFestival.css';
 
@@ -21,153 +21,108 @@ export function BalapSackSvg({
 }: BalapSackSvgProps) {
   return (
     <svg viewBox="0 -12 80 112" className={className} aria-hidden="true">
-      {/* Mahkota Emas Pemenang */}
-      {crown && (
-        <polygon
-          points="24,14 27,2 34,9 40,0 46,9 53,2 56,14"
-          fill="#ffb81c"
-          stroke="#b87800"
-          strokeWidth="2"
-          strokeLinejoin="round"
+      {/* Lengan Diangkat Saat Selebrasi / Juara */}
+      {up && (
+        <path
+          d="M20 52L8 28M60 52L72 28"
+          stroke="#ffd9a8"
+          strokeWidth="8"
+          strokeLinecap="round"
         />
       )}
 
-      {/* Lengan Diangkat Saat Selebrasi / Juara */}
-      {up ? (
-        <>
-          <line
-            x1="27"
-            y1="44"
-            x2="13"
-            y2="25"
-            stroke="#ffd9a8"
-            strokeWidth="7"
-            strokeLinecap="round"
-          />
-          <line
-            x1="53"
-            y1="44"
-            x2="67"
-            y2="25"
-            stroke="#ffd9a8"
-            strokeWidth="7"
-            strokeLinecap="round"
-          />
-        </>
-      ) : (
-        <>
-          <line
-            x1="26"
-            y1="44"
-            x2="20"
-            y2="56"
-            stroke="#ffd9a8"
-            strokeWidth="6"
-            strokeLinecap="round"
-          />
-          <line
-            x1="54"
-            y1="44"
-            x2="60"
-            y2="56"
-            stroke="#ffd9a8"
-            strokeWidth="6"
-            strokeLinecap="round"
-          />
-        </>
-      )}
-
-      {/* Baju Peserta / Tim */}
-      <ellipse
-        cx="40"
-        cy="47"
-        rx="16"
-        ry="14"
-        fill={shirtColor}
-        stroke="#2b2a4a"
-        strokeWidth="2.2"
-      />
-
-      {/* Karung Goni + Tambalan */}
+      {/* Bayangan & Karung Goni */}
+      <ellipse cx="40" cy="96" rx="22" ry="4" fill="rgba(0,0,0,0.2)" />
       <path
-        d="M21 50 Q18 82 24 94 Q40 99 56 94 Q62 82 59 50 Q40 55 21 50 Z"
+        d="M14 58L22 94Q40 100 58 94L66 58Z"
         fill="#c98a4b"
         stroke="#6b4423"
-        strokeWidth="2.4"
+        strokeWidth="3"
         strokeLinejoin="round"
       />
-      <path
-        d="M22 52 Q40 57 58 52"
-        fill="none"
-        stroke="#8d5c2b"
-        strokeWidth="2.2"
-        strokeDasharray="4 3"
-      />
+      <path d="M20 66Q40 74 60 66" stroke="#6b4423" strokeWidth="2.5" fill="none" />
+      <circle cx="40" cy="82" r="6" fill="#e9b778" stroke="#6b4423" strokeWidth="2" />
+
+      {/* Baju Peserta / Tim */}
       <rect
-        x="33"
-        y="65"
-        width="16"
-        height="13"
-        rx="2.5"
-        transform="rotate(-7 41 71)"
-        fill="#e9b778"
-        stroke="#8d5c2b"
-        strokeWidth="1.6"
+        x="18"
+        y="48"
+        width="44"
+        height="18"
+        rx="9"
+        fill={shirtColor}
+        stroke="#2b2a4a"
+        strokeWidth="3"
       />
-      <line x1="25" y1="60" x2="29" y2="75" stroke="#9e6632" strokeWidth="1.4" strokeLinecap="round" />
-      <line x1="54" y1="62" x2="51" y2="80" stroke="#9e6632" strokeWidth="1.4" strokeLinecap="round" />
 
       {/* Kepala & Ikat Kepala Merah-Putih */}
-      <circle
-        cx="40"
-        cy="25"
-        r="14"
-        fill="#ffd9a8"
-        stroke="#6b4423"
-        strokeWidth="2.2"
-      />
-      {/* Rambut singkat */}
+      <circle cx="40" cy="28" r="22" fill="#ffd9a8" stroke="#2b2a4a" strokeWidth="3" />
       <path
-        d="M27 21 Q33 10 41 11 Q50 11 53 20 Q46 16 39 17 Q32 16 27 21 Z"
-        fill="#3b2f2f"
+        d="M18 22Q40 4 62 22L62 29Q40 17 18 29Z"
+        fill="#ffffff"
+        stroke="#2b2a4a"
+        strokeWidth="3"
       />
-      {/* Ikat kepala Merah-Putih */}
-      <path d="M27 18 Q40 15 53 18 L53 21 Q40 18 27 21 Z" fill="#e2312d" />
-      <path d="M27 21 Q40 18 53 21 L53 23.5 Q40 20.5 27 23.5 Z" fill="#ffffff" />
+      <path d="M18 22Q40 4 62 22L62 25Q40 12 18 25Z" fill="#e2312d" />
 
       {/* Ekspresi Wajah */}
       {sad ? (
         <>
-          <path d="M33 25 L37 29 M37 25 L33 29" stroke="#2b2a4a" strokeWidth="2.1" strokeLinecap="round" />
-          <path d="M43 25 L47 29 M47 25 L43 29" stroke="#2b2a4a" strokeWidth="2.1" strokeLinecap="round" />
-          <path d="M35 34 Q40 30 45 34" fill="none" stroke="#2b2a4a" strokeWidth="2.1" strokeLinecap="round" />
+          <path
+            d="M29 33l6 6M35 33l-6 6M45 33l6 6M51 33l-6 6"
+            stroke="#2b2a4a"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+          />
+          <path
+            d="M32 47Q40 40 48 47"
+            stroke="#2b2a4a"
+            strokeWidth="2.5"
+            fill="none"
+            strokeLinecap="round"
+          />
         </>
       ) : (
         <>
-          <circle cx="35" cy="26.5" r="2.1" fill="#2b2a4a" />
-          <circle cx="45" cy="26.5" r="2.1" fill="#2b2a4a" />
-          <circle cx="31.5" cy="30" r="2" fill="#f79f95" opacity="0.7" />
-          <circle cx="48.5" cy="30" r="2" fill="#f79f95" opacity="0.7" />
-          <path d="M35.5 31 Q40 35.5 44.5 31" fill="none" stroke="#2b2a4a" strokeWidth="2" strokeLinecap="round" />
+          <circle cx="32" cy="36" r="2.6" fill="#2b2a4a" />
+          <circle cx="48" cy="36" r="2.6" fill="#2b2a4a" />
+          <path
+            d="M32 43Q40 51 48 43Z"
+            fill="#c2332f"
+            stroke="#2b2a4a"
+            strokeWidth="2"
+            strokeLinejoin="round"
+          />
         </>
+      )}
+
+      {/* Mahkota Emas Pemenang */}
+      {crown && (
+        <path
+          d="M26 8L28 -4L35 3L40 -8L45 3L52 -4L54 8Z"
+          fill="#ffb81c"
+          stroke="#2b2a4a"
+          strokeWidth="2.5"
+          strokeLinejoin="round"
+        />
       )}
 
       {/* Medali Perak Juara 2 */}
       {medal && (
-        <g transform="translate(40,56)">
-          <circle cx="0" cy="0" r="8" fill="#d7e0eb" stroke="#64748b" strokeWidth="2" />
+        <>
+          <circle cx="40" cy="64" r="7" fill="#cfd6e4" stroke="#2b2a4a" strokeWidth="2" />
           <text
-            x="0"
-            y="3.5"
-            textAnchor="middle"
+            x="40"
+            y="68"
             fontSize="10"
-            fontWeight="900"
-            fill="#1e293b"
+            fontWeight="800"
+            textAnchor="middle"
+            fill="#2b2a4a"
             fontFamily="Baloo 2, sans-serif"
           >
             2
           </text>
-        </g>
+        </>
       )}
     </svg>
   );
@@ -216,14 +171,17 @@ export interface BalapKarungStadiumProps {
   onStop?: () => void;
 }
 
-const SPECTATOR_COLORS = [
-  ['#e2312d', '#ffb81c'],
-  ['#1d8fe0', '#ffd23f'],
-  ['#1f9d55', '#ffffff'],
-  ['#7a3fd0', '#ff8a65'],
-  ['#f97316', '#38bdf8'],
-  ['#ec4899', '#fde047'],
+const CROWD_SHIRTS = [
+  '#e2312d',
+  '#1d8fe0',
+  '#ffb81c',
+  '#7a3fd0',
+  '#1f9d55',
+  '#ff7a59',
+  '#2bb6a8',
 ];
+const CROWD_SKINS = ['#ffd9a8', '#e8b27d', '#c58c5a', '#f3c99b'];
+const CROWD_HAIRS = ['#2b2a4a', '#4a2c17', '#111111', '#6b3b1e'];
 
 export function BalapKarungStadium({
   title = 'Balap Karung Kuis',
@@ -243,26 +201,31 @@ export function BalapKarungStadium({
   onTogglePause,
   onStop,
 }: BalapKarungStadiumProps) {
+  const reactId = useId().replace(/:/g, '');
+  const townPatternId = `bk-town-pat-${reactId}`;
+
   const spectators = useMemo(
     () =>
-      Array.from({ length: 28 }, (_, i) => ({
+      Array.from({ length: 30 }, (_, i) => ({
         idx: i,
-        shirt: SPECTATOR_COLORS[i % SPECTATOR_COLORS.length][0],
-        accent: SPECTATOR_COLORS[i % SPECTATOR_COLORS.length][1],
-        delay: ((i * 137) % 1000) / 1000,
-        hasFlag: i % 3 === 0,
+        width: 34 + ((i * 7) % 13),
+        shirt: CROWD_SHIRTS[i % CROWD_SHIRTS.length],
+        skin: CROWD_SKINS[(i * 3) % CROWD_SKINS.length],
+        hair: CROWD_HAIRS[(i * 5) % CROWD_HAIRS.length],
+        delay: (((i * 37) % 15) / 10).toFixed(2),
+        hasFlag: i % 5 === 0,
       })),
     []
   );
 
-  const buntings = useMemo(() => Array.from({ length: 30 }, (_, i) => i), []);
+  const buntings = useMemo(() => Array.from({ length: 48 }, (_, i) => i), []);
 
   const statusClass =
-    statusTone === 'live' ? 'bk-chip live' : statusTone === 'done' ? 'bk-chip blue' : 'bk-chip';
+    statusTone === 'live' ? 'bk-chip live' : statusTone === 'done' ? 'bk-chip blue' : 'bk-chip blue';
 
   return (
     <section className="bk-stage">
-      {/* Langit + Matahari + Awan + Pemandangan Desa */}
+      {/* Langit + Matahari + Awan + Pemandangan Kota/Desa + Penonton + Bunting + Tembok */}
       <div className="bk-sky">
         {/* Top Floating HUD */}
         <div className="bk-top">
@@ -283,14 +246,14 @@ export function BalapKarungStadium({
                 {title}
               </span>
               {subtitle && (
-                <span className="hidden md:inline-block bk-chip red">{subtitle}</span>
+                <span className="hidden md:inline-block bk-chip green">{subtitle}</span>
               )}
               <span className={statusClass}>{statusLabel}</span>
-              <span className="bk-chip">Target {targetJarak} m</span>
+              <span className="bk-chip yellow">Target {targetJarak} m</span>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="hidden sm:inline-block text-xs font-extrabold text-[#6b6a85] bg-[#fff3d6]/80 px-2.5 py-1 rounded-full border border-[#f0dfb4]">
+              <span className="hidden sm:inline-block text-xs font-extrabold text-[#6b6a85] px-1">
                 {ruleSummary}
               </span>
 
@@ -331,75 +294,116 @@ export function BalapKarungStadium({
         </div>
 
         <div className="bk-sun" />
+        <div className="bk-cloud" style={{ width: 110, top: 78, left: '30%' }} />
         <div
           className="bk-cloud"
-          style={{ width: 92, height: 28, top: 22, left: '8%', animationDuration: '44s' }}
+          style={{ width: 90, top: 96, left: '62%', animationDuration: '98s' }}
         />
         <div
           className="bk-cloud"
-          style={{ width: 68, height: 22, top: 44, left: '36%', animationDuration: '58s', animationDelay: '-18s' }}
-        />
-        <div
-          className="bk-cloud"
-          style={{ width: 108, height: 30, top: 18, left: '68%', animationDuration: '50s', animationDelay: '-30s' }}
+          style={{ width: 120, top: 72, left: '84%', animationDuration: '115s' }}
         />
 
-        {/* Latar Perkampungan + Pepohonan + Bendera Merah-Putih */}
-        <svg className="bk-town" viewBox="0 0 1200 150" preserveAspectRatio="none" aria-hidden="true">
-          <path d="M0 150 L0 105 Q180 65 360 100 T760 95 T1200 102 L1200 150 Z" fill="#9fd685" />
-          {[40, 230, 480, 690, 910, 1090].map((x, idx) => (
-            <g key={x} transform={`translate(${x}, ${idx % 2 === 0 ? 52 : 60})`}>
-              <rect x="6" y="34" width="66" height="44" fill="#ddcdb7" stroke="#bfa98e" strokeWidth="2" />
-              <polygon points="0,36 39,10 78,36" fill="#d4452f" />
-              <rect x="16" y="46" width="14" height="14" rx="2" fill="#fff6c2" />
-              <rect x="46" y="46" width="16" height="32" rx="2" fill="#9e6b43" />
-              <circle cx="96" cy="54" r="18" fill="#2f8f3f" />
-              <circle cx="110" cy="58" r="14" fill="#3da44d" />
-              <rect x="93" y="68" width="6" height="16" fill="#7c5230" />
-            </g>
-          ))}
-          {/* Tiang Bendera Merah-Putih */}
-          <g transform="translate(600, 18)">
-            <rect x="0" y="0" width="4" height="96" fill="#6b7280" />
-            <rect x="4" y="4" width="42" height="14" fill="#e2312d" />
-            <rect x="4" y="18" width="42" height="14" fill="#ffffff" />
-          </g>
+        {/* Latar Perkampungan + Gedung Kota + Bendera + Bukit + Pepohonan (Pattern Tiling Penuh 100%) */}
+        <svg className="bk-town" height="150" aria-hidden="true">
+          <defs>
+            <pattern id={townPatternId} width="600" height="150" patternUnits="userSpaceOnUse">
+              {/* Rumah Kiri (2 lantai) */}
+              <rect
+                x="60"
+                y="35"
+                width="60"
+                height="110"
+                fill="#ddcdb7"
+                stroke="#7b6f5c"
+                strokeWidth="2"
+              />
+              <path d="M55 35h70l-35-22z" fill="#d4452f" />
+              <g fill="#fff6c2">
+                <rect x="72" y="52" width="9" height="11" />
+                <rect x="98" y="52" width="9" height="11" />
+                <rect x="72" y="76" width="9" height="11" />
+                <rect x="98" y="76" width="9" height="11" />
+              </g>
+
+              {/* Rumah Tengah Lebar */}
+              <rect
+                x="330"
+                y="62"
+                width="70"
+                height="90"
+                fill="#ddcdb7"
+                stroke="#7b6f5c"
+                strokeWidth="2"
+              />
+              <path d="M325 62h80l-40-20z" fill="#d4452f" />
+              <g fill="#fff6c2">
+                <rect x="344" y="78" width="9" height="11" />
+                <rect x="376" y="78" width="9" height="11" />
+              </g>
+
+              {/* Siluet Gedung Kota */}
+              <rect x="220" y="55" width="20" height="95" fill="#8e949c" />
+              <rect x="250" y="72" width="20" height="78" fill="#a2a8b0" />
+
+              {/* Tiang & Bendera Merah-Putih */}
+              <path d="M560 20V140" stroke="#7b6f5c" strokeWidth="3" />
+              <rect x="560" y="22" width="34" height="11" fill="#e2312d" />
+              <rect x="560" y="33" width="34" height="11" fill="#ffffff" />
+
+              {/* Bukit Hijau Bergelombang */}
+              <path d="M0 150V100Q150 70 300 100T600 100V150Z" fill="#9fd685" />
+
+              {/* Pepohonan */}
+              <rect x="478" y="95" width="8" height="40" fill="#6b4423" />
+              <circle cx="482" cy="80" r="26" fill="#2f8f3f" />
+              <rect x="16" y="105" width="7" height="35" fill="#6b4423" />
+              <circle cx="20" cy="92" r="18" fill="#2f8f3f" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="150" fill={`url(#${townPatternId})`} />
         </svg>
 
-        {/* Penonton Bersorak */}
-        <div className={`bk-crowd ${crowdCheer ? 'cheer' : ''}`}>
+        {/* Penonton Bersorak dengan Tangan Terangkat & Bendera Mini */}
+        <div className={`bk-crowd ${crowdCheer ? 'cheer' : ''}`} aria-hidden="true">
           {spectators.map((sp) => (
             <svg
               key={sp.idx}
               className="bk-spec"
-              viewBox="0 0 28 50"
-              style={{ animationDelay: `${sp.delay}s` }}
-              aria-hidden="true"
+              width={sp.width}
+              viewBox="0 -16 40 76"
+              style={{ animationDelay: `-${sp.delay}s` }}
             >
-              <circle cx="14" cy="14" r="7" fill="#ffd9a8" stroke="#6b4423" strokeWidth="1.5" />
-              <path d="M7 11 Q14 4 21 11 Z" fill="#2b2a4a" />
-              <rect x="6" y="22" width="16" height="22" rx="6" fill={sp.shirt} stroke="#2b2a4a" strokeWidth="1.5" />
+              <path
+                d="M9 40L3 16M31 40L37 16"
+                stroke={sp.skin}
+                strokeWidth="5"
+                strokeLinecap="round"
+              />
               {sp.hasFlag && (
                 <>
-                  <line x1="23" y1="6" x2="23" y2="30" stroke="#7c5230" strokeWidth="1.6" />
-                  <rect x="23" y="6" width="10" height="4" fill="#e2312d" />
-                  <rect x="23" y="10" width="10" height="4" fill="#ffffff" />
+                  <path d="M37 16V-12" stroke="#6b4423" strokeWidth="2" />
+                  <path d="M37 -12h12v5h-12z" fill="#e2312d" />
+                  <path d="M37 -7h12v5h-12z" fill="#ffffff" stroke="#dddddd" strokeWidth="0.5" />
                 </>
               )}
-              <circle cx="14" cy="29" r="3" fill={sp.accent} opacity="0.85" />
+              <rect x="8" y="30" width="24" height="30" rx="8" fill={sp.shirt} />
+              <circle cx="20" cy="19" r="10" fill={sp.skin} />
+              <path d="M10 18Q20 4 30 18Q20 11 10 18Z" fill={sp.hair} />
+              <ellipse cx="20" cy="23" rx="3" ry="2.4" fill="#8a2a2a" />
             </svg>
           ))}
         </div>
-      </div>
 
-      {/* Bendera Segitiga Merah-Putih + Tembok MERDEKA!! */}
-      <div className="bk-bunt">
-        {buntings.map((idx) => (
-          <div key={idx} className={`bk-bunt-tri ${idx % 2 === 1 ? 'w' : ''}`} />
-        ))}
-      </div>
-      <div className="bk-wall">
-        <span className="bk-merdeka">MERDEKA!! • DIRGAHAYU • 17 AGUSTUS</span>
+        {/* Bendera Segitiga Merah-Putih + Tembok MERDEKA!! */}
+        <div className="bk-bunt" aria-hidden="true">
+          {buntings.map((idx) => (
+            <div key={idx} className={`bk-bunt-tri ${idx % 2 === 1 ? 'w' : ''}`} />
+          ))}
+        </div>
+        <div className="bk-wall">
+          <span className="bk-merdeka">MERDEKA!!</span>
+        </div>
       </div>
 
       {/* Lintasan Balap Karung */}
@@ -429,10 +433,11 @@ export function BalapKarungStadium({
               key={lane.id}
               className={`bk-lane ${compactLanes ? 'compact' : ''} ${lane.isWinner ? 'win' : ''}`}
             >
-              <div className="bk-lane-info">
-                <span className="bk-lane-dot" style={{ background: lane.warna }} />
-                <span className="bk-lane-name">{lane.nama}</span>
-                <span className="bk-lane-meter">{Math.round(lane.meter)} m</span>
+              <div className="bk-lh">
+                <span className="bk-chip2" style={{ background: lane.warna }}>
+                  {lane.nama}
+                  <b className="bk-chip2-m">{Math.round(lane.meter)} m</b>
+                </span>
 
                 {lane.members && lane.members.length > 0 && (
                   <div className="bk-mem-dots" aria-label={`Anggota ${lane.nama}`}>
