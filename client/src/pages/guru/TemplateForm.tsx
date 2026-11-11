@@ -59,6 +59,7 @@ export default function TemplateForm() {
   const [aiMateri, setAiMateri] = useState('');
   const [aiJumlah, setAiJumlah] = useState<number>(5);
   const [aiTingkat, setAiTingkat] = useState<'SD' | 'SMP'>('SD');
+  const [aiKesulitan, setAiKesulitan] = useState<'mudah' | 'sedang' | 'sulit'>('sedang');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiSuksesPesan, setAiSuksesPesan] = useState<string | null>(null);
@@ -84,6 +85,7 @@ export default function TemplateForm() {
               opsiC: q.opsiC,
               jawabanBenar: q.jawabanBenar,
               penjelasan: q.penjelasan || '',
+              kesulitan: q.kesulitan || 'sedang',
               dibuatAi: Boolean(q.dibuatAi),
             }))
           );
@@ -144,6 +146,7 @@ export default function TemplateForm() {
           materi: aiMateri.trim(),
           jumlah: aiJumlah,
           tingkat: aiTingkat,
+          kesulitan: aiKesulitan,
           jumlahSoal: aiJumlah,
           jenjang: aiTingkat,
         }),
@@ -161,6 +164,7 @@ export default function TemplateForm() {
             opsiC: q.opsiC,
             jawabanBenar: q.jawabanBenar,
             penjelasan: q.penjelasan || '',
+            kesulitan: (q as any).kesulitan || aiKesulitan,
             dibuatAi: true,
           })
         );
@@ -291,6 +295,7 @@ export default function TemplateForm() {
           opsiC: q.opsiC.trim(),
           jawabanBenar: q.jawabanBenar,
           penjelasan: q.penjelasan ? q.penjelasan.trim() : null,
+          kesulitan: q.kesulitan || 'sedang',
         })),
       };
 
@@ -608,10 +613,26 @@ export default function TemplateForm() {
                 {questions.map((soal, index) => (
                   <div key={index} className="portal-card p-6 space-y-4 relative">
                     <div className="flex items-center justify-between border-b-2 border-dashed border-[#e0d5b8] pb-3">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="portal-cv text-2xl text-[#c8362f]">
                           Soal #{index + 1}
                         </span>
+                        <select
+                          aria-label={`Tingkat kesulitan soal ${index + 1}`}
+                          value={soal.kesulitan || 'sedang'}
+                          onChange={(e) =>
+                            handleUpdateSoal(
+                              index,
+                              'kesulitan',
+                              e.target.value as 'mudah' | 'sedang' | 'sulit'
+                            )
+                          }
+                          className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#f4ecd9] border border-[#e0d5b8] text-[#1d3b2e] cursor-pointer"
+                        >
+                          <option value="mudah">Mudah</option>
+                          <option value="sedang">Sedang</option>
+                          <option value="sulit">Sulit</option>
+                        </select>
                         {soal.dibuatAi && (
                           <span className="portal-tag yellow">
                             <Sparkles className="w-3 h-3 text-[#8a6a00]" /> Dibuat AI
@@ -783,7 +804,7 @@ export default function TemplateForm() {
             </div>
 
             {/* Pilihan Pengaturan AI */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="block text-xs font-bold text-[#1d3b2e] uppercase tracking-wider mb-1">
                   Jumlah Soal
@@ -813,6 +834,24 @@ export default function TemplateForm() {
                 >
                   <option value="SD">Sekolah Dasar (SD Kelas 4 - 6)</option>
                   <option value="SMP">Sekolah Menengah Pertama (SMP)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#1d3b2e] uppercase tracking-wider mb-1">
+                  Tingkat Kesulitan
+                </label>
+                <select
+                  disabled={aiLoading}
+                  value={aiKesulitan}
+                  onChange={(e) =>
+                    setAiKesulitan(e.target.value as 'mudah' | 'sedang' | 'sulit')
+                  }
+                  className="portal-select"
+                >
+                  <option value="mudah">Mudah</option>
+                  <option value="sedang">Sedang</option>
+                  <option value="sulit">Sulit</option>
                 </select>
               </div>
             </div>

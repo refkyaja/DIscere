@@ -11,10 +11,10 @@ export type EkspresiTarikTambang =
 export type PoseTarikTambang = 'siap' | 'tarik' | 'podium';
 
 export interface KarakterTarikTambangProps {
-  tim: 'merah' | 'putih';
+  tim: 'merah' | 'putih' | 'biru';
   ekspresi?: EkspresiTarikTambang;
   pose?: PoseTarikTambang;
-  /** Arah menghadap: default Tim Merah menghadap ke kanan (pusat), Tim Putih menghadap ke kiri (pusat) */
+  /** Arah menghadap: default Tim Merah (Tim 1 kiri) menghadap kanan, Tim Biru (Tim 2 kanan) menghadap kiri */
   hadap?: 'kanan' | 'kiri';
   /** Variasi rambut & warna kulit agar anggota tim tampak beragam (0, 1, atau 2) */
   varian?: 0 | 1 | 2;
@@ -62,7 +62,7 @@ export default function KarakterTarikTambang({
 
   const kaus = isMerah
     ? { utama: '#c8362f', gelap: '#961e19', kerah: '#fbf6e9', celana: '#1d3b2e', pita: '#c8362f' }
-    : { utama: '#ffffff', gelap: '#cbd5e1', kerah: '#1f4a6b', celana: '#1f4a6b', pita: '#1f4a6b' };
+    : { utama: '#2563eb', gelap: '#1d4ed8', kerah: '#eff6ff', celana: '#1e3a8a', pita: '#2563eb' };
 
   const isBahagia = ekspresi === 'bahagia' || ekspresi === 'menang';
   const isSedih = ekspresi === 'sedih' || ekspresi === 'kalah';
@@ -73,7 +73,7 @@ export default function KarakterTarikTambang({
   const gradPerakId = `tt-silver-${uid}`;
 
   const labelAkses = [
-    `Karakter Tim ${isMerah ? 'Merah' : 'Putih'}`,
+    `Karakter ${isMerah ? 'Tim Merah' : 'Tim Biru'}`,
     podiumRank === 1 ? 'Pemenang bermahkota emas' : podiumRank === 2 ? 'Runner-up bermedali perak' : null,
     isBahagia ? 'bersorak bahagia' : isSedih ? 'ekspresi tegang atau sedih' : null,
   ]

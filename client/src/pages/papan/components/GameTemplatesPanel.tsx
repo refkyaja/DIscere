@@ -184,6 +184,15 @@ export function GameTemplatesPanel({
         return;
       }
 
+      // 1c. Bila game adalah Tarik Tambang Challenge, arahkan ke Pemilihan Mode Dual Mode
+      if (template.game === 'tarik_tambang') {
+        onClose();
+        navigate(
+          `/guru/tarik-tambang?templateId=${encodeURIComponent(template.id)}&kembali=${encodeURIComponent(`/papan/${boardId}`)}`
+        );
+        return;
+      }
+
       // 2. Buat sesi di server
       const res = await apiRequest<{ session: { id: string } }>('/sesi', {
         method: 'POST',

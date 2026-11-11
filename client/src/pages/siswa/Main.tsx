@@ -17,26 +17,39 @@ import {
   ShieldAlert,
   Loader2,
   ArrowLeft,
+  Flame,
+  Lock,
+  Zap,
 } from 'lucide-react';
 
 interface SoalData {
+  presentationId?: string;
   id: string;
   questionId?: string;
   nomorSoal: number;
+  nomorRonde?: number;
   totalSoal: number;
   teks: string;
   opsiA: string;
   opsiB: string;
   opsiC: string;
+  pilihan?: Array<{ choiceId: string; label: 'A' | 'B' | 'C'; teks: string }>;
   endsAt?: number;
   duration?: number;
 }
 
 interface SelesaiResult {
   timMenang: 'merah' | 'putih' | 'seri';
+  konfigurasi?: { namaTim1?: string; namaTim2?: string };
+  namaTim1?: string;
+  namaTim2?: string;
   posisiAkhir: number;
   skorMerah: number;
   skorPutih: number;
+  akurasiTim1?: number;
+  akurasiTim2?: number;
+  akurasiTim1Persen?: number;
+  akurasiTim2Persen?: number;
 }
 
 export default function MainSiswa() {
@@ -77,15 +90,49 @@ export default function MainSiswa() {
   const [daftarPeserta, setDaftarPeserta] = useState<Array<{ id: string; nama: string; tim: 'merah' | 'putih' | null }>>([]);
 
   // In-Game states
+  const [tarikConfig, setTarikConfig] = useState<{
+    namaTim1: string;
+    namaTim2: string;
+    durasiRonde: number;
+    bonusAktif: boolean;
+    powerUpAktif: boolean;
+  }>({
+    namaTim1: 'Tim Merah',
+    namaTim2: 'Tim Biru',
+    durasiRonde: 20,
+    bonusAktif: true,
+    powerUpAktif: true,
+  });
+  const [powerUpTim, setPowerUpTim] = useState<{
+    bank: string | null;
+    aktifBerikutnya: string | null;
+  }>({ bank: null, aktifBerikutnya: null });
+  const [pesertaStat, setPesertaStat] = useState<{
+    totalBenar: number;
+    totalSalah: number;
+    jumlahJawab: number;
+    akurasiPersen: number;
+    streakSaatIni: number;
+    streakTertinggi: number;
+  }>({
+    totalBenar: 0,
+    totalSalah: 0,
+    jumlahJawab: 0,
+    akurasiPersen: 0,
+    streakSaatIni: 0,
+    streakTertinggi: 0,
+  });
   const [soalAktif, setSoalAktif] = useState<SoalData | null>(null);
-  const [sisaDetik, setSisaDetik] = useState<number>(15);
+  const [sisaDetik, setSisaDetik] = useState<number>(20);
   const [jawabanDipilih, setJawabanDipilih] = useState<'A' | 'B' | 'C' | null>(null);
+  const [pickedChoiceId, setPickedChoiceId] = useState<string | null>(null);
   const [sudahKirim, setSudahKirim] = useState(false);
   const [feedback, setFeedback] = useState<{
     tampil: boolean;
     benar?: boolean;
     jawabanBenar?: string;
     penjelasan?: string | null;
+    infoRonde?: string;
   } | null>(null);
 
   // Score & Rope states
@@ -183,6 +230,9 @@ export default function MainSiswa() {
               setGameType('tarik_tambang');
             }
             if (res.tim) setTim(res.tim);
+            if (res.config) setTarikConfig((prev) => ({ ...prev, ...res.config }));
+            if (res.powerUpTim) setPowerUpTim(res.powerUpTim);
+            if (res.pesertaStat) setPesertaStat(res.pesertaStat);
             setTaliPosition(res.taliPosition ?? 0);
             setSkorMerah(res.skorMerah ?? 0);
             setSkorPutih(res.skorPutih ?? 0);
@@ -197,11 +247,12 @@ export default function MainSiswa() {
                   questionId: resolvedId,
                 });
                 startCountdown(res.soalAktif.endsAt);
-                if (res.sudahJawabSoalAktif) {
+                if (res.sudahJawabRondeAktif || res.sudahJawabSoalAktif) {
                   setSudahKirim(true);
                 }
               }
             } else if (res.status === 'selesai') {
+              if (res.hasil) setHasilAkhir(res.hasil);
               setStage('SELESAI');
             } else {
               setStage('LOBBY');
@@ -218,9 +269,16 @@ export default function MainSiswa() {
     const socket = getSocket();
 
     // 1. Pembaruan Peserta di Lobi
-    const handleLobiUpdate = (data: { totalPeserta: number; daftarPeserta: any[] }) => {
+    const handleLobiUpdate = (data: {
+      totalPeserta: number;
+      daftarPeserta: any[];
+      config?: any;
+    }) => {
       setTotalPeserta(data.totalPeserta);
       setDaftarPeserta(data.daftarPeserta);
+      if (data.config) setTarikConfig((prev) => ({ ...prev, ...data.config }));
+      const me = data.daftarPeserta?.find((p) => p.id === pesertaId);
+      if (me?.tim) setTim(me.tim);
     };
 
     // 2. Pembagian Tim dari Server
@@ -232,7 +290,7 @@ export default function MainSiswa() {
       }
     };
 
-    // 3. Soal Baru Ditampilkan
+    // 3. Soal Baru Ditampilkan (khusus tim sendiri)
     const handleSoalTampil = (data: any) => {
       setStage('PLAYING');
       const resolvedId = data.id || data.questionId || '';
@@ -243,12 +301,13 @@ export default function MainSiswa() {
         questionId: resolvedQuestionId,
       });
       setJawabanDipilih(null);
+      setPickedChoiceId(null);
       setSudahKirim(false);
       setFeedback(null);
       startCountdown(data.endsAt);
     };
 
-    // 4. Update Posisi Tali & Skor Real-Time
+    // 4. Update Progres & Tali Real-Time
     const handleTaliUpdate = (data: {
       taliPosition: number;
       skorMerah: number;
@@ -259,55 +318,76 @@ export default function MainSiswa() {
       setSkorPutih(data.skorPutih);
     };
 
-    // 5. Soal Berakhir (Penjelasan & Jawaban Benar)
-    const handleSoalSelesai = (data: {
-      questionIndex: number;
-      jawabanBenar: string;
-      penjelasan?: string | null;
-      taliPosition: number;
-      skorMerah: number;
-      skorPutih: number;
-      isGameFinished: boolean;
-    }) => {
-      setTaliPosition(data.taliPosition);
-      setSkorMerah(data.skorMerah);
-      setSkorPutih(data.skorPutih);
+    // 4b. Pembaruan Status Power-Up Tim
+    const handlePowerUpUpdate = (data: any) => {
+      if (tim === 'merah' && data.powerUpTim1) {
+        setPowerUpTim(data.powerUpTim1);
+      } else if (tim === 'putih' && data.powerUpTim2) {
+        setPowerUpTim(data.powerUpTim2);
+      }
+    };
 
-      // Tampilkan feedback apakah jawaban pemain benar/salah
-      setFeedback((prev) => {
-        const isBenar = prev ? Boolean(prev.benar) : false;
-        if (!prev) {
-          // Siswa tidak sempat menjawab sebelum waktu berakhir
-          soundEffects.playIncorrect();
-        }
-        return {
-          tampil: true,
-          benar: isBenar,
-          jawabanBenar: data.jawabanBenar || prev?.jawabanBenar,
-          penjelasan: data.penjelasan || prev?.penjelasan,
-        };
+    // 5. Ronde Berakhir (ungkap kunci, evaluasi tim, power-up & statistik)
+    const handleSoalSelesai = (data: any) => {
+      setTaliPosition(data.taliPosition ?? 0);
+      setSkorMerah(data.skorMerah ?? 0);
+      setSkorPutih(data.skorPutih ?? 0);
+
+      if (tim === 'merah' && data.powerUpTim1) setPowerUpTim(data.powerUpTim1);
+      if (tim === 'putih' && data.powerUpTim2) setPowerUpTim(data.powerUpTim2);
+
+      const me = data.daftarPeserta?.find((p: any) => p.id === pesertaId);
+      if (me) {
+        setPesertaStat({
+          totalBenar: me.totalBenar ?? 0,
+          totalSalah: me.totalSalah ?? 0,
+          jumlahJawab: me.jumlahJawab ?? 0,
+          akurasiPersen: me.akurasiPersen ?? 0,
+          streakSaatIni: me.streakSaatIni ?? 0,
+          streakTertinggi: me.streakTertinggi ?? 0,
+        });
+      }
+
+      const hr = data.hasilRonde;
+      const isTim1 = tim === 'merah';
+      const kunciTim = hr ? (isTim1 ? hr.tim1Kunci : hr.tim2Kunci) : data.jawabanBenar;
+      const penjelasanTim = hr
+        ? isTim1
+          ? hr.tim1Penjelasan
+          : hr.tim2Penjelasan
+        : data.penjelasan;
+      const akurasiTimRonde = hr ? (isTim1 ? hr.akurasiTim1 : hr.akurasiTim2) : null;
+
+      const siswaBenar =
+        Boolean(sudahKirim && jawabanDipilih && kunciTim && jawabanDipilih === kunciTim);
+
+      if (siswaBenar) soundEffects.playCorrect();
+      else soundEffects.playIncorrect();
+
+      setFeedback({
+        tampil: true,
+        benar: siswaBenar,
+        jawabanBenar: kunciTim,
+        penjelasan: penjelasanTim,
+        infoRonde:
+          hr && akurasiTimRonde !== null
+            ? `Akurasi timmu ronde ini: ${akurasiTimRonde}% • Perubahan tali: ${
+                hr.perubahanTali > 0 ? `+${hr.perubahanTali}` : hr.perubahanTali
+              }`
+            : undefined,
       });
     };
 
-    // 5b. Feedback Langsung Jawaban Personal
+    // 5b. Konfirmasi Kunci Jawaban (TIDAK ada kunci sebelum ronde berakhir)
     const handleJawabHasil = (data: {
       success: boolean;
+      terkunci?: boolean;
       benar?: boolean;
       jawabanBenar?: string;
       penjelasan?: string;
     }) => {
-      if (data?.success) {
-        if (data.benar) {
-          soundEffects.playCorrect();
-        } else {
-          soundEffects.playIncorrect();
-        }
-        setFeedback({
-          tampil: true,
-          benar: Boolean(data.benar),
-          jawabanBenar: data.jawabanBenar,
-          penjelasan: data.penjelasan,
-        });
+      if (data?.success && data.terkunci) {
+        setSudahKirim(true);
       }
     };
 
@@ -316,7 +396,6 @@ export default function MainSiswa() {
       setHasilAkhir(data.hasil);
       setStage('SELESAI');
       soundEffects.playVictoryFanfare();
-      // Hapus data session agar siswa bisa join game baru berikutnya jika diinginkan
       sessionStorage.removeItem('discere_multi_token');
       sessionStorage.removeItem('discere_multi_peserta_id');
       sessionStorage.removeItem('discere_multi_nama');
@@ -327,6 +406,7 @@ export default function MainSiswa() {
     socket.on('teams_assigned', handleTeamsAssigned);
     socket.on('soal:tampil', handleSoalTampil);
     socket.on('tali:update', handleTaliUpdate);
+    socket.on('powerup:update', handlePowerUpUpdate);
     socket.on('soal:selesai', handleSoalSelesai);
     socket.on('jawab:hasil', handleJawabHasil);
     socket.on('sesi:selesai', handleSesiSelesai);
@@ -336,11 +416,12 @@ export default function MainSiswa() {
       socket.off('teams_assigned', handleTeamsAssigned);
       socket.off('soal:tampil', handleSoalTampil);
       socket.off('tali:update', handleTaliUpdate);
+      socket.off('powerup:update', handlePowerUpUpdate);
       socket.off('soal:selesai', handleSoalSelesai);
       socket.off('jawab:hasil', handleJawabHasil);
       socket.off('sesi:selesai', handleSesiSelesai);
     };
-  }, [pesertaId, startCountdown, gameType]);
+  }, [pesertaId, startCountdown, gameType, tim, sudahKirim, jawabanDipilih]);
 
   // Handler: Siswa Submit PIN (Langkah 1)
   const handleNextToName = (e: React.FormEvent) => {
@@ -435,6 +516,9 @@ export default function MainSiswa() {
         }
 
         if (res.tim) setTim(res.tim);
+        if ((res as any).config) setTarikConfig((prev) => ({ ...prev, ...(res as any).config }));
+        if ((res as any).powerUpTim) setPowerUpTim((res as any).powerUpTim);
+        if ((res as any).pesertaStat) setPesertaStat((res as any).pesertaStat);
         setTaliPosition(res.taliPosition ?? 0);
         setSkorMerah(res.skorMerah ?? 0);
         setSkorPutih(res.skorPutih ?? 0);
@@ -454,7 +538,13 @@ export default function MainSiswa() {
               questionId: resolvedId,
             });
             startCountdown(res.soalAktif.endsAt);
+            if ((res as any).sudahJawabRondeAktif || (res as any).sudahJawabSoalAktif) {
+              setSudahKirim(true);
+            }
           }
+        } else if (res.status === 'selesai') {
+          if ((res as any).hasil) setHasilAkhir((res as any).hasil);
+          setStage('SELESAI');
         } else {
           setStage('LOBBY');
         }
@@ -462,14 +552,15 @@ export default function MainSiswa() {
     );
   };
 
-  // Handler: Siswa Mengirim Jawaban (A / B / C)
-  const handlePilihJawaban = (opsi: 'A' | 'B' | 'C') => {
+  // Handler: Siswa Mengirim Jawaban (choiceId / A / B / C)
+  const handlePilihJawaban = (opsi: 'A' | 'B' | 'C', choiceId?: string) => {
     if (sudahKirim || !sessionId || !pesertaId || !soalAktif) return;
 
     setJawabanDipilih(opsi);
+    if (choiceId) setPickedChoiceId(choiceId);
     setSudahKirim(true);
 
-    const targetId = soalAktif.id || soalAktif.questionId || '';
+    const targetId = soalAktif.questionId || soalAktif.id || '';
 
     const socket = getSocket();
     socket.emit(
@@ -477,25 +568,41 @@ export default function MainSiswa() {
       {
         sessionId,
         pesertaId,
+        pesertaSecret: panjatSecret || undefined,
+        presentationId: soalAktif.presentationId,
+        choiceId,
         questionId: targetId,
         id: targetId,
         jawaban: opsi,
       },
-      (res: { success: boolean; benar?: boolean; jawabanBenar?: string; penjelasan?: string; pesan?: string }) => {
-        if (res?.success) {
-          if (res.benar) {
-            soundEffects.playCorrect();
-          } else {
-            soundEffects.playIncorrect();
-          }
-          setFeedback({
-            tampil: true,
-            benar: Boolean(res.benar),
-            jawabanBenar: res.jawabanBenar,
-            penjelasan: res.penjelasan,
-          });
+      (res: { success: boolean; terkunci?: boolean; pesan?: string }) => {
+        if (!res?.success) {
+          setSudahKirim(false);
+          setJawabanDipilih(null);
+          setPickedChoiceId(null);
+          setFormError(res?.pesan || 'Gagal mengirim jawaban.');
         } else {
-          console.error('Gagal mengirim jawaban:', res?.pesan);
+          setFormError(null);
+        }
+      }
+    );
+  };
+
+  const handleAktifkanPowerUp = () => {
+    if (!sessionId || !pesertaId || !tim || !powerUpTim.bank) return;
+    getSocket().emit(
+      'powerup:aktifkan',
+      {
+        sessionId,
+        tim,
+        pesertaId,
+        pesertaSecret: panjatSecret || undefined,
+      },
+      (res: any) => {
+        if (res?.success) {
+          soundEffects.playBoost();
+        } else if (res?.pesan) {
+          setFormError(res.pesan);
         }
       }
     );
@@ -510,6 +617,20 @@ export default function MainSiswa() {
     setStage('GABUNG');
     setSessionId(null);
     setPesertaId(null);
+    setPickedChoiceId(null);
+    setJawabanDipilih(null);
+    setSudahKirim(false);
+    setFeedback(null);
+    setHasilAkhir(null);
+    setPowerUpTim({ bank: null, aktifBerikutnya: null });
+    setPesertaStat({
+      totalBenar: 0,
+      totalSalah: 0,
+      jumlahJawab: 0,
+      akurasiPersen: 0,
+      streakSaatIni: 0,
+      streakTertinggi: 0,
+    });
     setPanjatSecret('');
     setPanjatConfig(undefined);
     setPanjatState(undefined);
@@ -1245,17 +1366,31 @@ export default function MainSiswa() {
               <div className="p-4 bg-[#f4ecd9] border border-[#e0d5b8] rounded-2xl space-y-3">
                 <div className="flex items-center justify-center gap-2 text-[#1d3b2e] font-extrabold text-sm">
                   <Users className="w-4 h-4 text-[#c8362f]" />
-                  <Sparkles className="w-4 h-4 text-[#b45309]" />
-                  <span>{totalPeserta} Siswa Sudah Bergabung</span>
+                  <span>{totalPeserta} Siswa Bergabung</span>
+                  {tim && (
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase ${
+                        tim === 'merah'
+                          ? 'bg-[#c8362f] text-white'
+                          : 'bg-[#2563eb] text-white'
+                      }`}
+                    >
+                      Kamu di {tim === 'merah' ? tarikConfig.namaTim1 : tarikConfig.namaTim2}
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-wrap justify-center gap-2 max-h-36 overflow-y-auto p-1">
                   {daftarPeserta.map((p) => (
                     <span
                       key={p.id}
-                      className={`text-xs px-3 py-1 rounded-full font-bold ${
+                      className={`text-xs px-3 py-1 rounded-full font-bold border ${
                         p.id === pesertaId
-                          ? 'bg-[#c8362f] text-white shadow-xs'
-                          : 'bg-white border border-[#e0d5b8] text-[#1d3b2e]'
+                          ? p.tim === 'merah'
+                            ? 'bg-[#c8362f] border-[#961e19] text-white shadow-xs'
+                            : 'bg-[#2563eb] border-[#1e3a8a] text-white shadow-xs'
+                          : p.tim === 'merah'
+                          ? 'bg-[#fde8e7] border-[#f5c2c0] text-[#961e19]'
+                          : 'bg-[#eff6ff] border-[#bfdbfe] text-[#1e3a8a]'
                       }`}
                     >
                       {p.nama} {p.id === pesertaId && '(Kamu)'}
@@ -1265,7 +1400,8 @@ export default function MainSiswa() {
               </div>
 
               <div className="text-xs font-semibold text-[#6b7d6c]">
-                Tim Merah atau Tim Putih akan dibagi otomatis dan adil saat lomba dimulai.
+                Pembagian tim dapat disesuaikan oleh Bapak/Ibu Guru di layar depan sebelum lomba
+                dimulai.
               </div>
             </div>
           </main>
@@ -1290,15 +1426,18 @@ export default function MainSiswa() {
   // ==========================================
   if (stage === 'PLAYING') {
     const isMerah = tim === 'merah';
+    const namaTimSaya = isMerah ? tarikConfig.namaTim1 : tarikConfig.namaTim2;
     const selectedTeamColor = isMerah
       ? 'bg-[#c8362f] border-[#8f1e19]'
-      : 'bg-[#1f4a6b] border-[#122e44]';
-    const ropePersen = Math.max(0, Math.min(100, ((taliPosition + 8) / 16) * 100));
+      : 'bg-[#2563eb] border-[#1e3a8a]';
+    const clampPos = Math.max(-100, Math.min(100, taliPosition));
+    const ropePersen = Math.max(0, Math.min(100, ((100 - clampPos) / 200) * 100));
+    const durasiTotal = soalAktif?.duration || tarikConfig.durasiRonde || 20;
 
     return (
       <div className="portal-bg min-h-screen flex flex-col justify-between p-4 sm:p-6 select-none">
         <div className="max-w-lg mx-auto w-full flex-1 flex flex-col justify-between space-y-4">
-          {/* Top Bar: Karakter & Tim Badge, Soal Number, Timer */}
+          {/* Top Bar: Karakter & Tim Badge, Ronde, Timer */}
           <header className="portal-card rounded-2xl p-3.5 sm:p-4 border-2 border-[#e0d5b8] shadow-[0_4px_0_rgba(0,0,0,0.16)] space-y-2.5">
             <div className="flex justify-between items-center gap-2">
               <div className="flex items-center gap-2">
@@ -1306,7 +1445,7 @@ export default function MainSiswa() {
                   className={`w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden border ${
                     isMerah
                       ? 'bg-[#fbf0ee] border-[#d9544c]/60'
-                      : 'bg-[#edf4fb] border-[#2b6cb0]/60'
+                      : 'bg-[#eff6ff] border-[#3b82f6]/60'
                   }`}
                 >
                   <KarakterTarikTambang
@@ -1322,19 +1461,26 @@ export default function MainSiswa() {
                     size="xs"
                   />
                 </div>
-                <span
-                  className={`text-xs sm:text-sm font-black uppercase tracking-wider px-2.5 py-1 rounded-full ${
-                    isMerah
-                      ? 'bg-[#fde8e7] text-[#c8362f]'
-                      : 'bg-[#e3eef9] text-[#1f4a6b]'
-                  }`}
-                >
-                  TIM {tim?.toUpperCase() || '-'}
-                </span>
+                <div>
+                  <span
+                    className={`text-xs sm:text-sm font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full inline-block ${
+                      isMerah
+                        ? 'bg-[#fde8e7] text-[#c8362f]'
+                        : 'bg-[#dbeafe] text-[#2563eb]'
+                    }`}
+                  >
+                    {namaTimSaya}
+                  </span>
+                  {pesertaStat.streakSaatIni > 0 && (
+                    <span className="ml-1.5 inline-flex items-center gap-0.5 text-[11px] font-black text-[#b45309]">
+                      <Flame className="w-3 h-3" /> {pesertaStat.streakSaatIni}
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="text-xs font-extrabold text-[#1d3b2e] bg-[#f4ecd9] px-3 py-1.5 rounded-full border border-[#e0d5b8]">
-                Soal {soalAktif ? soalAktif.nomorSoal : '-'} / {soalAktif ? soalAktif.totalSoal : '-'}
+                Ronde {soalAktif?.nomorRonde ?? soalAktif?.nomorSoal ?? '-'}
               </div>
 
               <div
@@ -1353,25 +1499,55 @@ export default function MainSiswa() {
             <div className="w-full bg-[#e0d5b8] h-2 rounded-full overflow-hidden">
               <div
                 className={`h-full transition-all duration-300 ease-linear ${
-                  sisaDetik <= 5 ? 'bg-[#c8362f]' : isMerah ? 'bg-[#c8362f]' : 'bg-[#1f4a6b]'
+                  sisaDetik <= 5 ? 'bg-[#c8362f]' : isMerah ? 'bg-[#c8362f]' : 'bg-[#2563eb]'
                 }`}
-                style={{ width: `${Math.min(100, (sisaDetik / 15) * 100)}%` }}
+                style={{ width: `${Math.min(100, (sisaDetik / durasiTotal) * 100)}%` }}
               />
             </div>
+
+            {/* Banner Power-Up Tim */}
+            {tarikConfig.powerUpAktif && (powerUpTim.bank || powerUpTim.aktifBerikutnya) && (
+              <div className="pt-1 flex items-center justify-between gap-2 text-xs font-bold">
+                {powerUpTim.aktifBerikutnya ? (
+                  <span className="text-amber-700 inline-flex items-center gap-1">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Power-up {powerUpTim.aktifBerikutnya} aktif ronde berikutnya!
+                  </span>
+                ) : (
+                  <>
+                    <span className="text-[#1d3b2e] inline-flex items-center gap-1">
+                      <Zap className="w-3.5 h-3.5 text-[#b45309]" />
+                      Power-Up Tim: {powerUpTim.bank}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleAktifkanPowerUp}
+                      className="px-3 py-1 rounded-lg bg-[#b45309] text-white font-black text-xs shadow"
+                    >
+                      Aktifkan!
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </header>
 
-          {/* Mini Bar Posisi Tali Live */}
+          {/* Mini Bar Posisi Tali Live (-100 .. +100) */}
           <div className="portal-card rounded-2xl px-4 py-2.5 border-2 border-[#e0d5b8] shadow-xs">
             <div className="flex justify-between items-center text-xs font-extrabold mb-1">
-              <span className="text-[#c8362f]">Merah: {skorMerah}</span>
-              <span className="text-[#6b7d6c]">
-                {taliPosition < 0
-                  ? `Merah +${Math.abs(taliPosition)}`
-                  : taliPosition > 0
-                  ? `Putih +${taliPosition}`
-                  : 'Tengah (0)'}
+              <span className="text-[#c8362f]">
+                {tarikConfig.namaTim1}: {skorMerah}
               </span>
-              <span className="text-[#1f4a6b]">Putih: {skorPutih}</span>
+              <span className="text-[#6b7d6c]">
+                {taliPosition > 0
+                  ? `${tarikConfig.namaTim1} +${taliPosition}`
+                  : taliPosition < 0
+                  ? `${tarikConfig.namaTim2} ${taliPosition}`
+                  : 'Seimbang (0)'}
+              </span>
+              <span className="text-[#2563eb]">
+                {tarikConfig.namaTim2}: {skorPutih}
+              </span>
             </div>
             <div className="portal-rope" style={{ margin: '6px 4px 2px' }}>
               <i style={{ left: `${ropePersen}%` }} />
@@ -1380,34 +1556,45 @@ export default function MainSiswa() {
 
           {/* Question Area */}
           <main className="my-auto space-y-4">
-            {/* Teks Pertanyaan */}
             <div className="portal-card p-5 sm:p-6 rounded-3xl border-2 border-[#e0d5b8] shadow-[0_6px_0_rgba(0,0,0,0.18)]">
               <div className="text-xs font-extrabold uppercase tracking-wider text-[#6b7d6c] mb-1.5">
-                Pertanyaan
+                Pertanyaan Tim Kamu
               </div>
               <p className="portal-cv text-2xl sm:text-3xl text-[#1d3b2e] leading-snug">
                 {soalAktif?.teks}
               </p>
             </div>
 
-            {/* Opsi Jawaban (A, B, C) */}
+            {/* Opsi Jawaban */}
             <div className="space-y-3">
-              {(['A', 'B', 'C'] as const).map((opsiKey) => {
-                const teksOpsi =
-                  opsiKey === 'A'
-                    ? soalAktif?.opsiA
-                    : opsiKey === 'B'
-                    ? soalAktif?.opsiB
-                    : soalAktif?.opsiC;
-
-                const isSelected = jawabanDipilih === opsiKey;
-                const isLocked = sudahKirim;
+              {(soalAktif?.pilihan && soalAktif.pilihan.length > 0
+                ? soalAktif.pilihan
+                : (['A', 'B', 'C'] as const).map((k) => ({
+                    choiceId: k,
+                    label: k,
+                    teks:
+                      (k === 'A'
+                        ? soalAktif?.opsiA
+                        : k === 'B'
+                        ? soalAktif?.opsiB
+                        : soalAktif?.opsiC) || '',
+                  }))
+              ).map((opsiItem) => {
+                const isSelected =
+                  (pickedChoiceId && pickedChoiceId === opsiItem.choiceId) ||
+                  jawabanDipilih === opsiItem.label;
+                const isLocked = sudahKirim || Boolean(feedback?.tampil);
 
                 return (
                   <button
-                    key={opsiKey}
+                    key={opsiItem.choiceId}
                     disabled={isLocked}
-                    onClick={() => handlePilihJawaban(opsiKey)}
+                    onClick={() =>
+                      handlePilihJawaban(
+                        opsiItem.label,
+                        soalAktif?.pilihan ? opsiItem.choiceId : undefined
+                      )
+                    }
                     className={`w-full text-left p-4 rounded-2xl border-2 font-bold transition-all duration-150 flex items-center justify-between cursor-pointer ${
                       isSelected
                         ? `${selectedTeamColor} text-white shadow-[0_4px_0_rgba(0,0,0,0.2)] scale-[1.01]`
@@ -1424,24 +1611,25 @@ export default function MainSiswa() {
                             : 'bg-[#e8dfc8] text-[#1d3b2e]'
                         }`}
                       >
-                        {opsiKey}
+                        {opsiItem.label}
                       </span>
-                      <span className="text-base sm:text-lg leading-snug">{teksOpsi}</span>
+                      <span className="text-base sm:text-lg leading-snug">{opsiItem.teks}</span>
                     </div>
-                    {isSelected && <CheckCircle2 className="w-6 h-6 shrink-0 text-white" />}
+                    {isSelected && <Lock className="w-5 h-5 shrink-0 text-white" />}
                   </button>
                 );
               })}
             </div>
 
-            {/* Status Setelah Mengirim Jawaban */}
+            {/* Status Terkunci Menunggu Evaluasi Ronde */}
             {sudahKirim && !feedback?.tampil && (
-              <div className="p-3.5 bg-[#fbf6e9] border-2 border-[#f2c230] rounded-2xl text-center text-[#1d3b2e] font-bold text-sm shadow-sm">
-                Jawabanmu telah tersimpan! Menunggu waktu soal berakhir...
+              <div className="p-3.5 bg-[#fbf6e9] border-2 border-[#f2c230] rounded-2xl text-center text-[#1d3b2e] font-bold text-sm shadow-sm flex items-center justify-center gap-2">
+                <Lock className="w-4 h-4 text-[#b45309]" />
+                <span>Jawaban terkunci! Menunggu tim lawan dan evaluasi ronde...</span>
               </div>
             )}
 
-            {/* Feedback Hasil Jawaban Setelah Waktu Habis */}
+            {/* Feedback Setelah Ronde Ditutup */}
             {feedback?.tampil && (
               <div
                 className={`p-4 rounded-2xl border-2 text-sm space-y-1.5 shadow-sm ${
@@ -1454,26 +1642,30 @@ export default function MainSiswa() {
                   {feedback.benar ? (
                     <>
                       <CheckCircle2 className="w-5 h-5 text-[#2e7d32] shrink-0" />
-                      <span>Hebat! Jawabanmu Tepat! (+1 Poin Tim)</span>
+                      <span>Tepat Sekali! Kontribusi Tim Meningkat</span>
                     </>
                   ) : (
                     <>
                       <XCircle className="w-5 h-5 text-[#c8362f] shrink-0" />
-                      <span>Jawabanmu Belum Tepat</span>
+                      <span>Jawaban Belum Tepat / Belum Menjawab</span>
                     </>
                   )}
                 </div>
 
-                {!feedback.benar && feedback.jawabanBenar && (
+                {feedback.infoRonde && (
+                  <div className="text-xs font-extrabold opacity-90">{feedback.infoRonde}</div>
+                )}
+
+                {feedback.jawabanBenar && (
                   <div className="text-xs font-semibold">
-                    Jawaban benar:{' '}
+                    Kunci Jawaban:{' '}
                     <span className="font-extrabold uppercase">Opsi {feedback.jawabanBenar}</span>
                   </div>
                 )}
 
                 {feedback.penjelasan && (
                   <div className="text-xs opacity-90 pt-1.5 border-t border-black/10">
-                    💡 {feedback.penjelasan}
+                    {feedback.penjelasan}
                   </div>
                 )}
               </div>
@@ -1550,28 +1742,49 @@ export default function MainSiswa() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3.5 rounded-xl bg-[#fbf0ee] border border-[#d9544c]/60">
-                  <div className="text-xs font-extrabold text-[#c8362f] uppercase">TIM MERAH</div>
+                  <div className="text-xs font-extrabold text-[#c8362f] uppercase">
+                    {hasilAkhir?.konfigurasi?.namaTim1 || hasilAkhir?.namaTim1 || tarikConfig.namaTim1}
+                  </div>
                   <div className="text-3xl font-black text-[#1d3b2e] mt-0.5">
                     {hasilAkhir?.skorMerah ?? skorMerah}
                   </div>
+                  {(hasilAkhir?.akurasiTim1 ?? hasilAkhir?.akurasiTim1Persen) !== undefined && (
+                    <div className="text-[11px] font-bold text-[#6b7d6c]">
+                      Akurasi {hasilAkhir?.akurasiTim1 ?? hasilAkhir?.akurasiTim1Persen}%
+                    </div>
+                  )}
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-[#edf4fb] border border-[#2b6cb0]/60">
-                  <div className="text-xs font-extrabold text-[#1f4a6b] uppercase">TIM PUTIH</div>
+                <div className="p-3.5 rounded-xl bg-[#eff6ff] border border-[#3b82f6]/60">
+                  <div className="text-xs font-extrabold text-[#2563eb] uppercase">
+                    {hasilAkhir?.konfigurasi?.namaTim2 || hasilAkhir?.namaTim2 || tarikConfig.namaTim2}
+                  </div>
                   <div className="text-3xl font-black text-[#1d3b2e] mt-0.5">
                     {hasilAkhir?.skorPutih ?? skorPutih}
                   </div>
+                  {(hasilAkhir?.akurasiTim2 ?? hasilAkhir?.akurasiTim2Persen) !== undefined && (
+                    <div className="text-[11px] font-bold text-[#6b7d6c]">
+                      Akurasi {hasilAkhir?.akurasiTim2 ?? hasilAkhir?.akurasiTim2Persen}%
+                    </div>
+                  )}
                 </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white/80 border border-[#e0d5b8] text-xs font-bold text-[#1d3b2e] flex justify-around">
+                <span>Benar: {pesertaStat.totalBenar}</span>
+                <span>Salah: {pesertaStat.totalSalah}</span>
+                <span>Akurasi: {pesertaStat.akurasiPersen}%</span>
+                <span>Streak Max: {pesertaStat.streakTertinggi}</span>
               </div>
 
               <div className="text-xs text-[#6b7d6c] pt-2 border-t border-dashed border-[#e0d5b8]">
                 Posisi Akhir Tali:{' '}
                 <strong className="text-[#1d3b2e]">
                   {hasilAkhir?.posisiAkhir !== undefined
-                    ? hasilAkhir.posisiAkhir < 0
-                      ? `Tim Merah (${hasilAkhir.posisiAkhir})`
-                      : hasilAkhir.posisiAkhir > 0
-                      ? `Tim Putih (+${hasilAkhir.posisiAkhir})`
+                    ? hasilAkhir.posisiAkhir > 0
+                      ? `${hasilAkhir?.namaTim1 || tarikConfig.namaTim1} (+${hasilAkhir.posisiAkhir})`
+                      : hasilAkhir.posisiAkhir < 0
+                      ? `${hasilAkhir?.namaTim2 || tarikConfig.namaTim2} (${hasilAkhir.posisiAkhir})`
                       : 'Tepat di Tengah (0)'
                     : '-'}
                 </strong>

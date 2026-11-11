@@ -332,6 +332,12 @@ export default function DashboardGuru() {
       return;
     }
 
+    // Jika game adalah Tarik Tambang Challenge, arahkan ke halaman Pemilihan Mode (Solo 1v1 / Multiplayer)
+    if (gameType === 'tarik_tambang') {
+      navigate(`/guru/tarik-tambang?templateId=${encodeURIComponent(templateId)}&kembali=/guru`);
+      return;
+    }
+
     // Jika game adalah Panjat Pinang, buka modal konfigurasi Panjat Pinang
     if (gameType === 'panjat_pinang') {
       const tmpl = cariTemplate();
@@ -727,6 +733,15 @@ export default function DashboardGuru() {
 
             {tabAktif === 'template' && (
               <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => navigate('/guru/tarik-tambang?kembali=/guru?tab=template')}
+                  className="portal-btn ghost"
+                  style={{ background: '#244a39', color: '#f2c230', borderColor: '#f2c230' }}
+                >
+                  <Trophy className="w-4 h-4" />
+                  <span>Tarik Tambang</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => navigate('/guru/template/baru')}
