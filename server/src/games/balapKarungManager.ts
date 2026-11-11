@@ -10,11 +10,16 @@ import {
   RiwayatRintanganBalapEntry,
   EfekAktifBalap,
   RngBalapKarung,
+  KodeTimBalap,
+  TIM_BALAP_RESMI,
+  KATA_TERSANDUNG_BALAP,
+  hitungLangkahTimBalap,
   bangunKonfigurasiBalapKarung,
   buatPresentasiSoalBalap,
   prosesJawabanBalapKarung,
   urutkanLeaderboardBalapKarung,
 } from './balapKarung.js';
+import { extractActiveOptions, normalizeOptionKey } from '../utils/questionOptions.js';
 import { multiManager } from './multiManager.js';
 import { panjatPinangManager } from './panjatPinangManager.js';
 import { prisma } from '../db.js';
@@ -28,12 +33,44 @@ export interface SoalPublikBalap {
   teks: string;
   pilihan: OpsiPilihanBalap[];
   ditampilkanPadaMs: number;
+  waktuPerSoalDetik?: number;
+  berakhirPadaMs?: number;
+}
+
+export interface TeamBalapState {
+  id: KodeTimBalap;
+  nama: string;
+  warna: string;
+  meter: number;
+  selesaiPadaMs: number | null;
+}
+
+export interface AnggotaTimRingkas {
+  id: string;
+  nama: string;
+  connected: boolean;
+  totalBenar: number;
+  totalSalah: number;
+}
+
+export interface RingkasanTimBalap {
+  id: KodeTimBalap;
+  nama: string;
+  warna: string;
+  meter: number;
+  meterRaw: number;
+  targetJarak: number;
+  persen: number;
+  isWinner: boolean;
+  selesaiPadaMs: number | null;
+  anggota: AnggotaTimRingkas[];
 }
 
 export interface LeaderboardItemBalap {
   peringkat: number;
   id: string;
   nama: string;
+  tim?: KodeTimBalap | null;
   connected: boolean;
   jarak: number;
   targetJarak: number;
@@ -83,6 +120,67 @@ export interface QuestionStatItemBalap {
   jumlahSalah: number;
 }
 
+export interface LaporanTimItemBalap {
+  peringkat: number;
+  id: KodeTimBalap;
+  nama: string;
+  warna: string;
+  meter: number;
+  meterRaw: number;
+  targetJarak: number;
+  isWinner: boolean;
+  totalBenar: number;
+  totalSalah: number;
+  anggota: Array<{
+    id: string;
+    nama: string;
+    totalBenar: number;
+    totalSalah: number;
+  }>;
+}
+
+export interface HeatmapCellBalap {
+  questionId: string;
+  ok: boolean | null;
+  jawabanKey: string | null;
+  jawabanTeks: string | null;
+  timedOut: boolean;
+  percobaanCount: number;
+}
+
+export interface HeatmapQuestionInfoBalap {
+  questionId: string;
+  nomorSoal: number;
+  teks: string;
+  opsiList: Array<{ key: string; teks: string }>;
+  jawabanBenarKode: string;
+  jawabanBenarTeks: string;
+  penjelasan: string | null;
+  firstCorrectCount: number;
+  firstSeenCount: number;
+  persenBenar: number | null;
+}
+
+export interface HeatmapTeamGroupBalap {
+  timId: KodeTimBalap;
+  namaTim: string;
+  warna: string;
+  rows: Array<{
+    pesertaId: string;
+    nama: string;
+    benarPertamaCount: number;
+    dilihatCount: number;
+    cells: HeatmapCellBalap[];
+  }>;
+}
+
+export interface AnalisisHeatmapBalap {
+  questions: HeatmapQuestionInfoBalap[];
+  teams: HeatmapTeamGroupBalap[];
+  hardestQuestionId: string | null;
+  defaultQuestionId: string | null;
+}
+
 export interface LaporanAkhirBalapKarung {
   sessionId: string;
   templateId: string;
@@ -97,6 +195,10 @@ export interface LaporanAkhirBalapKarung {
   dihentikanManual: boolean;
   mulaiPadaMs: number | null;
   selesaiPadaMs: number;
+  timPemenang?: KodeTimBalap | null;
+  namaTimPemenang?: string | null;
+  laporanTim?: LaporanTimItemBalap[];
+  analisisHeatmap?: AnalisisHeatmapBalap;
   leaderboard: LeaderboardItemBalap[];
   laporanPemain: LaporanPemainBalap[];
   podium: {
@@ -116,6 +218,8 @@ export interface SesiBalapKarungActive {
   hostSocketId?: string;
   status: 'lobi' | 'jalan' | 'selesai';
   config: KonfigurasiBalapKarung;
+  teams: Map<KodeTimBalap, TeamBalapState>;
+  timPemenang: KodeTimBalap | null;
   peserta: Map<string, PesertaBalapKarungState>;
   totalSoal: number;
   questions: SoalBalapKarung[];
@@ -200,6 +304,99 @@ function parseEfekMeta(raw?: string | null): StoredEfekMetaBalap {
   }
 }
 
+function buatPetaTimAwal(): Map<KodeTimBalap, TeamBalapState> {
+  const m = new Map<KodeTimBalap, TeamBalapState>();
+  for (const def of TIM_BALAP_RESMI) {
+    m.set(def.id, {
+      id: def.id,
+      nama: def.nama,
+      warna: def.warna,
+      meter: 0,
+      selesaiPadaMs: null,
+    });
+  }
+  return m;
+}
+
+function dapatkanDefinisiTimAktif(jumlahTim: 3 | 4) {
+  return TIM_BALAP_RESMI.slice(0, jumlahTim === 4 ? 4 : 3);
+}
+
+function pilihTimSeimbang(sesi: SesiBalapKarungActive): KodeTimBalap {
+  const aktif = dapatkanDefinisiTimAktif(sesi.config.jumlahTim);
+  const counts = new Map<KodeTimBalap, number>();
+  for (const t of aktif) counts.set(t.id, 0);
+
+  for (const p of sesi.peserta.values()) {
+    if (p.tim && counts.has(p.tim)) {
+      counts.set(p.tim, (counts.get(p.tim) || 0) + 1);
+    }
+  }
+
+  let bestId: KodeTimBalap = aktif[0].id;
+  let minCount = Number.MAX_SAFE_INTEGER;
+  for (const t of aktif) {
+    const c = counts.get(t.id) || 0;
+    if (c < minCount) {
+      minCount = c;
+      bestId = t.id;
+    }
+  }
+  return bestId;
+}
+
+function bangunRingkasanTim(
+  sesi: SesiBalapKarungActive,
+  sortByRank: boolean = false
+): RingkasanTimBalap[] {
+  const aktifDefs = dapatkanDefinisiTimAktif(sesi.config.jumlahTim);
+  const target = sesi.config.targetJarak || 100;
+
+  const list: RingkasanTimBalap[] = aktifDefs.map((def) => {
+    const tState = sesi.teams.get(def.id);
+    const meterRaw = Math.min(target, Math.max(0, tState?.meter ?? 0));
+    const meter = Math.round(meterRaw);
+    const anggota: AnggotaTimRingkas[] = Array.from(sesi.peserta.values())
+      .filter((p) => p.tim === def.id)
+      .map((p) => ({
+        id: p.id,
+        nama: p.nama,
+        connected: p.connected,
+        totalBenar: p.totalBenar,
+        totalSalah: p.totalSalah,
+      }));
+
+    return {
+      id: def.id,
+      nama: def.nama,
+      warna: def.warna,
+      meter,
+      meterRaw,
+      targetJarak: target,
+      persen: target > 0 ? Math.min(100, Math.round((meterRaw / target) * 100)) : 0,
+      isWinner: sesi.timPemenang === def.id,
+      selesaiPadaMs: tState?.selesaiPadaMs ?? null,
+      anggota,
+    };
+  });
+
+  if (sortByRank) {
+    list.sort((a, b) => {
+      if (a.isWinner !== b.isWinner) return a.isWinner ? -1 : 1;
+      if (Math.abs(b.meterRaw - a.meterRaw) > 0.0001) return b.meterRaw - a.meterRaw;
+      const tA = a.selesaiPadaMs ?? Number.MAX_SAFE_INTEGER;
+      const tB = b.selesaiPadaMs ?? Number.MAX_SAFE_INTEGER;
+      if (tA !== tB) return tA - tB;
+      const benarA = a.anggota.reduce((s, m) => s + m.totalBenar, 0);
+      const benarB = b.anggota.reduce((s, m) => s + m.totalBenar, 0);
+      if (benarB !== benarA) return benarB - benarA;
+      return a.nama.localeCompare(b.nama);
+    });
+  }
+
+  return list;
+}
+
 function formatLeaderboardItem(
   p: PesertaBalapKarungState,
   peringkat: number,
@@ -212,6 +409,7 @@ function formatLeaderboardItem(
     peringkat,
     id: p.id,
     nama: p.nama,
+    tim: p.tim || null,
     connected: p.connected,
     jarak: p.jarak,
     targetJarak,
@@ -234,7 +432,8 @@ function formatLeaderboardItem(
 
 function formatPresentasiPublik(
   pres: PresentasiSoalBalap,
-  totalSoalTemplate: number
+  totalSoalTemplate: number,
+  waktuPerSoalDetik: number
 ): SoalPublikBalap {
   return {
     presentationId: pres.presentationId,
@@ -244,6 +443,8 @@ function formatPresentasiPublik(
     teks: pres.teks,
     pilihan: pres.pilihan,
     ditampilkanPadaMs: pres.ditampilkanPadaMs,
+    waktuPerSoalDetik,
+    berakhirPadaMs: pres.ditampilkanPadaMs + waktuPerSoalDetik * 1000,
   };
 }
 
@@ -321,6 +522,138 @@ export function buatLaporanAkhirBalap(
     })
     .filter((item): item is QuestionStatItemBalap => item !== null);
 
+  const rankedTeamsRaw = bangunRingkasanTim(sesi, true);
+  if (!sesi.timPemenang && rankedTeamsRaw.length > 0 && sesi.peserta.size > 0) {
+    // Jika dihentikan manual, tim teratas menjadi juara sementara
+    const topTeam = rankedTeamsRaw[0];
+    if (topTeam && (topTeam.meterRaw > 0 || topTeam.anggota.length > 0)) {
+      rankedTeamsRaw[0] = { ...topTeam, isWinner: true };
+    }
+  }
+  const timPemenangKode = sesi.timPemenang || rankedTeamsRaw.find((t) => t.isWinner)?.id || null;
+  const namaTimPemenang =
+    rankedTeamsRaw.find((t) => t.id === timPemenangKode)?.nama || null;
+
+  const laporanTim: LaporanTimItemBalap[] = rankedTeamsRaw.map((t, idx) => ({
+    peringkat: idx + 1,
+    id: t.id,
+    nama: t.nama,
+    warna: t.warna,
+    meter: t.meter,
+    meterRaw: Number(t.meterRaw.toFixed(2)),
+    targetJarak: t.targetJarak,
+    isWinner: idx === 0 && (t.isWinner || timPemenangKode === t.id),
+    totalBenar: t.anggota.reduce((s, a) => s + a.totalBenar, 0),
+    totalSalah: t.anggota.reduce((s, a) => s + a.totalSalah, 0),
+    anggota: t.anggota.map((a) => ({
+      id: a.id,
+      nama: a.nama,
+      totalBenar: a.totalBenar,
+      totalSalah: a.totalSalah,
+    })),
+  }));
+
+  // Bangun matriks heatmap per-soal x per-siswa (berbasis jawaban pertama per soal)
+  const semuaSiswa = Array.from(sesi.peserta.values());
+  const questionsInfo: HeatmapQuestionInfoBalap[] = sesi.questions.map((q, qIdx) => {
+    const activeOpsi = extractActiveOptions(q);
+    const kunciKode = normalizeOptionKey(
+      q.jawabanBenar,
+      activeOpsi.map((o) => o.key),
+      'A'
+    );
+    const kunciOpsi = activeOpsi.find((o) => o.key === kunciKode) || activeOpsi[0];
+
+    let firstCorrectCount = 0;
+    let firstSeenCount = 0;
+    for (const p of semuaSiswa) {
+      const firstAttempt = p.riwayatJawaban.find((r) => r.questionId === q.id);
+      if (firstAttempt) {
+        firstSeenCount += 1;
+        if (firstAttempt.benar) firstCorrectCount += 1;
+      }
+    }
+
+    return {
+      questionId: q.id,
+      nomorSoal: q.urutan || qIdx + 1,
+      teks: q.teks,
+      opsiList: activeOpsi.map((o) => ({ key: o.key, teks: o.teks })),
+      jawabanBenarKode: kunciKode,
+      jawabanBenarTeks: kunciOpsi?.teks || '',
+      penjelasan: q.penjelasan || null,
+      firstCorrectCount,
+      firstSeenCount,
+      persenBenar:
+        firstSeenCount > 0 ? Math.round((firstCorrectCount / firstSeenCount) * 100) : null,
+    };
+  });
+
+  const aktifDefs = dapatkanDefinisiTimAktif(sesi.config.jumlahTim);
+  const heatmapTeams: HeatmapTeamGroupBalap[] = aktifDefs.map((def) => {
+    const members = semuaSiswa
+      .filter((p) => p.tim === def.id)
+      .sort((a, b) => a.nama.localeCompare(b.nama));
+    return {
+      timId: def.id,
+      namaTim: def.nama,
+      warna: def.warna,
+      rows: members.map((p) => {
+        let benarPertamaCount = 0;
+        let dilihatCount = 0;
+        const cells: HeatmapCellBalap[] = sesi.questions.map((q) => {
+          const attempts = p.riwayatJawaban.filter((r) => r.questionId === q.id);
+          const first = attempts[0];
+          if (!first) {
+            return {
+              questionId: q.id,
+              ok: null,
+              jawabanKey: null,
+              jawabanTeks: null,
+              timedOut: false,
+              percobaanCount: 0,
+            };
+          }
+          dilihatCount += 1;
+          if (first.benar) benarPertamaCount += 1;
+          return {
+            questionId: q.id,
+            ok: first.benar,
+            jawabanKey: first.jawabanKey,
+            jawabanTeks: first.jawabanTeks || null,
+            timedOut: Boolean(first.timedOut || first.jawabanKey === 'TIMEOUT'),
+            percobaanCount: attempts.length,
+          };
+        });
+        return {
+          pesertaId: p.id,
+          nama: p.nama,
+          benarPertamaCount,
+          dilihatCount,
+          cells,
+        };
+      }),
+    };
+  });
+
+  let hardestQuestionId: string | null = null;
+  let worstPct = 101;
+  for (const qi of questionsInfo) {
+    if (qi.persenBenar !== null && qi.persenBenar < worstPct) {
+      worstPct = qi.persenBenar;
+      hardestQuestionId = qi.questionId;
+    }
+  }
+  const defaultQuestionId =
+    hardestQuestionId || questionsInfo[0]?.questionId || null;
+
+  const analisisHeatmap: AnalisisHeatmapBalap = {
+    questions: questionsInfo,
+    teams: heatmapTeams,
+    hardestQuestionId: worstPct < 100 ? hardestQuestionId : null,
+    defaultQuestionId,
+  };
+
   return {
     sessionId: sesi.sessionId,
     templateId: sesi.templateId,
@@ -335,6 +668,10 @@ export function buatLaporanAkhirBalap(
     dihentikanManual,
     mulaiPadaMs: sesi.gameMulaiPadaMs,
     selesaiPadaMs,
+    timPemenang: timPemenangKode,
+    namaTimPemenang,
+    laporanTim,
+    analisisHeatmap,
     leaderboard,
     laporanPemain,
     podium: {
@@ -401,6 +738,8 @@ export const balapKarungManager = {
       hostId,
       status: 'lobi',
       config,
+      teams: buatPetaTimAwal(),
+      timPemenang: null,
       peserta: new Map(),
       totalSoal: questions.length,
       questions,
@@ -451,10 +790,22 @@ export const balapKarungManager = {
     }
 
     let parsedConfig: Partial<KonfigurasiBalapKarung> | undefined;
+    let storedTeamMeters: Record<string, { meter?: number; selesaiPadaMs?: number | null }> | null =
+      null;
+    let storedTimPemenang: KodeTimBalap | null = null;
     if (sessionDb.konfigurasi) {
       try {
         const rawJson = JSON.parse(sessionDb.konfigurasi);
         parsedConfig = rawJson?.config || rawJson;
+        if (rawJson?.teamMeters && typeof rawJson.teamMeters === 'object') {
+          storedTeamMeters = rawJson.teamMeters;
+        }
+        if (
+          rawJson?.timPemenang &&
+          ['merah', 'biru', 'hijau', 'kuning'].includes(rawJson.timPemenang)
+        ) {
+          storedTimPemenang = rawJson.timPemenang as KodeTimBalap;
+        }
       } catch {
         parsedConfig = undefined;
       }
@@ -468,6 +819,17 @@ export const balapKarungManager = {
       sessionDb.template.questions.map(mapDbQuestionForGame),
       parsedConfig
     );
+
+    if (storedTeamMeters) {
+      for (const [kode, info] of Object.entries(storedTeamMeters)) {
+        const tState = sesi.teams.get(kode as KodeTimBalap);
+        if (tState && info) {
+          tState.meter = Number(info.meter ?? 0);
+          tState.selesaiPadaMs = info.selesaiPadaMs ?? null;
+        }
+      }
+    }
+    sesi.timPemenang = storedTimPemenang;
 
     sesi.status =
       sessionDb.status === 'jalan'
@@ -499,11 +861,17 @@ export const balapKarungManager = {
 
       const efekMeta = parseEfekMeta(pl.efekAktif);
 
+      const timRestored: KodeTimBalap =
+        pl.tim && ['merah', 'biru', 'hijau', 'kuning'].includes(pl.tim)
+          ? (pl.tim as KodeTimBalap)
+          : pilihTimSeimbang(sesi);
+
       const restored: PesertaBalapKarungState = {
         id: pl.id,
         secretToken: crypto.randomUUID(),
         socketId: '',
         nama: pl.nama,
+        tim: timRestored,
         connected: false,
         jarak: pl.posisi,
         keseimbangan: sesi.config.keseimbanganAktif ? pl.keseimbangan : 100,
@@ -616,11 +984,14 @@ export const balapKarungManager = {
       throw new Error(`Nama "${cleanNama}" sudah dipakai peserta lain dalam sesi ini.`);
     }
 
+    const timDipilih = pilihTimSeimbang(sesi);
+
     const peserta: PesertaBalapKarungState = {
       id: crypto.randomUUID(),
       secretToken: crypto.randomUUID(),
       socketId,
       nama: cleanNama,
+      tim: timDipilih,
       connected: true,
       jarak: 0,
       keseimbangan: 100,
@@ -675,6 +1046,66 @@ export const balapKarungManager = {
   },
 
   /**
+   * Mengubah jumlah tim (3 atau 4 tim) saat masih di ruang tunggu & membagi ulang siswa secara adil.
+   */
+  async ubahJumlahTim(
+    sessionId: string,
+    hostId: string,
+    jumlahTim: 3 | 4
+  ): Promise<{
+    sesi: SesiBalapKarungActive;
+    teams: RingkasanTimBalap[];
+    leaderboard: LeaderboardItemBalap[];
+  }> {
+    const sesi = this.dapatkanSesi(sessionId);
+    if (!sesi) {
+      throw new Error('Sesi Balap Karung tidak ditemukan.');
+    }
+    if (sesi.hostId !== hostId) {
+      throw new Error('Hanya guru pemilik sesi yang berhak mengubah jumlah tim.');
+    }
+    if (sesi.status !== 'lobi') {
+      throw new Error('Jumlah tim hanya dapat diubah sebelum lomba dimulai.');
+    }
+
+    const nextCount: 3 | 4 = jumlahTim === 4 ? 4 : 3;
+    sesi.config = Object.freeze({ ...sesi.config, jumlahTim: nextCount });
+    sesi.teams = buatPetaTimAwal();
+    sesi.timPemenang = null;
+
+    const defs = dapatkanDefinisiTimAktif(nextCount);
+    const semua = Array.from(sesi.peserta.values());
+    semua.forEach((p, idx) => {
+      p.tim = defs[idx % nextCount].id;
+    });
+
+    await antrekanPenulisanDb(sessionId, async () => {
+      await prisma.session.update({
+        where: { id: sesi.sessionId },
+        data: { konfigurasi: JSON.stringify(sesi.config) },
+      });
+      for (const p of semua) {
+        await prisma.sessionPlayer.updateMany({
+          where: { id: p.id, sessionId: sesi.sessionId },
+          data: { tim: p.tim || 'merah' },
+        });
+      }
+    });
+
+    return {
+      sesi,
+      teams: bangunRingkasanTim(sesi),
+      leaderboard: this.dapatkanLeaderboard(sesi.sessionId),
+    };
+  },
+
+  dapatkanRingkasanTim(sessionId: string, sortByRank: boolean = false): RingkasanTimBalap[] {
+    const sesi = this.dapatkanSesi(sessionId);
+    if (!sesi) return [];
+    return bangunRingkasanTim(sesi, sortByRank);
+  },
+
+  /**
    * Guru memulai lomba Balap Karung Challenge (hanya pemilik sesi).
    */
   mulaiPermainan(sessionId: string, hostId?: string): SesiBalapKarungActive {
@@ -701,12 +1132,22 @@ export const balapKarungManager = {
 
     sesi.status = 'jalan';
     sesi.gameMulaiPadaMs = Date.now();
+    sesi.teams = buatPetaTimAwal();
+    sesi.timPemenang = null;
 
     for (const peserta of sesi.peserta.values()) {
+      if (!peserta.tim) {
+        peserta.tim = pilihTimSeimbang(sesi);
+      }
       peserta.jarak = 0;
       peserta.keseimbangan = 100;
       peserta.jumlahJatuh = 0;
+      peserta.totalBenar = 0;
+      peserta.totalSalah = 0;
       peserta.status = 'bermain';
+      peserta.riwayatJawaban = [];
+      peserta.riwayatJarak = [];
+      peserta.riwayatRintangan = [];
       peserta.antreanSoal = siapkanAntreanSoalBalap(sesi.questions);
       peserta.terakhirSoalId = undefined;
       peserta.presentasiAktif = null;
@@ -751,7 +1192,11 @@ export const balapKarungManager = {
     peserta.terakhirSoalId = soal.id;
     peserta.presentasiAktif = presentasi;
 
-    return formatPresentasiPublik(presentasi, sesi.totalSoal);
+    return formatPresentasiPublik(
+      presentasi,
+      sesi.totalSoal,
+      sesi.config.waktuPerSoalDetik
+    );
   },
 
   /**
@@ -770,14 +1215,18 @@ export const balapKarungManager = {
     }
 
     if (peserta.presentasiAktif) {
-      return formatPresentasiPublik(peserta.presentasiAktif, sesi.totalSoal);
+      return formatPresentasiPublik(
+        peserta.presentasiAktif,
+        sesi.totalSoal,
+        sesi.config.waktuPerSoalDetik
+      );
     }
 
     return this.ambilSoalBerikutnyaUntukPeserta(sessionId, pesertaId);
   },
 
   /**
-   * Memproses jawaban siswa dengan perlindungan duplikat, replay, spoofing, dan batas finis.
+   * Memproses jawaban siswa dengan perlindungan duplikat, replay, spoofing, serta pembaruan skor tim adil.
    */
   prosesJawabanSiswa(params: {
     sessionId: string;
@@ -788,6 +1237,7 @@ export const balapKarungManager = {
     questionId?: string;
     choiceId?: string;
     jawaban?: string;
+    timedOut?: boolean;
     nowMs?: number;
     rngRintangan?: RngBalapKarung;
   }): {
@@ -795,6 +1245,13 @@ export const balapKarungManager = {
     kunciKey: string;
     penjelasan: string | null;
     leaderboard: LeaderboardItemBalap[];
+    teams: RingkasanTimBalap[];
+    timPeserta: KodeTimBalap;
+    stepTim: number;
+    terpeleset: boolean;
+    stumbleQuote: string | null;
+    timMenangId: KodeTimBalap | null;
+    timMenangNama: string | null;
     pemainSelesai: boolean;
     semuaPemainSelesai: boolean;
   } {
@@ -807,6 +1264,7 @@ export const balapKarungManager = {
       questionId,
       choiceId,
       jawaban,
+      timedOut = false,
       nowMs = Date.now(),
       rngRintangan,
     } = params;
@@ -832,8 +1290,8 @@ export const balapKarungManager = {
       throw new Error('Perangkat pengirim tidak cocok dengan sesi pemain.');
     }
 
-    if (peserta.status === 'selesai' || peserta.jarak >= sesi.config.targetJarak) {
-      throw new Error('Anda sudah mencapai garis finis dan menyelesaikan perlombaan.');
+    if (sesi.timPemenang || peserta.status === 'selesai') {
+      throw new Error('Perlombaan tim telah selesai.');
     }
 
     const presentasi = peserta.presentasiAktif;
@@ -854,6 +1312,17 @@ export const balapKarungManager = {
     // Tandai presentasi secara sinkron sebelum proses & penyimpanan
     sesi.processedPresentations.add(presentasi.presentationId);
 
+    // Pada mode Multiplayer Tim, kelulusan ditentukan oleh meter tim (bukan akumulasi individu),
+    // sehingga lompat individu diatur 0 dan status 'selesai' dikendalikan mutlak oleh posisi tim.
+    const teamConfigForAttempt: KonfigurasiBalapKarung = Object.freeze({
+      ...sesi.config,
+      lompatBenar: 0,
+      turunSalah: 0,
+      keseimbanganAktif: false,
+      bonusStreakAktif: false,
+      rintanganAktif: false,
+    });
+
     let hasilJawaban: HasilJawabanBalap;
     try {
       hasilJawaban = prosesJawabanBalapKarung({
@@ -861,7 +1330,8 @@ export const balapKarungManager = {
         presentasi,
         choiceId,
         fallbackJawabanKey: jawaban,
-        config: sesi.config,
+        timedOut,
+        config: teamConfigForAttempt,
         gameMulaiPadaMs: sesi.gameMulaiPadaMs || nowMs,
         nowMs,
         rngRintangan,
@@ -871,24 +1341,80 @@ export const balapKarungManager = {
       throw err;
     }
 
+    hasilJawaban.pesertaUpdated.status = 'bermain';
+    hasilJawaban.pesertaUpdated.selesaiPada = null;
+    hasilJawaban.pesertaUpdated.waktuSelesaiMs = null;
+    hasilJawaban.selesaiBaru = false;
+
+    // Hitung kemajuan tim (dinormalisasi berdasarkan jumlah anggota tim agar adil!)
+    const timKode: KodeTimBalap = peserta.tim || pilihTimSeimbang(sesi);
+    hasilJawaban.pesertaUpdated.tim = timKode;
+
+    const jumlahAnggotaTim = Array.from(sesi.peserta.values()).filter(
+      (p) => (p.tim || timKode) === timKode
+    ).length;
+
+    let stepTim = 0;
+    let terpeleset = false;
+    let stumbleQuote: string | null = null;
+    let timMenangId: KodeTimBalap | null = null;
+    let timMenangNama: string | null = null;
+
+    const tState = sesi.teams.get(timKode) || {
+      id: timKode,
+      nama: TIM_BALAP_RESMI.find((t) => t.id === timKode)?.nama || 'Tim Merah',
+      warna: TIM_BALAP_RESMI.find((t) => t.id === timKode)?.warna || '#e2312d',
+      meter: 0,
+      selesaiPadaMs: null,
+    };
+
+    if (hasilJawaban.benar) {
+      stepTim = hitungLangkahTimBalap(sesi.config.targetJarak, jumlahAnggotaTim);
+      tState.meter = Math.min(sesi.config.targetJarak, tState.meter + stepTim);
+      if (tState.meter >= sesi.config.targetJarak - 1e-6) {
+        tState.meter = sesi.config.targetJarak;
+        tState.selesaiPadaMs = nowMs;
+        sesi.timPemenang = timKode;
+        timMenangId = timKode;
+        timMenangNama = tState.nama;
+        hasilJawaban.selesaiBaru = true;
+        hasilJawaban.pesertaUpdated.status = 'selesai';
+        hasilJawaban.pesertaUpdated.selesaiPada = nowMs;
+        hasilJawaban.pesertaUpdated.waktuSelesaiMs = Math.max(
+          1,
+          nowMs - (sesi.gameMulaiPadaMs || nowMs)
+        );
+      }
+      sesi.teams.set(timKode, tState);
+    } else {
+      terpeleset = true;
+      stumbleQuote =
+        KATA_TERSANDUNG_BALAP[crypto.randomInt(0, KATA_TERSANDUNG_BALAP.length)] || 'Aduh!';
+    }
+
+    // Jarak individu disimpan sebagai kontribusi meter rounded agar DB & leaderboard konsisten
+    hasilJawaban.pesertaUpdated.jarak = Math.round(tState.meter);
+
     sesi.peserta.set(peserta.id, hasilJawaban.pesertaUpdated);
     void this.sinkronkanPesertaKeDb(sesi.sessionId, hasilJawaban.pesertaUpdated);
 
     const soalAsli = sesi.questions.find((q) => q.id === presentasi.questionId);
-    const semuaPemain = Array.from(sesi.peserta.values());
-    const semuaPemainSelesai =
-      semuaPemain.length > 0 &&
-      semuaPemain.every(
-        (p) => p.status === 'selesai' || p.jarak >= sesi.config.targetJarak
-      );
+    const lombaSelesai = Boolean(sesi.timPemenang);
 
     return {
       hasilJawaban,
       kunciKey: presentasi.kunciKey,
       penjelasan: soalAsli?.penjelasan || null,
       leaderboard: this.dapatkanLeaderboard(sesi.sessionId),
-      pemainSelesai: hasilJawaban.selesaiBaru,
-      semuaPemainSelesai,
+      teams: this.dapatkanRingkasanTim(sesi.sessionId),
+      timPeserta: timKode,
+      stepTim: Number(stepTim.toFixed(2)),
+      terpeleset,
+      stumbleQuote,
+      timMenangId,
+      timMenangNama,
+      pemainSelesai: Boolean(timMenangId),
+      semuaPemainSelesai: lombaSelesai,
     };
   },
 
@@ -939,6 +1465,7 @@ export const balapKarungManager = {
           where: { id: p.id },
           update: {
             nama: p.nama,
+            tim: p.tim || null,
             posisi: p.jarak,
             keseimbangan: p.keseimbangan,
             jumlahJatuh: p.jumlahJatuh,
@@ -960,6 +1487,7 @@ export const balapKarungManager = {
             id: p.id,
             sessionId,
             nama: p.nama,
+            tim: p.tim || null,
             posisi: p.jarak,
             keseimbangan: p.keseimbangan,
             jumlahJatuh: p.jumlahJatuh,
@@ -993,18 +1521,36 @@ export const balapKarungManager = {
     const hasil = sesi.hasil;
 
     return antrekanPenulisanDb(sessionId, async () => {
+      const teamMetersSnapshot: Record<string, { meter: number; selesaiPadaMs: number | null }> = {};
+      for (const [k, v] of sesi.teams.entries()) {
+        teamMetersSnapshot[k] = {
+          meter: Number(v.meter.toFixed(2)),
+          selesaiPadaMs: v.selesaiPadaMs,
+        };
+      }
+
       await prisma.$transaction(async (tx) => {
         await tx.session.update({
           where: { id: sesi.sessionId },
           data: {
             status: 'selesai',
             selesaiPada: new Date(hasil.selesaiPadaMs),
-            konfigurasi: JSON.stringify(sesi.config),
+            konfigurasi: JSON.stringify({
+              playMode: 'MULTIPLAYER',
+              config: sesi.config,
+              teamMeters: teamMetersSnapshot,
+              timPemenang: hasil.timPemenang || sesi.timPemenang || null,
+            }),
           },
         });
 
-        const pemenangNama = hasil.podium.juara1?.nama || 'Selesai';
-        const jarakTertinggi = hasil.podium.juara1?.jarak ?? 0;
+        const pemenangTim = hasil.laporanTim?.[0];
+        const pemenangNama =
+          hasil.namaTimPemenang ||
+          pemenangTim?.nama ||
+          hasil.podium.juara1?.nama ||
+          'Selesai';
+        const jarakTertinggi = pemenangTim?.meter ?? hasil.podium.juara1?.jarak ?? 0;
 
         await tx.sessionResult.upsert({
           where: { sessionId: sesi.sessionId },
@@ -1028,6 +1574,7 @@ export const balapKarungManager = {
             where: { id: p.id },
             update: {
               nama: p.nama,
+              tim: p.tim || null,
               posisi: p.jarak,
               keseimbangan: p.keseimbangan,
               jumlahJatuh: p.jumlahJatuh,
@@ -1049,6 +1596,7 @@ export const balapKarungManager = {
               id: p.id,
               sessionId: sesi.sessionId,
               nama: p.nama,
+              tim: p.tim || null,
               posisi: p.jarak,
               keseimbangan: p.keseimbangan,
               jumlahJatuh: p.jumlahJatuh,
@@ -1121,10 +1669,22 @@ export const balapKarungManager = {
     }
 
     let parsedConfig: Partial<KonfigurasiBalapKarung> | undefined;
+    let storedTeamMeters: Record<string, { meter?: number; selesaiPadaMs?: number | null }> | null =
+      null;
+    let storedTimPemenang: KodeTimBalap | null = null;
     if (sessionDb.konfigurasi) {
       try {
         const rawJson = JSON.parse(sessionDb.konfigurasi);
         parsedConfig = rawJson?.config || rawJson;
+        if (rawJson?.teamMeters && typeof rawJson.teamMeters === 'object') {
+          storedTeamMeters = rawJson.teamMeters;
+        }
+        if (
+          rawJson?.timPemenang &&
+          ['merah', 'biru', 'hijau', 'kuning'].includes(rawJson.timPemenang)
+        ) {
+          storedTimPemenang = rawJson.timPemenang as KodeTimBalap;
+        }
       } catch {
         parsedConfig = undefined;
       }
@@ -1132,8 +1692,10 @@ export const balapKarungManager = {
 
     const config = bangunKonfigurasiBalapKarung(parsedConfig);
     const pesertaMap = new Map<string, PesertaBalapKarungState>();
+    const defs = dapatkanDefinisiTimAktif(config.jumlahTim);
+    const loadedQuestions = sessionDb.template.questions.map(mapDbQuestionForGame);
 
-    for (const pl of sessionDb.players) {
+    sessionDb.players.forEach((pl, plIdx) => {
       let riwayatJarak: RiwayatJarakEntry[] = [];
       let riwayatRintangan: RiwayatRintanganBalapEntry[] = [];
       let riwayatJawaban: PesertaBalapKarungState['riwayatJawaban'] = [];
@@ -1154,12 +1716,17 @@ export const balapKarungManager = {
       }
 
       const efekMeta = parseEfekMeta(pl.efekAktif);
+      const timValid =
+        pl.tim && ['merah', 'biru', 'hijau', 'kuning'].includes(pl.tim)
+          ? (pl.tim as KodeTimBalap)
+          : defs[plIdx % defs.length]?.id || 'merah';
 
       pesertaMap.set(pl.id, {
         id: pl.id,
         secretToken: '',
         socketId: '',
         nama: pl.nama,
+        tim: timValid,
         connected: false,
         jarak: pl.posisi,
         keseimbangan: config.keseimbanganAktif ? pl.keseimbangan : 100,
@@ -1191,6 +1758,17 @@ export const balapKarungManager = {
         presentasiAktif: null,
         nomorSoalPemain: riwayatJawaban.length,
       });
+    });
+
+    const teamsMap = buatPetaTimAwal();
+    if (storedTeamMeters) {
+      for (const [kode, info] of Object.entries(storedTeamMeters)) {
+        const tState = teamsMap.get(kode as KodeTimBalap);
+        if (tState && info) {
+          tState.meter = Number(info.meter ?? 0);
+          tState.selesaiPadaMs = info.selesaiPadaMs ?? null;
+        }
+      }
     }
 
     const tempSesi: SesiBalapKarungActive = {
@@ -1201,15 +1779,18 @@ export const balapKarungManager = {
       hostId: sessionDb.hostId,
       status: 'selesai',
       config,
+      teams: teamsMap,
+      timPemenang: storedTimPemenang,
       peserta: pesertaMap,
       totalSoal: sessionDb.template.questions.length,
-      questions: [],
+      questions: loadedQuestions,
       gameMulaiPadaMs: sessionDb.mulaiPada ? sessionDb.mulaiPada.getTime() : null,
       processedPresentations: new Set(),
     };
 
     const allSelesai =
-      pesertaMap.size > 0 && Array.from(pesertaMap.values()).every((p) => p.status === 'selesai');
+      Boolean(storedTimPemenang) ||
+      (pesertaMap.size > 0 && Array.from(pesertaMap.values()).every((p) => p.status === 'selesai'));
 
     return buatLaporanAkhirBalap(
       tempSesi,

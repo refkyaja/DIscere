@@ -1,37 +1,30 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { apiRequest } from '../../lib/api';
 import { Modal } from '../../components';
-import LintasanBalapKarung, { EfekAktifBalapVisual } from '../siswa/LintasanBalapKarung';
-import KarakterBalapKarung, { EkspresiBalapKarung } from '../siswa/KarakterBalapKarung';
+import {
+  BalapKarungStadium,
+  BalapSackSvg,
+  BalapLaneItem,
+} from '../../components/BalapKarungStadium';
 import { soundEffects } from '../../lib/soundEffects';
 import {
   Play,
-  Pause,
-  StopCircle,
   RotateCcw,
-  ArrowLeft,
-  Volume2,
-  VolumeX,
   Trophy,
-  Flame,
-  Scale,
-  CheckCircle2,
-  XCircle,
   Loader2,
   Bot,
   Swords,
   RefreshCw,
   Sliders,
-  AlertTriangle,
-  Shield,
-  Zap,
-  CloudRain,
-  Flag,
+  CheckCircle2,
+  Clock,
+  Pause,
 } from 'lucide-react';
 
 type StateBalapSolo = 'READY' | 'PLAYING' | 'PAUSED' | 'FINISHED' | 'STOPPED';
 type SlotPemain = 'pemain1' | 'pemain2';
+type KesulitanBot = 'santai' | 'sedang' | 'cepat';
 
 interface PilihanSoal {
   choiceId: string;
@@ -46,15 +39,8 @@ interface SoalAktifSolo {
   totalSoalBank: number;
   teks: string;
   pilihan: PilihanSoal[];
-}
-
-interface RiwayatRintanganItem {
-  id: string;
-  tipe: string;
-  judul: string;
-  deskripsi: string;
-  efekNilai: number;
-  satuan: string;
+  ditampilkanPadaMs?: number;
+  waktuPerSoalDetik?: number;
 }
 
 interface PesertaBalapSolo {
@@ -71,14 +57,10 @@ interface PesertaBalapSolo {
   akurasiPersen: number;
   streakSaatIni: number;
   streakTertinggi: number;
-  totalBonusStreakKali: number;
-  totalBonusStreakMeter: number;
   status: 'bermain' | 'selesai';
   waktuSelesaiMs: number | null;
   rataRataWaktuJawabMs: number;
   jumlahJawab: number;
-  efekAktif?: EfekAktifBalapVisual;
-  riwayatRintangan: RiwayatRintanganItem[];
   soalAktif: SoalAktifSolo | null;
 }
 
@@ -86,6 +68,8 @@ interface FeedbackAksi {
   slot: SlotPemain;
   nama: string;
   benar: boolean;
+  timedOut?: boolean;
+  stumbleQuote?: string | null;
   jawabanBenarKode: string;
   jawabanBenarTeks: string;
   penjelasan: string | null;
@@ -97,7 +81,6 @@ interface FeedbackAksi {
   terjatuh: boolean;
   penaltiJatuhJarak: number;
   perisaiDigunakan: boolean;
-  rintanganBaru: RiwayatRintanganItem | null;
   selesaiBaru: boolean;
 }
 
@@ -112,6 +95,7 @@ interface SesiBalapSoloClient {
   config: {
     presetJarak: string;
     targetJarak: number;
+    waktuPerSoalDetik?: number;
     kesulitan: string;
     lompatBenar: number;
     turunSalah: number;
@@ -119,7 +103,7 @@ interface SesiBalapSoloClient {
     bonusStreakAktif: boolean;
     rintanganAktif: boolean;
     tipeLawanSolo: 'bot' | 'lokal';
-    kesulitanBot: 'santai' | 'sedang' | 'cepat';
+    kesulitanBot: KesulitanBot;
     namaPemain1: string;
     namaPemain2: string;
   };
@@ -132,7 +116,6 @@ interface SesiBalapSoloClient {
     dihentikanManual?: boolean;
     totalJawabanBenar?: number;
     totalJawabanSalah?: number;
-    totalJatuhKelas?: number;
     questionStats?: Array<{
       questionId: string;
       nomorSoal?: number;
@@ -143,21 +126,27 @@ interface SesiBalapSoloClient {
   } | null;
 }
 
-const LABEL_STATE: Record<StateBalapSolo, { teks: string; warna: string }> = {
-  READY: { teks: 'SIAP DIMULAI', warna: 'bg-sky-500/20 text-sky-200 border-sky-400/50' },
-  PLAYING: { teks: 'LOMBA BERLANGSUNG', warna: 'bg-emerald-500/20 text-emerald-200 border-emerald-400/50' },
-  PAUSED: { teks: 'DIJEDA', warna: 'bg-amber-500/20 text-amber-200 border-amber-400/50' },
-  FINISHED: { teks: 'SELESAI — JUARA TERPILIH', warna: 'bg-amber-400 text-slate-950 border-amber-300' },
-  STOPPED: { teks: 'DIHENTIKAN GURU', warna: 'bg-slate-600 text-white border-slate-500' },
+interface RevealState {
+  soal: SoalAktifSolo;
+  chosenChoiceId: string | null;
+  feedback: FeedbackAksi;
+}
+
+const BOT_INTERVAL_MS: Record<KesulitanBot, number> = {
+  santai: 4800,
+  sedang: 4200,
+  cepat: 3600,
 };
 
-const BOT_INTERVAL_MS: Record<'santai' | 'sedang' | 'cepat', number> = {
-  santai: 5200,
-  sedang: 3600,
-  cepat: 2300,
+const LABEL_STATE: Record<StateBalapSolo, { text: string; tone: 'idle' | 'live' | 'done' }> = {
+  READY: { text: 'Siap dimulai', tone: 'idle' },
+  PLAYING: { text: 'Berlangsung', tone: 'live' },
+  PAUSED: { text: 'Dijeda', tone: 'idle' },
+  FINISHED: { text: 'Selesai', tone: 'done' },
+  STOPPED: { text: 'Selesai', tone: 'done' },
 };
 
-function formatDetik(ms?: number | null): string {
+function formatDurasiDetik(ms?: number | null): string {
   if (!ms || ms <= 0) return '-';
   if (ms < 1000) return `${ms} md`;
   return `${(ms / 1000).toFixed(1)} dtk`;
@@ -174,101 +163,144 @@ export default function LayarHostBalapKarungSolo() {
   const [errorPesan, setErrorPesan] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isActionLoading, setIsActionLoading] = useState(false);
+  const [isUpdatingBot, setIsUpdatingBot] = useState(false);
   const [isMuted, setIsMuted] = useState(soundEffects.getMuted());
   const [isMainLagi, setIsMainLagi] = useState(false);
 
   const [modalHentikanOpen, setModalHentikanOpen] = useState(false);
   const [modalUlangOpen, setModalUlangOpen] = useState(false);
+  const [showEndCard, setShowEndCard] = useState(false);
 
-  // State animasi lintasan masing-masing pemain (strictly 1 vs 1)
+  // Visual animasi lintasan per slot (strictly 1 vs 1)
   const [deltaMap, setDeltaMap] = useState<Record<SlotPemain, number | null>>({
     pemain1: null,
     pemain2: null,
   });
-  const [ekspresiMap, setEkspresiMap] = useState<Record<SlotPemain, EkspresiBalapKarung>>({
-    pemain1: 'netral',
-    pemain2: 'netral',
-  });
-  const [jatuhMap, setJatuhMap] = useState<Record<SlotPemain, boolean>>({
+  const [jumpMap, setJumpMap] = useState<Record<SlotPemain, boolean>>({
     pemain1: false,
     pemain2: false,
   });
-  const [feedbackMap, setFeedbackMap] = useState<Record<SlotPemain, FeedbackAksi | null>>({
+  const [hurtMap, setHurtMap] = useState<Record<SlotPemain, boolean>>({
+    pemain1: false,
+    pemain2: false,
+  });
+  const [sayMap, setSayMap] = useState<Record<SlotPemain, string | null>>({
     pemain1: null,
     pemain2: null,
   });
-  const [submittingMap, setSubmittingMap] = useState<Record<SlotPemain, boolean>>({
-    pemain1: false,
-    pemain2: false,
+  const [crowdCheer, setCrowdCheer] = useState(false);
+
+  // Hold soal & highlight benar/salah sesaat sebelum berganti soal berikutnya
+  const [revealMap, setRevealMap] = useState<Record<SlotPemain, RevealState | null>>({
+    pemain1: null,
+    pemain2: null,
   });
+
+  // Countdown timer soal untuk Pemain 1 (mode vs Bot)
+  const [remainingMs, setRemainingMs] = useState<number>(15000);
+  const timerRemainingRef = useRef<number>(15000);
+  const timerLastPresentationRef = useRef<string | null>(null);
 
   const submitLockRef = useRef<Record<SlotPemain, boolean>>({
     pemain1: false,
     pemain2: false,
   });
   const botTickLockRef = useRef(false);
-  const timersRef = useRef<Record<SlotPemain, ReturnType<typeof setTimeout> | null>>({
+  const endRef = useRef<HTMLElement | null>(null);
+
+  const timersRef = useRef<{
+    pemain1: ReturnType<typeof setTimeout> | null;
+    pemain2: ReturnType<typeof setTimeout> | null;
+    reveal1: ReturnType<typeof setTimeout> | null;
+    reveal2: ReturnType<typeof setTimeout> | null;
+    cheer: ReturnType<typeof setTimeout> | null;
+    endDelay: ReturnType<typeof setTimeout> | null;
+  }>({
     pemain1: null,
     pemain2: null,
+    reveal1: null,
+    reveal2: null,
+    cheer: null,
+    endDelay: null,
   });
 
-  const clearSlotTimer = (slot: SlotPemain) => {
-    const existing = timersRef.current[slot];
-    if (existing) {
-      clearTimeout(existing);
-      timersRef.current[slot] = null;
-    }
-  };
+  const clearAllTimers = useCallback(() => {
+    Object.keys(timersRef.current).forEach((k) => {
+      const key = k as keyof typeof timersRef.current;
+      const t = timersRef.current[key];
+      if (t) {
+        clearTimeout(t);
+        timersRef.current[key] = null;
+      }
+    });
+  }, []);
 
   useEffect(() => {
-    return () => {
-      clearSlotTimer('pemain1');
-      clearSlotTimer('pemain2');
-    };
+    return () => clearAllTimers();
+  }, [clearAllTimers]);
+
+  const pulseCheer = useCallback(() => {
+    setCrowdCheer(true);
+    if (timersRef.current.cheer) clearTimeout(timersRef.current.cheer);
+    timersRef.current.cheer = setTimeout(() => {
+      setCrowdCheer(false);
+    }, 1300);
   }, []);
 
-  const triggerSlotVisual = useCallback((fb: FeedbackAksi, playAudio: boolean) => {
-    const slot = fb.slot;
-    setFeedbackMap((prev) => ({ ...prev, [slot]: fb }));
-    setDeltaMap((prev) => ({ ...prev, [slot]: fb.perubahanJarak }));
-    const exp: EkspresiBalapKarung = fb.selesaiBaru
-      ? 'puncak'
-      : fb.terjatuh && !fb.perisaiDigunakan
-      ? 'terjatuh'
-      : fb.benar
-      ? 'bahagia'
-      : 'sedih';
-    setEkspresiMap((prev) => ({ ...prev, [slot]: exp }));
-    if (fb.terjatuh && !fb.perisaiDigunakan) {
-      setJatuhMap((prev) => ({ ...prev, [slot]: true }));
-    }
+  const triggerSlotVisual = useCallback(
+    (fb: FeedbackAksi, playAudio: boolean) => {
+      const slot = fb.slot;
+      setDeltaMap((prev) => ({ ...prev, [slot]: fb.perubahanJarak }));
 
-    if (playAudio) {
-      if (fb.selesaiBaru) {
-        soundEffects.playVictoryFanfare();
-      } else if (fb.terjatuh && !fb.perisaiDigunakan) {
-        soundEffects.playZonk();
-      } else if (fb.benar) {
-        soundEffects.playCorrect();
-        if (fb.streakSaatIni >= 3) {
-          setTimeout(() => soundEffects.playBoost(), 180);
-        }
+      if (fb.benar) {
+        setJumpMap((prev) => ({ ...prev, [slot]: true }));
+        setHurtMap((prev) => ({ ...prev, [slot]: false }));
+        setSayMap((prev) => ({ ...prev, [slot]: null }));
       } else {
-        soundEffects.playIncorrect();
+        setJumpMap((prev) => ({ ...prev, [slot]: false }));
+        setHurtMap((prev) => ({ ...prev, [slot]: true }));
+        setSayMap((prev) => ({
+          ...prev,
+          [slot]: fb.stumbleQuote || (fb.timedOut ? 'Waktu habis!' : 'Aduh!'),
+        }));
       }
-    } else if (fb.selesaiBaru) {
-      soundEffects.playVictoryFanfare();
-    }
 
-    clearSlotTimer(slot);
-    if (!fb.selesaiBaru) {
-      timersRef.current[slot] = setTimeout(() => {
-        setDeltaMap((prev) => ({ ...prev, [slot]: null }));
-        setJatuhMap((prev) => ({ ...prev, [slot]: false }));
-        setEkspresiMap((prev) => ({ ...prev, [slot]: 'netral' }));
-      }, 1700);
-    }
-  }, []);
+      pulseCheer();
+
+      if (playAudio) {
+        if (fb.selesaiBaru) {
+          soundEffects.playVictoryFanfare();
+        } else if (fb.benar) {
+          soundEffects.playCorrect();
+        } else {
+          soundEffects.playIncorrect();
+        }
+      } else if (fb.selesaiBaru) {
+        soundEffects.playVictoryFanfare();
+      }
+
+      if (timersRef.current[slot]) {
+        clearTimeout(timersRef.current[slot]!);
+      }
+      if (!fb.selesaiBaru) {
+        timersRef.current[slot] = setTimeout(() => {
+          setDeltaMap((prev) => ({ ...prev, [slot]: null }));
+          setJumpMap((prev) => ({ ...prev, [slot]: false }));
+          setHurtMap((prev) => ({ ...prev, [slot]: false }));
+          setSayMap((prev) => ({ ...prev, [slot]: null }));
+        }, 1250);
+      }
+
+      if (fb.selesaiBaru) {
+        if (timersRef.current.endDelay) clearTimeout(timersRef.current.endDelay);
+        timersRef.current.endDelay = setTimeout(() => {
+          setShowEndCard(true);
+          endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 950);
+      }
+    },
+    [pulseCheer]
+  );
 
   const fetchSesi = useCallback(async () => {
     if (!id) return;
@@ -276,6 +308,9 @@ export default function LayarHostBalapKarungSolo() {
       setLoading(true);
       const res = await apiRequest<{ session: SesiBalapSoloClient }>(`/sesi/${id}`);
       setSesi(res.session);
+      if (res.session.state === 'FINISHED' || res.session.state === 'STOPPED') {
+        setShowEndCard(true);
+      }
     } catch (err: any) {
       setErrorPesan(err.pesan || 'Gagal memuat sesi Balap Karung Solo.');
     } finally {
@@ -294,7 +329,7 @@ export default function LayarHostBalapKarungSolo() {
       return;
     }
 
-    const intervalMs = BOT_INTERVAL_MS[sesi.config.kesulitanBot] || 3600;
+    const intervalMs = BOT_INTERVAL_MS[sesi.config.kesulitanBot] || 4200;
     const timer = setInterval(async () => {
       if (botTickLockRef.current) return;
       botTickLockRef.current = true;
@@ -320,19 +355,180 @@ export default function LayarHostBalapKarungSolo() {
     }, intervalMs);
 
     return () => clearInterval(timer);
-  }, [id, sesi?.state, sesi?.config?.tipeLawanSolo, sesi?.config?.kesulitanBot, sesi?.isFinished, triggerSlotVisual]);
+  }, [
+    id,
+    sesi?.state,
+    sesi?.config?.tipeLawanSolo,
+    sesi?.config?.kesulitanBot,
+    sesi?.isFinished,
+    triggerSlotVisual,
+  ]);
+
+  const submitJawabanSlot = useCallback(
+    async (
+      slot: SlotPemain,
+      soal: SoalAktifSolo,
+      payload: { choiceId: string } | { timedOut: true }
+    ) => {
+      if (!id || !sesi || sesi.state !== 'PLAYING') return;
+      if (submitLockRef.current[slot]) return;
+
+      submitLockRef.current[slot] = true;
+      setActionError(null);
+
+      try {
+        const res = await apiRequest<{
+          feedback: FeedbackAksi;
+          isFinished: boolean;
+          session: SesiBalapSoloClient;
+        }>(`/sesi/${id}/jawab`, {
+          method: 'POST',
+          body: JSON.stringify({
+            slot,
+            presentationId: soal.presentationId,
+            questionId: soal.questionId,
+            ...payload,
+          }),
+        });
+
+        setSesi(res.session);
+
+        if (res.feedback) {
+          const chosenChoiceId = 'choiceId' in payload ? payload.choiceId : null;
+          setRevealMap((prev) => ({
+            ...prev,
+            [slot]: {
+              soal,
+              chosenChoiceId,
+              feedback: res.feedback,
+            },
+          }));
+          triggerSlotVisual(res.feedback, true);
+
+          const revealKey = slot === 'pemain1' ? 'reveal1' : 'reveal2';
+          if (timersRef.current[revealKey]) {
+            clearTimeout(timersRef.current[revealKey]!);
+          }
+          timersRef.current[revealKey] = setTimeout(() => {
+            setRevealMap((prev) => ({ ...prev, [slot]: null }));
+          }, res.feedback.selesaiBaru ? 950 : 1200);
+        }
+      } catch (err: any) {
+        setActionError(err.pesan || 'Gagal mengirim jawaban.');
+      } finally {
+        submitLockRef.current[slot] = false;
+      }
+    },
+    [id, sesi, triggerSlotVisual]
+  );
+
+  // Sync & jalankan timer hitung mundur per soal untuk mode Solo vs Bot
+  const timerSec = Math.max(5, sesi?.config?.waktuPerSoalDetik || 15);
+  const p1PresentationId = sesi?.pemain1?.soalAktif?.presentationId || null;
+  const isRevealingP1 = Boolean(revealMap.pemain1);
+  const isPlaying = sesi?.state === 'PLAYING' && !sesi?.isFinished;
+  const isVsBot = sesi?.config?.tipeLawanSolo === 'bot';
+
+  useEffect(() => {
+    if (!p1PresentationId) return;
+    if (timerLastPresentationRef.current !== p1PresentationId) {
+      timerLastPresentationRef.current = p1PresentationId;
+      const fullMs = timerSec * 1000;
+      timerRemainingRef.current = fullMs;
+      setRemainingMs(fullMs);
+    }
+  }, [p1PresentationId, timerSec]);
+
+  useEffect(() => {
+    if (!isPlaying || !isVsBot || isRevealingP1 || !sesi?.pemain1?.soalAktif) {
+      return;
+    }
+
+    const activeSoal = sesi.pemain1.soalAktif;
+    let lastTick = performance.now();
+
+    const interval = setInterval(() => {
+      const now = performance.now();
+      const delta = now - lastTick;
+      lastTick = now;
+
+      const nextMs = Math.max(0, timerRemainingRef.current - delta);
+      timerRemainingRef.current = nextMs;
+      setRemainingMs(nextMs);
+
+      if (nextMs <= 0 && !submitLockRef.current.pemain1) {
+        clearInterval(interval);
+        submitJawabanSlot('pemain1', activeSoal, { timedOut: true });
+      }
+    }, 50);
+
+    return () => clearInterval(interval);
+  }, [isPlaying, isVsBot, isRevealingP1, sesi?.pemain1?.soalAktif, submitJawabanSlot]);
+
+  // Shortcut keyboard 1-5 atau A-E pada mode vs Bot
+  useEffect(() => {
+    if (!isPlaying || !isVsBot || isRevealingP1 || !sesi?.pemain1?.soalAktif) return;
+    const soal = sesi.pemain1.soalAktif;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      const upper = e.key.toUpperCase();
+      let idx = -1;
+      if (upper >= '1' && upper <= '5') idx = Number(upper) - 1;
+      else if (upper >= 'A' && upper <= 'E') idx = upper.charCodeAt(0) - 65;
+      if (idx >= 0 && idx < soal.pilihan.length) {
+        e.preventDefault();
+        submitJawabanSlot('pemain1', soal, { choiceId: soal.pilihan[idx].choiceId });
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isPlaying, isVsBot, isRevealingP1, sesi?.pemain1?.soalAktif, submitJawabanSlot]);
+
+  const handleUbahBotKesulitan = async (nextBot: KesulitanBot) => {
+    if (!id || !sesi || sesi.state !== 'READY' || isUpdatingBot) return;
+    const prev = sesi.config.kesulitanBot;
+    setSesi((curr) =>
+      curr ? { ...curr, config: { ...curr.config, kesulitanBot: nextBot } } : curr
+    );
+    try {
+      setIsUpdatingBot(true);
+      const res = await apiRequest<{ session: SesiBalapSoloClient }>(
+        `/sesi/${id}/pengaturan`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ kesulitanBot: nextBot }),
+        }
+      );
+      if (res.session) setSesi(res.session);
+    } catch (err: any) {
+      setSesi((curr) =>
+        curr ? { ...curr, config: { ...curr.config, kesulitanBot: prev } } : curr
+      );
+      setActionError(err.pesan || 'Gagal mengubah tingkat kesulitan bot.');
+    } finally {
+      setIsUpdatingBot(false);
+    }
+  };
 
   const handleMulai = async () => {
-    if (!id || isActionLoading) return;
+    if (!id || !sesi || isActionLoading) return;
     try {
       setIsActionLoading(true);
       setActionError(null);
+      setShowEndCard(false);
+      setRevealMap({ pemain1: null, pemain2: null });
+      setJumpMap({ pemain1: false, pemain2: false });
+      setHurtMap({ pemain1: false, pemain2: false });
+      setSayMap({ pemain1: null, pemain2: null });
+      setDeltaMap({ pemain1: null, pemain2: null });
+      timerLastPresentationRef.current = null;
+
       const res = await apiRequest<{ session: SesiBalapSoloClient }>(`/sesi/${id}/mulai`, {
         method: 'POST',
+        body: JSON.stringify({ kesulitanBot: sesi.config.kesulitanBot }),
       });
       soundEffects.playWhistle();
-      setFeedbackMap({ pemain1: null, pemain2: null });
-      setEkspresiMap({ pemain1: 'netral', pemain2: 'netral' });
+      pulseCheer();
       setSesi(res.session);
     } catch (err: any) {
       setActionError(err.pesan || 'Gagal memulai lomba 1 vs 1.');
@@ -360,55 +556,25 @@ export default function LayarHostBalapKarungSolo() {
     }
   };
 
-  const handleJawab = async (slot: SlotPemain, soal: SoalAktifSolo, choiceId: string) => {
-    if (!id || !sesi || sesi.state !== 'PLAYING') return;
-    if (submitLockRef.current[slot]) return;
-
-    submitLockRef.current[slot] = true;
-    setSubmittingMap((prev) => ({ ...prev, [slot]: true }));
-    setActionError(null);
-
-    try {
-      const res = await apiRequest<{
-        feedback: FeedbackAksi;
-        isFinished: boolean;
-        session: SesiBalapSoloClient;
-      }>(`/sesi/${id}/jawab`, {
-        method: 'POST',
-        body: JSON.stringify({
-          slot,
-          presentationId: soal.presentationId,
-          questionId: soal.questionId,
-          choiceId,
-        }),
-      });
-
-      setSesi(res.session);
-      if (res.feedback) {
-        triggerSlotVisual(res.feedback, true);
-      }
-    } catch (err: any) {
-      setActionError(err.pesan || 'Gagal mengirim jawaban.');
-    } finally {
-      submitLockRef.current[slot] = false;
-      setSubmittingMap((prev) => ({ ...prev, [slot]: false }));
-    }
-  };
-
   const handleUlang = async () => {
     if (!id || isActionLoading) return;
     try {
       setIsActionLoading(true);
       setActionError(null);
+      clearAllTimers();
       const res = await apiRequest<{ session: SesiBalapSoloClient }>(`/sesi/${id}/ulang`, {
         method: 'POST',
       });
       setModalUlangOpen(false);
-      setFeedbackMap({ pemain1: null, pemain2: null });
+      setShowEndCard(false);
+      setRevealMap({ pemain1: null, pemain2: null });
       setDeltaMap({ pemain1: null, pemain2: null });
-      setJatuhMap({ pemain1: false, pemain2: false });
-      setEkspresiMap({ pemain1: 'netral', pemain2: 'netral' });
+      setJumpMap({ pemain1: false, pemain2: false });
+      setHurtMap({ pemain1: false, pemain2: false });
+      setSayMap({ pemain1: null, pemain2: null });
+      timerLastPresentationRef.current = null;
       setSesi(res.session);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
       setActionError(err.pesan || 'Gagal mengulang permainan.');
     } finally {
@@ -427,6 +593,7 @@ export default function LayarHostBalapKarungSolo() {
       setModalHentikanOpen(false);
       soundEffects.playVictoryFanfare();
       setSesi(res.session);
+      setShowEndCard(true);
     } catch (err: any) {
       setActionError(err.pesan || 'Gagal menghentikan permainan.');
     } finally {
@@ -434,17 +601,21 @@ export default function LayarHostBalapKarungSolo() {
     }
   };
 
-  const handleMainLagi = async () => {
+  const handleMainLagi = async (autoStart = true) => {
     if (!id || isMainLagi) return;
     try {
       setIsMainLagi(true);
       const res = await apiRequest<{ sessionId?: string; session?: { id: string } }>(
         `/sesi/${id}/main-lagi`,
-        { method: 'POST' }
+        {
+          method: 'POST',
+          body: JSON.stringify({ autoStart }),
+        }
       );
       const nextId = res.session?.id || res.sessionId;
       if (nextId) {
         navigate(`/guru/sesi/${nextId}?kembali=${encodeURIComponent(returnUrl)}`);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     } catch (err: any) {
       setActionError(err.pesan || 'Gagal membuat sesi baru.');
@@ -453,29 +624,54 @@ export default function LayarHostBalapKarungSolo() {
     }
   };
 
-  const handleToggleSound = () => {
-    setIsMuted(soundEffects.toggleMute());
-  };
+  const targetJarak = sesi?.config?.targetJarak || 100;
+  const isFinished = sesi ? sesi.state === 'FINISHED' || sesi.state === 'STOPPED' : false;
+  const juara1 = sesi?.leaderboard?.[0];
+  const juara2 = sesi?.leaderboard?.[1];
+
+  const lanes: BalapLaneItem[] = useMemo(() => {
+    if (!sesi) return [];
+    const buildLane = (p: PesertaBalapSolo, slot: SlotPemain, warna: string, shirt: string): BalapLaneItem => ({
+      id: p.id,
+      nama: p.nama,
+      warna,
+      shirtColor: shirt,
+      meter: p.jarak,
+      targetJarak,
+      isWinner: isFinished && juara1?.id === p.id,
+      isRunnerUp: isFinished && juara2?.id === p.id,
+      isRunning: sesi.state === 'PLAYING' && !hurtMap[slot],
+      isJumping: jumpMap[slot],
+      isHurt: hurtMap[slot],
+      sayBubble: sayMap[slot],
+      deltaBadge: deltaMap[slot],
+    });
+
+    return [
+      buildLane(sesi.pemain1, 'pemain1', '#e2312d', '#7a3fd0'),
+      buildLane(sesi.pemain2, 'pemain2', '#1d8fe0', '#1d8fe0'),
+    ];
+  }, [sesi, targetJarak, isFinished, juara1?.id, juara2?.id, hurtMap, jumpMap, sayMap, deltaMap]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
-        <Loader2 className="w-10 h-10 animate-spin text-amber-400 mb-3" />
-        <p className="text-sm font-bold text-slate-300">Menyiapkan Lintasan 1 vs 1 Balap Karung...</p>
+      <div className="bk-festival flex flex-col items-center justify-center p-6">
+        <Loader2 className="w-10 h-10 animate-spin text-[#e2312d] mb-3" />
+        <p className="font-extrabold text-[#2b2a4a]">Menyiapkan Lintasan 1 vs 1 Balap Karung...</p>
       </div>
     );
   }
 
   if (errorPesan || !sesi) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 text-white">
-        <div className="max-w-md w-full bg-slate-800 border border-slate-700 rounded-3xl p-6 text-center space-y-4">
-          <h2 className="text-xl font-black">Sesi Tidak Tersedia</h2>
-          <p className="text-sm text-slate-400">{errorPesan || 'Sesi tidak ditemukan.'}</p>
+      <div className="bk-festival flex items-center justify-center p-4">
+        <div className="bk-card max-w-md w-full text-center space-y-4">
+          <h2 className="bk-h text-2xl font-extrabold">Sesi Tidak Tersedia</h2>
+          <p className="text-sm text-[#6b6a85]">{errorPesan || 'Sesi tidak ditemukan.'}</p>
           <button
             type="button"
             onClick={() => navigate(returnUrl)}
-            className="w-full py-2.5 rounded-xl bg-amber-400 text-slate-950 font-black text-sm cursor-pointer"
+            className="bk-btn w-full justify-center"
           >
             Kembali
           </button>
@@ -484,414 +680,135 @@ export default function LayarHostBalapKarungSolo() {
     );
   }
 
-  const stateBadge = LABEL_STATE[sesi.state];
-  const isFinished = sesi.state === 'FINISHED' || sesi.state === 'STOPPED';
-  const targetJarak = sesi.config.targetJarak || 100;
-  const keseimbanganAktif = sesi.config.keseimbanganAktif !== false;
+  const badge = LABEL_STATE[sesi.state];
   const isDuelLokal = sesi.config.tipeLawanSolo === 'lokal';
+  const p1Reveal = revealMap.pemain1;
+  const p2Reveal = revealMap.pemain2;
+  const p1Soal = p1Reveal ? p1Reveal.soal : sesi.pemain1.soalAktif;
+  const p2Soal = p2Reveal ? p2Reveal.soal : sesi.pemain2.soalAktif;
+  const timerRatio = Math.max(0, Math.min(1, remainingMs / (timerSec * 1000)));
+  const remainingSecDisplay = Math.max(0, Math.ceil(remainingMs / 1000));
 
-  const juara1 = sesi.leaderboard[0];
-  const juara2 = sesi.leaderboard[1];
-
-  const renderPanelSoalPemain = (
-    peserta: PesertaBalapSolo,
-    slot: SlotPemain,
-    accent: 'red' | 'blue'
-  ) => {
-    const soal = peserta.soalAktif;
-    const fb = feedbackMap[slot];
-    const isSubmitting = submittingMap[slot];
-    const headerBorder =
-      accent === 'red' ? 'border-rose-500/40 bg-rose-950/30' : 'border-sky-500/40 bg-sky-950/30';
-    const tagBg =
-      accent === 'red' ? 'bg-rose-500 text-white' : 'bg-sky-500 text-slate-950';
-
-    return (
-      <div
-        className={`bg-slate-800/90 border-2 rounded-3xl p-4 sm:p-5 flex flex-col justify-between gap-4 shadow-xl ${
-          accent === 'red' ? 'border-rose-500/40' : 'border-sky-500/40'
-        }`}
-      >
-        <div className="space-y-3">
-          <div className={`flex items-center justify-between gap-2 px-3 py-2 rounded-2xl border ${headerBorder}`}>
-            <div className="flex items-center gap-2 min-w-0">
-              <span className={`px-2.5 py-0.5 rounded-lg text-[11px] font-black uppercase ${tagBg}`}>
-                {slot === 'pemain1' ? 'Avatar 1' : 'Avatar 2'}
-              </span>
-              <span className="font-black text-sm text-white truncate">{peserta.nama}</span>
-            </div>
-            {soal && (
-              <span className="text-xs font-mono font-bold text-slate-300 shrink-0">
-                Soal #{soal.nomorSoal}
-              </span>
-            )}
-          </div>
-
-          {fb && (
-            <div
-              className={`px-3 py-2 rounded-xl border text-xs font-bold flex flex-wrap items-center justify-between gap-2 ${
-                fb.benar
-                  ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-200'
-                  : 'bg-rose-950/60 border-rose-500/50 text-rose-200'
-              }`}
-            >
-              <span className="flex items-center gap-1.5">
-                {fb.benar ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                ) : (
-                  <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
-                )}
-                {fb.benar
-                  ? `Benar! ${fb.perubahanJarak >= 0 ? `+${fb.perubahanJarak}` : fb.perubahanJarak}m`
-                  : `Salah (Kunci: ${fb.jawabanBenarKode})`}
-              </span>
-              {fb.rintanganBaru && (
-                <span className="text-[11px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-200">
-                  {fb.rintanganBaru.judul}
-                </span>
-              )}
-              {fb.terjatuh && (
-                <span className="text-[11px] px-2 py-0.5 rounded bg-rose-500/30 text-rose-100">
-                  {fb.perisaiDigunakan ? 'Perisai Menahan Jatuh!' : `Terjatuh -${fb.penaltiJatuhJarak}m`}
-                </span>
-              )}
-            </div>
-          )}
-
-          {soal ? (
-            <div className="space-y-3">
-              <div className="bg-slate-900/70 border border-slate-700/80 rounded-2xl p-4">
-                <p className="text-sm sm:text-base font-bold text-white leading-relaxed">
-                  {soal.teks}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 gap-2">
-                {soal.pilihan.map((opt) => (
-                  <button
-                    key={opt.choiceId}
-                    type="button"
-                    disabled={isSubmitting || sesi.state !== 'PLAYING'}
-                    onClick={() => handleJawab(slot, soal, opt.choiceId)}
-                    className="w-full text-left px-3.5 py-2.5 rounded-xl bg-slate-900/85 hover:bg-slate-700/80 border border-slate-700 hover:border-amber-400/70 transition-all flex items-center gap-3 cursor-pointer disabled:opacity-50"
-                  >
-                    <span className="w-7 h-7 rounded-lg bg-amber-400 text-slate-950 font-black text-xs flex items-center justify-center shrink-0">
-                      {opt.key}
-                    </span>
-                    <span className="text-xs sm:text-sm font-semibold text-slate-100 leading-snug">
-                      {opt.teks}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="py-10 text-center text-xs text-slate-400">
-              Menunggu soal disiapkan...
-            </div>
-          )}
-        </div>
-      </div>
-    );
+  const renderFeedbackText = (fb: FeedbackAksi) => {
+    if (fb.benar) {
+      return `Benar! Karung melompat +${Math.abs(fb.perubahanJarak)} m.`;
+    }
+    if (fb.timedOut) {
+      return `Waktu habis, mundur ${Math.abs(fb.perubahanJarak)} m. Jawaban: ${fb.jawabanBenarTeks}`;
+    }
+    return `Belum tepat, mundur ${Math.abs(fb.perubahanJarak)} m. Jawaban: ${fb.jawabanBenarTeks}`;
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-emerald-950/75 to-slate-900 text-white p-4 sm:p-6 flex flex-col gap-5 select-none">
-      {/* Header Kontrol Guru */}
-      <header className="max-w-7xl w-full mx-auto flex flex-wrap items-center justify-between gap-3 bg-slate-800/85 border border-slate-700 rounded-2xl p-4 shadow-lg">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => navigate(returnUrl)}
-            className="p-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors cursor-pointer"
-            title="Kembali"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className={`px-2.5 py-0.5 rounded-full border text-[10px] font-black uppercase ${stateBadge.warna}`}>
-                {stateBadge.teks}
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-rose-500/20 border border-rose-400/40 text-rose-200 text-[10px] font-black uppercase inline-flex items-center gap-1">
-                {isDuelLokal ? <Swords className="w-3 h-3" /> : <Bot className="w-3 h-3" />}
-                Solo 1 vs 1 • {isDuelLokal ? 'Duel Lokal' : `Lawan Bot (${sesi.config.kesulitanBot})`}
-              </span>
-              <span className="text-xs text-amber-300 font-mono font-bold">
-                Target {targetJarak}m
-              </span>
-            </div>
-            <h1 className="text-lg sm:text-xl font-black text-white mt-0.5">{sesi.templateJudul}</h1>
-          </div>
-        </div>
+    <div className="bk-festival">
+      <BalapKarungStadium
+        title="Balap Karung Kuis"
+        subtitle={sesi.templateJudul}
+        statusLabel={badge.text}
+        statusTone={badge.tone}
+        targetJarak={targetJarak}
+        ruleSummary={`Benar +${sesi.config.lompatBenar} m • Salah −${sesi.config.turunSalah} m`}
+        lanes={lanes}
+        crowdCheer={crowdCheer || isFinished}
+        isMuted={isMuted}
+        onToggleMute={() => setIsMuted(soundEffects.toggleMute())}
+        onBack={() => navigate(returnUrl)}
+        isPaused={sesi.state === 'PAUSED'}
+        onTogglePause={
+          sesi.state === 'PLAYING' || sesi.state === 'PAUSED' ? handleTogglePause : undefined
+        }
+        onStop={
+          sesi.state === 'PLAYING' || sesi.state === 'PAUSED'
+            ? () => setModalHentikanOpen(true)
+            : undefined
+        }
+      />
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={handleToggleSound}
-            className="p-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 cursor-pointer"
-            title={isMuted ? 'Nyalakan Suara' : 'Bisukan Suara'}
-          >
-            {isMuted ? (
-              <VolumeX className="w-4 h-4 text-red-400" />
-            ) : (
-              <Volume2 className="w-4 h-4 text-emerald-400" />
-            )}
-          </button>
-
-          {sesi.state === 'READY' && (
+      <main className="bk-wrap">
+        {actionError && (
+          <div className="mt-4 p-3 rounded-2xl bg-[#fde0e0] border-2 border-[#f4b6b6] text-xs font-extrabold text-[#8a1f1f] flex items-center justify-between gap-2">
+            <span>{actionError}</span>
             <button
               type="button"
-              onClick={handleMulai}
-              disabled={isActionLoading}
-              className="px-4 py-2 rounded-xl bg-[#D7262E] hover:bg-[#b81e25] text-white font-black text-xs inline-flex items-center gap-1.5 shadow cursor-pointer disabled:opacity-60"
+              onClick={() => setActionError(null)}
+              className="underline cursor-pointer"
             >
-              <Play className="w-3.5 h-3.5 fill-current" /> Mulai Lomba 1 vs 1
+              Tutup
             </button>
-          )}
+          </div>
+        )}
 
-          {(sesi.state === 'PLAYING' || sesi.state === 'PAUSED') && (
-            <>
-              <button
-                type="button"
-                onClick={handleTogglePause}
-                disabled={isActionLoading}
-                className="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs inline-flex items-center gap-1.5 cursor-pointer"
-              >
-                {sesi.state === 'PLAYING' ? (
-                  <>
-                    <Pause className="w-3.5 h-3.5" /> Jeda
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-3.5 h-3.5 fill-current" /> Lanjutkan
-                  </>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => setModalUlangOpen(true)}
-                className="px-3 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold text-xs inline-flex items-center gap-1.5 cursor-pointer"
-              >
-                <RotateCcw className="w-3.5 h-3.5" /> Ulang
-              </button>
-              <button
-                type="button"
-                onClick={() => setModalHentikanOpen(true)}
-                className="px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs inline-flex items-center gap-1.5 cursor-pointer"
-              >
-                <StopCircle className="w-3.5 h-3.5" /> Akhiri
-              </button>
-            </>
-          )}
-        </div>
-      </header>
-
-      {actionError && (
-        <div className="max-w-7xl w-full mx-auto bg-rose-950/70 border border-rose-500/60 text-rose-200 px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 shrink-0" />
-          <span>{actionError}</span>
-        </div>
-      )}
-
-      {/* Panggung 1 vs 1 (Selalu tepat 2 Avatar di Lintasan!) */}
-      {!isFinished && (
-        <main className="max-w-7xl w-full mx-auto space-y-5 flex-1 flex flex-col">
-          <section className="bg-slate-800/80 border border-slate-700 rounded-3xl p-4 sm:p-5 space-y-4 shadow-xl">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
-                <Flag className="w-4 h-4 text-amber-400" />
-                Arena Lintasan 1 vs 1 • {sesi.pemain1.nama} vs {sesi.pemain2.nama}
-              </h2>
-              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
-                <span>Benar +{sesi.config.lompatBenar}m</span>
-                <span>•</span>
-                <span>Salah -{sesi.config.turunSalah}m</span>
-                {keseimbanganAktif && (
-                  <>
-                    <span>•</span>
-                    <span className="inline-flex items-center gap-1 text-sky-300">
-                      <Scale className="w-3.5 h-3.5" /> Keseimbangan Aktif
-                    </span>
-                  </>
-                )}
+        {/* 1. PRE-START PANEL (READY) */}
+        {sesi.state === 'READY' && (
+          <section className="bk-card mt-4 text-center">
+            <div className="flex items-center justify-center gap-6 mb-2">
+              <div className="flex flex-col items-center">
+                <BalapSackSvg shirtColor="#7a3fd0" className="w-[74px] h-auto" />
+                <span className="bk-h font-extrabold text-sm text-[#e2312d] mt-1">
+                  {sesi.pemain1.nama}
+                </span>
+              </div>
+              <span className="bk-h text-3xl font-extrabold text-[#e2312d]">VS</span>
+              <div className="flex flex-col items-center">
+                <BalapSackSvg shirtColor="#1d8fe0" className="w-[74px] h-auto" />
+                <span className="bk-h font-extrabold text-sm text-[#1d8fe0] mt-1">
+                  {sesi.pemain2.nama}
+                </span>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3">
-              {[
-                { data: sesi.pemain1, slot: 'pemain1' as SlotPemain, badgeCls: 'bg-rose-500 text-white' },
-                { data: sesi.pemain2, slot: 'pemain2' as SlotPemain, badgeCls: 'bg-sky-500 text-slate-950' },
-              ].map(({ data, slot, badgeCls }) => (
-                <div
-                  key={data.id}
-                  className="bg-slate-900/65 border border-slate-700/80 rounded-2xl p-3 space-y-2"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${badgeCls}`}>
-                        {slot === 'pemain1' ? 'P1' : data.isBot ? 'BOT' : 'P2'}
-                      </span>
-                      <span className="font-black text-white">{data.nama}</span>
-                      {data.streakSaatIni >= 2 && (
-                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 text-[10px] font-black">
-                          <Flame className="w-3 h-3" /> {data.streakSaatIni}
-                        </span>
-                      )}
-                      {data.efekAktif?.perisai && (
-                        <span className="text-sky-400" title="Perisai Aktif">
-                          <Shield className="w-3.5 h-3.5" />
-                        </span>
-                      )}
-                      {data.efekAktif?.lompatanKuat && (
-                        <span className="text-amber-400" title="Lompatan Kuat">
-                          <Zap className="w-3.5 h-3.5" />
-                        </span>
-                      )}
-                      {data.efekAktif?.jalanBerlumpur && (
-                        <span className="text-amber-600" title="Jalan Berlumpur">
-                          <CloudRain className="w-3.5 h-3.5" />
-                        </span>
-                      )}
-                    </div>
+            <h2 className="bk-h text-2xl sm:text-3xl font-extrabold text-[#2b2a4a] mt-1">
+              {isDuelLokal ? 'Siap duel lokal 1 vs 1?' : 'Siap duel 1 vs 1?'}
+            </h2>
+            <p className="text-sm text-[#6b6a85] max-w-[48ch] mx-auto mt-1 mb-4">
+              Jawab kuis secepat dan setepat mungkin ({timerSec} detik per soal). Setiap jawaban
+              benar melompatkan karung +{sesi.config.lompatBenar} m, salah −
+              {sesi.config.turunSalah} m.
+            </p>
 
-                    <div className="flex items-center gap-3 font-mono text-xs">
-                      <span className="text-slate-400">
-                        ✓{data.totalBenar} / ✗{data.totalSalah}
-                      </span>
-                      {data.jumlahJatuh > 0 && (
-                        <span className="text-rose-300 font-bold">{data.jumlahJatuh}x Jatuh</span>
-                      )}
-                      <span className="font-black text-emerald-300">
-                        {data.jarak}m / {targetJarak}m
-                      </span>
-                    </div>
-                  </div>
-
-                  <LintasanBalapKarung
-                    jarak={data.jarak}
-                    targetJarak={targetJarak}
-                    keseimbangan={data.keseimbangan}
-                    keseimbanganAktif={keseimbanganAktif}
-                    namaPemain={data.nama}
-                    efekAktif={data.efekAktif}
-                    lastDeltaJarak={deltaMap[slot]}
-                    ekspresi={ekspresiMap[slot]}
-                    terjatuh={jatuhMap[slot]}
-                    streak={data.streakSaatIni}
-                    status={data.status}
-                  />
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* Zona Kuis Interaktif */}
-          {sesi.state === 'READY' && (
-            <section className="bg-slate-800/80 border-2 border-dashed border-amber-400/50 rounded-3xl p-8 text-center space-y-4">
-              <div className="flex items-center justify-center gap-8">
-                <div className="flex flex-col items-center">
-                  <KarakterBalapKarung nama={sesi.pemain1.nama} size="md" ekspresi="bahagia" />
-                  <span className="text-xs font-black text-rose-300 mt-1">{sesi.pemain1.nama}</span>
-                </div>
-                <span className="text-2xl font-black text-amber-400">VS</span>
-                <div className="flex flex-col items-center">
-                  <KarakterBalapKarung nama={sesi.pemain2.nama} size="md" ekspresi="bahagia" />
-                  <span className="text-xs font-black text-sky-300 mt-1">{sesi.pemain2.nama}</span>
-                </div>
+            {!isDuelLokal && (
+              <div
+                className="flex flex-wrap items-center justify-center gap-2 mb-5"
+                role="group"
+                aria-label="Tingkat bot"
+              >
+                {(
+                  [
+                    { key: 'santai', label: 'Bot mudah' },
+                    { key: 'sedang', label: 'Bot sedang' },
+                    { key: 'cepat', label: 'Bot sulit' },
+                  ] as const
+                ).map((item) => {
+                  const active = sesi.config.kesulitanBot === item.key;
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      disabled={isUpdatingBot}
+                      aria-pressed={active}
+                      onClick={() => handleUbahBotKesulitan(item.key)}
+                      className={`px-4 py-1.5 rounded-full border-2 text-sm font-extrabold transition-all cursor-pointer ${
+                        active
+                          ? 'bg-[#1d8fe0] border-[#1d8fe0] text-white shadow-xs'
+                          : 'bg-[#fff3d6] border-[#f0dfb4] text-[#2b2a4a] hover:border-[#1d8fe0]'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
               </div>
-              <div className="space-y-1">
-                <h3 className="text-xl font-black text-white">Siap Memulai Duel 1 vs 1?</h3>
-                <p className="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto">
-                  {isDuelLokal
-                    ? `Kedua pemain akan menjawab soal bergiliran/bebas secara paralel di layar. Pemain pertama yang menempuh ${targetJarak} meter menang!`
-                    : `Jawab kuis secepat dan seakurat mungkin untuk mengalahkan ${sesi.pemain2.nama} mencapai garis finis ${targetJarak} meter!`}
-                </p>
-              </div>
+            )}
+
+            <div className="flex flex-wrap items-center justify-center gap-3">
               <button
                 type="button"
                 onClick={handleMulai}
                 disabled={isActionLoading}
-                className="px-8 py-3.5 rounded-2xl bg-[#D7262E] hover:bg-[#b81e25] text-white font-black text-sm inline-flex items-center gap-2 shadow-xl cursor-pointer"
+                className="bk-btn"
               >
-                <Play className="w-4 h-4 fill-current" /> Mulai Lomba Sekarang
-              </button>
-            </section>
-          )}
-
-          {sesi.state === 'PAUSED' && (
-            <section className="bg-amber-500/15 border-2 border-amber-400/60 rounded-3xl p-8 text-center space-y-3">
-              <h3 className="text-xl font-black text-amber-300">Perlombaan Dijeda</h3>
-              <p className="text-xs sm:text-sm text-slate-200">
-                Posisi lintasan dan keseimbangan tersimpan aman. Klik Lanjutkan untuk meneruskan duel.
-              </p>
-              <button
-                type="button"
-                onClick={handleTogglePause}
-                disabled={isActionLoading}
-                className="px-6 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs inline-flex items-center gap-1.5 cursor-pointer"
-              >
-                <Play className="w-3.5 h-3.5 fill-current" /> Lanjutkan Lomba
-              </button>
-            </section>
-          )}
-
-          {sesi.state === 'PLAYING' && (
-            <section
-              className={`grid gap-5 ${
-                isDuelLokal ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 max-w-3xl w-full mx-auto'
-              }`}
-            >
-              {renderPanelSoalPemain(sesi.pemain1, 'pemain1', 'red')}
-              {isDuelLokal && renderPanelSoalPemain(sesi.pemain2, 'pemain2', 'blue')}
-              {!isDuelLokal && feedbackMap.pemain2 && (
-                <div className="bg-slate-800/80 border border-sky-500/40 rounded-2xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <span className="font-bold text-sky-200 flex items-center gap-1.5">
-                    <Bot className="w-4 h-4 text-sky-400" />
-                    Aksi Terakhir {sesi.pemain2.nama}:
-                  </span>
-                  <span className="font-semibold text-slate-200">
-                    {feedbackMap.pemain2.benar
-                      ? `Menjawab benar (${feedbackMap.pemain2.perubahanJarak >= 0 ? `+${feedbackMap.pemain2.perubahanJarak}` : feedbackMap.pemain2.perubahanJarak}m)`
-                      : `Menjawab salah (${feedbackMap.pemain2.perubahanJarak}m)`}
-                    {feedbackMap.pemain2.rintanganBaru
-                      ? ` • ${feedbackMap.pemain2.rintanganBaru.judul}`
-                      : ''}
-                    {feedbackMap.pemain2.terjatuh ? ' • Terjatuh!' : ''}
-                  </span>
-                </div>
-              )}
-            </section>
-          )}
-        </main>
-      )}
-
-      {/* Podium & Laporan Akhir 1 vs 1 */}
-      {isFinished && (
-        <main className="max-w-5xl w-full mx-auto space-y-6 py-4">
-          <div className="bg-slate-800/85 border border-amber-500/40 rounded-3xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xl">
-            <div className="space-y-1">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/50 text-amber-300 text-xs font-black uppercase">
-                <Trophy className="w-3.5 h-3.5" /> Hasil Duel 1 vs 1 Balap Karung
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-black text-white">
-                {juara1 ? `Pemenang: ${juara1.nama}!` : 'Perlombaan Selesai'}
-              </h2>
-              <p className="text-xs text-slate-300">
-                {sesi.state === 'STOPPED' || sesi.hasil?.dihentikanManual
-                  ? `Permainan dihentikan guru pada target ${targetJarak}m.`
-                  : `Menyentuh garis finis ${targetJarak}m paling cepat!`}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2.5">
-              <button
-                type="button"
-                onClick={handleMainLagi}
-                disabled={isMainLagi}
-                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs inline-flex items-center gap-1.5 cursor-pointer"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isMainLagi ? 'animate-spin' : ''}`} /> Main Lagi
+                <Play className="w-4 h-4 fill-current" />
+                {isActionLoading ? 'Memulai...' : 'Mulai lomba'}
               </button>
               <button
                 type="button"
@@ -902,143 +819,384 @@ export default function LayarHostBalapKarungSolo() {
                     )}&kembali=${encodeURIComponent(returnUrl)}`
                   )
                 }
-                className="px-4 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-100 font-bold text-xs inline-flex items-center gap-1.5 cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl border-2 border-[#f0dfb4] bg-[#fff3d6] text-xs font-extrabold text-[#2b2a4a] hover:bg-[#fde9b8] cursor-pointer"
               >
-                <Sliders className="w-3.5 h-3.5" /> Ubah Pengaturan
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate(returnUrl)}
-                className="px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs inline-flex items-center gap-1.5 cursor-pointer"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" /> Selesai
+                <Sliders className="w-4 h-4" /> Pengaturan Lomba
               </button>
             </div>
-          </div>
+          </section>
+        )}
 
-          {/* 2 Kartu Podium 1 vs 1 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            {juara1 && (
-              <div className="bg-gradient-to-b from-amber-500/20 to-slate-800/95 border-2 border-amber-400 rounded-3xl p-6 text-center flex flex-col items-center shadow-2xl">
-                <KarakterBalapKarung
-                  nama={juara1.nama}
-                  pose="podium"
-                  ekspresi="bahagia"
-                  podiumRank={1}
-                  size="lg"
-                  className="mb-2"
-                />
-                <span className="px-3 py-1 rounded-full bg-amber-400 text-slate-950 text-xs font-black mb-2">
-                  Juara 1 • Pemenang
-                </span>
-                <h3 className="text-2xl font-black text-white">{juara1.nama}</h3>
-                <p className="text-3xl font-black text-amber-300 mt-1">{juara1.jarak} m</p>
-                <div className="grid grid-cols-3 gap-3 w-full mt-4 pt-3 border-t border-slate-700 text-xs">
-                  <div>
-                    <span className="text-slate-400 block">Akurasi</span>
-                    <span className="font-black text-emerald-300">{juara1.akurasiPersen}%</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block">Benar/Salah</span>
-                    <span className="font-mono font-bold">
-                      {juara1.totalBenar}/{juara1.totalSalah}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block">Waktu</span>
-                    <span className="font-mono font-bold">
-                      {formatDetik(juara1.waktuSelesaiMs || juara1.rataRataWaktuJawabMs)}
-                    </span>
-                  </div>
+        {/* 2A. PLAYING / PAUSED — MODE VS BOT (Layout bersih sesuai prototipe Solo) */}
+        {(sesi.state === 'PLAYING' || sesi.state === 'PAUSED' || (isFinished && !showEndCard)) &&
+          !isDuelLokal && (
+            <section className="bk-card mt-4">
+              {sesi.state === 'PAUSED' && (
+                <div className="mb-3 px-4 py-2.5 rounded-2xl bg-[#fff3c4] border-2 border-[#f2c230] text-xs font-extrabold text-[#7a5200] flex items-center justify-between">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Pause className="w-4 h-4" /> Perlombaan sedang dijeda sementara.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleTogglePause}
+                    className="underline cursor-pointer"
+                  >
+                    Lanjutkan
+                  </button>
                 </div>
-              </div>
-            )}
+              )}
 
-            {juara2 && (
-              <div className="bg-slate-800/90 border border-slate-500 rounded-3xl p-6 text-center flex flex-col items-center shadow-lg">
-                <KarakterBalapKarung
-                  nama={juara2.nama}
-                  pose="podium"
-                  ekspresi="bahagia"
-                  podiumRank={2}
-                  size="lg"
-                  className="mb-2"
-                />
-                <span className="px-3 py-1 rounded-full bg-slate-600 text-slate-100 text-xs font-black mb-2">
-                  Juara 2 • Runner-Up
-                </span>
-                <h3 className="text-2xl font-black text-white">{juara2.nama}</h3>
-                <p className="text-3xl font-black text-emerald-300 mt-1">{juara2.jarak} m</p>
-                <div className="grid grid-cols-3 gap-3 w-full mt-4 pt-3 border-t border-slate-700 text-xs">
-                  <div>
-                    <span className="text-slate-400 block">Akurasi</span>
-                    <span className="font-black text-emerald-300">{juara2.akurasiPersen}%</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block">Benar/Salah</span>
-                    <span className="font-mono font-bold">
-                      {juara2.totalBenar}/{juara2.totalSalah}
+              {p1Soal ? (
+                <>
+                  <div className="flex items-center justify-between text-sm font-extrabold text-[#6b6a85] mb-2">
+                    <span className="inline-flex items-center gap-2">
+                      <span>Soal {p1Soal.nomorSoal}</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-[#fff3d6] border border-[#f0dfb4] text-[#2b2a4a]">
+                        Bank: {p1Soal.totalSoalBank} soal
+                      </span>
+                    </span>
+                    <span className="inline-flex items-center gap-1 font-mono text-[#2b2a4a]">
+                      <Clock className="w-4 h-4 text-[#ffb81c]" />
+                      {remainingSecDisplay} detik
                     </span>
                   </div>
-                  <div>
-                    <span className="text-slate-400 block">Jatuh</span>
-                    <span className="font-mono font-bold text-rose-300">{juara2.jumlahJatuh}x</span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
 
-          {sesi.hasil?.questionStats && sesi.hasil.questionStats.length > 0 && (
-            <div className="bg-slate-800/85 border border-slate-700 rounded-3xl p-5 shadow-xl">
-              <h3 className="text-base font-black text-white mb-3">
-                Statistik Soal yang Dijawab
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {sesi.hasil.questionStats.map((sq, idx) => {
-                  const b = sq.jumlahBenar ?? 0;
-                  const s = sq.jumlahSalah ?? 0;
-                  return (
+                  <div className="bk-tbar">
                     <div
-                      key={sq.questionId}
-                      className="bg-slate-900/70 border border-slate-700 rounded-2xl p-3 flex items-center justify-between gap-3 text-xs"
-                    >
-                      <div className="min-w-0">
-                        <span className="text-[10px] font-bold uppercase text-slate-400">
-                          Soal #{sq.nomorSoal ?? idx + 1}
-                        </span>
-                        <p className="font-semibold text-white line-clamp-2">{sq.teksSoal}</p>
+                      className="bk-tbar-fill"
+                      style={{
+                        transform: `scaleX(${timerRatio})`,
+                        transition: 'none',
+                      }}
+                    />
+                  </div>
+
+                  <div className="bk-h text-xl sm:text-2xl font-extrabold text-[#2b2a4a] leading-snug max-w-[42ch] mb-4">
+                    {p1Soal.teks}
+                  </div>
+
+                  <div className="bk-opts">
+                    {p1Soal.pilihan.map((opt) => {
+                      const locked = Boolean(p1Reveal) || sesi.state !== 'PLAYING';
+                      const isCorrect =
+                        p1Reveal && opt.key === p1Reveal.feedback.jawabanBenarKode;
+                      const isWrongChosen =
+                        p1Reveal &&
+                        !p1Reveal.feedback.benar &&
+                        p1Reveal.chosenChoiceId === opt.choiceId;
+
+                      return (
+                        <button
+                          key={opt.choiceId}
+                          type="button"
+                          disabled={locked}
+                          onClick={() =>
+                            submitJawabanSlot('pemain1', p1Soal, { choiceId: opt.choiceId })
+                          }
+                          className={`bk-opt ${isCorrect ? 'ok' : isWrongChosen ? 'no' : ''}`}
+                        >
+                          <span className="bk-opt-k">{opt.key}</span>
+                          <span className="leading-snug">{opt.teks}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div
+                    className={`min-h-[1.7em] mt-3 bk-h text-base font-extrabold ${
+                      p1Reveal
+                        ? p1Reveal.feedback.benar
+                          ? 'text-[#1f9d55]'
+                          : 'text-[#d63b3b]'
+                        : 'text-[#6b6a85]'
+                    }`}
+                    aria-live="polite"
+                  >
+                    {p1Reveal ? (
+                      renderFeedbackText(p1Reveal.feedback)
+                    ) : (
+                      <span className="text-xs font-bold text-[#6b6a85]">
+                        Tips: Tekan tombol opsi atau tombol keyboard A–{String.fromCharCode(64 + p1Soal.pilihan.length)}.
+                      </span>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="py-6 text-center text-sm font-bold text-[#6b6a85]">
+                  Menyiapkan pertanyaan berikutnya...
+                </div>
+              )}
+            </section>
+          )}
+
+        {/* 2B. PLAYING / PAUSED — MODE DUEL LOKAL 2 PEMAIN (KIRI VS KANAN) */}
+        {(sesi.state === 'PLAYING' || sesi.state === 'PAUSED' || (isFinished && !showEndCard)) &&
+          isDuelLokal && (
+            <section className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              {(
+                [
+                  {
+                    slot: 'pemain1' as const,
+                    peserta: sesi.pemain1,
+                    soal: p1Soal,
+                    reveal: p1Reveal,
+                    accentColor: '#e2312d',
+                  },
+                  {
+                    slot: 'pemain2' as const,
+                    peserta: sesi.pemain2,
+                    soal: p2Soal,
+                    reveal: p2Reveal,
+                    accentColor: '#1d8fe0',
+                  },
+                ] as const
+              ).map(({ slot, peserta, soal, reveal, accentColor }) => (
+                <div key={slot} className="bk-card">
+                  <div className="flex items-center justify-between gap-2 pb-2.5 mb-3 border-b-2 border-[#f0dfb4]">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="w-3 h-3 rounded-full"
+                        style={{ background: accentColor }}
+                      />
+                      <span className="bk-h text-lg font-extrabold text-[#2b2a4a]">
+                        {peserta.nama}
+                      </span>
+                    </div>
+                    <span className="bk-chip">
+                      {Math.round(peserta.jarak)} / {targetJarak} m
+                    </span>
+                  </div>
+
+                  {soal ? (
+                    <>
+                      <div className="text-xs font-extrabold text-[#6b6a85] mb-1.5">
+                        Soal #{soal.nomorSoal}
                       </div>
-                      <div className="text-right font-mono shrink-0">
-                        <span className="text-emerald-400 font-black block">{b} Benar</span>
-                        <span className="text-rose-400">{s} Salah</span>
+                      <div className="bk-h text-lg font-extrabold text-[#2b2a4a] mb-3 leading-snug">
+                        {soal.teks}
+                      </div>
+                      <div className="grid grid-cols-1 gap-2">
+                        {soal.pilihan.map((opt) => {
+                          const locked = Boolean(reveal) || sesi.state !== 'PLAYING';
+                          const isCorrect =
+                            reveal && opt.key === reveal.feedback.jawabanBenarKode;
+                          const isWrongChosen =
+                            reveal &&
+                            !reveal.feedback.benar &&
+                            reveal.chosenChoiceId === opt.choiceId;
+                          return (
+                            <button
+                              key={opt.choiceId}
+                              type="button"
+                              disabled={locked}
+                              onClick={() =>
+                                submitJawabanSlot(slot, soal, { choiceId: opt.choiceId })
+                              }
+                              className={`bk-opt !p-3 ${
+                                isCorrect ? 'ok' : isWrongChosen ? 'no' : ''
+                              }`}
+                            >
+                              <span className="bk-opt-k">{opt.key}</span>
+                              <span className="text-sm leading-snug">{opt.teks}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div
+                        className={`min-h-[1.5em] mt-2.5 text-xs font-extrabold ${
+                          reveal?.feedback.benar ? 'text-[#1f9d55]' : 'text-[#d63b3b]'
+                        }`}
+                      >
+                        {reveal ? renderFeedbackText(reveal.feedback) : ''}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="py-6 text-center text-xs text-[#6b6a85] font-bold">
+                      Selesai / Menunggu pemain lain...
+                    </div>
+                  )}
+                </div>
+              ))}
+            </section>
+          )}
+
+        {/* 3. END PODIUM & STATISTIK SOAL */}
+        {isFinished && showEndCard && (
+          <section ref={endRef} className="bk-card mt-4 space-y-5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <span className="inline-block px-3 py-1 rounded-full bg-[#ffe9a8] text-[#7a5200] text-xs font-extrabold mb-1.5">
+                  <Trophy className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />
+                  Hasil duel 1 vs 1 balap karung
+                </span>
+                <h2 className="bk-h text-2xl sm:text-3xl font-extrabold text-[#2b2a4a]">
+                  Pemenang: {juara1?.nama || sesi.pemain1.nama}!
+                </h2>
+                <p className="text-sm text-[#6b6a85] mt-0.5">
+                  {sesi.hasil?.dihentikanManual
+                    ? 'Perlombaan dihentikan oleh guru.'
+                    : `Menyentuh garis finis ${targetJarak} m paling cepat!`}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => handleMainLagi(true)}
+                  disabled={isMainLagi}
+                  className="bk-btn alt"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isMainLagi ? 'animate-spin' : ''}`} />
+                  {isMainLagi ? 'Menyiapkan...' : 'Main lagi'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalUlangOpen(true)}
+                  className="bk-btn slate"
+                >
+                  <RotateCcw className="w-4 h-4" /> Ubah bot / ulang
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(
+                      `/guru/balap-karung?templateId=${encodeURIComponent(
+                        sesi.templateId
+                      )}&kembali=${encodeURIComponent(returnUrl)}`
+                    )
+                  }
+                  className="bk-btn gold"
+                >
+                  Selesai
+                </button>
+              </div>
+            </div>
+
+            {/* Podium 2 Kartu */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[juara1, juara2].filter(Boolean).map((p, idx) => {
+                if (!p) return null;
+                const isWinnerCard = idx === 0;
+                const isP1 = p.id === sesi.pemain1.id;
+                const shirt = isP1 ? '#7a3fd0' : '#1d8fe0';
+                return (
+                  <div
+                    key={p.id}
+                    className={`rounded-[22px] p-5 text-center border-2 ${
+                      isWinnerCard
+                        ? 'border-[#ffb81c] border-[3px] bg-gradient-to-b from-[#fff3c4] to-[#fff3d6]'
+                        : 'border-[#f0dfb4] bg-[#fff3d6]'
+                    }`}
+                  >
+                    <div className="flex justify-center mb-1">
+                      <BalapSackSvg
+                        shirtColor={shirt}
+                        up={isWinnerCard}
+                        crown={isWinnerCard}
+                        medal={!isWinnerCard}
+                        className="w-24 h-auto"
+                      />
+                    </div>
+                    <span
+                      className={`inline-block px-3.5 py-0.5 rounded-full text-xs font-extrabold ${
+                        isWinnerCard
+                          ? 'bg-[#ffb81c] text-[#4a3000]'
+                          : 'bg-[#dfe3ee] text-[#394060]'
+                      }`}
+                    >
+                      {isWinnerCard ? 'Juara 1 • Pemenang' : 'Juara 2 • Runner-Up'}
+                    </span>
+                    <h3 className="bk-h text-2xl font-extrabold text-[#2b2a4a] mt-2 flex items-center justify-center gap-1.5">
+                      {p.isBot && <Bot className="w-5 h-5 text-[#1d8fe0]" />}
+                      {!p.isBot && idx === 0 && <Swords className="w-5 h-5 text-[#e2312d]" />}
+                      {p.nama}
+                    </h3>
+                    <div
+                      className={`bk-h text-4xl font-extrabold my-1 ${
+                        isWinnerCard ? 'text-[#d98a00]' : 'text-[#1f9d55]'
+                      }`}
+                    >
+                      {Math.min(Math.round(p.jarak), targetJarak)} m
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 border-t-2 border-[#f0dfb4] pt-3 mt-3 text-xs text-[#6b6a85]">
+                      <div>
+                        Akurasi
+                        <strong className="block bk-h text-sm text-[#2b2a4a]">
+                          {p.akurasiPersen}%
+                        </strong>
+                      </div>
+                      <div>
+                        Benar/Salah
+                        <strong className="block bk-h text-sm text-[#2b2a4a]">
+                          {p.totalBenar}/{p.totalSalah}
+                        </strong>
+                      </div>
+                      <div>
+                        {p.waktuSelesaiMs ? 'Waktu Finis' : 'Rata-rata Jawab'}
+                        <strong className="block bk-h text-sm text-[#2b2a4a]">
+                          {p.waktuSelesaiMs
+                            ? formatDurasiDetik(p.waktuSelesaiMs)
+                            : formatDurasiDetik(p.rataRataWaktuJawabMs)}
+                        </strong>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                );
+              })}
             </div>
-          )}
-        </main>
-      )}
+
+            {/* Statistik Per Soal */}
+            {sesi.hasil?.questionStats && sesi.hasil.questionStats.length > 0 && (
+              <div className="pt-2">
+                <h3 className="bk-h text-lg font-extrabold text-[#2b2a4a] mb-2.5 flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-[#1f9d55]" />
+                  Statistik soal yang dijawab
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  {sesi.hasil.questionStats.map((qs, idx) => (
+                    <div
+                      key={qs.questionId || idx}
+                      className="flex items-start justify-between gap-3 bg-[#fff3d6] border-2 border-[#f0dfb4] rounded-2xl px-3.5 py-2.5"
+                    >
+                      <div className="min-w-0">
+                        <small className="text-[11px] font-extrabold text-[#6b6a85] block">
+                          Soal #{qs.nomorSoal ?? idx + 1}
+                        </small>
+                        <div className="text-sm font-extrabold text-[#2b2a4a] leading-snug">
+                          {qs.teksSoal || `Pertanyaan ${idx + 1}`}
+                        </div>
+                      </div>
+                      <div className="text-right text-xs font-extrabold whitespace-nowrap shrink-0">
+                        <div className="text-[#1f9d55]">{qs.jumlahBenar ?? 0} Benar</div>
+                        <div className="text-[#d63b3b]">{qs.jumlahSalah ?? 0} Salah</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+      </main>
 
       {/* Modal Konfirmasi Ulang */}
       <Modal
         isOpen={modalUlangOpen}
         onClose={() => setModalUlangOpen(false)}
-        title="Ulangi Duel 1 vs 1 dari Awal?"
-        maxWidth="md"
+        title="Ulangi Duel dari Awal?"
         variant="standard"
       >
-        <div className="space-y-4 text-slate-700">
-          <p className="text-sm">
-            Jarak kedua pemain kembali ke 0 meter dan keseimbangan dipulihkan ke 100%.
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600">
+            Jarak kedua peserta akan direset ke 0 m sehingga guru bisa memilih tingkat bot lagi
+            dan memulai duel baru pada sesi ini.
           </p>
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2.5">
             <button
               type="button"
               onClick={() => setModalUlangOpen(false)}
-              className="portal-btn ghost sm"
+              className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 cursor-pointer"
             >
               Batal
             </button>
@@ -1046,31 +1204,31 @@ export default function LayarHostBalapKarungSolo() {
               type="button"
               onClick={handleUlang}
               disabled={isActionLoading}
-              className="portal-btn red sm"
+              className="bk-btn"
             >
-              Ya, Ulangi Sekarang
+              {isActionLoading ? 'Mereset...' : 'Ya, Reset ke Siap Mulai'}
             </button>
           </div>
         </div>
       </Modal>
 
-      {/* Modal Konfirmasi Hentikan */}
+      {/* Modal Konfirmasi Akhiri Manual */}
       <Modal
         isOpen={modalHentikanOpen}
         onClose={() => setModalHentikanOpen(false)}
-        title="Akhiri Balap Karung Solo Sekarang?"
-        maxWidth="md"
+        title="Akhiri Perlombaan Sekarang?"
         variant="standard"
       >
-        <div className="space-y-4 text-slate-700">
-          <p className="text-sm">
-            Pemenang akan langsung ditentukan berdasarkan jarak terjauh saat ini dan sesi disimpan ke riwayat.
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600">
+            Perlombaan akan dihentikan sekarang dan peserta dengan jarak terjauh dinyatakan
+            sebagai pemenang.
           </p>
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2.5">
             <button
               type="button"
               onClick={() => setModalHentikanOpen(false)}
-              className="portal-btn ghost sm"
+              className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 cursor-pointer"
             >
               Lanjutkan Lomba
             </button>
@@ -1078,9 +1236,9 @@ export default function LayarHostBalapKarungSolo() {
               type="button"
               onClick={handleHentikan}
               disabled={isActionLoading}
-              className="portal-btn red sm"
+              className="bk-btn"
             >
-              Ya, Akhiri Sesi
+              {isActionLoading ? 'Mengakhiri...' : 'Ya, Akhiri Lomba'}
             </button>
           </div>
         </div>

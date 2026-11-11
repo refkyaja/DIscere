@@ -85,6 +85,7 @@ export default function MainSiswa() {
   const [balapConfig, setBalapConfig] = useState<any>(undefined);
   const [balapState, setBalapState] = useState<any>(undefined);
   const [balapLeaderboard, setBalapLeaderboard] = useState<any[]>([]);
+  const [balapTeams, setBalapTeams] = useState<any[]>([]);
   const [balapSoalAktif, setBalapSoalAktif] = useState<any>(null);
   const [stage, setStage] = useState<'GABUNG' | 'LOBBY' | 'PLAYING' | 'SELESAI'>('GABUNG');
 
@@ -233,6 +234,7 @@ export default function MainSiswa() {
         setBalapConfig(res.config);
         setBalapState(res.peserta);
         setBalapLeaderboard(res.leaderboard || []);
+        setBalapTeams(res.teams || []);
         setBalapSoalAktif(res.soalAktif || null);
       } else {
         setGameType('tarik_tambang');
@@ -669,6 +671,7 @@ export default function MainSiswa() {
     setBalapConfig(undefined);
     setBalapState(undefined);
     setBalapLeaderboard([]);
+    setBalapTeams([]);
     setBalapSoalAktif(null);
     setTim(null);
     setSoalAktif(null);
@@ -1325,6 +1328,7 @@ export default function MainSiswa() {
         initialStatus={stage === 'PLAYING' ? 'jalan' : stage === 'SELESAI' ? 'selesai' : 'lobi'}
         initialPesertaState={balapState}
         initialLeaderboard={balapLeaderboard}
+        initialTeams={balapTeams}
         initialSoalAktif={balapSoalAktif}
         onKeluar={handleKeluar}
       />

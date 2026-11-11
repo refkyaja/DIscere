@@ -24,6 +24,9 @@ import {
   Bot,
   Swords,
   Lock,
+  Clock,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 export type PlayModeBalapKarung = 'MULTIPLAYER' | 'SOLO';
@@ -99,12 +102,14 @@ export default function PilihModeBalapKarung() {
   const [errorPesan, setErrorPesan] = useState<string | null>(null);
   const hasSyncedInitialMode = useRef(false);
 
-  // Mode utama (Multiplayer vs Solo 1 vs 1)
+  // Mode utama (Multiplayer Tim vs Solo 1 vs 1)
   const [playMode, setPlayMode] = useState<PlayModeBalapKarung>('MULTIPLAYER');
+  const hasCustomTimer = useRef(false);
 
   // Target jarak
   const [presetJarak, setPresetJarak] = useState<PresetJarakBalap>('normal');
   const [targetCustomInput, setTargetCustomInput] = useState<string>('120');
+  const [waktuPerSoalDetik, setWaktuPerSoalDetik] = useState<number>(10);
 
   // Solo 1 vs 1 Settings
   const [tipeLawanSolo, setTipeLawanSolo] = useState<TipeLawanSoloBalap>('bot');
@@ -112,21 +117,23 @@ export default function PilihModeBalapKarung() {
   const [namaPemain1, setNamaPemain1] = useState<string>('Pemain 1');
   const [namaPemain2, setNamaPemain2] = useState<string>('Lawan Bot');
 
-  // Multiplayer Settings
+  // Multiplayer Tim Settings
+  const [jumlahTim, setJumlahTim] = useState<3 | 4>(3);
   const [maxPeserta, setMaxPeserta] = useState<number>(100);
   const [allowLateJoin, setAllowLateJoin] = useState<boolean>(true);
+  const [showAdvancedRules, setShowAdvancedRules] = useState<boolean>(false);
 
-  // Kesulitan, Keseimbangan & Streak
+  // Kesulitan, Keseimbangan & Streak (default bersih sesuai mode festival: +10m / -3m)
   const [kesulitan, setKesulitan] = useState<KesulitanBalap>('normal');
   const [lompatBenar, setLompatBenar] = useState<number>(10);
   const [turunSalah, setTurunSalah] = useState<number>(3);
-  const [keseimbanganAktif, setKeseimbanganAktif] = useState<boolean>(true);
+  const [keseimbanganAktif, setKeseimbanganAktif] = useState<boolean>(false);
   const [keseimbanganBenar, setKeseimbanganBenar] = useState<number>(5);
   const [keseimbanganSalah, setKeseimbanganSalah] = useState<number>(20);
   const [penurunanJatuhJarak, setPenurunanJatuhJarak] = useState<number>(5);
   const [pemulihanJatuhKeseimbangan, setPemulihanJatuhKeseimbangan] = useState<number>(50);
 
-  const [bonusStreakAktif, setBonusStreakAktif] = useState<boolean>(true);
+  const [bonusStreakAktif, setBonusStreakAktif] = useState<boolean>(false);
   const [bonusStreak3Jarak, setBonusStreak3Jarak] = useState<number>(5);
   const [bonusStreak5Jarak, setBonusStreak5Jarak] = useState<number>(10);
   const [bonusStreak3Keseimbangan, setBonusStreak3Keseimbangan] = useState<number>(10);
@@ -187,8 +194,10 @@ export default function PilihModeBalapKarung() {
           hasSyncedInitialMode.current = true;
           if (tmpl.mode === 'solo') {
             setPlayMode('SOLO');
+            if (!hasCustomTimer.current) setWaktuPerSoalDetik(15);
           } else if (tmpl.mode === 'multi') {
             setPlayMode('MULTIPLAYER');
+            if (!hasCustomTimer.current) setWaktuPerSoalDetik(10);
           }
         }
       } catch (err: any) {
@@ -270,6 +279,13 @@ export default function PilihModeBalapKarung() {
     );
   };
 
+  const handleUbahPlayMode = (nextMode: PlayModeBalapKarung) => {
+    setPlayMode(nextMode);
+    if (!hasCustomTimer.current) {
+      setWaktuPerSoalDetik(nextMode === 'SOLO' ? 15 : 10);
+    }
+  };
+
   const handleUbahTipeLawanSolo = (tipe: TipeLawanSoloBalap) => {
     setTipeLawanSolo(tipe);
     if (tipe === 'bot' && (namaPemain2 === 'Pemain 2' || !namaPemain2.trim())) {
@@ -338,9 +354,12 @@ export default function PilihModeBalapKarung() {
       setSubmitting(true);
       setErrorPesan(null);
 
+      const timerClamped = Math.min(120, Math.max(5, Math.round(waktuPerSoalDetik) || 15));
       const balapKarungConfig = {
         presetJarak,
         targetJarak: targetJarakFinal,
+        jumlahTim,
+        waktuPerSoalDetik: timerClamped,
         kesulitan,
         lompatBenar,
         turunSalah,
@@ -527,15 +546,15 @@ export default function PilihModeBalapKarung() {
                   1. Pilih Mode Permainan
                 </h2>
                 <p className="text-xs text-[#cfd9c3] mt-0.5">
-                  Multiplayer menyesuaikan jumlah lintasan dengan seluruh siswa lewat HP masing-masing; Solo Mode menyajikan duel tepat 1 vs 1 di satu layar proyektor.
+                  Multiplayer membagi siswa ke 3 atau 4 tim di HP masing-masing; Solo Mode menyajikan duel 1 vs 1 di satu layar proyektor.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {/* Kartu A: Multiplayer Mode */}
+                {/* Kartu A: Multiplayer Tim Mode */}
                 <button
                   type="button"
-                  onClick={() => setPlayMode('MULTIPLAYER')}
+                  onClick={() => handleUbahPlayMode('MULTIPLAYER')}
                   className={`rounded-[24px] p-6 text-left transition-all cursor-pointer flex flex-col justify-between gap-4 border-2 ${
                     playMode === 'MULTIPLAYER'
                       ? 'bg-[#163a2b] text-[#f4ecd8] border-[#f2c230] shadow-[0_6px_0_rgba(0,0,0,0.3)] -translate-y-0.5'
@@ -545,21 +564,21 @@ export default function PilihModeBalapKarung() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-2">
                       <span className="portal-tag yellow uppercase tracking-wide">
-                        <Users className="w-3.5 h-3.5" /> Multiplayer Mode
+                        <Users className="w-3.5 h-3.5" /> Multiplayer Tim
                       </span>
                       {playMode === 'MULTIPLAYER' && (
                         <CheckCircle2 className="w-6 h-6 text-[#f2c230]" />
                       )}
                     </div>
                     <h3 className="portal-cv text-2xl sm:text-[26px] leading-tight">
-                      Setiap Siswa Bermain di HP Masing-Masing
+                      Siswa Bermain di HP • Adu Cepat 3–4 Tim
                     </h3>
                     <p
                       className={`text-xs leading-relaxed ${
                         playMode === 'MULTIPLAYER' ? 'text-[#cfd9c3]' : 'text-[#6b7d6c]'
                       }`}
                     >
-                      Guru menghasilkan PIN &amp; QR Code. Jumlah avatar dan lintasan balap pada layar otomatis menyesuaikan seluruh siswa yang bergabung.
+                      Guru membuka PIN &amp; QR Code lalu memilih 3 atau 4 tim. Peserta otomatis dibagi merata dan setiap jawaban benar memajukan tim menuju garis finis.
                     </p>
                   </div>
 
@@ -574,13 +593,13 @@ export default function PilihModeBalapKarung() {
                       <QrCode className="w-3.5 h-3.5 text-[#f2c230]" /> PIN &amp; QR Gabung
                     </span>
                     <span className="flex items-center gap-1.5">
-                      <Trophy className="w-3.5 h-3.5 text-[#f2c230]" /> Leaderboard Real-Time
+                      <Users className="w-3.5 h-3.5 text-[#f2c230]" /> 3 atau 4 Tim Seimbang
                     </span>
                     <span className="flex items-center gap-1.5">
-                      <Users className="w-3.5 h-3.5 text-[#f2c230]" /> Sesuai Jumlah Siswa
+                      <Trophy className="w-3.5 h-3.5 text-[#f2c230]" /> Podium Tim Real-Time
                     </span>
                     <span className="flex items-center gap-1.5">
-                      <Flag className="w-3.5 h-3.5 text-[#f2c230]" /> Lintasan Per Pelari
+                      <Flag className="w-3.5 h-3.5 text-[#f2c230]" /> Heatmap Analisis Soal
                     </span>
                   </div>
                 </button>
@@ -588,7 +607,7 @@ export default function PilihModeBalapKarung() {
                 {/* Kartu B: Solo Mode (1 vs 1) */}
                 <button
                   type="button"
-                  onClick={() => setPlayMode('SOLO')}
+                  onClick={() => handleUbahPlayMode('SOLO')}
                   className={`rounded-[24px] p-6 text-left transition-all cursor-pointer flex flex-col justify-between gap-4 border-2 ${
                     playMode === 'SOLO'
                       ? 'bg-gradient-to-br from-[#c8362f] to-[#a92a24] text-[#f4ecd8] border-[#f2c230] shadow-[0_6px_0_rgba(0,0,0,0.3)] -translate-y-0.5'
@@ -790,9 +809,9 @@ export default function PilihModeBalapKarung() {
                           <div className="grid grid-cols-3 gap-2">
                             {(
                               [
-                                { key: 'santai', label: 'Santai', desc: '58% benar' },
-                                { key: 'sedang', label: 'Sedang', desc: '74% benar' },
-                                { key: 'cepat', label: 'Cepat', desc: '88% benar' },
+                                { key: 'santai', label: 'Bot Mudah', desc: '50% benar' },
+                                { key: 'sedang', label: 'Bot Sedang', desc: '65% benar' },
+                                { key: 'cepat', label: 'Bot Sulit', desc: '80% benar' },
                               ] as const
                             ).map((b) => (
                               <button
@@ -850,10 +869,44 @@ export default function PilihModeBalapKarung() {
                         <div className="flex items-center gap-2">
                           <UserCheck className="w-4 h-4 text-[#1d3b2e]" />
                           <h3 className="portal-cv text-2xl text-[#1d3b2e]">
-                            Pengaturan Peserta
+                            Pengaturan Tim &amp; Peserta
                           </h3>
                         </div>
-                        <span className="portal-tag green">Dinamis di Layar</span>
+                        <span className="portal-tag green">{jumlahTim} Tim Aktif</span>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold uppercase tracking-wider text-[#6b7d6c] block mb-1.5">
+                          Jumlah Tim Lomba (Bisa Diubah Lagi di Lobi)
+                        </label>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          {([3, 4] as const).map((n) => {
+                            const active = jumlahTim === n;
+                            return (
+                              <button
+                                key={n}
+                                type="button"
+                                onClick={() => setJumlahTim(n)}
+                                className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+                                  active
+                                    ? 'bg-[#1d3b2e] text-[#f4ecd8] border-[#1d3b2e] shadow-xs'
+                                    : 'bg-[#fffdf6] text-[#1d3b2e] border-[#e0d5b8] hover:border-[#1d3b2e]/50'
+                                }`}
+                              >
+                                <div className="font-extrabold text-xs">{n} Tim Seimbang</div>
+                                <div
+                                  className={`text-[10px] mt-0.5 ${
+                                    active ? 'text-[#cfd9c3]' : 'text-[#6b7d6c]'
+                                  }`}
+                                >
+                                  {n === 3
+                                    ? 'Merah · Biru · Hijau'
+                                    : 'Merah · Biru · Hijau · Kuning'}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
 
                       <div>
@@ -878,7 +931,7 @@ export default function PilihModeBalapKarung() {
                             Izinkan Gabung Susulan
                           </div>
                           <div className="text-[11px] text-[#6b7d6c]">
-                            Siswa yang terlambat tetap bisa masuk setelah lomba dimulai
+                            Siswa yang terlambat tetap otomatis masuk tim paling kosong
                           </div>
                         </div>
                         <input
@@ -892,23 +945,107 @@ export default function PilihModeBalapKarung() {
                   )}
                 </div>
 
-                {/* Kolom Kanan: Tingkat Kesulitan, Keseimbangan, Streak & Rintangan */}
+                {/* Kolom Kanan: Timer Soal, Aturan Lomba & Opsional Lanjutan */}
                 <div className="lg:col-span-7 portal-card p-5 sm:p-6 space-y-5">
                   <div className="flex items-center justify-between gap-2 pb-3 border-b-2 border-dashed border-[#e0d5b8]">
                     <div className="flex items-center gap-2">
                       <Sliders className="w-4 h-4 text-[#c8362f]" />
                       <h3 className="portal-cv text-2xl text-[#1d3b2e]">
-                        Kesulitan, Keseimbangan &amp; Rintangan
+                        Waktu Soal &amp; Aturan Balap
                       </h3>
                     </div>
-                    <span className="portal-tag green">
-                      {kesulitan === 'custom'
-                        ? 'Pengaturan Kustom'
-                        : PRESET_KESULITAN[kesulitan].label}
+                    <span className="portal-tag green font-mono">
+                      {waktuPerSoalDetik} detik / soal
                     </span>
                   </div>
 
-                  {/* Preset Kesulitan */}
+                  {/* Timer Per Soal */}
+                  <div className="p-4 rounded-2xl bg-[#fffdf6] border-2 border-[#e0d5b8] space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-extrabold flex items-center gap-1.5 text-[#1d3b2e]">
+                        <Clock className="w-4 h-4 text-[#c8362f]" /> Batas Waktu per Soal
+                      </span>
+                      <span className="text-[11px] font-bold text-[#6b7d6c]">
+                        {playMode === 'MULTIPLAYER'
+                          ? 'Default tim: 10 detik (tersandung jika habis)'
+                          : 'Default solo: 15 detik (-3m jika habis)'}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {[10, 15, 20, 30].map((detik) => {
+                        const active = waktuPerSoalDetik === detik;
+                        return (
+                          <button
+                            key={detik}
+                            type="button"
+                            onClick={() => {
+                              hasCustomTimer.current = true;
+                              setWaktuPerSoalDetik(detik);
+                            }}
+                            className={`px-3 py-2 rounded-xl border-2 text-xs font-extrabold transition-all cursor-pointer ${
+                              active
+                                ? 'bg-[#1d3b2e] text-[#f4ecd8] border-[#1d3b2e]'
+                                : 'bg-[#fcf8ed] text-[#1d3b2e] border-[#e0d5b8] hover:border-[#1d3b2e]/50'
+                            }`}
+                          >
+                            {detik} detik
+                          </button>
+                        );
+                      })}
+                      <div className="flex items-center gap-1.5 ml-auto text-xs">
+                        <span className="text-[11px] font-bold text-[#6b7d6c]">Kustom:</span>
+                        <input
+                          type="number"
+                          min={5}
+                          max={120}
+                          value={waktuPerSoalDetik}
+                          onChange={(e) => {
+                            hasCustomTimer.current = true;
+                            setWaktuPerSoalDetik(
+                              Math.min(120, Math.max(5, Number(e.target.value) || 5))
+                            );
+                          }}
+                          className="w-16 px-2 py-1.5 rounded-xl bg-white border-2 border-[#e0d5b8] text-center font-mono font-bold text-[#1d3b2e]"
+                        />
+                        <span className="text-[11px] font-bold text-[#6b7d6c]">dtk</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Ringkasan Mekanika */}
+                  <div className="p-3.5 rounded-2xl bg-[#f4ecd9]/80 border border-dashed border-[#d7caa7] text-xs text-[#1d3b2e] leading-relaxed">
+                    {playMode === 'MULTIPLAYER' ? (
+                      <>
+                        <strong>Mekanika Multiplayer Tim:</strong> Siswa dibagi merata ke{' '}
+                        <strong>{jumlahTim} tim</strong>. Jawaban benar memajukan tim sejauh{' '}
+                        <strong className="font-mono">
+                          +({targetJarakFinal}m × 12.5% ÷ anggota tim)
+                        </strong>{' '}
+                        sehingga ukuran tim yang berbeda tetap adil. Jawaban salah atau waktu
+                        habis memicu animasi tersandung tanpa memundurkan tim.
+                      </>
+                    ) : (
+                      <>
+                        <strong>Mekanika Solo 1 vs 1:</strong> Setiap jawaban benar melompat{' '}
+                        <strong className="font-mono">+{lompatBenar}m</strong>; salah atau
+                        waktu habis mundur <strong className="font-mono">-{turunSalah}m</strong>.
+                        Soal diacak tanpa pengulangan hingga habis lalu diacak ulang.
+                      </>
+                    )}
+                  </div>
+
+                  {/* Preset Kesulitan (Langkah Solo) */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-extrabold text-[#1d3b2e]">
+                        {playMode === 'MULTIPLAYER'
+                          ? 'Skala Langkah & Opsi Tambahan'
+                          : 'Kecepatan Langkah Lompatan'}
+                      </span>
+                      <span className="text-[11px] font-bold text-[#6b7d6c]">
+                        {kesulitan === 'custom' ? 'Kustom' : PRESET_KESULITAN[kesulitan].label}
+                      </span>
+                    </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     {(['mudah', 'normal', 'sulit', 'custom'] as KesulitanBalap[]).map((key) => {
                       const active = kesulitan === key;
@@ -1046,7 +1183,34 @@ export default function PilihModeBalapKarung() {
                       </div>
                     </div>
                   )}
+                  </div>
 
+                  {/* Pengaturan Lanjutan (Opsional: Keseimbangan, Streak & Rintangan) */}
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowAdvancedRules((prev) => !prev)}
+                      className="w-full px-3.5 py-2.5 rounded-2xl border-2 border-dashed border-[#d7caa7] bg-[#fcf8ed] hover:bg-[#f4ecd8] text-xs font-extrabold text-[#1d3b2e] flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Sliders className="w-3.5 h-3.5 text-[#c8362f]" />
+                        Pengaturan Lanjutan (Keseimbangan, Bonus Streak &amp; Rintangan)
+                      </span>
+                      <span className="flex items-center gap-1 text-[11px] font-bold text-[#6b7d6c]">
+                        {keseimbanganAktif || bonusStreakAktif || rintanganAktif
+                          ? 'Aktif Sebagian'
+                          : 'Default Bersih'}
+                        {showAdvancedRules ? (
+                          <ChevronUp className="w-4 h-4" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4" />
+                        )}
+                      </span>
+                    </button>
+                  </div>
+
+                  {showAdvancedRules && (
+                    <div className="space-y-4">
                   {/* Keseimbangan & Bonus Streak */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <label className="p-3.5 bg-[#fffdf6] border-2 border-[#e0d5b8] rounded-2xl flex items-start justify-between gap-2.5 cursor-pointer">
@@ -1318,6 +1482,8 @@ export default function PilihModeBalapKarung() {
                       </div>
                     )}
                   </div>
+                    </div>
+                  )}
 
                   {jumlahSoal === 0 && (
                     <div className="p-3 rounded-2xl bg-red-50 border border-red-200 text-xs font-bold text-[#c8362f]">
@@ -1331,10 +1497,10 @@ export default function PilihModeBalapKarung() {
                       Mode:{' '}
                       <strong className="text-[#1d3b2e]">
                         {playMode === 'MULTIPLAYER'
-                          ? `Multiplayer (maks. ${maxPeserta} siswa)`
+                          ? `Multiplayer Tim (${jumlahTim} tim · ${waktuPerSoalDetik}dtk/soal)`
                           : `Solo 1 vs 1 (${namaPemain1.trim() || 'Pemain 1'} vs ${
                               namaPemain2.trim() || (tipeLawanSolo === 'bot' ? 'Lawan Bot' : 'Pemain 2')
-                            })`}
+                            } · ${waktuPerSoalDetik}dtk/soal)`}
                       </strong>
                     </div>
 

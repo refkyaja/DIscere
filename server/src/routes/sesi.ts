@@ -629,8 +629,10 @@ sesiRouter.post('/', async (req: AuthRequest, res: Response) => {
         (!parsed.playMode && !parsed.mode && template.mode === 'solo');
 
       if (requestedSolo) {
+        const rawSoloCfg = parsed.balapKarungConfig || {};
         const configSnapshot = bangunKonfigurasiBalapKarung({
-          ...(parsed.balapKarungConfig || {}),
+          waktuPerSoalDetik: 15,
+          ...rawSoloCfg,
           maxPeserta: 2,
           allowLateJoin: false,
         });
@@ -669,8 +671,11 @@ sesiRouter.post('/', async (req: AuthRequest, res: Response) => {
         });
       }
 
+      const rawMultiCfg = parsed.balapKarungConfig || {};
       const configSnapshot = bangunKonfigurasiBalapKarung({
-        ...(parsed.balapKarungConfig || {}),
+        waktuPerSoalDetik: 10,
+        jumlahTim: 3,
+        ...rawMultiCfg,
         ...(parsed.maxPeserta ? { maxPeserta: parsed.maxPeserta } : {}),
         ...(parsed.allowLateJoin !== undefined ? { allowLateJoin: parsed.allowLateJoin } : {}),
       });
@@ -1074,6 +1079,7 @@ sesiRouter.get('/:id', async (req: AuthRequest, res: Response) => {
       const joinUrl = `${baseUrl}/main?token=${activeBalap.token}`;
       const qrDataUrl = await QRCode.toDataURL(joinUrl, { margin: 2, width: 320 });
       const leaderboard = balapKarungManager.dapatkanLeaderboard(activeBalap.sessionId);
+      const teams = balapKarungManager.dapatkanRingkasanTim(activeBalap.sessionId);
 
       return res.json({
         session: {
@@ -1090,6 +1096,8 @@ sesiRouter.get('/:id', async (req: AuthRequest, res: Response) => {
           totalSoal: activeBalap.totalSoal,
           totalPeserta: activeBalap.peserta.size,
           config: activeBalap.config,
+          teams,
+          timPemenang: activeBalap.timPemenang,
           leaderboard,
           daftarPeserta: leaderboard,
           isFinished: activeBalap.status === 'selesai',
@@ -1236,10 +1244,20 @@ sesiRouter.post('/:id/mulai', async (req: AuthRequest, res: Response) => {
       activeBalapSolo = (await balapKarungSoloManager.pulihkanSesiDariDb(id)) || undefined;
     }
     if (activeBalapSolo) {
-      const sesiBalapSolo = balapKarungSoloManager.mulaiSesi(id, req.user!.id);
+      const kesulitanBotReq = req.body?.kesulitanBot as 'santai' | 'sedang' | 'cepat' | 'mudah' | 'sulit' | undefined;
+      const sesiBalapSolo = balapKarungSoloManager.mulaiSesi(id, req.user!.id, {
+        kesulitanBot: kesulitanBotReq,
+      });
       await prisma.session.update({
         where: { id },
-        data: { status: 'jalan', mulaiPada: new Date() },
+        data: {
+          status: 'jalan',
+          mulaiPada: new Date(),
+          konfigurasi: JSON.stringify({
+            playMode: 'SOLO',
+            config: sesiBalapSolo.config,
+          }),
+        },
       });
       return res.json({
         pesan: 'Permainan Balap Karung Solo 1 vs 1 dimulai.',
@@ -1292,6 +1310,68 @@ sesiRouter.post('/:id/mulai', async (req: AuthRequest, res: Response) => {
     });
   } catch (err: any) {
     return res.status(400).json({ pesan: err.message || 'Gagal memulai permainan.' });
+  }
+});
+
+// 5b. PATCH /api/sesi/:id/pengaturan - Update cepat pengaturan Balap Karung sebelum dimulai (Bot / Jumlah Tim)
+const pengaturanBalapSchema = z
+  .object({
+    kesulitanBot: z.enum(['santai', 'sedang', 'cepat', 'mudah', 'sulit']).optional(),
+    jumlahTim: z.union([z.literal(3), z.literal(4)]).optional(),
+  })
+  .refine((v) => Boolean(v.kesulitanBot || v.jumlahTim), {
+    message: 'Minimal sertakan kesulitanBot atau jumlahTim.',
+  });
+
+sesiRouter.patch('/:id/pengaturan', async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { kesulitanBot, jumlahTim } = pengaturanBalapSchema.parse(req.body);
+
+    const activeSolo =
+      balapKarungSoloManager.dapatkanSesi(id) ||
+      (await balapKarungSoloManager.pulihkanSesiDariDb(id));
+    if (activeSolo && kesulitanBot) {
+      const updatedSolo = balapKarungSoloManager.ubahKesulitanBot(
+        id,
+        req.user!.id,
+        kesulitanBot
+      );
+      await prisma.session.update({
+        where: { id },
+        data: {
+          konfigurasi: JSON.stringify({
+            playMode: 'SOLO',
+            config: updatedSolo.config,
+          }),
+        },
+      });
+      return res.json({
+        pesan: 'Kesulitan Bot diperbarui.',
+        session: balapKarungSoloManager.serialisasiUntukClient(updatedSolo),
+      });
+    }
+
+    const activeMulti =
+      balapKarungManager.dapatkanSesi(id) ||
+      (await balapKarungManager.pulihkanSesiDariDb(id));
+    if (activeMulti && (jumlahTim === 3 || jumlahTim === 4)) {
+      const updatedMulti = await balapKarungManager.ubahJumlahTim(
+        id,
+        req.user!.id,
+        jumlahTim
+      );
+      return res.json({
+        pesan: `Jumlah tim diperbarui menjadi ${jumlahTim} tim.`,
+        config: updatedMulti.sesi.config,
+        teams: updatedMulti.teams,
+        leaderboard: updatedMulti.leaderboard,
+      });
+    }
+
+    return res.status(404).json({ pesan: 'Sesi atau pengaturan yang diminta tidak ditemukan.' });
+  } catch (err: any) {
+    return res.status(400).json({ pesan: err.message || 'Gagal memperbarui pengaturan sesi.' });
   }
 });
 
@@ -1361,12 +1441,17 @@ const jawabSchema = z.object({
   jawabanDipilih: z.string().optional(),
 });
 
-const jawabBalapSoloSchema = z.object({
-  slot: z.enum(['pemain1', 'pemain2']).default('pemain1'),
-  presentationId: z.string().min(1, 'ID presentasi soal wajib disertakan.'),
-  choiceId: z.string().min(1, 'ID pilihan jawaban wajib disertakan.'),
-  questionId: z.string().optional(),
-});
+const jawabBalapSoloSchema = z
+  .object({
+    slot: z.enum(['pemain1', 'pemain2']).default('pemain1'),
+    presentationId: z.string().min(1, 'ID presentasi soal wajib disertakan.'),
+    choiceId: z.string().optional(),
+    questionId: z.string().optional(),
+    timedOut: z.boolean().optional(),
+  })
+  .refine((v) => v.timedOut === true || Boolean(v.choiceId && v.choiceId.trim().length > 0), {
+    message: 'ID pilihan jawaban wajib disertakan.',
+  });
 
 sesiRouter.post('/:id/jawab', async (req: AuthRequest, res: Response) => {
   try {
@@ -1382,6 +1467,7 @@ sesiRouter.post('/:id/jawab', async (req: AuthRequest, res: Response) => {
         presentationId: inputBalap.presentationId,
         choiceId: inputBalap.choiceId,
         questionId: inputBalap.questionId,
+        timedOut: Boolean(inputBalap.timedOut),
       });
 
       if (hasilBalap.selesai) {
@@ -2127,7 +2213,16 @@ sesiRouter.post('/:id/main-lagi', async (req: AuthRequest, res: Response) => {
         });
       }
 
-      const configSnapshot = bangunKonfigurasiBalapKarung(configSebelumnya);
+      const requestedJumlahTim =
+        req.body?.jumlahTim === 3 || req.body?.jumlahTim === 4
+          ? req.body.jumlahTim
+          : undefined;
+      const configSnapshot = bangunKonfigurasiBalapKarung({
+        waktuPerSoalDetik: 10,
+        jumlahTim: 3,
+        ...(configSebelumnya || {}),
+        ...(requestedJumlahTim ? { jumlahTim: requestedJumlahTim } : {}),
+      });
       const token = await generateTokenUnikSemuaGame();
       const baseUrl = getNetworkBaseUrl(req);
       const joinUrl = `${baseUrl}/main?token=${token}`;

@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react';
 import { apiRequest } from '../../lib/api';
 import { Modal } from '../../components';
 import {
+  BalapHeatmapMatrix,
+  AnalisisHeatmapData,
+} from '../../components/BalapKarungStadium';
+import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
@@ -100,6 +104,8 @@ interface BalapPemainLaporan {
 interface LaporanBalapDetail {
   konfigurasi?: {
     targetJarak: number;
+    jumlahTim?: number;
+    waktuPerSoalDetik?: number;
     kesulitan: string;
     lompatBenar: number;
     turunSalah: number;
@@ -107,13 +113,32 @@ interface LaporanBalapDetail {
     bonusStreakAktif: boolean;
     rintanganAktif: boolean;
   };
+  timPemenang?: string | null;
+  namaTimPemenang?: string | null;
   totalPeserta: number;
   totalSelesai: number;
   totalJawabanBenar: number;
   totalJawabanSalah: number;
   totalJatuhKelas: number;
   dihentikanManual: boolean;
+  laporanTim?: Array<{
+    peringkat: number;
+    id: string;
+    nama: string;
+    warna: string;
+    meter: number;
+    isWinner: boolean;
+    totalBenar: number;
+    totalSalah: number;
+    anggota: Array<{
+      id: string;
+      nama: string;
+      totalBenar: number;
+      totalSalah: number;
+    }>;
+  }>;
   laporanPemain: BalapPemainLaporan[];
+  analisisHeatmap?: AnalisisHeatmapData;
 }
 
 interface LaporanKerupukSoloDetail {
@@ -510,6 +535,19 @@ export function RiwayatDetailModal({
                   <span>
                     Target: <strong>{detail.laporanBalapKarung.konfigurasi.targetJarak}m</strong>
                   </span>
+                  {detail.laporanBalapKarung.konfigurasi.jumlahTim && (
+                    <span>
+                      Tim: <strong>{detail.laporanBalapKarung.konfigurasi.jumlahTim} tim</strong>
+                    </span>
+                  )}
+                  {detail.laporanBalapKarung.konfigurasi.waktuPerSoalDetik && (
+                    <span>
+                      Timer:{' '}
+                      <strong>
+                        {detail.laporanBalapKarung.konfigurasi.waktuPerSoalDetik} dtk/soal
+                      </strong>
+                    </span>
+                  )}
                   <span>
                     Kesulitan:{' '}
                     <strong className="uppercase">{detail.laporanBalapKarung.konfigurasi.kesulitan}</strong>
@@ -520,16 +558,45 @@ export function RiwayatDetailModal({
                   <span>
                     Salah: <strong>-{detail.laporanBalapKarung.konfigurasi.turunSalah}m</strong>
                   </span>
-                  <span>
-                    Keseimbangan:{' '}
-                    <strong>{detail.laporanBalapKarung.konfigurasi.keseimbanganAktif ? 'Aktif' : 'Nonaktif'}</strong>
-                  </span>
-                  <span>
-                    Rintangan:{' '}
-                    <strong>{detail.laporanBalapKarung.konfigurasi.rintanganAktif ? 'Aktif' : 'Nonaktif'}</strong>
-                  </span>
+                  {detail.laporanBalapKarung.namaTimPemenang && (
+                    <span>
+                      Pemenang Tim:{' '}
+                      <strong>{detail.laporanBalapKarung.namaTimPemenang}</strong>
+                    </span>
+                  )}
                 </div>
               )}
+
+              {/* Ringkasan Podium Tim (jika Multiplayer Tim) */}
+              {detail.laporanBalapKarung.laporanTim &&
+                detail.laporanBalapKarung.laporanTim.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                    {detail.laporanBalapKarung.laporanTim.map((tim, idx) => (
+                      <div
+                        key={tim.id}
+                        className={`p-3 rounded-xl border-2 text-xs ${
+                          idx === 0 || tim.isWinner
+                            ? 'border-[#ffb81c] bg-[#fff8dc]'
+                            : 'border-[#e0d5b8] bg-white'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1 font-extrabold">
+                          <span style={{ color: tim.warna }}>
+                            #{tim.peringkat || idx + 1} {tim.nama}
+                          </span>
+                          <span className="text-[#1d3b2e] font-mono">
+                            {Math.round(tim.meter)}m
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-[#6b7d6c] mt-1">
+                          {tim.anggota.length} anggota •{' '}
+                          <strong className="text-emerald-700">{tim.totalBenar}B</strong> /{' '}
+                          <strong className="text-rose-700">{tim.totalSalah}S</strong>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
               {/* Tabel Semua Pelari Balap Karung */}
               <div className="border border-[#e0d5b8] rounded-2xl overflow-hidden bg-white">
@@ -645,6 +712,12 @@ export function RiwayatDetailModal({
                   </div>
                 );
               })()}
+
+              {detail.laporanBalapKarung.analisisHeatmap && (
+                <div className="p-4 rounded-2xl bg-[#fffdf6] border-2 border-[#f0dfb4]">
+                  <BalapHeatmapMatrix heatmap={detail.laporanBalapKarung.analisisHeatmap} />
+                </div>
+              )}
             </div>
           ) : detail.game === 'panjat_pinang' && detail.laporanPanjatPinang ? (
             <div className="space-y-4">

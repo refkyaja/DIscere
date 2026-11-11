@@ -48,6 +48,12 @@ const pindahTimPayloadSchema = z.object({
   hostId: z.string().optional(),
 });
 
+const ubahJumlahTimPayloadSchema = z.object({
+  sessionId: z.string().min(1, 'ID sesi wajib diisi.'),
+  jumlahTim: z.union([z.literal(3), z.literal(4)]),
+  hostId: z.string().optional(),
+});
+
 const pendingNextSoalPanjatTimers = new Map<string, NodeJS.Timeout>();
 const pendingNextSoalBalapTimers = new Map<string, NodeJS.Timeout>();
 const pendingNextSoalKerupukTimers = new Map<string, NodeJS.Timeout>();
@@ -99,6 +105,7 @@ const jawabPanjatSchema = z.object({
   id: z.string().optional(),
   choiceId: z.string().optional(),
   jawaban: z.string().optional(),
+  timedOut: z.boolean().optional(),
 });
 
 function sanitizePesertaBalap(p: PesertaBalapKarungState, targetJarak: number) {
@@ -106,6 +113,7 @@ function sanitizePesertaBalap(p: PesertaBalapKarungState, targetJarak: number) {
   return {
     id: p.id,
     nama: p.nama,
+    tim: p.tim || null,
     connected: p.connected,
     jarak: p.jarak,
     targetJarak,
@@ -268,6 +276,7 @@ export function setupMultiplayerSocket(io: Server) {
                 : null;
 
             const leaderboard = balapKarungManager.dapatkanLeaderboard(sesi.sessionId);
+            const teams = balapKarungManager.dapatkanRingkasanTim(sesi.sessionId);
 
             callback?.({
               success: true,
@@ -281,6 +290,7 @@ export function setupMultiplayerSocket(io: Server) {
               config: sesi.config,
               peserta: sanitizePesertaBalap(peserta, sesi.config.targetJarak),
               leaderboard,
+              teams,
               totalSoal: sesi.totalSoal,
               soalAktif: soalAktifData,
             });
@@ -288,6 +298,8 @@ export function setupMultiplayerSocket(io: Server) {
             io.to(roomName).emit('lobi:update', {
               game: 'balap_karung',
               totalPeserta: sesi.peserta.size,
+              config: sesi.config,
+              teams,
               leaderboard,
               daftarPeserta: leaderboard,
             });
@@ -573,13 +585,17 @@ export function setupMultiplayerSocket(io: Server) {
           socket.join(roomName);
 
           const leaderboard = balapKarungManager.dapatkanLeaderboard(sesiBalap.sessionId);
+          const teams = balapKarungManager.dapatkanRingkasanTim(sesiBalap.sessionId);
           socket.emit('lobi:update', {
             game: 'balap_karung',
             totalPeserta: sesiBalap.peserta.size,
+            config: sesiBalap.config,
+            teams,
             leaderboard,
             daftarPeserta: leaderboard,
           });
           socket.emit('balap:update', {
+            teams,
             leaderboard,
             totalPeserta: sesiBalap.peserta.size,
           });
@@ -878,6 +894,63 @@ export function setupMultiplayerSocket(io: Server) {
       }
     );
 
+    // 2b. Host mengubah jumlah tim (3 atau 4 tim) di Lobi Balap Karung Multiplayer
+    socket.on(
+      'balap:ubah_jumlah_tim',
+      async (
+        data: { sessionId: string; hostId?: string; jumlahTim: 3 | 4 },
+        callback?: (res: any) => void
+      ) => {
+        try {
+          const parsed = ubahJumlahTimPayloadSchema.safeParse(data || {});
+          if (!parsed.success) {
+            callback?.({
+              success: false,
+              pesan: parsed.error.issues[0]?.message || 'Data perubahan jumlah tim tidak valid.',
+            });
+            return;
+          }
+          const { sessionId, jumlahTim } = parsed.data;
+          let sesiBalap = balapKarungManager.dapatkanSesi(sessionId);
+          if (!sesiBalap) {
+            sesiBalap = (await balapKarungManager.pulihkanSesiDariDb(sessionId)) || undefined;
+          }
+          if (!sesiBalap) {
+            callback?.({ success: false, pesan: 'Sesi Balap Karung tidak ditemukan.' });
+            return;
+          }
+          const auth = pastikanHostSesi(socket, sesiBalap.hostId);
+          if (!auth.ok) {
+            callback?.({ success: false, pesan: auth.pesan });
+            return;
+          }
+
+          const updated = await balapKarungManager.ubahJumlahTim(
+            sessionId,
+            auth.userId,
+            jumlahTim
+          );
+          const roomName = `session:${sesiBalap.sessionId}`;
+          io.to(roomName).emit('lobi:update', {
+            game: 'balap_karung',
+            totalPeserta: updated.sesi.peserta.size,
+            config: updated.sesi.config,
+            teams: updated.teams,
+            leaderboard: updated.leaderboard,
+            daftarPeserta: updated.leaderboard,
+          });
+          callback?.({
+            success: true,
+            config: updated.sesi.config,
+            teams: updated.teams,
+            leaderboard: updated.leaderboard,
+          });
+        } catch (err: any) {
+          callback?.({ success: false, pesan: err.message || 'Gagal mengubah jumlah tim.' });
+        }
+      }
+    );
+
     // 3. Guru menekan tombol "Mulai Permainan"
     socket.on(
       'sesi:mulai',
@@ -926,10 +999,12 @@ export function setupMultiplayerSocket(io: Server) {
             });
 
             const leaderboardAwal = balapKarungManager.dapatkanLeaderboard(sesi.sessionId);
+            const teamsAwal = balapKarungManager.dapatkanRingkasanTim(sesi.sessionId);
             io.to(roomName).emit('game:mulai', {
               game: 'balap_karung',
               totalSoal: sesi.totalSoal,
               config: sesi.config,
+              teams: teamsAwal,
               leaderboard: leaderboardAwal,
             });
 
@@ -1151,6 +1226,7 @@ export function setupMultiplayerSocket(io: Server) {
               questionId: bk.questionId || bk.id,
               choiceId: bk.choiceId,
               jawaban: bk.jawaban,
+              timedOut: bk.timedOut,
             });
 
             const roomName = `session:${sesiBalap.sessionId}`;
@@ -1161,6 +1237,12 @@ export function setupMultiplayerSocket(io: Server) {
               success: true,
               game: 'balap_karung',
               benar: hasil.hasilJawaban.benar,
+              timedOut: hasil.hasilJawaban.timedOut,
+              terpeleset: hasil.terpeleset,
+              stumbleQuote: hasil.stumbleQuote,
+              timPeserta: hasil.timPeserta,
+              stepTim: hasil.stepTim,
+              teams: hasil.teams,
               kunciKey: hasil.kunciKey,
               jawabanBenar: hasil.kunciKey,
               penjelasan: hasil.penjelasan,
@@ -1187,29 +1269,21 @@ export function setupMultiplayerSocket(io: Server) {
             callback?.(feedbackPayload);
             socket.emit('jawab:hasil', feedbackPayload);
 
-            // Kirim event jatuh eksplisit ke siswa ketika keseimbangan menyentuh 0%
-            if (hasil.hasilJawaban.terjatuh) {
-              socket.emit('pemain:jatuh', {
-                game: 'balap_karung',
-                pesertaId: pUpdated.id,
-                penaltiJarakJatuh: hasil.hasilJawaban.penaltiJatuhJarak,
-                perisaiDigunakan: hasil.hasilJawaban.perisaiDigunakan,
-                jarakBaru: hasil.hasilJawaban.jarakBaru,
-                keseimbanganBaru: hasil.hasilJawaban.keseimbanganBaru,
-                jumlahJatuh: pUpdated.jumlahJatuh,
-                pesan: hasil.hasilJawaban.perisaiDigunakan
-                  ? 'Perisai melindungimu saat keseimbangan habis!'
-                  : `Keseimbangan habis! Kamu terjatuh dan mundur ${hasil.hasilJawaban.penaltiJatuhJarak} m.`,
-              });
-            }
-
             io.to(roomName).emit('balap:update', {
+              teams: hasil.teams,
               leaderboard: hasil.leaderboard,
               totalPeserta: sesiBalap.peserta.size,
               terakhirAksi: {
                 pesertaId: pUpdated.id,
                 nama: pUpdated.nama,
+                tim: hasil.timPeserta,
                 benar: hasil.hasilJawaban.benar,
+                timedOut: hasil.hasilJawaban.timedOut,
+                terpeleset: hasil.terpeleset,
+                stumbleQuote: hasil.stumbleQuote,
+                stepTim: hasil.stepTim,
+                timMenangId: hasil.timMenangId,
+                timMenangNama: hasil.timMenangNama,
                 jarakSebelum: hasil.hasilJawaban.jarakSebelum,
                 jarakBaru: hasil.hasilJawaban.jarakBaru,
                 perubahanJarak: hasil.hasilJawaban.perubahanJarak,
@@ -1239,15 +1313,6 @@ export function setupMultiplayerSocket(io: Server) {
               return;
             }
 
-            if (hasil.pemainSelesai) {
-              socket.emit('pemain:selesai', {
-                game: 'balap_karung',
-                peserta: sanitizedPemain,
-                pesan: `Selamat! Kamu berhasil melintasi garis finis ${sesiBalap.config.targetJarak} meter!`,
-              });
-              return;
-            }
-
             const timer = setTimeout(() => {
               pendingNextSoalBalapTimers.delete(bk.pesertaId);
               const sesiCheck = balapKarungManager.dapatkanSesi(bk.sessionId);
@@ -1262,7 +1327,7 @@ export function setupMultiplayerSocket(io: Server) {
                   ...nextSoal,
                 });
               }
-            }, 1400);
+            }, 950);
             pendingNextSoalBalapTimers.set(bk.pesertaId, timer);
 
             return;
