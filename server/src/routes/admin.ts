@@ -289,6 +289,7 @@ const pustakaSoalSchema = z.object({
   opsiC: z.string().min(1, 'Opsi C wajib diisi.'),
   jawabanBenar: z.enum(['A', 'B', 'C']),
   penjelasan: z.string().nullable().optional(),
+  kesulitan: z.enum(['mudah', 'sedang', 'sulit']).default('sedang'),
   dibuatAi: z.boolean().default(false),
 });
 
@@ -339,6 +340,7 @@ adminRouter.post('/pustaka', async (req: AuthRequest, res: Response) => {
             opsiC: q.opsiC,
             jawabanBenar: q.jawabanBenar,
             penjelasan: q.penjelasan || null,
+            kesulitan: q.kesulitan || 'sedang',
             dibuatAi: q.dibuatAi || false,
           })),
         },
@@ -401,6 +403,7 @@ adminRouter.put('/pustaka/:id', async (req: AuthRequest, res: Response) => {
               opsiC: q.opsiC,
               jawabanBenar: q.jawabanBenar,
               penjelasan: q.penjelasan || null,
+              kesulitan: q.kesulitan || 'sedang',
               dibuatAi: q.dibuatAi || false,
             })),
           },

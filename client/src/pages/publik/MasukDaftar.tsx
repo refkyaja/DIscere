@@ -458,21 +458,60 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
           border-top: 3px solid #6f5238;
         }
 
-        .discere-masuk-wrapper .brand {
+        .discere-masuk-wrapper .brand-wrap {
           position: absolute;
           left: 24px;
           top: 22px;
           z-index: 5;
-          display: flex;
+        }
+        .discere-masuk-wrapper .brand {
+          position: relative;
+          z-index: 2;
+          display: inline-flex;
           align-items: center;
           gap: 8px;
           color: var(--chalk);
           font-weight: 800;
           font-size: 22px;
           text-decoration: none;
+          transition: opacity 0.18s ease, transform 0.18s ease;
         }
         .discere-masuk-wrapper .brand:hover {
-          opacity: 0.9;
+          opacity: 0.92;
+          transform: translateX(-1px);
+        }
+        .discere-masuk-wrapper .brand-hints {
+          position: absolute;
+          left: 0;
+          top: 0;
+          pointer-events: none;
+          z-index: 1;
+          opacity: 0.92;
+          transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        .discere-masuk-wrapper .brand-wrap:hover .brand-hints {
+          opacity: 1;
+        }
+        .discere-masuk-wrapper .brand-hints-desktop {
+          display: block;
+          width: 196px;
+          height: 108px;
+          overflow: visible;
+        }
+        .discere-masuk-wrapper .brand-hints-mobile {
+          display: none;
+        }
+        .discere-masuk-wrapper .brand-hint-label {
+          position: absolute;
+          left: 46px;
+          top: 74px;
+          font-size: 16px;
+          line-height: 1;
+          font-weight: 700;
+          color: rgba(244, 236, 216, 0.9);
+          white-space: nowrap;
+          transform: rotate(-4deg);
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
         }
 
         .discere-masuk-wrapper .scaler {
@@ -869,16 +908,34 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
             overflow: hidden;
             position: relative;
           }
-          .discere-masuk-wrapper .brand {
+          .discere-masuk-wrapper .brand-wrap {
             left: 16px;
             top: max(12px, env(safe-area-inset-top, 12px));
+            z-index: 15;
+          }
+          .discere-masuk-wrapper .brand {
+            position: relative;
+            left: auto;
+            top: auto;
             font-size: 26px;
             gap: 8px;
-            z-index: 15;
           }
           .discere-masuk-wrapper .brand svg {
             width: 28px;
             height: 28px;
+          }
+          .discere-masuk-wrapper .brand-hints-desktop,
+          .discere-masuk-wrapper .brand-hint-label {
+            display: none;
+          }
+          .discere-masuk-wrapper .brand-hints-mobile {
+            display: block;
+            position: absolute;
+            left: 132px;
+            top: -3px;
+            width: 84px;
+            height: 46px;
+            overflow: visible;
           }
           .discere-masuk-wrapper .flagr {
             display: block !important;
@@ -1144,25 +1201,210 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
           className={`stage ${isReg ? 'reg' : ''} ${isWalking ? 'walk' : ''}`}
           id="stage"
         >
+          {/* LOGO DISCERE + PETUNJUK PANAH KAPUR PUTIH */}
+          <div className="brand-wrap">
+            <Link to="/" className="brand" title="Kembali ke Beranda">
+              <svg
+                width="34"
+                height="34"
+                viewBox="0 0 48 48"
+                fill="none"
+                stroke="#f4ecd8"
+                strokeWidth="3"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
+                <path d="M5 11c7-3 14-1 19 4v26c-5-5-12-7-19-4zM43 11c-7-3-14-1-19 4v26c5-5 12-7 19-4z" />
+                <path d="M10 19h8M10 26h8M30 19h8M30 26h8" />
+              </svg>
+              <span>Discere</span>
+            </Link>
 
-          {/* LOGO DISCERE */}
-          <Link to="/" className="brand" title="Kembali ke Beranda">
-            <svg
-              width="34"
-              height="34"
-              viewBox="0 0 48 48"
-              fill="none"
-              stroke="#f4ecd8"
-              strokeWidth="3"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-              aria-hidden="true"
-            >
-              <path d="M5 11c7-3 14-1 19 4v26c-5-5-12-7-19-4zM43 11c-7-3-14-1-19 4v26c5-5 12-7 19-4z" />
-              <path d="M10 19h8M10 26h8M30 19h8M30 26h8" />
-            </svg>
-            <span>Discere</span>
-          </Link>
+            <div className="brand-hints" aria-hidden="true">
+              {/* Panah kapur putih (tampilan desktop) tepat di sekitar tombol Discere */}
+              <svg
+                className="brand-hints-desktop"
+                viewBox="0 0 196 108"
+                fill="none"
+              >
+                <defs>
+                  <filter
+                    id="discere-chalk-desktop"
+                    x="-12%"
+                    y="-12%"
+                    width="124%"
+                    height="124%"
+                  >
+                    <feTurbulence
+                      type="fractalNoise"
+                      baseFrequency="0.72"
+                      numOctaves="3"
+                      seed="7"
+                      result="noise"
+                    />
+                    <feDisplacementMap
+                      in="SourceGraphic"
+                      in2="noise"
+                      scale="1.75"
+                      xChannelSelector="R"
+                      yChannelSelector="G"
+                    />
+                  </filter>
+                </defs>
+
+                <g
+                  filter="url(#discere-chalk-desktop)"
+                  stroke="#f4ecd8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  {/* Panah 1: Dari kanan mengarah ke kiri (menunjuk teks Discere) */}
+                  <path
+                    d="M 168 13 Q 149 6 128 18"
+                    strokeWidth="2.4"
+                    strokeDasharray="10 1.5 6 1.2 14"
+                    opacity="0.92"
+                  />
+                  <path
+                    d="M 166 15 Q 149 9 130 19"
+                    strokeWidth="1.2"
+                    opacity="0.34"
+                  />
+                  <path
+                    d="M 137 12 L 128 18 L 136 24"
+                    strokeWidth="2.4"
+                    opacity="0.95"
+                  />
+
+                  {/* Panah 2: Dari bawah-kanan diagonal mengarah ke atas-kiri */}
+                  <path
+                    d="M 129 69 Q 113 54 90 40"
+                    strokeWidth="2.3"
+                    strokeDasharray="8 1.4 11 1.3 12"
+                    opacity="0.9"
+                  />
+                  <path
+                    d="M 127 71 Q 112 56 91 42"
+                    strokeWidth="1.15"
+                    opacity="0.32"
+                  />
+                  <path
+                    d="M 91 49 L 90 40 L 100 41"
+                    strokeWidth="2.3"
+                    opacity="0.94"
+                  />
+
+                  {/* Panah 3: Dari bawah melengkung ke atas menunjuk ikon buku */}
+                  <path
+                    d="M 25 82 Q 34 62 35 41"
+                    strokeWidth="2.3"
+                    strokeDasharray="9 1.6 7 1.2 13"
+                    opacity="0.9"
+                  />
+                  <path
+                    d="M 27 83 Q 36 63 36 43"
+                    strokeWidth="1.15"
+                    opacity="0.32"
+                  />
+                  <path
+                    d="M 28 49 L 35 41 L 42 49"
+                    strokeWidth="2.3"
+                    opacity="0.94"
+                  />
+
+                  {/* Butiran debu kapur halus di sekitar ekor panah */}
+                  <circle cx="173" cy="15" r="1.2" fill="#f4ecd8" stroke="none" opacity="0.48" />
+                  <circle cx="177" cy="11" r="0.9" fill="#f4ecd8" stroke="none" opacity="0.38" />
+                  <circle cx="133" cy="73" r="1.1" fill="#f4ecd8" stroke="none" opacity="0.45" />
+                  <circle cx="21" cy="86" r="1.1" fill="#f4ecd8" stroke="none" opacity="0.45" />
+                </g>
+              </svg>
+
+              <span className="brand-hint-label hand">Kembali ke beranda</span>
+
+              {/* Panah kapur putih ringkas (tampilan mobile) tepat di kanan tombol Discere */}
+              <svg
+                className="brand-hints-mobile"
+                viewBox="0 0 84 46"
+                fill="none"
+              >
+                <defs>
+                  <filter
+                    id="discere-chalk-mobile"
+                    x="-12%"
+                    y="-12%"
+                    width="124%"
+                    height="124%"
+                  >
+                    <feTurbulence
+                      type="fractalNoise"
+                      baseFrequency="0.75"
+                      numOctaves="3"
+                      seed="9"
+                      result="noise"
+                    />
+                    <feDisplacementMap
+                      in="SourceGraphic"
+                      in2="noise"
+                      scale="1.5"
+                      xChannelSelector="R"
+                      yChannelSelector="G"
+                    />
+                  </filter>
+                </defs>
+
+                <g
+                  filter="url(#discere-chalk-mobile)"
+                  stroke="#f4ecd8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  {/* Panah atas-kanan (↙) */}
+                  <path
+                    d="M 60 7 Q 36 3 10 13"
+                    strokeWidth="2.1"
+                    strokeDasharray="7 1.4 10"
+                    opacity="0.9"
+                  />
+                  <path
+                    d="M 18 8 L 10 13 L 17 18"
+                    strokeWidth="2.1"
+                    opacity="0.94"
+                  />
+
+                  {/* Panah tengah-kanan (←) */}
+                  <path
+                    d="M 70 22 Q 41 20 11 22"
+                    strokeWidth="2.2"
+                    strokeDasharray="9 1.4 8"
+                    opacity="0.94"
+                  />
+                  <path
+                    d="M 19 17 L 11 22 L 19 27"
+                    strokeWidth="2.2"
+                    opacity="0.96"
+                  />
+
+                  {/* Panah bawah-kanan (↖) */}
+                  <path
+                    d="M 59 38 Q 35 40 12 31"
+                    strokeWidth="2.1"
+                    strokeDasharray="8 1.5 9"
+                    opacity="0.9"
+                  />
+                  <path
+                    d="M 15 39 L 12 31 L 21 30"
+                    strokeWidth="2.1"
+                    opacity="0.94"
+                  />
+
+                  <circle cx="74" cy="21" r="1.1" fill="#f4ecd8" stroke="none" opacity="0.45" />
+                  <circle cx="64" cy="6" r="1" fill="#f4ecd8" stroke="none" opacity="0.4" />
+                </g>
+              </svg>
+            </div>
+          </div>
 
           {/* HIASAN & DOODLE PAPAN TULIS KHUSUS MODE MOBILE */}
           <div className="mobile-doodles" aria-hidden="true">
