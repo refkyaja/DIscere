@@ -66,8 +66,9 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
   const location = useLocation();
   const { tampilToast } = useToast();
 
-  // State Animasi Terpadu (Sinkron 100% dengan CSS discere-masuk.html)
+  // State Animasi Terpadu (Sinkron 100% dengan koreografi Tarik Tambang)
   const [isReg, setIsReg] = useState(initialView === 'reg');
+  const [chalkReg, setChalkReg] = useState(initialView === 'reg');
   const [isWalking, setIsWalking] = useState(false);
   const [cardSr, setCardSr] = useState(initialView === 'reg');
   const [cardTilt, setCardTilt] = useState<'tr' | 'tl' | ''>('');
@@ -101,6 +102,13 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
   const pLRef = useRef<SVGSVGElement>(null);
   const pRRef = useRef<SVGSVGElement>(null);
   const busyRef = useRef(false);
+  const timersRef = useRef<number[]>([]);
+
+  const scheduleTimer = (fn: () => void, ms: number) => {
+    const id = window.setTimeout(fn, ms);
+    timersRef.current.push(id);
+    return id;
+  };
 
   // Redirect jika sudah login
   useEffect(() => {
@@ -176,6 +184,8 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
     window.addEventListener('popstate', handlePopState);
 
     return () => {
+      timersRef.current.forEach((id) => window.clearTimeout(id));
+      timersRef.current = [];
       document.documentElement.style.overflow = origHtmlOverflow;
       document.body.style.overflow = origBodyOverflow;
       document.documentElement.style.height = origHtmlHeight;
@@ -200,6 +210,7 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
     const isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (isReducedMotion) {
       setIsReg(targetIsReg);
+      setChalkReg(targetIsReg);
       setCardSr(targetIsReg);
       window.history.replaceState(null, '', targetIsReg ? '/daftar' : '/masuk');
       busyRef.current = false;
@@ -219,18 +230,19 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
         ],
         { duration: 650, easing: 'ease-in-out' }
       );
-      setTimeout(() => {
+      scheduleTimer(() => {
         setCardSr(targetIsReg);
+        setChalkReg(targetIsReg);
         setIsReg(targetIsReg);
       }, 300);
-      setTimeout(() => {
+      scheduleTimer(() => {
         window.history.replaceState(null, '', targetIsReg ? '/daftar' : '/masuk');
         busyRef.current = false;
       }, 650);
       return;
     }
 
-    // KOREOGRAFI DESKTOP: TARIK TAMBANG DENGAN ANIMASI TEKS & KARTU TEPAT WAKTU
+    // KOREOGRAFI DESKTOP: TARIK TAMBANG DENGAN TRANSISI TEKS DI BALIK KARTU
     const pullingRope = targetIsReg ? rR : rL;
     const otherRope = targetIsReg ? rL : rR;
 
@@ -239,22 +251,26 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
     setCardTilt(targetIsReg ? 'tr' : 'tl');
     tweenRope(pullingRope, 12, 0, 380);
 
-    // 2. Di detik 460ms: berhenti tegang, mulai jalan kaki (walk), dan ubah status stage (.reg)
-    //    -> Menggerakkan track sejauh 720px (durasi 1.25s)
-    //    -> Mengubah teks kapur di tengah (opacity .4s) dengan mulus!
-    setTimeout(() => {
+    // 2. Di detik 460ms: mulai jalan kaki (walk) dan gerakkan track (durasi 1.25s)
+    //    Teks kapur di tengah sengaja ditahan agar tidak berubah sebelum tertutup kartu penuh.
+    scheduleTimer(() => {
       setStrainPerson('');
       setIsWalking(true);
       setIsReg(targetIsReg);
 
-      // 3. Di detik 460 + 520 = 980ms: kartu berganti isi (swap card pane via .sr)
-      //    -> Form lama fade-out (0.25s), form baru fade-in (0.3s) di tengah perjalanan
-      setTimeout(() => {
+      // 3a. Di detik 460 + 505ms: kartu menutup penuh area teks kapur (470..740px) dari kedua arah,
+      //     sehingga teks kapur berganti instan di balik kartu sebelum terlihat kembali.
+      scheduleTimer(() => {
+        setChalkReg(targetIsReg);
+      }, 505);
+
+      // 3b. Di detik 460 + 520ms: kartu berganti isi (swap card pane via .sr) di tengah perjalanan
+      scheduleTimer(() => {
         setCardSr(targetIsReg);
       }, 520);
 
       // 4. Di detik 460 + 1300 = 1760ms: perjalanan track selesai, kartu mendarat tegak
-      setTimeout(() => {
+      scheduleTimer(() => {
         setIsWalking(false);
         setCardTilt('');
         setSag(pullingRope, 12);
@@ -264,7 +280,7 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
         tweenRope(otherRope, 14, 0, 300);
 
         // 5. Di detik 1760 + 480 = 2240ms: semua selesai & stabil
-        setTimeout(() => {
+        scheduleTimer(() => {
           setStrainPerson('');
           window.history.replaceState(null, '', targetIsReg ? '/daftar' : '/masuk');
           busyRef.current = false;
@@ -448,7 +464,7 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
 
         .discere-masuk-wrapper .under {
           flex: 1;
-          background: #8b6a4a;
+          background: linear-gradient(180deg, #7e5d3e 0%, #6b4c31 100%);
         }
 
         .discere-masuk-wrapper .floor {
@@ -457,8 +473,35 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
           right: 0;
           bottom: 0;
           height: calc(80px * var(--s));
-          background: linear-gradient(#b99672 0 8px, #8b6a4a 8px);
-          border-top: 3px solid #6f5238;
+          background:
+            radial-gradient(ellipse at 24% 38%, rgba(244, 236, 216, 0.1) 0%, transparent 32%),
+            radial-gradient(ellipse at 60% 30%, rgba(244, 236, 216, 0.08) 0%, transparent 30%),
+            linear-gradient(
+              180deg,
+              #c7a27a 0px,
+              #b99672 8px,
+              #9d7a56 9px,
+              #8f6d4c 48%,
+              #7e5d3e 100%
+            );
+          border-top: 3px solid #634830;
+          box-shadow: inset 0 2px 0 rgba(255, 240, 214, 0.25);
+        }
+
+        /* Properti 3/4 Ruang Kelas Berserakan di Area Ledge Bawah (Skala 1200px) */
+        .discere-masuk-wrapper .floor-props {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 604px;
+          height: 76px;
+          z-index: 4;
+          pointer-events: none;
+          user-select: none;
+        }
+        .discere-masuk-wrapper .floor-prop-item {
+          position: absolute;
+          pointer-events: none;
         }
 
         .discere-masuk-wrapper .brand-wrap {
@@ -617,7 +660,7 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
           50% { transform: translateX(3px); }
         }
 
-        /* ANIMASI TEKS KAPUR DI TENGAH PAPAN TULIS */
+        /* ANIMASI TEKS KAPUR DI TENGAH PAPAN TULIS (BERGANTI SAAT TERTUTUP KARTU) */
         .discere-masuk-wrapper .chalk {
           position: absolute;
           left: 470px;
@@ -633,15 +676,15 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
           left: 0;
           right: 0;
           top: 0;
-          transition: opacity .4s ease-in-out;
+          transition: opacity .05s linear;
         }
         .discere-masuk-wrapper .chalk .b {
           opacity: 0;
         }
-        .discere-masuk-wrapper .stage.reg .chalk .a {
+        .discere-masuk-wrapper .chalk.is-reg .a {
           opacity: 0;
         }
-        .discere-masuk-wrapper .stage.reg .chalk .b {
+        .discere-masuk-wrapper .chalk.is-reg .b {
           opacity: 1;
         }
         .discere-masuk-wrapper .chalk h2 {
@@ -953,6 +996,7 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
             z-index: 15;
           }
           .discere-masuk-wrapper .floor,
+          .discere-masuk-wrapper .floor-props,
           .discere-masuk-wrapper .ppl,
           .discere-masuk-wrapper .rope,
           .discere-masuk-wrapper .ring,
@@ -1520,8 +1564,8 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
               </svg>
             </div>
 
-            {/* ANIMASI TEKS KAPUR DI TENGAH PAPAN TULIS */}
-            <div className="chalk" aria-hidden="true">
+            {/* ANIMASI TEKS KAPUR DI TENGAH PAPAN TULIS (SINKRON TERTUTUP KARTU) */}
+            <div className={`chalk ${chalkReg ? 'is-reg' : ''}`} aria-hidden="true">
               <div className="t a">
                 <h2 className="hand">Selamat datang kembali!</h2>
                 <p>Masuk dan lanjutkan belajar yang menyenangkan.</p>
@@ -1818,6 +1862,331 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
               {/* Cincin Pengait Tali */}
               <div className="ring" style={{ left: '431px' }} />
               <div className="ring" style={{ left: '31px' }} />
+            </div>
+
+            {/* PROPERTI RUANG KELAS DI AREA LEDGE PAPAN TULIS BAWAH */}
+            <div className="floor-props" aria-hidden="true">
+              {/* Kiri: Tumpukan 2 buku hardcover 3/4 perspektif & pensil kayu miring */}
+              <div className="floor-prop-item" style={{ left: '44px', top: '8px' }}>
+                <svg width="148" height="62" viewBox="0 0 148 62" fill="none">
+                  <defs>
+                    <linearGradient id="dl-book-green" x1="12" y1="22" x2="88" y2="48" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stopColor="#5d8470" />
+                      <stop offset="100%" stopColor="#3c5c4c" />
+                    </linearGradient>
+                    <linearGradient id="dl-book-ochre" x1="18" y1="6" x2="90" y2="28" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stopColor="#e5a054" />
+                      <stop offset="100%" stopColor="#bd7430" />
+                    </linearGradient>
+                    <linearGradient id="dl-pencil-body" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#ffe066" />
+                      <stop offset="50%" stopColor="#f3be2d" />
+                      <stop offset="100%" stopColor="#bd8510" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Bayangan jatuh buku ke permukaan meja kayu */}
+                  <ellipse cx="56" cy="49" rx="50" ry="9" fill="rgba(22,12,5,0.34)" />
+
+                  {/* Buku bawah (hijau sage): sisi halaman tebal & sampul 3/4 */}
+                  <polygon points="8,36 74,25 99,36 33,48" fill="#2d473b" />
+                  <polygon points="33,48 99,36 99,45 33,57" fill="#efe6cf" stroke="#b9ab8c" strokeWidth="0.9" />
+                  <path d="M35 51.5L97 40M35 54L97 42.5" stroke="#c8bb9e" strokeWidth="0.8" />
+                  <polygon points="8,36 33,48 33,57 8,45" fill="#2b4539" stroke="#1d3027" strokeWidth="1" strokeLinejoin="round" />
+                  <polygon points="7,34 74,22 99,34 32,46" fill="url(#dl-book-green)" stroke="#294034" strokeWidth="1.2" strokeLinejoin="round" />
+                  <path d="M10 35L32 45.5" stroke="#8ab19c" strokeWidth="1.2" strokeLinecap="round" opacity="0.65" />
+
+                  {/* Bayangan buku atas di atas sampul buku bawah */}
+                  <polygon points="18,30 78,20 96,29 36,39" fill="rgba(18,28,22,0.34)" />
+
+                  {/* Buku atas (okre hangat) diletakkan agak miring */}
+                  <polygon points="32,33 93,23 93,31 32,41" fill="#f5eed9" stroke="#bfa782" strokeWidth="0.9" />
+                  <path d="M34 36.2L91 26.5M34 38.6L91 28.8" stroke="#d0be9f" strokeWidth="0.75" />
+                  <polygon points="11,22 32,33 32,41 11,30" fill="#8f5320" stroke="#5f3411" strokeWidth="1" strokeLinejoin="round" />
+                  <polygon points="10,20 71,10 93,21 32,31" fill="url(#dl-book-ochre)" stroke="#754316" strokeWidth="1.2" strokeLinejoin="round" />
+                  {/* Label kertas putih di sampul atas */}
+                  <polygon points="36,18 61,14 68,18 43,22" fill="#fbf6e8" stroke="#b98a52" strokeWidth="0.8" />
+                  <path d="M42 18.2L59 15.5M45 19.8L56 18" stroke="#99846a" strokeWidth="0.9" strokeLinecap="round" />
+
+                  {/* Pensil kayu heksagonal bersandar miring di kanan buku */}
+                  <g transform="translate(86, 48) rotate(-19)">
+                    <ellipse cx="32" cy="8.5" rx="28" ry="3.2" fill="rgba(22,12,5,0.28)" />
+                    <rect x="6" y="1" width="42" height="7" rx="1" fill="url(#dl-pencil-body)" stroke="#8b610b" strokeWidth="1" />
+                    <line x1="7" y1="3.4" x2="47" y2="3.4" stroke="#fff2b2" strokeWidth="0.9" opacity="0.7" />
+                    <rect x="1" y="1" width="6" height="7" rx="2.2" fill="#e57870" stroke="#853530" strokeWidth="1" />
+                    <rect x="6" y="0.9" width="4.5" height="7.2" fill="#c7d0d6" stroke="#667178" strokeWidth="0.9" />
+                    <polygon points="48,1 59,4.5 48,8" fill="#f3d4aa" stroke="#8b610b" strokeWidth="0.9" />
+                    <polygon points="55.5,3.3 59,4.5 55.5,5.7" fill="#24292e" />
+                  </g>
+                </svg>
+              </div>
+
+              {/* Kiri-Tengah: 3 batang kapur 3D silinder berserakan + debu kapur */}
+              <div className="floor-prop-item" style={{ left: '222px', top: '27px' }}>
+                <svg width="136" height="44" viewBox="0 0 136 44" fill="none">
+                  <defs>
+                    <linearGradient id="dl-chalk-white" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#fffdf6" />
+                      <stop offset="60%" stopColor="#eee6d2" />
+                      <stop offset="100%" stopColor="#c4b89c" />
+                    </linearGradient>
+                    <linearGradient id="dl-chalk-gold" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#ffe175" />
+                      <stop offset="55%" stopColor="#f2be2e" />
+                      <stop offset="100%" stopColor="#b98310" />
+                    </linearGradient>
+                    <linearGradient id="dl-chalk-blue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#b0e7f5" />
+                      <stop offset="55%" stopColor="#6fc1d6" />
+                      <stop offset="100%" stopColor="#3e8294" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Noda halus serbuk kapur di permukaan kayu */}
+                  <ellipse cx="48" cy="24" rx="22" ry="6" fill="#f7f1e1" opacity="0.16" />
+                  <ellipse cx="86" cy="28" rx="18" ry="4.5" fill="#fde992" opacity="0.13" />
+
+                  {/* Kapur biru paling belakang miring tajam */}
+                  <g transform="translate(86, 17) rotate(-32)">
+                    <ellipse cx="15" cy="9.5" rx="14" ry="2.6" fill="rgba(22,12,5,0.28)" />
+                    <rect x="2" y="1.5" width="26" height="6.5" rx="2" fill="url(#dl-chalk-blue)" stroke="#326c7c" strokeWidth="0.9" />
+                    <ellipse cx="27.5" cy="4.75" rx="1.7" ry="3.2" fill="#cdeff7" stroke="#326c7c" strokeWidth="0.8" />
+                  </g>
+
+                  {/* Kapur putih kiri */}
+                  <g transform="translate(10, 22) rotate(-15)">
+                    <ellipse cx="20" cy="10.2" rx="18" ry="3.1" fill="rgba(22,12,5,0.32)" />
+                    <rect x="2" y="1.5" width="36" height="7.5" rx="2.2" fill="url(#dl-chalk-white)" stroke="#9a8d73" strokeWidth="0.95" />
+                    <ellipse cx="37.5" cy="5.25" rx="1.9" ry="3.7" fill="#fffef9" stroke="#9a8d73" strokeWidth="0.85" />
+                  </g>
+
+                  {/* Kapur kuning depan agak ke depan kanan */}
+                  <g transform="translate(56, 20) rotate(22)">
+                    <ellipse cx="17" cy="10.2" rx="16" ry="3" fill="rgba(22,12,5,0.32)" />
+                    <rect x="2" y="1.5" width="30" height="7.2" rx="2.1" fill="url(#dl-chalk-gold)" stroke="#8b620a" strokeWidth="0.95" />
+                    <ellipse cx="2.5" cy="5.1" rx="1.8" ry="3.5" fill="#fff0ad" stroke="#8b620a" strokeWidth="0.85" />
+                  </g>
+
+                  {/* Remah kapur berserakan */}
+                  <circle cx="48" cy="34" r="2.1" fill="#f4ecd8" stroke="#9b8e75" strokeWidth="0.6" />
+                  <circle cx="96" cy="36" r="1.7" fill="#f7ce46" stroke="#8b620a" strokeWidth="0.6" />
+                  <circle cx="117" cy="24" r="1.4" fill="#e8dfd0" opacity="0.9" />
+                </svg>
+              </div>
+
+              {/* Tengah-Kiri: Penghapus papan tulis kayu 3/4 isometrik */}
+              <div className="floor-prop-item" style={{ left: '392px', top: '10px' }}>
+                <svg width="104" height="52" viewBox="0 0 104 52" fill="none">
+                  <defs>
+                    <linearGradient id="dl-eraser-top" x1="16" y1="8" x2="78" y2="26" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stopColor="#d89b62" />
+                      <stop offset="100%" stopColor="#aa6d39" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Bayangan jatuh penghapus */}
+                  <polygon points="14,34 40,46 94,30 68,20" fill="rgba(22,12,5,0.36)" />
+
+                  {/* Busa felt hitam berdebu (alas 3/4) */}
+                  <polygon points="15,24 38,34 38,42 15,32" fill="#2c3338" stroke="#181c20" strokeWidth="1" strokeLinejoin="round" />
+                  <polygon points="38,34 88,20 88,28 38,42" fill="#202529" stroke="#14181b" strokeWidth="1" strokeLinejoin="round" />
+                  {/* Noda debu kapur tipis di sisi felt */}
+                  <path d="M45 36.5L78 27.5M19 29.5L32 35" stroke="#d8d4c5" strokeWidth="1.3" strokeLinecap="round" opacity="0.32" />
+
+                  {/* Pegangan balok kayu 3/4 */}
+                  <polygon points="14,17 38,27 38,35 14,25" fill="#9d6131" stroke="#5d3616" strokeWidth="1" strokeLinejoin="round" />
+                  <polygon points="38,27 89,13 89,21 38,35" fill="#7c4b22" stroke="#4f2d11" strokeWidth="1" strokeLinejoin="round" />
+                  <polygon points="14,17 65,4 89,13 38,27" fill="url(#dl-eraser-top)" stroke="#683e1a" strokeWidth="1.2" strokeLinejoin="round" />
+                  {/* Garis serat kayu & alur jari */}
+                  <path d="M27 16L68 6.5M34 21L75 11.5" stroke="#7d4a20" strokeWidth="1" strokeLinecap="round" opacity="0.55" />
+                  <path d="M21 16.5L38 23.5L81 12" stroke="#f0be8a" strokeWidth="1.1" strokeLinecap="round" opacity="0.55" />
+                </svg>
+              </div>
+
+              {/* Tengah-Kanan: Penggaris segitiga kayu tergeletak datar (perspektif) & puntung kapur koral */}
+              <div className="floor-prop-item" style={{ left: '530px', top: '25px' }}>
+                <svg width="126" height="47" viewBox="0 0 126 47" fill="none">
+                  <defs>
+                    <linearGradient id="dl-ruler-face" x1="10" y1="10" x2="96" y2="38" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stopColor="#ecc37b" />
+                      <stop offset="100%" stopColor="#ca9748" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Bayangan jatuh penggaris tergeletak */}
+                  <polygon points="9,35 103,43 44,10" fill="rgba(22,12,5,0.3)" />
+
+                  {/* Sisi tebal 3D bagian bawah penggaris */}
+                  <polygon points="7,33 100,41 100,44.5 7,36.5" fill="#8b5d22" stroke="#603d12" strokeWidth="0.9" strokeLinejoin="round" />
+
+                  {/* Bidang utama penggaris berlubang segitiga di tengah */}
+                  <path
+                    fillRule="evenodd"
+                    clipRule="evenodd"
+                    d="M7 33L100 41L42 8L7 33ZM27 30L69 33.6L42 18L27 30Z"
+                    fill="url(#dl-ruler-face)"
+                    stroke="#754c19"
+                    strokeWidth="1.3"
+                    strokeLinejoin="round"
+                  />
+                  {/* Sisi tebal lubang dalam bagian atas agar terasa 3D */}
+                  <path d="M27 30L42 18L69 33.6" stroke="#99672a" strokeWidth="1.1" opacity="0.7" />
+                  {/* Skala milimeter miring di sisi depan */}
+                  <path
+                    d="M16 33.8L17.5 31M24 34.4L25 32.3M32 35.1L33.5 32.3M40 35.8L41 33.7M48 36.5L49.5 33.7M56 37.2L57 35.1M64 37.9L65.5 35.1M72 38.6L73 36.5M80 39.3L81.5 36.5M88 40L89 37.9"
+                    stroke="#6b4415"
+                    strokeWidth="1"
+                    strokeLinecap="round"
+                  />
+
+                  {/* Puntung kapur koral kecil miring dekat ujung kanan */}
+                  <g transform="translate(95, 22) rotate(-25)">
+                    <ellipse cx="10" cy="8.5" rx="9" ry="2.2" fill="rgba(22,12,5,0.28)" />
+                    <rect x="1" y="1" width="18" height="6" rx="1.8" fill="#ed786f" stroke="#92332c" strokeWidth="0.9" />
+                    <ellipse cx="18.5" cy="4" rx="1.4" ry="2.9" fill="#fab0aa" stroke="#92332c" strokeWidth="0.75" />
+                  </g>
+                </svg>
+              </div>
+
+              {/* Kanan-Tengah: Sepasang spidol silinder — satu terbuka dengan tutup terlempar */}
+              <div className="floor-prop-item" style={{ left: '706px', top: '16px' }}>
+                <svg width="148" height="54" viewBox="0 0 148 54" fill="none">
+                  <defs>
+                    <linearGradient id="dl-marker-barrel" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#ffffff" />
+                      <stop offset="45%" stopColor="#f0ebe0" />
+                      <stop offset="100%" stopColor="#c5bdb0" />
+                    </linearGradient>
+                    <linearGradient id="dl-cap-red" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#e54d44" />
+                      <stop offset="65%" stopColor="#bf2a22" />
+                      <stop offset="100%" stopColor="#861a14" />
+                    </linearGradient>
+                    <linearGradient id="dl-cap-blk" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#434b54" />
+                      <stop offset="60%" stopColor="#262b30" />
+                      <stop offset="100%" stopColor="#14171a" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Spidol hitam tertutup agak di belakang */}
+                  <g transform="translate(36, 4) rotate(7)">
+                    <ellipse cx="38" cy="11" rx="36" ry="3.2" fill="rgba(22,12,5,0.3)" />
+                    <rect x="2" y="2" width="18" height="8.5" rx="2.5" fill="url(#dl-cap-blk)" stroke="#101316" strokeWidth="1" />
+                    <rect x="20" y="2.3" width="46" height="8" rx="1.5" fill="url(#dl-marker-barrel)" stroke="#6c665c" strokeWidth="1" />
+                    <rect x="33" y="4.5" width="22" height="3.2" rx="1" fill="#2e343a" opacity="0.8" />
+                    <rect x="65" y="2.8" width="6" height="7" rx="2" fill="#23282d" stroke="#101316" strokeWidth="0.9" />
+                  </g>
+
+                  {/* Spidol merah terbuka (tanpa tutup) di depan agak miring */}
+                  <g transform="translate(8, 28) rotate(-10)">
+                    <ellipse cx="37" cy="11.5" rx="35" ry="3.3" fill="rgba(22,12,5,0.34)" />
+                    {/* Tutup pantat & bodi spidol */}
+                    <rect x="2" y="2.8" width="6" height="7" rx="2" fill="#bf2a22" stroke="#6f1410" strokeWidth="0.9" />
+                    <rect x="7" y="2.3" width="46" height="8" rx="1.5" fill="url(#dl-marker-barrel)" stroke="#6c665c" strokeWidth="1" />
+                    <rect x="20" y="4.5" width="21" height="3.2" rx="1" fill="#d13830" opacity="0.88" />
+                    {/* Leher dan ujung mata spidol merah */}
+                    <polygon points="53,3 61,4.3 61,8.3 53,9.6" fill="#d9d3c6" stroke="#6c665c" strokeWidth="0.9" />
+                    <path d="M61 4.6L66 5.5C67.4 5.8 67.4 6.8 66 7.1L61 8Z" fill="#c92d25" stroke="#6f1410" strokeWidth="0.8" />
+                  </g>
+
+                  {/* Tutup spidol merah terlempar terpisah di kanan */}
+                  <g transform="translate(106, 29) rotate(32)">
+                    <ellipse cx="11" cy="11" rx="11" ry="3" fill="rgba(22,12,5,0.32)" />
+                    <rect x="1" y="1.8" width="20" height="8.5" rx="2.2" fill="url(#dl-cap-red)" stroke="#6f1410" strokeWidth="1" />
+                    {/* Klip kecil tutup */}
+                    <path d="M4 1.8L16 1.8L17 0.2L5 0.2Z" fill="#e85850" stroke="#6f1410" strokeWidth="0.7" />
+                    {/* Mulut lubang tutup berongga */}
+                    <ellipse cx="20.5" cy="6.05" rx="2.1" ry="4.1" fill="#5e130f" stroke="#7d1914" strokeWidth="0.9" />
+                  </g>
+                </svg>
+              </div>
+
+              {/* Kanan-Tengah-Ujung: Pesawat kertas lipat 3D */}
+              <div className="floor-prop-item" style={{ left: '874px', top: '23px' }}>
+                <svg width="102" height="48" viewBox="0 0 102 48" fill="none">
+                  {/* Bayangan jatuh pesawat kertas miring di kayu */}
+                  <polygon points="8,36 86,25 46,43 26,38" fill="rgba(22,12,5,0.28)" />
+                  <g transform="translate(4, 3) rotate(-10 46 20)">
+                    {/* Sayap kiri terang */}
+                    <polygon points="88,16 4,14 26,24" fill="#fcfaf2" stroke="#9e9581" strokeWidth="1.1" strokeLinejoin="round" />
+                    {/* Lipatan tengah gelap (body keel) */}
+                    <polygon points="88,16 26,24 31,34" fill="#d5ccb5" stroke="#8f8672" strokeWidth="1" strokeLinejoin="round" />
+                    {/* Lipatan dalam sayap kanan */}
+                    <polygon points="88,16 31,34 40,26" fill="#ebe4d1" stroke="#9e9581" strokeWidth="1" strokeLinejoin="round" />
+                    {/* Sayap kanan */}
+                    <polygon points="88,16 40,26 60,36" fill="#f7f3e6" stroke="#9e9581" strokeWidth="1.1" strokeLinejoin="round" />
+                  </g>
+                </svg>
+              </div>
+
+              {/* Kanan: Blok Sticky Notes menggulung + Apel 3D mengilap */}
+              <div className="floor-prop-item" style={{ left: '998px', top: '11px' }}>
+                <svg width="112" height="58" viewBox="0 0 112 58" fill="none">
+                  <defs>
+                    <radialGradient id="dl-apple-3d" cx="38%" cy="32%" r="68%">
+                      <stop offset="0%" stopColor="#ff7365" />
+                      <stop offset="48%" stopColor="#db2f27" />
+                      <stop offset="100%" stopColor="#801612" />
+                    </radialGradient>
+                    <linearGradient id="dl-note-top" x1="8" y1="22" x2="54" y2="48" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stopColor="#fff099" />
+                      <stop offset="100%" stopColor="#f2cb4d" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Blok sticky note miring 3/4 */}
+                  <polygon points="6,41 44,32 61,44 23,53" fill="rgba(22,12,5,0.32)" />
+                  {/* Tumpukan tebal kertas bagian bawah */}
+                  <polygon points="5,35 22,47 22,52 5,40" fill="#d8b240" stroke="#937218" strokeWidth="0.9" strokeLinejoin="round" />
+                  <polygon points="22,47 59,38 59,43 22,52" fill="#be992e" stroke="#856614" strokeWidth="0.9" strokeLinejoin="round" />
+                  <path d="M23 49.5L58 40.5" stroke="#f7df85" strokeWidth="0.7" opacity="0.7" />
+                  {/* Lembar atas agak melengkung di sudut depan */}
+                  <path
+                    d="M5 35L42 26L59 38C50 40 34 42 22 47Z"
+                    fill="url(#dl-note-top)"
+                    stroke="#a4801e"
+                    strokeWidth="1.1"
+                    strokeLinejoin="round"
+                  />
+                  {/* Corek-coret catatan kecil */}
+                  <path d="M18 35L35 31M22 38L39 34M26 41L36 38.5" stroke="#8b6b19" strokeWidth="1" strokeLinecap="round" opacity="0.65" />
+
+                  {/* Apel merah 3D mengilap */}
+                  <ellipse cx="86" cy="47" rx="17" ry="5.5" fill="rgba(22,12,5,0.38)" />
+                  <path d="M85 16C85 12 87 8.5 91 7.5" stroke="#5a381d" strokeWidth="2.4" strokeLinecap="round" />
+                  <path d="M86 14.5C90 9 98 9.5 99 14.5C94.5 16.5 89.5 16 86 14.5Z" fill="#5da666" stroke="#2c6034" strokeWidth="1" />
+                  <path d="M87.5 14C91 12.8 94.5 12.8 97 14" stroke="#8cd195" strokeWidth="0.8" strokeLinecap="round" />
+                  <path
+                    d="M85 18.5C79.5 15 70 17.5 69.5 28.5C69 39 76.5 47.5 81.5 47.5C83.5 47.5 84.3 46.2 85 46.2C85.7 46.2 86.5 47.5 88.5 47.5C93.5 47.5 101 39 100.5 28.5C100 17.5 90.5 15 85 18.5Z"
+                    fill="url(#dl-apple-3d)"
+                    stroke="#6b1410"
+                    strokeWidth="1.3"
+                  />
+                  {/* Lekukan atas sekitar tangkai */}
+                  <path d="M80.5 19.5C83.5 21 86.5 21 89.5 19.5" stroke="#6d1511" strokeWidth="1.3" strokeLinecap="round" opacity="0.7" />
+                  {/* Kilau mengilap */}
+                  <ellipse cx="76.5" cy="24.5" rx="2.4" ry="4.8" transform="rotate(-18 76.5 24.5)" fill="#ffd8d4" opacity="0.65" />
+                  <circle cx="79" cy="30.5" r="1.2" fill="#ffe6e3" opacity="0.55" />
+                </svg>
+              </div>
+
+              {/* Ujung Kanan Bawah: Puntung kapur sisa berserakan acak */}
+              <div className="floor-prop-item" style={{ left: '1122px', top: '38px' }}>
+                <svg width="64" height="32" viewBox="0 0 64 32" fill="none">
+                  <g transform="translate(2, 10) rotate(14)">
+                    <ellipse cx="12" cy="8.5" rx="11" ry="2.2" fill="rgba(22,12,5,0.28)" />
+                    <rect x="1" y="1" width="22" height="6" rx="1.9" fill="#ffe072" stroke="#8b620a" strokeWidth="0.9" />
+                    <ellipse cx="1.8" cy="4" rx="1.4" ry="2.9" fill="#fff3bc" stroke="#8b620a" strokeWidth="0.75" />
+                  </g>
+                  <g transform="translate(32, 16) rotate(-22)">
+                    <ellipse cx="10" cy="8" rx="9.5" ry="2.1" fill="rgba(22,12,5,0.28)" />
+                    <rect x="1" y="1" width="18" height="6" rx="1.8" fill="#f5efe0" stroke="#998c72" strokeWidth="0.9" />
+                    <ellipse cx="18.3" cy="4" rx="1.4" ry="2.9" fill="#fffdf6" stroke="#998c72" strokeWidth="0.75" />
+                  </g>
+                  <circle cx="29" cy="26" r="1.6" fill="#f5efe0" opacity="0.9" />
+                </svg>
+              </div>
             </div>
           </div>
         </main>
