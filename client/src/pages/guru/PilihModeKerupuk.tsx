@@ -11,6 +11,10 @@ import {
   hitungPoinPengurangan,
 } from './ModalKonfigurasiKerupuk';
 import {
+  KODE_OPSI_SOAL,
+  type KunciOpsi,
+} from '../../lib/quizParser';
+import {
   ArrowLeft,
   Users,
   Monitor,
@@ -25,6 +29,7 @@ import {
   Trophy,
   Sliders,
   Plus,
+  Minus,
   ExternalLink,
 } from 'lucide-react';
 
@@ -100,13 +105,19 @@ export default function PilihModeKerupuk() {
     opsiA: string;
     opsiB: string;
     opsiC: string;
-    jawabanBenar: 'A' | 'B' | 'C';
+    opsiD: string;
+    opsiE: string;
+    opsiAktif: number;
+    jawabanBenar: KunciOpsi;
     penjelasan: string;
   }>({
     teks: '',
     opsiA: '',
     opsiB: '',
     opsiC: '',
+    opsiD: '',
+    opsiE: '',
+    opsiAktif: 3,
     jawabanBenar: 'A',
     penjelasan: '',
   });
@@ -241,13 +252,16 @@ export default function PilihModeKerupuk() {
 
   const handleSimpanSoalBaru = async () => {
     if (!templateDetail) return;
-    if (
-      !soalBaru.teks.trim() ||
-      !soalBaru.opsiA.trim() ||
-      !soalBaru.opsiB.trim() ||
-      !soalBaru.opsiC.trim()
-    ) {
-      setSoalBaruError('Teks pertanyaan dan seluruh pilihan jawaban A, B, dan C wajib diisi.');
+    const opsiAktifKeys = KODE_OPSI_SOAL.slice(0, soalBaru.opsiAktif);
+    const adaOpsiKosong = opsiAktifKeys.some((kode) => {
+      const val = soalBaru[`opsi${kode}` as 'opsiA' | 'opsiB' | 'opsiC' | 'opsiD' | 'opsiE'];
+      return !val.trim();
+    });
+
+    if (!soalBaru.teks.trim() || adaOpsiKosong) {
+      setSoalBaruError(
+        `Teks pertanyaan dan seluruh pilihan aktif (${opsiAktifKeys.join(', ')}) wajib diisi.`
+      );
       return;
     }
 
@@ -268,6 +282,10 @@ export default function PilihModeKerupuk() {
         addedToOwnedCopy = true;
       }
 
+      const kunciAman = opsiAktifKeys.includes(soalBaru.jawabanBenar)
+        ? soalBaru.jawabanBenar
+        : 'A';
+
       const nextQuestions = [
         ...targetTemplate.questions.map((q, idx) => ({
           urutan: idx + 1,
@@ -286,8 +304,10 @@ export default function PilihModeKerupuk() {
           teks: soalBaru.teks.trim(),
           opsiA: soalBaru.opsiA.trim(),
           opsiB: soalBaru.opsiB.trim(),
-          opsiC: soalBaru.opsiC.trim(),
-          jawabanBenar: soalBaru.jawabanBenar,
+          opsiC: soalBaru.opsiAktif >= 3 ? soalBaru.opsiC.trim() : null,
+          opsiD: soalBaru.opsiAktif >= 4 ? soalBaru.opsiD.trim() : null,
+          opsiE: soalBaru.opsiAktif >= 5 ? soalBaru.opsiE.trim() : null,
+          jawabanBenar: kunciAman,
           penjelasan: soalBaru.penjelasan.trim() || null,
           dibuatAi: false,
         },
@@ -332,6 +352,9 @@ export default function PilihModeKerupuk() {
         opsiA: '',
         opsiB: '',
         opsiC: '',
+        opsiD: '',
+        opsiE: '',
+        opsiAktif: 3,
         jawabanBenar: 'A',
         penjelasan: '',
       });
@@ -678,39 +701,74 @@ export default function PilihModeKerupuk() {
                             }
                             className="w-full px-3 py-2 border border-[#e0d5b8] rounded-xl text-xs font-semibold focus:outline-none focus:border-[#1d3b2e]"
                           />
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                            <input
-                              type="text"
-                              placeholder="Pilihan A"
-                              value={soalBaru.opsiA}
-                              onChange={(e) =>
-                                setSoalBaru((p) => ({ ...p, opsiA: e.target.value }))
-                              }
-                              className="px-2.5 py-1.5 border border-[#e0d5b8] rounded-lg text-xs font-medium"
-                            />
-                            <input
-                              type="text"
-                              placeholder="Pilihan B"
-                              value={soalBaru.opsiB}
-                              onChange={(e) =>
-                                setSoalBaru((p) => ({ ...p, opsiB: e.target.value }))
-                              }
-                              className="px-2.5 py-1.5 border border-[#e0d5b8] rounded-lg text-xs font-medium"
-                            />
-                            <input
-                              type="text"
-                              placeholder="Pilihan C"
-                              value={soalBaru.opsiC}
-                              onChange={(e) =>
-                                setSoalBaru((p) => ({ ...p, opsiC: e.target.value }))
-                              }
-                              className="px-2.5 py-1.5 border border-[#e0d5b8] rounded-lg text-xs font-medium"
-                            />
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-[11px] font-bold text-[#6b7d6c]">
+                              Pilihan Jawaban ({soalBaru.opsiAktif} opsi, minimal 2 – maksimal 5)
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              {soalBaru.opsiAktif > 2 && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setSoalBaru((p) => {
+                                      const nextCount = Math.max(2, p.opsiAktif - 1);
+                                      const nextKeys = KODE_OPSI_SOAL.slice(0, nextCount);
+                                      return {
+                                        ...p,
+                                        opsiAktif: nextCount,
+                                        jawabanBenar: nextKeys.includes(p.jawabanBenar)
+                                          ? p.jawabanBenar
+                                          : 'A',
+                                      };
+                                    })
+                                  }
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#f4ecd8] hover:bg-[#e8dec4] text-[#1d3b2e] text-[11px] font-bold cursor-pointer"
+                                >
+                                  <Minus className="w-3 h-3" /> Kurangi Opsi
+                                </button>
+                              )}
+                              {soalBaru.opsiAktif < 5 && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setSoalBaru((p) => ({
+                                      ...p,
+                                      opsiAktif: Math.min(5, p.opsiAktif + 1),
+                                    }))
+                                  }
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#1d3b2e] hover:bg-[#254b3b] text-white text-[11px] font-bold cursor-pointer"
+                                >
+                                  <Plus className="w-3 h-3" /> Tambah Opsi
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                            {KODE_OPSI_SOAL.slice(0, soalBaru.opsiAktif).map((kode) => {
+                              const field = `opsi${kode}` as
+                                | 'opsiA'
+                                | 'opsiB'
+                                | 'opsiC'
+                                | 'opsiD'
+                                | 'opsiE';
+                              return (
+                                <input
+                                  key={kode}
+                                  type="text"
+                                  placeholder={`Pilihan ${kode}`}
+                                  value={soalBaru[field]}
+                                  onChange={(e) =>
+                                    setSoalBaru((p) => ({ ...p, [field]: e.target.value }))
+                                  }
+                                  className="px-2.5 py-1.5 border border-[#e0d5b8] rounded-lg text-xs font-medium"
+                                />
+                              );
+                            })}
                           </div>
                           <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <span className="text-[11px] font-bold">Jawaban Benar:</span>
-                              {(['A', 'B', 'C'] as const).map((kode) => (
+                              {KODE_OPSI_SOAL.slice(0, soalBaru.opsiAktif).map((kode) => (
                                 <button
                                   key={kode}
                                   type="button"
