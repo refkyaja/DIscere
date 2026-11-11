@@ -3,6 +3,7 @@ import { useAuth } from '../../lib/auth';
 import { apiRequest } from '../../lib/api';
 import {
   Modal,
+  PortalLedge,
   TemplateEditor,
   formatLabelGame,
   type TemplateEditorInitialData,
@@ -1093,17 +1094,7 @@ export default function DashboardAdmin() {
       </div>
 
       {/* Dudukan Kapur Kayu (Chalk Ledge) Full Width Ujung Kiri-Kanan */}
-      <div className="portal-ledge" aria-hidden="true">
-        <svg viewBox="0 0 1440 80" preserveAspectRatio="none">
-          <path d="M0 34C240 6 480 62 720 34S1200 6 1440 34V80H0z" fill="#a6783c" />
-          <path d="M0 56C260 34 520 80 760 56S1220 36 1440 58V80H0z" fill="#8d6444" />
-        </svg>
-        <div className="portal-chalks">
-          <i style={{ width: '84px', background: '#7a9c85' }} />
-          <i style={{ width: '70px', background: '#7a9c85' }} />
-          <i style={{ width: '92px', background: '#7a9c85' }} />
-        </div>
-      </div>
+      <PortalLedge />
 
       {/* ========================================================= */}
       {/* MODAL RESET KATA SANDI GURU */}
