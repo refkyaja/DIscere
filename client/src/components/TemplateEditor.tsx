@@ -95,14 +95,10 @@ export function TemplateEditor({
   externalError = null,
 }: TemplateEditorProps) {
   const initialGame = initialData?.game || 'tarik_tambang';
-  const initialMode: 'solo' | 'multi' =
-    initialGame === 'panjat_pinang'
-      ? 'multi'
-      : initialData?.mode || 'solo';
-
   const [judul, setJudul] = useState(initialData?.judul ?? '');
   const [game, setGame] = useState(initialGame);
-  const [mode, setMode] = useState<'solo' | 'multi'>(initialMode);
+  const resolvedMode: 'solo' | 'multi' =
+    game === 'panjat_pinang' ? 'multi' : initialData?.mode || 'multi';
   const [questions, setQuestions] = useState<QuestionItem[]>(() =>
     initialData?.questions && initialData.questions.length > 0
       ? initialData.questions.map((q, idx) => {
@@ -390,7 +386,7 @@ export function TemplateEditor({
       const payload: TemplateEditorPayload = {
         judul: judul.trim(),
         game,
-        mode,
+        mode: resolvedMode,
         questions: questions.map((q, idx) => {
           const activeCount = Math.min(5, Math.max(2, q.opsiAktif ?? hitungJumlahOpsiAktif(q)));
           const activeKeys = KODE_OPSI_SOAL.slice(0, activeCount);
@@ -448,74 +444,29 @@ export function TemplateEditor({
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-            <div>
-              <label className="block text-xs font-bold text-[#1d3b2e] uppercase tracking-wider mb-1.5">
-                Jenis Game
-              </label>
-              <select
-                value={game}
-                onChange={(e) => {
-                  const newGame = e.target.value;
-                  setGame(newGame);
-                  if (newGame === 'panjat_pinang') {
-                    setMode('multi');
-                  }
-                }}
-                className="portal-select"
-              >
-                <option value="tarik_tambang">Tarik Tambang Edukasi (Beregu / Solo)</option>
-                <option value="makan_kerupuk">Makan Kerupuk Challenge (Dual Mode: Multi / Solo)</option>
-                <option value="panjat_pinang">Panjat Pinang (Individu Multiplayer)</option>
-                <option value="balap_karung">Balap Karung Challenge (Dual Mode: Multi / Solo)</option>
-              </select>
-              <span className="text-[11px] text-[#6b7d6c] mt-1 block">
-                {game === 'makan_kerupuk'
-                  ? 'Mendukung Multiplayer (HP siswa) dan Solo Mode (1 perangkat guru di proyektor) saat memulai permainan.'
-                  : game === 'panjat_pinang'
-                  ? 'Lomba memanjat tiang pinang menuju puncak 100% dengan bonus streak dan rintangan opsional.'
-                  : game === 'balap_karung'
-                  ? 'Lomba balap karung Dual Mode: Multiplayer lewat HP siswa maupun Solo 1 vs 1 di layar proyektor.'
-                  : 'Game lomba tarik tambang klasik untuk Discere.'}
-              </span>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-[#1d3b2e] uppercase tracking-wider mb-1.5">
-                Mode Permainan Default
-              </label>
-              <select
-                value={mode}
-                onChange={(e) => setMode(e.target.value as 'solo' | 'multi')}
-                className="portal-select"
-              >
-                <option value="multi">
-                  {game === 'tarik_tambang'
-                    ? 'Mode Multiplayer (Team Multiplayer via PIN & QR)'
-                    : 'Mode Multiplayer (HP Siswa Masing-Masing)'}
-                </option>
-                {game !== 'panjat_pinang' && (
-                  <option value="solo">
-                    {game === 'makan_kerupuk'
-                      ? 'Mode Solo (Satu Perangkat Guru / Proyektor)'
-                      : game === 'balap_karung'
-                      ? 'Mode Solo (Duel 1 vs 1 di Layar Proyektor)'
-                      : game === 'tarik_tambang'
-                      ? 'Mode Solo (Duel 1 vs 1 pada Satu Perangkat Guru)'
-                      : 'Mode Solo (Satu Layar Bersama)'}
-                  </option>
-                )}
-              </select>
-              <span className="text-[11px] text-[#6b7d6c] mt-1 block">
-                {game === 'makan_kerupuk' || game === 'balap_karung'
-                  ? 'Saat memulai permainan nanti, Anda tetap bebas memilih Multiplayer maupun Solo Mode.'
-                  : game === 'tarik_tambang'
-                  ? 'Mode permainan Tarik Tambang (Solo 1 vs 1 atau Team Multiplayer) ditetapkan langsung melalui pilihan template ini.'
-                  : game === 'panjat_pinang'
-                  ? 'Setiap siswa bergabung menggunakan HP masing-masing dan bertanding secara individu.'
-                  : 'Pilih cara siswa berpartisipasi dalam sesi kelas.'}
-              </span>
-            </div>
+          <div>
+            <label className="block text-xs font-bold text-[#1d3b2e] uppercase tracking-wider mb-1.5">
+              Jenis Game
+            </label>
+            <select
+              value={game}
+              onChange={(e) => setGame(e.target.value)}
+              className="portal-select"
+            >
+              <option value="tarik_tambang">Tarik Tambang Challenge (Dual Mode: Multi / Solo)</option>
+              <option value="makan_kerupuk">Makan Kerupuk Challenge (Dual Mode: Multi / Solo)</option>
+              <option value="panjat_pinang">Panjat Pinang (Individu Multiplayer)</option>
+              <option value="balap_karung">Balap Karung Challenge (Dual Mode: Multi / Solo)</option>
+            </select>
+            <span className="text-[11px] text-[#6b7d6c] mt-1 block">
+              {game === 'makan_kerupuk'
+                ? 'Mendukung Multiplayer (HP siswa) dan Solo Mode (1 perangkat guru di proyektor) saat memulai permainan.'
+                : game === 'panjat_pinang'
+                ? 'Lomba memanjat tiang pinang menuju puncak 100% dengan bonus streak dan rintangan opsional.'
+                : game === 'balap_karung'
+                ? 'Lomba balap karung Dual Mode: Multiplayer lewat HP siswa maupun Solo 1 vs 1 di layar proyektor.'
+                : 'Lomba tarik tambang Dual Mode: Multiplayer (2 tim di HP) maupun Solo 1 vs 1 di proyektor.'}
+            </span>
           </div>
         </div>
 
