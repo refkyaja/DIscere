@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dokumentasi – Discere</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+:root{color-scheme:light;--board:#1f4a37;--board-d:#163a2b;--cream:#f4ecd9;--card:#fbf6e9;--ink:#1d3b2e;--muted:#4d6457;--chalk:#f4ecd8;--yellow:#f2c230;--red:#c8362f;--line:rgba(31,74,55,.18);
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{font-family:'Nunito',system-ui,sans-serif;background:var(--cream);color:var(--ink);line-height:1.65;overflow-x:hidden}
+a{color:inherit}a:focus-visible,summary:focus-visible,input:focus-visible{outline:3px solid var(--yellow);outline-offset:3px}
+.hand{font-family:'Caveat','Comic Sans MS',cursive;font-weight:700}
+svg{display:block}
+
+/* header papan tulis */
+.top{position:relative;color:var(--chalk);padding-bottom:90px;
+ background:radial-gradient(ellipse at 25% 10%,rgba(255,255,255,.1),transparent 55%),repeating-linear-gradient(115deg,rgba(255,255,255,.03) 0 2px,transparent 2px 11px),linear-gradient(160deg,#2c5f47,var(--board) 55%,var(--board-d))}
+.wrap{max-width:1100px;margin:0 auto;padding:0 24px}
+nav.bar{display:flex;align-items:center;justify-content:space-between;padding:20px 0}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:22px;text-decoration:none}
+.hero{padding-top:30px;max-width:640px}
+.hero h1{font-size:clamp(40px,6vw,64px);line-height:1.08}
+.hero h1 u{text-decoration:underline;text-decoration-color:var(--yellow);text-decoration-thickness:4px;text-underline-offset:8px;text-decoration-skip-ink:none}
+.hero p{margin:14px 0 22px;font-size:17px}
+.wave{position:absolute;left:0;bottom:-1px;width:100%;height:60px}
+
+/* tata letak */
+.layout{display:grid;grid-template-columns:240px minmax(0,1fr);gap:48px;max-width:1100px;margin:0 auto;padding:10px 24px 60px}
+.side{position:sticky;top:16px;align-self:start;max-height:calc(100vh - 32px);overflow:auto;padding-top:8px}
+.side h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px;font-family:'Nunito'}
+.toc a{display:block;padding:8px 14px;border-radius:12px;text-decoration:none;font-weight:600;font-size:15px;color:var(--muted);border-left:3px solid transparent}
+.toc a:hover{background:rgba(31,74,55,.07);color:var(--ink)}
+.toc a.on{background:var(--card);color:var(--board);font-weight:800;border-left-color:var(--red);box-shadow:0 2px 6px rgba(0,0,0,.06)}
+.toc a[hidden]{display:none}
+.tocm{display:none;margin-bottom:24px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:12px 16px}
+.tocm summary{font-weight:800;cursor:pointer}
+
+main section{padding:6px 0 34px;scroll-margin-top:16px}
+main h2{font-size:42px;line-height:1.1;color:var(--board);margin:28px 0 12px}
+main h2 u{text-decoration:underline;text-decoration-color:var(--red);text-decoration-thickness:3px;text-underline-offset:8px;text-decoration-skip-ink:none}
+main h3{font-size:19px;color:var(--board-d);margin:22px 0 6px}
+main p{margin:0 0 12px;max-width:68ch}
+main ul.l{margin:0 0 14px 22px;max-width:66ch}main ul.l li{margin-bottom:6px}
+code,kbd{font-family:ui-monospace,Menlo,monospace;font-size:.9em;background:rgba(31,74,55,.09);padding:1px 7px;border-radius:7px}
+.note,.tip{border-radius:16px;padding:14px 18px;margin:16px 0;max-width:68ch;border:1px solid var(--line);border-left:5px solid var(--yellow);background:var(--card)}
+.tip{border-left-color:var(--board)}.note b,.tip b{display:block;color:var(--board-d)}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin:16px 0}
+.cd{background:var(--card);border:1px solid var(--line);border-radius:22px 26px 20px 26px;padding:18px;box-shadow:0 4px 12px rgba(40,50,30,.09)}
+.cd svg{width:44px;height:44px;color:var(--board);margin-bottom:6px}
+.cd h3{margin:0 0 4px}.cd p{font-size:14px;color:var(--muted);margin:0}
+.n{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--board);color:#fff;font-size:12px;font-weight:800;margin-right:6px;vertical-align:2px}
+.game{border-radius:20px;overflow:hidden;background:var(--card);border:1px solid var(--line);box-shadow:0 4px 12px rgba(40,50,30,.09)}
+.game .st{height:74px;position:relative;background:linear-gradient(#bfe3ee 0 55%,#7cc06a 55%)}
+.game .st i{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:var(--red);color:#fff;font:700 24px 'Caveat',cursive;padding:0 16px;border-radius:3px;font-style:normal;white-space:nowrap;box-shadow:0 3px 0 rgba(0,0,0,.22)}
+.game div.b{padding:14px 16px}.game h3{margin:0 0 4px;font-size:17px}.game p{font-size:14px;color:var(--muted);margin:0 0 6px}.game small{font-weight:700;color:var(--board)}
+details.q{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:0 18px;margin-bottom:10px;max-width:68ch}
+details.q summary{cursor:pointer;font-weight:800;padding:14px 0;list-style:none;display:flex;justify-content:space-between;gap:12px}
+details.q summary::after{content:"+";color:var(--red);font-size:22px;line-height:1}details.q[open] summary::after{content:"−"}
+details.q p{margin-bottom:14px}
+footer{background:var(--board);color:var(--chalk);text-align:center;padding:26px 24px;font-size:14px}
+footer b{font-family:'Caveat',cursive;font-size:24px;display:block}
+
+@media(max-width:899px){.layout{grid-template-columns:1fr}.side{display:none}.tocm{display:block}}
+@media(max-width:560px){.grid{grid-template-columns:1fr}main h2{font-size:36px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+ <symbol id="ib" viewBox="0 0 48 48"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"><path d="M5 11c7-3 14-1 19 4v26c-5-5-12-7-19-4zM43 11c-7-3-14-1-19 4v26c5-5 12-7 19-4z"/><path d="M10 19h8M10 26h8M30 19h8M30 26h8"/></g></symbol>
+ <symbol id="it" viewBox="0 0 48 48"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"><rect x="4" y="8" width="40" height="27" rx="3"/><path d="M19 15l12 6-12 6zM16 42h16M24 35v7"/></g></symbol>
+ <symbol id="ip" viewBox="0 0 48 48"><path fill="currentColor" d="M14 14h20c7 0 10 6 11 14 .6 5-2 8-6 6l-5-4H14l-5 4c-4 2-6.600-1-6-6 1-8 4-14 11-14z"/><g stroke="#fbf6e9" stroke-width="3" stroke-linecap="round"><path d="M13 21v6M10 24h6"/></g><circle cx="31" cy="22" r="2" fill="#fbf6e9"/><circle cx="36" cy="26" r="2" fill="#fbf6e9"/></symbol>
+ <symbol id="ic" viewBox="0 0 48 48"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"><path d="M13 6h22v12a11 11 0 0 1-22 0zM13 10H6c0 8 3 11 8 12M35 10h7c0 8-3 11-8 12M24 29v8M15 42h18M18 37h12"/></g></symbol>
+</defs></svg>
+
+<header class="top">
+ <div class="wrap">
+  <nav class="bar" aria-label="Navigasi utama">
+   <a class="logo" href="#pengantar"><svg width="38" height="38" style="color:var(--chalk)"><use href="#ib"/></svg>Discere</a>
+  </nav>
+  <div class="hero">
+   <h1 class="hand">Dokumentasi <u>Discere</u></h1>
+   <p>Panduan singkat untuk guru: dari membuat akun, mengajar dengan papan tulis digital, sampai memainkan template permainan di kelas.</p>
+  </div>
+ </div>
+ <svg class="wave" viewBox="0 0 1440 60" preserveAspectRatio="none" fill="#f4ecd9" aria-hidden="true"><path d="M0 60H1440V34C1300 8 1180 52 1040 34S780 6 600 32 340 54 200 30 50 10 0 34Z"/></svg>
+</header>
+
+<div class="layout">
+ <aside class="side" aria-label="Daftar isi"><h2>Daftar isi</h2><nav class="toc"></nav></aside>
+ <div>
+  <details class="tocm"><summary>Daftar isi</summary><nav class="toc"></nav></details>
+  <main>
+   <section id="pengantar" data-t="Pengantar">
+    <h2 class="hand">Peng<u>antar</u></h2>
+    <p>Discere membantu guru menciptakan pengalaman belajar yang interaktif melalui dua hal: <b>papan tulis digital</b> untuk menjelaskan materi, dan <b>template permainan</b> bertema 17 Agustus untuk menguji pemahaman siswa. Semuanya dibuat supaya mengajar terasa lebih mudah dan belajar terasa lebih menyenangkan.</p>
+    <div class="note"><b>Catatan</b>Dokumen ini adalah draf awal. Sesuaikan isinya dengan fitur Discere yang terbaru sebelum dibagikan ke pengguna.</div>
+   </section>
+
+   <section id="memulai" data-t="Memulai">
+    <h2 class="hand"><u>Memulai</u></h2>
+    <h3><span class="n">1</span>Buat akun</h3>
+    <p>Buka halaman <b>Masuk &amp; Daftar</b>, lalu tekan tombol <code>Daftar</code>. Tokoh di halaman itu akan menarik tali, dan formulir pendaftaran berpindah ke sisi seberang.</p>
+    <h3><span class="n">2</span>Isi data</h3>
+    <ul class="l"><li><b>Nama lengkap</b> dan <b>email</b> yang aktif.</li><li><b>Kata sandi</b> minimal 8 karakter. Tekan <code>Lihat</code> untuk memeriksa ketikanmu.</li><li>Pilih peran: <b>Guru</b> atau <b>Siswa</b>.</li></ul>
+    <h3><span class="n">3</span>Masuk</h3>
+    <p>Sudah punya akun? Tekan <code>Sudah punya akun? Masuk</code> dan tali akan menarik formulir kembali ke sisi awal. Isi email dan kata sandi, lalu tekan <code>Masuk</code>.</p>
+    <div class="tip"><b>Tips</b>Halaman ini bisa dibuka langsung pada tampilan daftar dengan alamat berakhiran <code>#daftar</code>.</div>
+   </section>
+
+   <section id="cara-pakai" data-t="Cara menggunakan">
+    <h2 class="hand">Cara <u>menggunakan</u></h2>
+    <p>Alur dasarnya hanya empat langkah:</p>
+    <div class="grid">
+     <div class="cd"><svg><use href="#ib"/></svg><h3><span class="n">1</span>Pilih materi</h3><p>Guru menyiapkan materi yang akan diajarkan.</p></div>
+     <div class="cd"><svg><use href="#it"/></svg><h3><span class="n">2</span>Mulai mengajar</h3><p>Gunakan papan tulis digital untuk menjelaskan materi.</p></div>
+     <div class="cd"><svg><use href="#ip"/></svg><h3><span class="n">3</span>Pilih permainan</h3><p>Gunakan template permainan untuk menguji pemahaman siswa.</p></div>
+     <div class="cd"><svg><use href="#ic"/></svg><h3><span class="n">4</span>Belajar jadi menyenangkan</h3><p>Siswa belajar sambil berpartisipasi dalam aktivitas kelas.</p></div>
+    </div>
+   </section>
+
+   <section id="papan-tulis" data-t="Papan tulis digital">
+    <h2 class="hand">Papan tulis <u>digital</u></h2>
+    <p>Papan tulis digital adalah media interaktif untuk menjelaskan materi dengan lebih kreatif, misalnya menggambar bagan, menuliskan judul seperti “Sistem Tata Surya”, atau mencoret-coret contoh soal bersama siswa.</p>
+    <h3>Ide penggunaan</h3>
+    <ul class="l"><li>Buka pelajaran dengan satu pertanyaan pemantik di tengah papan.</li><li>Pakai satu papan untuk satu gagasan supaya mudah diikuti.</li><li>Ajak siswa maju dan menambahkan jawaban mereka langsung.</li></ul>
+    <div class="tip"><b>Tips</b>Gunakan layar lebar atau proyektor agar tulisan terbaca dari barisan belakang.</div>
+   </section>
+
+   <section id="template" data-t="Template permainan">
+    <h2 class="hand">Template <u>permainan</u></h2>
+    <p>Empat template bertema 17 Agustus membantu kelas lebih hidup dan aktif. Di bawah ini ide cara memakainya di kelas.</p>
+    <div class="grid">
+     <article class="game"><div class="st"><i>Balap Karung</i></div><div class="b"><h3>Balap Karung</h3><p>Lomba cepat menjawab pertanyaan antar siswa atau antar kelompok.</p><small>Cocok untuk: kuis kilat</small></div></article>
+     <article class="game"><div class="st"><i>Tarik Tambang</i></div><div class="b"><h3>Tarik Tambang</h3><p>Dua tim saling beradu menjawab; tim yang benar menarik tali ke arahnya.</p><small>Cocok untuk: kerja tim</small></div></article>
+     <article class="game"><div class="st"><i>Makan Kerupuk</i></div><div class="b"><h3>Makan Kerupuk</h3><p>Siswa menjawab dengan tenang dan teliti sebelum waktu habis.</p><small>Cocok untuk: latihan ketelitian</small></div></article>
+     <article class="game"><div class="st"><i>Panjat Pinang</i></div><div class="b"><h3>Panjat Pinang</h3><p>Setiap jawaban benar membawa tim satu langkah lebih dekat ke puncak.</p><small>Cocok untuk: capaian bertahap</small></div></article>
+    </div>
+    <div class="note"><b>Catatan</b>Aturan main di atas hanyalah saran penggunaan. Guru bebas menyesuaikannya dengan materi dan jumlah siswa.</div>
+   </section>
+
+   <section id="tips" data-t="Tips untuk guru">
+    <h2 class="hand">Tips untuk <u>guru</u></h2>
+    <ul class="l"><li>Jelaskan materi dulu di papan tulis, baru lanjut ke permainan.</li><li>Bagi kelas menjadi tim kecil supaya semua siswa terlibat.</li><li>Tutup sesi dengan merangkum jawaban yang paling sering keliru.</li></ul>
+   </section>
+
+   <section id="faq" data-t="Pertanyaan umum">
+    <h2 class="hand">Pertanyaan <u>umum</u></h2>
+    <details class="q"><summary>Siapa saja yang bisa memakai Discere?</summary><p>Discere dirancang untuk guru, dan siswa dapat bergabung lewat peran <b>Siswa</b> saat mendaftar.</p></details>
+    <details class="q"><summary>Perangkat apa yang paling cocok?</summary><p>Laptop atau layar proyektor memberi pengalaman terbaik. Di layar kecil seperti HP, tampilan disederhanakan.</p></details>
+    <details class="q"><summary>Saya lupa kata sandi. Bagaimana?</summary><p>Tekan <code>Lupa kata sandi?</code> di halaman Masuk dan ikuti petunjuknya.</p></details>
+    <details class="q"><summary>Apakah template permainan bisa diganti temanya?</summary><p>Saat ini tersedia tema 17 Agustus. Tema lain bisa ditambahkan di kemudian hari.</p></details>
+   </section>
+
+   <section id="bantuan" data-t="Bantuan">
+    <h2 class="hand"><u>Bantuan</u></h2>
+    <p>Masih ada yang membingungkan? Hubungi tim kami di <code>dukungan@contoh.id</code> (ganti dengan alamat email yang sebenarnya).</p>
+   </section>
+  </main>
+ </div>
+</div>
+<footer><b>Discere</b>Mengajar lebih mudah, belajar lebih menyenangkan.</footer>
+
+<script>
+const secs=[...document.querySelectorAll('main section')];
+const html=secs.map(s=>`<a href="#${s.id}">${s.dataset.t}</a>`).join('');
+document.querySelectorAll('.toc').forEach(n=>n.innerHTML=html);
+const links=[...document.querySelectorAll('.toc a')];
+const mark=id=>links.forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#'+id));
+mark(secs[0].id);
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)mark(e.target.id)}),{rootMargin:'-15% 0px -75% 0px'});
+secs.forEach(s=>io.observe(s));
+const searchInput=document.getElementById('q');
+if(searchInput){
+ searchInput.addEventListener('input',e=>{
+  const q=e.target.value.trim().toLowerCase();
+  links.forEach(a=>{const s=document.getElementById(a.hash.slice(1));a.hidden=!!q&&!s.textContent.toLowerCase().includes(q)});
+ });
+}
+</script>
+</body>
+</html>

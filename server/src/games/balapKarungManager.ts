@@ -75,6 +75,14 @@ export interface LaporanPemainBalap {
   riwayatJarak: RiwayatJarakEntry[];
 }
 
+export interface QuestionStatItemBalap {
+  questionId: string;
+  nomorSoal: number;
+  teksSoal: string;
+  jumlahBenar: number;
+  jumlahSalah: number;
+}
+
 export interface LaporanAkhirBalapKarung {
   sessionId: string;
   templateId: string;
@@ -96,6 +104,7 @@ export interface LaporanAkhirBalapKarung {
     juara2?: LeaderboardItemBalap;
     juara3?: LeaderboardItemBalap;
   };
+  questionStats?: QuestionStatItemBalap[];
 }
 
 export interface SesiBalapKarungActive {
@@ -288,6 +297,30 @@ export function buatLaporanAkhirBalap(
     };
   });
 
+  const statPerSoal = new Map<string, { benar: number; salah: number }>();
+  for (const p of sorted) {
+    for (const jw of p.riwayatJawaban) {
+      const prev = statPerSoal.get(jw.questionId) || { benar: 0, salah: 0 };
+      if (jw.benar) prev.benar += 1;
+      else prev.salah += 1;
+      statPerSoal.set(jw.questionId, prev);
+    }
+  }
+
+  const questionStats: QuestionStatItemBalap[] = sesi.questions
+    .map((q) => {
+      const st = statPerSoal.get(q.id);
+      if (!st) return null;
+      return {
+        questionId: q.id,
+        nomorSoal: q.urutan,
+        teksSoal: q.teks,
+        jumlahBenar: st.benar,
+        jumlahSalah: st.salah,
+      };
+    })
+    .filter((item): item is QuestionStatItemBalap => item !== null);
+
   return {
     sessionId: sesi.sessionId,
     templateId: sesi.templateId,
@@ -309,6 +342,7 @@ export function buatLaporanAkhirBalap(
       juara2: leaderboard[1],
       juara3: leaderboard[2],
     },
+    questionStats,
   };
 }
 
@@ -408,7 +442,7 @@ export const balapKarungManager = {
       },
     });
 
-    if (!sessionDb || sessionDb.template.game !== 'balap_karung' || !sessionDb.token) {
+    if (!sessionDb || sessionDb.template.game !== 'balap_karung' || sessionDb.mode === 'solo' || !sessionDb.token) {
       return null;
     }
 
@@ -419,7 +453,8 @@ export const balapKarungManager = {
     let parsedConfig: Partial<KonfigurasiBalapKarung> | undefined;
     if (sessionDb.konfigurasi) {
       try {
-        parsedConfig = JSON.parse(sessionDb.konfigurasi);
+        const rawJson = JSON.parse(sessionDb.konfigurasi);
+        parsedConfig = rawJson?.config || rawJson;
       } catch {
         parsedConfig = undefined;
       }
@@ -507,9 +542,12 @@ export const balapKarungManager = {
     }
 
     if (sesi.status === 'selesai') {
+      const allSelesai =
+        sesi.peserta.size > 0 &&
+        Array.from(sesi.peserta.values()).every((p) => p.status === 'selesai');
       sesi.hasil = buatLaporanAkhirBalap(
         sesi,
-        true,
+        !allSelesai,
         sessionDb.selesaiPada ? sessionDb.selesaiPada.getTime() : Date.now()
       );
     }
@@ -1085,7 +1123,8 @@ export const balapKarungManager = {
     let parsedConfig: Partial<KonfigurasiBalapKarung> | undefined;
     if (sessionDb.konfigurasi) {
       try {
-        parsedConfig = JSON.parse(sessionDb.konfigurasi);
+        const rawJson = JSON.parse(sessionDb.konfigurasi);
+        parsedConfig = rawJson?.config || rawJson;
       } catch {
         parsedConfig = undefined;
       }

@@ -1,6 +1,5 @@
-import { BoardState, PenStyle } from '../engine/types';
+import { BoardState } from '../engine/types';
 import { COL, LCOL } from '../engine/color';
-import { STY } from '../engine/shapes';
 
 export interface OptionsBarProps {
   state: BoardState;
@@ -114,20 +113,6 @@ export function OptionsBar({
             aria-label="Opasitas"
             onChange={(e) => onUpdateState({ op: +e.target.value / 100 })}
           />
-
-          <span className="bl">Gaya</span>
-          <select
-            className="sel"
-            value={state.style}
-            aria-label="Gaya Kuas"
-            onChange={(e) => onUpdateState({ style: e.target.value as PenStyle })}
-          >
-            {(Object.entries(STY) as [PenStyle, [string, string]][]).map(([k, [n]]) => (
-              <option key={k} value={k}>
-                {n}
-              </option>
-            ))}
-          </select>
         </>
       )}
 

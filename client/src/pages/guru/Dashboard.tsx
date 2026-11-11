@@ -9,9 +9,6 @@ import ModalKonfigurasiKerupuk, { KonfigurasiKerupukPayload } from './ModalKonfi
 import ModalKonfigurasiPanjatPinang, {
   KonfigurasiPanjatPinangPayload,
 } from './ModalKonfigurasiPanjatPinang';
-import ModalKonfigurasiBalapKarung, {
-  KonfigurasiBalapKarungPayload,
-} from './ModalKonfigurasiBalapKarung';
 import ModalKonfigurasiTarikTambang, {
   KonfigurasiTarikTambangPayload,
 } from './ModalKonfigurasiTarikTambang';
@@ -198,12 +195,6 @@ export default function DashboardGuru() {
     totalSoal: number;
   } | null>(null);
   const [panjatCreating, setPanjatCreating] = useState(false);
-  const [modalBalapTemplate, setModalBalapTemplate] = useState<{
-    id: string;
-    judul: string;
-    totalSoal: number;
-  } | null>(null);
-  const [balapCreating, setBalapCreating] = useState(false);
   const [modalTarikTemplate, setModalTarikTemplate] = useState<{
     id: string;
     judul: string;
@@ -367,14 +358,9 @@ export default function DashboardGuru() {
       return;
     }
 
-    // Jika game adalah Balap Karung Challenge, buka modal konfigurasi Balap Karung
+    // Jika game adalah Balap Karung Challenge, arahkan ke halaman Pemilihan Mode & Pengaturan
     if (gameType === 'balap_karung') {
-      const tmpl = cariTemplate();
-      setModalBalapTemplate({
-        id: templateId,
-        judul: tmpl?.judul || 'Balap Karung Challenge',
-        totalSoal: (tmpl as TemplateItem)?._count?.questions || tmpl?.jumlahSoal || 0,
-      });
+      navigate(`/guru/balap-karung?templateId=${encodeURIComponent(templateId)}&kembali=/guru`);
       return;
     }
 
@@ -388,29 +374,6 @@ export default function DashboardGuru() {
     } catch (err: any) {
       alert(err.pesan || 'Gagal memulai sesi game.');
       setActionLoadingId(null);
-    }
-  };
-
-  // Handler: Konfirmasi & Mulai Sesi Balap Karung Challenge dengan Konfigurasi
-  const handleKonfirmasiBalap = async (config: KonfigurasiBalapKarungPayload) => {
-    if (!modalBalapTemplate) return;
-    try {
-      setBalapCreating(true);
-      const res = await apiRequest<{ session: { id: string } }>('/sesi', {
-        method: 'POST',
-        body: JSON.stringify({
-          templateId: modalBalapTemplate.id,
-          game: 'balap_karung',
-          mode: 'multi',
-          balapKarungConfig: config,
-        }),
-      });
-      setModalBalapTemplate(null);
-      navigate(`/guru/sesi/${res.session.id}`);
-    } catch (err: any) {
-      alert(err.pesan || 'Gagal membuat sesi Balap Karung.');
-    } finally {
-      setBalapCreating(false);
     }
   };
 
@@ -1330,10 +1293,9 @@ export default function DashboardGuru() {
                                 {labelJenisGame(tmpl.game)}
                               </span>
                               <span className="portal-tag xs yellow whitespace-nowrap shrink-0">
-                                {tmpl.game === 'makan_kerupuk'
+                                {tmpl.game === 'makan_kerupuk' || tmpl.game === 'balap_karung'
                                   ? 'Dual Mode'
-                                  : tmpl.game === 'panjat_pinang' ||
-                                    tmpl.game === 'balap_karung'
+                                  : tmpl.game === 'panjat_pinang'
                                   ? 'Individu'
                                   : tmpl.mode === 'multi'
                                   ? 'Multiplayer'
@@ -2082,16 +2044,6 @@ export default function DashboardGuru() {
         totalSoal={modalPanjatTemplate?.totalSoal || 0}
         onMulai={handleKonfirmasiPanjat}
         loading={panjatCreating}
-      />
-
-      {/* Modal Konfigurasi Sesi Balap Karung Challenge */}
-      <ModalKonfigurasiBalapKarung
-        isOpen={Boolean(modalBalapTemplate)}
-        onClose={() => setModalBalapTemplate(null)}
-        templateJudul={modalBalapTemplate?.judul || ''}
-        totalSoal={modalBalapTemplate?.totalSoal || 0}
-        onMulai={handleKonfirmasiBalap}
-        loading={balapCreating}
       />
 
       {/* Modal Konfigurasi Sesi Tarik Tambang (Solo / Multi ditentukan oleh template) */}

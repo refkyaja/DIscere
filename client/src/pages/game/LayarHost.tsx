@@ -6,6 +6,7 @@ import LayarHostMulti from './LayarHostMulti';
 import LayarHostKerupuk from './LayarHostKerupuk';
 import LayarHostPanjatPinang from './LayarHostPanjatPinang';
 import LayarHostBalapKarung from './LayarHostBalapKarung';
+import LayarHostBalapKarungSolo from './LayarHostBalapKarungSolo';
 import { Loader2 } from 'lucide-react';
 import { Card, Button } from '../../components';
 
@@ -76,7 +77,7 @@ export default function LayarHost() {
   }
 
   if (game === 'balap_karung') {
-    return <LayarHostBalapKarung />;
+    return mode === 'solo' ? <LayarHostBalapKarungSolo /> : <LayarHostBalapKarung />;
   }
 
   if (mode === 'multi') {

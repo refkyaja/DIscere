@@ -189,19 +189,31 @@ Gaya **modern, bersih, dan ramah anak**, bernuansa 17 Agustusan tanpa terlihat n
 Memakai layout dengan navbar dan footer. Navbar: **Fitur, Kelebihan, Dokumentasi**, tombol **Masuk** dan **Daftar Gratis**.
 
 **Landing (`/`)**, urutan bagian dari atas:
-1. **Hero:** judul, satu kalimat penjelasan, tombol Masuk dan Daftar Gratis, ilustrasi atau animasi tarik tambang.
+1. **Hero:** judul, satu kalimat penjelasan, tombol Masuk dan Daftar Gratis, ilustrasi animasi tarik tambang interaktif.
 2. **Masalah:** kelas membosankan dan tidak semua siswa punya HP.
 3. **Cara kerja:** 3 langkah (Buat template, Jelaskan di papan tulis, Main game lomba).
 4. **Fitur:** papan tulis tak terbatas, AI pembuat soal, game 17-an, dua mode main, kolaborasi.
 5. **Kelebihan:** siswa tanpa akun, jalan di kelas tanpa HP, hemat sumber daya, privasi data.
-6. **Dokumentasi ringkas:** panduan singkat guru dan tanya jawab.
-7. **Footer:** kontak, tentang tim, kebijakan privasi singkat.
+6. **Dokumentasi ringkas:** panduan singkat guru dan tanya jawab (FAQ) interaktif.
+   - **Exclusive Accordion FAQ:** Memuat 6 pertanyaan resmi seputar AI, mode solo vs multiplayer, lomba 17-an, privasi sesi, kompatibilitas mapel, dan status biaya (Logicodix 2026). Membuka satu pertanyaan otomatis menutup pertanyaan sebelumnya.
+7. **Footer 5 Kolom:**
+   - Kolom 1 (Discere): Brand, moto, dan deskripsi singkat platform.
+   - Kolom 2 (Jelajahi): Tautan cepat ke bagian Beranda, Fitur, Template, dan Demo Papan Tulis.
+   - Kolom 3 (Untuk guru): Tautan Masuk, Daftar Akun, Pustaka Template, dan Panduan Mengajar.
+   - Kolom 4 (Proyek): Repositori GitHub, tautan internal ke `/dokumentasi`, pelaporan masalah (GitHub Issues), dan Kontak WhatsApp tim (`+62 858-8545-5853`).
+   - Kolom 5 (Tentang kami): Keterangan kompetisi LOGICODIX 2026, subtema Smart & Fun Education, dan hak cipta.
 
-**Daftar (`/daftar`):** nama, email, kata sandi (minimal 8 karakter), nama sekolah. **Login (`/masuk`):** email dan kata sandi. Halaman **Dokumentasi (`/dokumentasi`)** berisi panduan langkah demi langkah untuk guru.
+**Daftar (`/daftar`) & Login (`/masuk`):** 
+- Desain visual bertema ruang kelas sekolah Indonesia: papan tulis hijau tua dengan serat kapur diagonal, tali gantung papan dengan 3 titik cincin melengkung, serta animasi teks sambutan dinamis.
+- Daftar: nama, email, kata sandi (minimal 8 karakter), nama sekolah.
+- Login: email dan kata sandi.
+- Halaman **Dokumentasi (`/dokumentasi`)** berdiri sebagai rute mandiri yang memuat panduan komprehensif bagi guru.
 
 ## Dashboard Guru (`/guru`)
 
-Layout: sidebar kiri (Ringkasan, Template, Papan Tulis, Riwayat, Pengaturan) dan konten di kanan.
+Layout: sidebar kiri responsif yang dapat diciutkan (Ringkasan, Template, Papan Tulis, Riwayat, Pengaturan) dan area konten di kanan.
+- **Navigasi Bersih:** Saat kembali ke menu utama Ringkasan, URL otomatis dibersihkan ke `/guru` tanpa query parameter `?tab=ringkasan`.
+- **Sidebar Ringkas:** Saat sidebar diciutkan, logo/ikon Discere otomatis mengecil dan berada tepat di tengah (`margin: 0 auto`).
 
 **Ringkasan** (halaman awal):
 - Kartu angka: jumlah template, sesi yang pernah dijalankan, dan papan tersimpan.
@@ -211,13 +223,16 @@ Layout: sidebar kiri (Ringkasan, Template, Papan Tulis, Riwayat, Pengaturan) dan
 
 **Template:** kartu-kartu template (judul, game, mode, jumlah soal) dengan aksi **Mulai, Ubah, Duplikat, Hapus**, plus pencarian. Tab kedua **Pustaka Resmi** berisi template contoh dari admin yang bisa **disalin** ke milik guru.
 
-**Template Baru / Ubah (`/guru/template/baru`):** form berisi Judul materi, Game (tarik tambang; game lain tampil nonaktif "segera"), Mode (Solo atau Multiplayer), dan daftar soal. Soal bisa diisi **manual** (teks soal, 3 pilihan, jawaban benar, penjelasan opsional) atau lewat tombol **Buat soal dengan AI** (tempel materi, pilih jumlah dan tingkat). Soal hasil AI wajib **ditinjau guru** (bisa diedit atau dihapus) sebelum **Simpan**, dan ditandai "Dibuat AI".
+**Template Baru / Ubah (`/guru/template/baru`):** 
+- **Tampilan Penuh Tanpa Sidebar:** Saat menyusun materi/soal, form ditampilkan layar penuh tanpa sidebar kiri agar guru dapat fokus sepenuhnya pada penyusunan soal.
+- **Header Form:** Tombol navigasi "Kembali ke Daftar Template" diposisikan di pojok kanan atas header sejajar judul form.
+- Form berisi Judul materi, Game (tarik tambang), Mode (Solo atau Multiplayer), dan daftar soal tanpa batasan jenjang yang kaku. Soal dapat diisi **manual** atau dibuat otomatis lewat **Buat soal dengan AI** (ditandai label "Dibuat AI").
 
 **Riwayat:** daftar sesi (tanggal, template, tim pemenang, skor akhir). Detail sesi menampilkan **soal yang paling sering salah** (statistik per soal). Tidak ada nama siswa.
 
 **Papan Tulis:** daftar papan tersimpan (judul, terakhir diubah), tombol buka, ganti nama, hapus.
 
-**Pengaturan:** profil (nama, sekolah), ganti kata sandi, tema tampilan, hapus akun (menghapus semua data milik guru).
+**Pengaturan & Profil:** profil (nama, sekolah), ganti kata sandi dengan kolom kata sandi baru dan konfirmasi kata sandi yang sejajar seimbang, tema tampilan, dan hapus akun (menghapus semua data milik guru).
 
 **Cara masuk ke papan tulis:** dua jalur.
 - Dari Ringkasan atau menu: tombol **Buka Papan Tulis** (papan baru) atau memilih papan tersimpan.
@@ -325,8 +340,12 @@ Semua panggilan AI lewat **server**. Kunci API dan nama model dari `.env` (`AI_A
 
 ## Dashboard Admin (`/admin`)
 
-Admin adalah **pengelola platform**, bukan pengawas isi milik guru. Isi untuk versi lomba:
+Admin adalah **pengelola platform**, bukan pengawas isi milik guru.
+- **Navigasi Bersih & Sidebar:** Saat kembali ke menu Ringkasan, URL otomatis dibersihkan ke `/admin`. Sidebar kiri dapat diciutkan dengan logo Discere yang otomatis berada di tengah saat ciut.
+- **Form Pustaka Resmi (Layar Penuh):** Saat admin membuat atau menyunting template resmi (`pustakaView === 'form'`), form ditampilkan layar penuh tanpa sidebar navigasi, dengan tombol "Kembali ke Pustaka Resmi" di pojok kanan atas header form.
+- **Profil Admin:** Field kata sandi baru dan konfirmasi kata sandi baru disusun seimbang berdampingan.
 
+Isi untuk versi lomba:
 - **Statistik platform:** jumlah guru, template, sesi, papan, dan grafik pemakaian per hari. **Hanya angka agregat.**
 - **Kelola guru:** daftar akun (nama, email, sekolah, status), pencarian, aksi **nonaktifkan/aktifkan, reset kata sandi, hapus akun**. Menghapus akun ikut menghapus datanya.
 - **Pustaka template resmi:** admin membuat, mengubah, dan menghapus template contoh (misalnya soal kelas 5 SD) yang bisa disalin guru.
@@ -411,16 +430,16 @@ Skrip di `package.json` (root):
 
 Kerjakan bertahap. Setelah tiap fitur selesai: jalankan, uji, **commit**. Setelah tiap tahap: beri **tag** dan push. Jangan lanjut ke tahap berikutnya kalau tahap ini belum jalan.
 
-| Hari (2026)    | Tahap                                   | Hasil yang diuji                                                           |
-| -------------- | --------------------------------------- | -------------------------------------------------------------------------- |
-| Minggu, 8 Nov  | **1. Fondasi**                          | Repo, struktur, Prisma + migrasi + seed, daftar/login/keluar, middleware role |
-|                | **2. Halaman publik**                   | Landing, Fitur, Kelebihan, Dokumentasi, Daftar, Login dengan desain final  |
-| Senin, 9 Nov   | **3. Dashboard guru dan template**      | Ringkasan, CRUD template dan soal manual, duplikat, pustaka resmi          |
-| Selasa, 10 Nov | **4. Game Solo**                        | Tarik tambang Mode Solo penuh dari awal sampai layar hasil, riwayat tersimpan |
-| Rabu, 11 Nov   | **5. Multiplayer**                      | Token, QR, lobi, 2 HP nyata bermain, tali real-time, penjelasan jawaban    |
-| Kamis, 12 Nov  | **6. Papan tulis dan kolaborasi**       | Kanvas Canvas 2D tak terbatas, semua tools, simpan otomatis, sidebar game, tautan Viewer/Editor |
-| Jumat, 13 Nov  | **7. AI dan Admin**                     | Soal dari AI, Tanya AI (lingkari soal), cache dan batas harian, dashboard admin minimal |
-| Sabtu, 14 Nov  | **8. Poles dan submit**                 | Perbaiki bug, README + diagram, rekam video demo 3 sampai 5 menit, submit **sebelum batas** |
+| Hari (2026)    | Tahap                                   | Hasil yang diuji                                                           | Status |
+| -------------- | --------------------------------------- | -------------------------------------------------------------------------- | :----: |
+| Minggu, 8 Nov  | **1. Fondasi**                          | Repo, struktur, Prisma + migrasi + seed, daftar/login/keluar, middleware role | Selesai |
+|                | **2. Halaman publik**                   | Landing (hero, fitur, demo, FAQ accordion, footer 5 kolom), Dokumentasi, Daftar, Login | Selesai |
+| Senin, 9 Nov   | **3. Dashboard guru dan template**      | Ringkasan, CRUD template dan soal manual, duplikat, pustaka resmi, full-width form | Selesai |
+| Selasa, 10 Nov | **4. Game Solo**                        | Tarik tambang Mode Solo penuh dari awal sampai layar hasil, riwayat tersimpan | Selesai |
+| Rabu, 11 Nov   | **5. Multiplayer**                      | Token, QR, lobi, HP nyata bermain, tali real-time di server, penjelasan jawaban | Selesai |
+| Kamis, 12 Nov  | **6. Papan tulis dan kolaborasi**       | Kanvas Canvas 2D tak terbatas, semua tools, simpan otomatis, sidebar game, tautan Viewer/Editor | Selesai |
+| Jumat, 13 Nov  | **7. AI dan Admin**                     | Soal dari AI, Tanya AI (lingkari soal), Obrolan AI papan, cache dan batas harian, dashboard admin | Selesai |
+| Sabtu, 14 Nov  | **8. Poles dan submit**                 | Perbaiki UX & navigasi, penataan responsif, README + diagram, video demo, submit | **Sedang Berjalan** |
 
 **Prioritas kalau waktu mepet** (potong dari bawah):
 - **P0 (wajib):** tahap 1 sampai 5, ditambah soal AI dan Tanya AI dasar.

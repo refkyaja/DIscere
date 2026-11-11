@@ -10,6 +10,9 @@ export default function Landing() {
   const [isStuck, setIsStuck] = useState(false);
   const [activeSection, setActiveSection] = useState('beranda');
 
+  // Exclusive Accordion state untuk FAQ
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
+
   // Interactive Demo Blackboard state
   const [demoRevealed, setDemoRevealed] = useState(false);
   const [demoHint, setDemoHint] = useState('Lingkari soalnya dengan mouse atau jari.');
@@ -1040,33 +1043,49 @@ export default function Landing() {
             Pertanyaan <u>yang Sering Muncul</u>
           </h2>
           <div className="faq">
-            <details className="reveal stagger-1">
-              <summary>Apakah Discere gratis?</summary>
-              <p>Versi ini gratis dipakai guru.</p>
-            </details>
-            <details className="reveal stagger-2">
-              <summary>Apakah perlu internet?</summary>
-              <p>
-                Kelas dan game berjalan di jaringan lokal. Hanya fitur AI yang butuh internet.
-              </p>
-            </details>
-            <details className="reveal stagger-3">
-              <summary>Apakah siswa harus punya akun?</summary>
-              <p>Tidak. Siswa masuk dengan token dari guru dan nama panggilan.</p>
-            </details>
-            <details className="reveal stagger-4">
-              <summary>Apakah data kami aman?</summary>
-              <p>
-                Admin hanya melihat angka total. Papan, soal, dan hasil sesi hanya bisa dibuka guru
-                pemiliknya.
-              </p>
-            </details>
-            <details className="reveal stagger-5">
-              <summary>Bagaimana kalau siswa tidak punya HP?</summary>
-              <p>
-                Pakai Mode Solo. Perwakilan tim maju dan menyentuh jawaban di layar guru.
-              </p>
-            </details>
+            {[
+              {
+                q: 'Bagaimana AI membuat soal, dan apakah saya masih bisa mengubahnya?',
+                a: 'AI membuat soal dari materi yang kamu masukkan, atau kamu bisa menulis soal sendiri dari awal. Sebelum dipakai di kelas, semua soal bisa kamu edit, hapus, atau tambah. Jadi AI membantu mempercepat, tapi kualitas soal tetap kamu yang menentukan.',
+              },
+              {
+                q: 'Apa bedanya mode solo dan multiplayer, dan kapan sebaiknya pakai yang mana?',
+                a: 'Mode solo cocok kalau kelas hanya punya satu layar atau proyektor, semua siswa menjawab bersama secara bergiliran. Mode multiplayer cocok kalau tiap siswa punya HP sendiri dan ingin main serentak dengan skor masing-masing. Keduanya dirancang supaya tidak ada siswa yang tertinggal hanya karena keterbatasan alat.',
+              },
+              {
+                q: 'Kenapa game-nya bertema lomba 17 Agustusan, bukan kuis biasa?',
+                a: 'Supaya sesi belajar terasa seperti permainan, bukan ulangan. Tema yang akrab buat siswa Indonesia (tarik tambang, dan sejenisnya) membuat mereka lebih terlibat dibanding tampilan kuis pilihan ganda yang itu-itu saja.',
+              },
+              {
+                q: 'Apa yang tersimpan dari sesi kelas saya, dan siapa yang bisa melihatnya?',
+                a: 'Materi dan template kelas tersimpan di akun guru, bisa dipakai ulang kapan saja. Siswa cukup masuk pakai token sesi, tanpa perlu membuat akun sendiri, jadi tidak ada data pribadi siswa yang disimpan di luar yang memang dibutuhkan untuk sesi itu.',
+              },
+              {
+                q: 'Apakah Discere cocok dipakai di semua mata pelajaran?',
+                a: 'Cocok, karena materi dan soalnya memang kamu yang mengisi, baik lewat AI dari bahan ajar yang kamu punya, maupun diketik manual. Discere menyediakan cara menyampaikannya, bukan membatasi kontennya.',
+              },
+              {
+                q: 'Apakah Discere berbayar?',
+                a: 'Saat ini Discere bisa dicoba gratis sebagai bagian dari proyek kompetisi Logicodix 2026. Rencana jangka panjang soal biaya belum diputuskan.',
+              },
+            ].map((item, idx) => (
+              <details
+                key={idx}
+                name="faq"
+                className={`reveal stagger-${idx + 1}`}
+                open={openFaqIndex === idx}
+              >
+                <summary
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setOpenFaqIndex((prev) => (prev === idx ? null : idx));
+                  }}
+                >
+                  {item.q}
+                </summary>
+                <p>{item.a}</p>
+              </details>
+            ))}
           </div>
         </section>
 
@@ -1180,6 +1199,41 @@ export default function Landing() {
                 </li>
                 <li>
                   <a href="#faq" onClick={(e) => handleScrollTo(e, 'faq')}>Pertanyaan umum</a>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h5>Proyek</h5>
+              <ul>
+                <li>
+                  <a
+                    href="https://github.com/refkyaja/DIscere"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Repositori GitHub
+                  </a>
+                </li>
+                <li>
+                  <Link to="/dokumentasi">Dokumentasi</Link>
+                </li>
+                <li>
+                  <a
+                    href="https://github.com/refkyaja/DIscere/issues"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Laporkan masalah
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://wa.me/6285885455853"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Kontak tim
+                  </a>
                 </li>
               </ul>
             </div>

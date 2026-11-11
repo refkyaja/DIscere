@@ -34,6 +34,7 @@ import {
   konfigurasiPanjatPinangSchema,
 } from '../games/panjatPinang.js';
 import { balapKarungManager } from '../games/balapKarungManager.js';
+import { balapKarungSoloManager } from '../games/balapKarungSoloManager.js';
 import {
   bangunKonfigurasiBalapKarung,
   konfigurasiBalapKarungSchema,
@@ -560,9 +561,55 @@ sesiRouter.post('/', async (req: AuthRequest, res: Response) => {
     const targetGame = parsed.game || template.game || 'tarik_tambang';
 
     // -------------------------------------------------------------
-    // CABANG 0B: Game Balap Karung Challenge (Individual Multiplayer)
+    // CABANG 0B: Game Balap Karung Challenge (Dual-Mode: SOLO / MULTIPLAYER)
     // -------------------------------------------------------------
     if (targetGame === 'balap_karung') {
+      const requestedSolo =
+        parsed.playMode === 'SOLO' ||
+        parsed.mode === 'solo' ||
+        (!parsed.playMode && !parsed.mode && template.mode === 'solo');
+
+      if (requestedSolo) {
+        const configSnapshot = bangunKonfigurasiBalapKarung({
+          ...(parsed.balapKarungConfig || {}),
+          maxPeserta: 2,
+          allowLateJoin: false,
+        });
+        const autoStart = parsed.autoStart === true;
+
+        const session = await prisma.session.create({
+          data: {
+            templateId: template.id,
+            hostId: req.user!.id,
+            mode: 'solo',
+            token: null,
+            status: autoStart ? 'jalan' : 'lobi',
+            mulaiPada: autoStart ? new Date() : null,
+            konfigurasi: JSON.stringify({
+              playMode: 'SOLO',
+              config: configSnapshot,
+            }),
+          },
+        });
+
+        const activeSoloBalap = balapKarungSoloManager.inisialisasiSesi(
+          session.id,
+          req.user!.id,
+          { id: template.id, judul: template.judul },
+          template.questions.map(mapDbQuestionForGame),
+          configSnapshot,
+          autoStart
+        );
+
+        return res.status(201).json({
+          pesan: 'Sesi Mode Solo Balap Karung Challenge siap dimulai.',
+          session: {
+            id: session.id,
+            ...balapKarungSoloManager.serialisasiUntukClient(activeSoloBalap),
+          },
+        });
+      }
+
       const configSnapshot = bangunKonfigurasiBalapKarung({
         ...(parsed.balapKarungConfig || {}),
         ...(parsed.maxPeserta ? { maxPeserta: parsed.maxPeserta } : {}),
@@ -600,6 +647,7 @@ sesiRouter.post('/', async (req: AuthRequest, res: Response) => {
           id: session.id,
           game: 'balap_karung',
           mode: 'multi',
+          playMode: 'MULTIPLAYER',
           token,
           qrDataUrl,
           joinUrl,
@@ -940,7 +988,21 @@ sesiRouter.get('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
 
-    // 0b. Cek di in-memory balapKarungManager atau pulihkan dari DB jika Balap Karung
+    // 0a. Cek Balap Karung Solo (1 vs 1) di memori atau DB
+    let activeBalapSolo = balapKarungSoloManager.dapatkanSesi(id);
+    if (!activeBalapSolo) {
+      activeBalapSolo = (await balapKarungSoloManager.pulihkanSesiDariDb(id)) || undefined;
+    }
+    if (activeBalapSolo) {
+      if (activeBalapSolo.hostId !== req.user!.id) {
+        return res.status(403).json({ pesan: 'Anda tidak memiliki hak akses ke sesi ini.' });
+      }
+      return res.json({
+        session: balapKarungSoloManager.serialisasiUntukClient(activeBalapSolo),
+      });
+    }
+
+    // 0b. Cek di in-memory balapKarungManager atau pulihkan dari DB jika Balap Karung Multiplayer
     let activeBalap = balapKarungManager.dapatkanSesi(id);
     if (!activeBalap) {
       activeBalap = (await balapKarungManager.pulihkanSesiDariDb(id)) || undefined;
@@ -1208,6 +1270,23 @@ sesiRouter.post('/:id/mulai', async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
 
+    // A0. Cek Balap Karung Challenge Solo (1 vs 1)
+    let activeBalapSolo = balapKarungSoloManager.dapatkanSesi(id);
+    if (!activeBalapSolo) {
+      activeBalapSolo = (await balapKarungSoloManager.pulihkanSesiDariDb(id)) || undefined;
+    }
+    if (activeBalapSolo) {
+      const sesiBalapSolo = balapKarungSoloManager.mulaiSesi(id, req.user!.id);
+      await prisma.session.update({
+        where: { id },
+        data: { status: 'jalan', mulaiPada: new Date() },
+      });
+      return res.json({
+        pesan: 'Permainan Balap Karung Solo 1 vs 1 dimulai.',
+        session: balapKarungSoloManager.serialisasiUntukClient(sesiBalapSolo),
+      });
+    }
+
     // A. Cek apakah sesi ini adalah Makan Kerupuk Challenge Solo
     let activeKerupuk = kerupukManager.dapatkanSesi(id);
     if (!activeKerupuk) {
@@ -1291,6 +1370,18 @@ sesiRouter.post('/:id/state', async (req: AuthRequest, res: Response) => {
     const id = req.params.id as string;
     const { state } = stateSchema.parse(req.body);
 
+    const activeBalapSolo =
+      balapKarungSoloManager.dapatkanSesi(id) ||
+      (await balapKarungSoloManager.pulihkanSesiDariDb(id));
+    if (activeBalapSolo) {
+      const sesiBalapSolo = balapKarungSoloManager.ubahStateSesi(id, req.user!.id, state);
+      return res.json({
+        pesan: `Permainan berhasil di-${state === 'PAUSED' ? 'jeda' : 'lanjutkan'}.`,
+        state: sesiBalapSolo.state,
+        session: balapKarungSoloManager.serialisasiUntukClient(sesiBalapSolo),
+      });
+    }
+
     const activeKerupuk =
       kerupukManager.dapatkanSesi(id) || (await kerupukManager.pulihkanSesiDariDb(id));
     if (activeKerupuk) {
@@ -1329,9 +1420,42 @@ const jawabSchema = z.object({
   jawabanDipilih: z.string().optional(),
 });
 
+const jawabBalapSoloSchema = z.object({
+  slot: z.enum(['pemain1', 'pemain2']).default('pemain1'),
+  presentationId: z.string().min(1, 'ID presentasi soal wajib disertakan.'),
+  choiceId: z.string().min(1, 'ID pilihan jawaban wajib disertakan.'),
+  questionId: z.string().optional(),
+});
+
 sesiRouter.post('/:id/jawab', async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
+
+    const activeBalapSolo =
+      balapKarungSoloManager.dapatkanSesi(id) ||
+      (await balapKarungSoloManager.pulihkanSesiDariDb(id));
+    if (activeBalapSolo) {
+      const inputBalap = jawabBalapSoloSchema.parse(req.body);
+      const hasilBalap = balapKarungSoloManager.prosesJawaban(id, req.user!.id, {
+        slot: inputBalap.slot,
+        presentationId: inputBalap.presentationId,
+        choiceId: inputBalap.choiceId,
+        questionId: inputBalap.questionId,
+      });
+
+      if (hasilBalap.selesai) {
+        await balapKarungSoloManager.simpanHasilKeDatabase(id);
+      }
+
+      return res.json({
+        game: 'balap_karung',
+        slot: hasilBalap.slot,
+        feedback: hasilBalap.feedback,
+        hasilJawaban: hasilBalap.hasilJawaban,
+        isFinished: hasilBalap.selesai,
+        session: balapKarungSoloManager.serialisasiUntukClient(hasilBalap.sesi),
+      });
+    }
 
     const activeKerupuk =
       kerupukManager.dapatkanSesi(id) || (await kerupukManager.pulihkanSesiDariDb(id));
@@ -1475,10 +1599,51 @@ sesiRouter.post('/:id/powerup', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// 7e. POST /api/sesi/:id/bot-langkah - Jalankan 1 langkah Bot AI pada Balap Karung Solo vs Bot
+sesiRouter.post('/:id/bot-langkah', async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    let activeBalapSolo = balapKarungSoloManager.dapatkanSesi(id);
+    if (!activeBalapSolo) {
+      activeBalapSolo = (await balapKarungSoloManager.pulihkanSesiDariDb(id)) || undefined;
+    }
+    if (!activeBalapSolo) {
+      return res.status(404).json({ pesan: 'Sesi Balap Karung Solo tidak ditemukan.' });
+    }
+
+    const resBot = balapKarungSoloManager.jalankanLangkahBot(id, req.user!.id);
+    if (resBot.selesai) {
+      await balapKarungSoloManager.simpanHasilKeDatabase(id);
+    }
+
+    return res.json({
+      executed: resBot.executed,
+      feedback: resBot.feedback,
+      isFinished: resBot.selesai,
+      session: balapKarungSoloManager.serialisasiUntukClient(resBot.sesi),
+    });
+  } catch (err: any) {
+    return res.status(400).json({ pesan: err.message || 'Gagal menjalankan langkah bot.' });
+  }
+});
+
 // 8. POST /api/sesi/:id/selesai - Akhiri permainan secara manual oleh guru
 sesiRouter.post('/:id/selesai', async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
+
+    const activeBalapSolo =
+      balapKarungSoloManager.dapatkanSesi(id) ||
+      (await balapKarungSoloManager.pulihkanSesiDariDb(id));
+    if (activeBalapSolo) {
+      const sesiBalapSolo = balapKarungSoloManager.hentikanPermainan(id, req.user!.id);
+      await balapKarungSoloManager.simpanHasilKeDatabase(id);
+      return res.json({
+        pesan: 'Permainan Balap Karung Solo berhasil dihentikan.',
+        hasil: sesiBalapSolo.hasil,
+        session: balapKarungSoloManager.serialisasiUntukClient(sesiBalapSolo),
+      });
+    }
 
     const activeKerupuk =
       kerupukManager.dapatkanSesi(id) || (await kerupukManager.pulihkanSesiDariDb(id));
@@ -1512,10 +1677,38 @@ sesiRouter.post('/:id/selesai', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// 8b. POST /api/sesi/:id/ulang - Mulai ulang sesi Makan Kerupuk aktif ke status READY bersih
+// 8b. POST /api/sesi/:id/ulang - Mulai ulang sesi Makan Kerupuk / Balap Karung Solo ke READY bersih
 sesiRouter.post('/:id/ulang', async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
+
+    const activeBalapSolo =
+      balapKarungSoloManager.dapatkanSesi(id) ||
+      (await balapKarungSoloManager.pulihkanSesiDariDb(id));
+    if (activeBalapSolo) {
+      if (activeBalapSolo.state === 'FINISHED' || activeBalapSolo.state === 'STOPPED') {
+        return res.status(400).json({
+          pesan:
+            'Sesi yang sudah selesai tidak dapat direset in-place agar riwayat tetap terjaga. Gunakan Main Lagi untuk membuat sesi baru.',
+        });
+      }
+
+      const sesiReset = balapKarungSoloManager.ulangPermainan(id, req.user!.id);
+      await prisma.session.update({
+        where: { id },
+        data: {
+          status: 'lobi',
+          mulaiPada: null,
+          selesaiPada: null,
+        },
+      });
+
+      return res.json({
+        pesan: 'Permainan Balap Karung Solo dikembalikan ke posisi awal (READY).',
+        session: balapKarungSoloManager.serialisasiUntukClient(sesiReset),
+      });
+    }
+
     const activeKerupuk =
       kerupukManager.dapatkanSesi(id) || (await kerupukManager.pulihkanSesiDariDb(id));
 
@@ -1555,6 +1748,20 @@ sesiRouter.post('/:id/ulang', async (req: AuthRequest, res: Response) => {
 sesiRouter.get('/:id/hasil', async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
+
+    // 0a. Cek Balap Karung Solo (memori)
+    const activeBalapSolo = balapKarungSoloManager.dapatkanSesi(id);
+    if (activeBalapSolo && activeBalapSolo.hasil) {
+      if (activeBalapSolo.hostId !== req.user!.id) {
+        return res.status(403).json({ pesan: 'Anda tidak memiliki hak akses ke sesi ini.' });
+      }
+      return res.json({
+        hasil: {
+          ...activeBalapSolo.hasil,
+          game: 'balap_karung',
+        },
+      });
+    }
 
     // 0b. Cek Balap Karung Challenge (memori atau database)
     const activeBalap = balapKarungManager.dapatkanSesi(id);
@@ -1909,11 +2116,58 @@ sesiRouter.post('/:id/main-lagi', async (req: AuthRequest, res: Response) => {
       let configSebelumnya: any;
       if (sessionLama.konfigurasi) {
         try {
-          configSebelumnya = JSON.parse(sessionLama.konfigurasi);
+          const parsedKonf = JSON.parse(sessionLama.konfigurasi);
+          configSebelumnya = parsedKonf?.config || parsedKonf;
         } catch {
           configSebelumnya = undefined;
         }
       }
+
+      if (sessionLama.mode === 'solo') {
+        const configSnapshot = bangunKonfigurasiBalapKarung({
+          ...(configSebelumnya || {}),
+          maxPeserta: 2,
+          allowLateJoin: false,
+        });
+        const autoStart = req.body?.autoStart === true;
+
+        const sessionBaru = await prisma.session.create({
+          data: {
+            templateId: sessionLama.templateId,
+            hostId: req.user!.id,
+            mode: 'solo',
+            token: null,
+            status: autoStart ? 'jalan' : 'lobi',
+            mulaiPada: autoStart ? new Date() : null,
+            konfigurasi: JSON.stringify({
+              playMode: 'SOLO',
+              config: configSnapshot,
+            }),
+          },
+        });
+
+        const activeSoloBalap = balapKarungSoloManager.inisialisasiSesi(
+          sessionBaru.id,
+          req.user!.id,
+          { id: sessionLama.template.id, judul: sessionLama.template.judul },
+          sessionLama.template.questions.map(mapDbQuestionForGame),
+          configSnapshot,
+          autoStart
+        );
+
+        return res.status(201).json({
+          pesan: 'Sesi Solo Balap Karung baru berhasil dibuat.',
+          sessionId: sessionBaru.id,
+          game: 'balap_karung',
+          mode: 'solo',
+          playMode: 'SOLO',
+          session: {
+            id: sessionBaru.id,
+            ...balapKarungSoloManager.serialisasiUntukClient(activeSoloBalap),
+          },
+        });
+      }
+
       const configSnapshot = bangunKonfigurasiBalapKarung(configSebelumnya);
       const token = await generateTokenUnikSemuaGame();
       const baseUrl = getNetworkBaseUrl(req);
@@ -1945,6 +2199,8 @@ sesiRouter.post('/:id/main-lagi', async (req: AuthRequest, res: Response) => {
         sessionId: sessionBaru.id,
         session: { id: sessionBaru.id },
         game: 'balap_karung',
+        mode: 'multi',
+        playMode: 'MULTIPLAYER',
         token,
         qrDataUrl,
         joinUrl,
@@ -2099,6 +2355,9 @@ sesiRouter.delete('/:id', async (req: AuthRequest, res: Response) => {
     if (session.hostId !== req.user!.id && req.user!.role !== 'admin') {
       return res.status(403).json({ pesan: 'Anda tidak berwenang menghapus sesi ini.' });
     }
+
+    balapKarungSoloManager.hapusSesi(id);
+    balapKarungManager.hapusSesi(id);
 
     await prisma.session.delete({
       where: { id },
