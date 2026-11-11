@@ -735,15 +735,6 @@ export default function DashboardGuru() {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => navigate('/guru/tarik-tambang?kembali=/guru?tab=template')}
-                  className="portal-btn ghost"
-                  style={{ background: '#244a39', color: '#f2c230', borderColor: '#f2c230' }}
-                >
-                  <Trophy className="w-4 h-4" />
-                  <span>Tarik Tambang</span>
-                </button>
-                <button
-                  type="button"
                   onClick={() => navigate('/guru/template/baru')}
                   className="portal-btn red"
                 >
