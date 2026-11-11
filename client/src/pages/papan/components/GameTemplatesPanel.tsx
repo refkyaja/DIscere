@@ -184,12 +184,14 @@ export function GameTemplatesPanel({
         return;
       }
 
-      // 2. Buat sesi di server
+      // 2. Buat sesi di server (Solo / Multiplayer mengikuti template.mode)
       const res = await apiRequest<{ session: { id: string } }>('/sesi', {
         method: 'POST',
         body: JSON.stringify({
           templateId: template.id,
           mode: template.mode,
+          playMode: template.mode === 'multi' ? 'MULTIPLAYER' : 'SOLO',
+          autoStart: template.game === 'tarik_tambang' && template.mode !== 'multi',
           game: template.game,
         }),
       });

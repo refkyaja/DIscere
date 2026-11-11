@@ -21,6 +21,7 @@ const questionSchema = z.object({
     message: 'Jawaban benar harus berupa A, B, atau C.',
   }),
   penjelasan: z.string().nullable().optional(),
+  kesulitan: z.enum(['mudah', 'sedang', 'sulit']).default('sedang'),
   dibuatAi: z.boolean().default(false),
 });
 
@@ -142,6 +143,7 @@ templateRouter.post('/', async (req: AuthRequest, res: Response) => {
             opsiC: q.opsiC,
             jawabanBenar: q.jawabanBenar,
             penjelasan: q.penjelasan || null,
+            kesulitan: q.kesulitan || 'sedang',
             dibuatAi: q.dibuatAi || false,
           })),
         });
@@ -208,6 +210,7 @@ templateRouter.put('/:id', async (req: AuthRequest, res: Response) => {
           opsiC: q.opsiC,
           jawabanBenar: q.jawabanBenar,
           penjelasan: q.penjelasan || null,
+          kesulitan: q.kesulitan || 'sedang',
           dibuatAi: q.dibuatAi || false,
         })),
       });
@@ -292,6 +295,7 @@ templateRouter.post('/:id/duplikat', async (req: AuthRequest, res: Response) => 
             opsiC: q.opsiC,
             jawabanBenar: q.jawabanBenar,
             penjelasan: q.penjelasan,
+            kesulitan: (q as any).kesulitan || 'sedang',
             dibuatAi: q.dibuatAi,
           })),
         });

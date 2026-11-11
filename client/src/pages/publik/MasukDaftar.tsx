@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router';
 import { z } from 'zod';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { useToast } from '../../components';
 import { ApiError } from '../../lib/api';
@@ -738,7 +738,7 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
           position: relative;
         }
         .discere-masuk-wrapper .pw input {
-          padding-right: 78px;
+          padding-right: 44px;
         }
         .discere-masuk-wrapper .pw button {
           position: absolute;
@@ -747,12 +747,16 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
           transform: translateY(-50%);
           background: none;
           border: 0;
-          font-family: 'Nunito', sans-serif;
-          font-weight: 700;
-          font-size: 12px;
           color: var(--board);
           cursor: pointer;
           padding: 6px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: opacity 0.15s ease;
+        }
+        .discere-masuk-wrapper .pw button:hover {
+          opacity: 0.75;
         }
 
         .discere-masuk-wrapper .row {
@@ -1568,8 +1572,10 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
                           type="button"
                           onClick={() => setLihatLoginKataSandi((prev) => !prev)}
                           tabIndex={-1}
+                          aria-label={lihatLoginKataSandi ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'}
+                          title={lihatLoginKataSandi ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'}
                         >
-                          {lihatLoginKataSandi ? 'Sembunyi' : 'Lihat'}
+                          {lihatLoginKataSandi ? <EyeOff size={18} /> : <Eye size={18} />}
                         </button>
                       </div>
                       {loginErrors.kataSandi && <p className="field-err">{loginErrors.kataSandi}</p>}
@@ -1708,8 +1714,10 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
                           type="button"
                           onClick={() => setLihatDaftarKataSandi((prev) => !prev)}
                           tabIndex={-1}
+                          aria-label={lihatDaftarKataSandi ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'}
+                          title={lihatDaftarKataSandi ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'}
                         >
-                          {lihatDaftarKataSandi ? 'Sembunyi' : 'Lihat'}
+                          {lihatDaftarKataSandi ? <EyeOff size={18} /> : <Eye size={18} />}
                         </button>
                       </div>
                       {daftarErrors.kataSandi && <p className="field-err">{daftarErrors.kataSandi}</p>}

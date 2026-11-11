@@ -118,18 +118,22 @@ async function runTest() {
     siswa1Socket.once('teams_assigned', resolve);
   });
 
-  const soalTampilPromise = new Promise<any>((resolve) => {
+  const soal1Promise = new Promise<any>((resolve) => {
     siswa1Socket.once('soal:tampil', resolve);
+  });
+  const soal2Promise = new Promise<any>((resolve) => {
+    siswa2Socket.once('soal:tampil', resolve);
   });
 
   const startPromise = new Promise<any>((resolve) => {
     hostSocket.emit('sesi:mulai', { sessionId, hostId: 'current-host' }, resolve);
   });
 
-  const [startRes, teamsData, soalData] = await Promise.all([
+  const [startRes, teamsData, soalData1, soalData2] = await Promise.all([
     startPromise,
     teamsAssignedPromise,
-    soalTampilPromise,
+    soal1Promise,
+    soal2Promise,
   ]);
 
   if (!startRes.success) {
@@ -145,7 +149,8 @@ async function runTest() {
     throw new Error('Pembagian tim tidak seimbang: kedua pemain mendapatkan tim yang sama!');
   }
   console.log('✓ Pembagian tim seimbang terverifikasi (Merah vs Putih).');
-  console.log(`✓ Soal 1 tampil: "${soalData.teks}" (ID: ${soalData.questionId})`);
+  const soalMerah = p1.tim === 'merah' ? soalData1 : soalData2;
+  console.log(`✓ Soal Tim Merah tampil: "${soalMerah.teks}" (ID: ${soalMerah.questionId})`);
 
   // 7. Siswa Menjawab Soal
   console.log('7. Mengirimkan jawaban siswa...');
@@ -163,16 +168,24 @@ async function runTest() {
       {
         sessionId,
         pesertaId: merahPesertaId,
-        questionId: soalData.questionId,
-        jawaban: 'A', // Coba opsi A
+        presentationId: soalMerah.presentationId,
+        choiceId: soalMerah.pilihan?.[0]?.choiceId,
+        questionId: soalMerah.questionId,
+        jawaban: 'A',
       },
       resolve
     );
   });
 
   const [jawabRes, taliUpdate] = await Promise.all([jawabPromise, taliUpdatePromise]);
-  console.log(`✓ Jawaban Tim Merah diproses: benar=${jawabRes.benar}, jawabanBenar=${jawabRes.jawabanBenar}`);
-  console.log(`✓ Posisi tali terupdate: ${taliUpdate.taliPosition}, skorMerah: ${taliUpdate.skorMerah}, skorPutih: ${taliUpdate.skorPutih}`);
+  if (!jawabRes.success || !jawabRes.terkunci) {
+    throw new Error(`Jawaban tidak terkunci: ${JSON.stringify(jawabRes)}`);
+  }
+  if (jawabRes.benar !== undefined || jawabRes.jawabanBenar !== undefined) {
+    throw new Error('Kunci jawaban bocor sebelum ronde selesai!');
+  }
+  console.log(`✓ Jawaban Tim Merah terkunci aman (tanpa bocor kunci sebelum ronde selesai).`);
+  console.log(`✓ Posisi tali: ${taliUpdate.taliPosition}, progressTim1=${JSON.stringify(taliUpdate.progressTim1)}`);
 
   // 8. Guru Mengakhiri Permainan Secara Manual
   console.log('8. Host mengakhiri permainan secara manual...');

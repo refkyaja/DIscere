@@ -55,6 +55,7 @@ const buatSoalSchema = z.preprocess(
         materi: val.materi,
         jumlah: val.jumlah ?? val.jumlahSoal ?? 5,
         tingkat: val.tingkat ?? val.jenjang ?? 'SD',
+        kesulitan: val.kesulitan ?? 'sedang',
       };
     }
     return val;
@@ -63,6 +64,7 @@ const buatSoalSchema = z.preprocess(
     materi: z.string().trim().min(20, 'Teks materi minimal 20 karakter agar AI dapat menyusun soal yang mendidik.'),
     jumlah: z.coerce.number().int().min(1).max(15).default(5),
     tingkat: z.enum(['SD', 'SMP']).default('SD'),
+    kesulitan: z.enum(['mudah', 'sedang', 'sulit']).default('sedang'),
   })
 );
 
@@ -86,6 +88,7 @@ const handleBuatSoal = async (req: AuthRequest, res: Response) => {
       materi: parsed.materi,
       jumlah: parsed.jumlah,
       tingkat: parsed.tingkat,
+      kesulitan: parsed.kesulitan,
     });
 
     return res.json({

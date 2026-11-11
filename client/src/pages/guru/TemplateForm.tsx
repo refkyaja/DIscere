@@ -53,6 +53,7 @@ export default function TemplateForm() {
                   opsiC: q.opsiC || '',
                   jawabanBenar: q.jawabanBenar || 'A',
                   penjelasan: q.penjelasan || '',
+                  kesulitan: q.kesulitan || 'sedang',
                   dibuatAi: Boolean(q.dibuatAi),
                 }))
               : [],

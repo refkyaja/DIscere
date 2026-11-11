@@ -49,6 +49,7 @@ export interface TemplateEditorPayload {
     opsiC: string;
     jawabanBenar: 'A' | 'B' | 'C';
     penjelasan: string | null;
+    kesulitan: 'mudah' | 'sedang' | 'sulit';
     dibuatAi: boolean;
   }>;
 }
@@ -71,6 +72,7 @@ function createEmptyQuestion(urutan = 1): QuestionItem {
     opsiC: '',
     jawabanBenar: 'A',
     penjelasan: '',
+    kesulitan: 'sedang',
     dibuatAi: false,
   };
 }
@@ -103,6 +105,7 @@ export function TemplateEditor({
           opsiC: q.opsiC || '',
           jawabanBenar: q.jawabanBenar || 'A',
           penjelasan: q.penjelasan || '',
+          kesulitan: q.kesulitan || 'sedang',
           dibuatAi: Boolean(q.dibuatAi),
         }))
       : [createEmptyQuestion(1)]
@@ -123,6 +126,7 @@ export function TemplateEditor({
   const [aiMateri, setAiMateri] = useState('');
   const [aiJumlah, setAiJumlah] = useState<number>(5);
   const [aiTingkat, setAiTingkat] = useState<'SD' | 'SMP'>('SD');
+  const [aiKesulitan, setAiKesulitan] = useState<'mudah' | 'sedang' | 'sulit'>('sedang');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiSuksesPesan, setAiSuksesPesan] = useState<string | null>(null);
@@ -152,6 +156,7 @@ export function TemplateEditor({
           opsiC: string;
           jawabanBenar: 'A' | 'B' | 'C';
           penjelasan?: string;
+          kesulitan?: 'mudah' | 'sedang' | 'sulit';
         }>;
         questions?: Array<{
           urutan?: number;
@@ -161,6 +166,7 @@ export function TemplateEditor({
           opsiC: string;
           jawabanBenar: 'A' | 'B' | 'C';
           penjelasan?: string;
+          kesulitan?: 'mudah' | 'sedang' | 'sulit';
         }>;
       }>('/ai/soal', {
         method: 'POST',
@@ -168,6 +174,7 @@ export function TemplateEditor({
           materi: aiMateri.trim(),
           jumlah: aiJumlah,
           tingkat: aiTingkat,
+          kesulitan: aiKesulitan,
           jumlahSoal: aiJumlah,
           jenjang: aiTingkat,
         }),
@@ -184,6 +191,7 @@ export function TemplateEditor({
           opsiC: q.opsiC,
           jawabanBenar: q.jawabanBenar,
           penjelasan: q.penjelasan || '',
+          kesulitan: q.kesulitan || aiKesulitan,
           dibuatAi: true,
         }));
 
@@ -233,7 +241,12 @@ export function TemplateEditor({
       return;
     }
 
-    setQuestions(hasilParse);
+    setQuestions(
+      hasilParse.map((q) => ({
+        ...q,
+        kesulitan: q.kesulitan || 'sedang',
+      }))
+    );
     setSuksesTempel(
       `Berhasil mengimpor ${hasilParse.length} butir soal dari AI! Anda dapat meninjau dan mengeditnya di bawah.`
     );
@@ -303,6 +316,7 @@ export function TemplateEditor({
           opsiC: q.opsiC.trim(),
           jawabanBenar: q.jawabanBenar,
           penjelasan: q.penjelasan ? q.penjelasan.trim() : null,
+          kesulitan: q.kesulitan || 'sedang',
           dibuatAi: Boolean(q.dibuatAi),
         })),
       };
@@ -386,11 +400,17 @@ export function TemplateEditor({
                 onChange={(e) => setMode(e.target.value as 'solo' | 'multi')}
                 className="portal-select"
               >
-                <option value="multi">Mode Multiplayer (HP Siswa Masing-Masing)</option>
+                <option value="multi">
+                  {game === 'tarik_tambang'
+                    ? 'Mode Multiplayer (Team Multiplayer via PIN & QR)'
+                    : 'Mode Multiplayer (HP Siswa Masing-Masing)'}
+                </option>
                 {game !== 'panjat_pinang' && game !== 'balap_karung' && (
                   <option value="solo">
                     {game === 'makan_kerupuk'
                       ? 'Mode Solo (Satu Perangkat Guru / Proyektor)'
+                      : game === 'tarik_tambang'
+                      ? 'Mode Solo (Duel 1 vs 1 pada Satu Perangkat Guru)'
                       : 'Mode Solo (Satu Layar Bersama)'}
                   </option>
                 )}
@@ -398,6 +418,8 @@ export function TemplateEditor({
               <span className="text-[11px] text-[#6b7d6c] mt-1 block">
                 {game === 'makan_kerupuk'
                   ? 'Saat memulai Makan Kerupuk Challenge nanti, Anda dapat bebas memilih Multiplayer maupun Solo Mode.'
+                  : game === 'tarik_tambang'
+                  ? 'Mode permainan Tarik Tambang (Solo 1 vs 1 atau Team Multiplayer) ditetapkan langsung melalui pilihan template ini.'
                   : game === 'panjat_pinang' || game === 'balap_karung'
                   ? 'Setiap siswa bergabung menggunakan HP masing-masing dan bertanding secara individu.'
                   : 'Pilih cara siswa berpartisipasi dalam sesi kelas.'}
@@ -590,10 +612,26 @@ export function TemplateEditor({
               {questions.map((soal, index) => (
                 <div key={index} className="portal-card p-6 space-y-4 relative">
                   <div className="flex items-center justify-between border-b-2 border-dashed border-[#e0d5b8] pb-3">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="portal-cv text-2xl text-[#c8362f]">
                         Soal #{index + 1}
                       </span>
+                      <select
+                        aria-label={`Tingkat kesulitan soal ${index + 1}`}
+                        value={soal.kesulitan || 'sedang'}
+                        onChange={(e) =>
+                          handleUpdateSoal(
+                            index,
+                            'kesulitan',
+                            e.target.value as 'mudah' | 'sedang' | 'sulit'
+                          )
+                        }
+                        className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#f4ecd9] border border-[#e0d5b8] text-[#1d3b2e] cursor-pointer"
+                      >
+                        <option value="mudah">Mudah</option>
+                        <option value="sedang">Sedang</option>
+                        <option value="sulit">Sulit</option>
+                      </select>
                       {soal.dibuatAi && (
                         <span className="portal-tag yellow">
                           <Sparkles className="w-3 h-3 text-[#8a6a00]" /> Dibuat AI
@@ -753,7 +791,7 @@ export function TemplateEditor({
           </div>
 
           {/* Pilihan Pengaturan AI */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-bold text-[#1d3b2e] uppercase tracking-wider mb-1">
                 Jumlah Soal
@@ -785,6 +823,24 @@ export function TemplateEditor({
                 <option value="SMP">Sekolah Menengah Pertama (SMP)</option>
               </select>
             </div>
+
+            <div>
+              <label className="block text-xs font-bold text-[#1d3b2e] uppercase tracking-wider mb-1">
+                Tingkat Kesulitan
+              </label>
+              <select
+                disabled={aiLoading}
+                value={aiKesulitan}
+                onChange={(e) =>
+                  setAiKesulitan(e.target.value as 'mudah' | 'sedang' | 'sulit')
+                }
+                className="portal-select"
+              >
+                <option value="mudah">Mudah</option>
+                <option value="sedang">Sedang</option>
+                <option value="sulit">Sulit</option>
+              </select>
+            </div>
           </div>
 
           {/* Action Buttons */}
@@ -812,4 +868,3 @@ export function TemplateEditor({
     </>
   );
 }
-

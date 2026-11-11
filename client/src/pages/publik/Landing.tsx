@@ -442,7 +442,7 @@ export default function Landing() {
                   </svg>
                   <div>
                     <b>Papan tulis digital</b>
-                    <span>Tak terbatas, bisa ditulis, digambar, dan dibagikan lewat tautan.</span>
+                    <span>Bisa untuk menulis, menggambar materi, dan dibagikan lewat tautan.</span>
                   </div>
                 </li>
                 <li className="reveal stagger-2">
@@ -487,58 +487,65 @@ export default function Landing() {
               </div>
               <div className="shot" role="img" aria-label="Papan tulis digital: Sistem Tata Surya">
                 <svg viewBox="0 0 320 240">
+                  <defs>
+                    <clipPath id="board-screen-clip">
+                      <rect x="8" y="8" width="304" height="212" rx="4" />
+                    </clipPath>
+                  </defs>
                   <rect width="320" height="240" fill="#26292a" />
                   <rect x="8" y="8" width="304" height="212" rx="4" fill="#1f4a37" />
                   <rect x="8" y="222" width="304" height="12" fill="#333" />
-                  <circle cx="60" cy="130" r="22" fill="#f6c640" />
-                  <g fill="none" stroke="#f4ecd8" strokeWidth="1.500">
+                  <g clipPath="url(#board-screen-clip)">
+                    <circle cx="70" cy="130" r="20" fill="#f6c640" />
+                    <g fill="none" stroke="#f4ecd8" strokeWidth="1.500">
+                      <ellipse
+                        cx="70"
+                        cy="130"
+                        rx="46"
+                        ry="24"
+                        transform="rotate(-14 70 130)"
+                        opacity=".5"
+                      />
+                      <ellipse
+                        cx="185"
+                        cy="140"
+                        rx="84"
+                        ry="38"
+                        transform="rotate(-14 185 140)"
+                      />
+                    </g>
+                    <circle cx="235" cy="108" r="15" fill="#e9c58b" />
                     <ellipse
-                      cx="60"
-                      cy="130"
-                      rx="60"
-                      ry="30"
-                      transform="rotate(-14 60 130)"
-                      opacity=".5"
+                      cx="235"
+                      cy="108"
+                      rx="24"
+                      ry="6"
+                      fill="none"
+                      stroke="#f4ecd8"
+                      strokeWidth="2"
+                      transform="rotate(-18 235 108)"
                     />
-                    <ellipse
-                      cx="190"
-                      cy="140"
-                      rx="90"
-                      ry="40"
-                      transform="rotate(-14 190 140)"
-                    />
+                    <text
+                      x="40"
+                      y="52"
+                      fontFamily="Caveat,cursive"
+                      fontSize="28"
+                      fill="#f4ecd8"
+                      transform="rotate(-5 40 52)"
+                    >
+                      Sistem
+                    </text>
+                    <text
+                      x="60"
+                      y="82"
+                      fontFamily="Caveat,cursive"
+                      fontSize="28"
+                      fill="#f4ecd8"
+                      transform="rotate(-5 60 82)"
+                    >
+                      Tata Surya
+                    </text>
                   </g>
-                  <circle cx="240" cy="108" r="16" fill="#e9c58b" />
-                  <ellipse
-                    cx="240"
-                    cy="108"
-                    rx="26"
-                    ry="6"
-                    fill="none"
-                    stroke="#f4ecd8"
-                    strokeWidth="2"
-                    transform="rotate(-18 240 108)"
-                  />
-                  <text
-                    x="40"
-                    y="52"
-                    fontFamily="Caveat,cursive"
-                    fontSize="28"
-                    fill="#f4ecd8"
-                    transform="rotate(-5 40 52)"
-                  >
-                    Sistem
-                  </text>
-                  <text
-                    x="60"
-                    y="82"
-                    fontFamily="Caveat,cursive"
-                    fontSize="28"
-                    fill="#f4ecd8"
-                    transform="rotate(-5 60 82)"
-                  >
-                    Tata Surya
-                  </text>
                   <g fill="#bbb">
                     <circle cx="40" cy="228" r="2.500" />
                     <circle cx="60" cy="228" r="2.500" />
@@ -803,7 +810,7 @@ export default function Landing() {
               <svg viewBox="0 0 48 48">
                 <use href="#ic-book" />
               </svg>
-              <h4>Pilih Materi Pembelajaran</h4>
+              <h4>Siapkan Materi Pelajaran</h4>
               <p>Guru menyiapkan materi yang akan diajarkan.</p>
             </li>
             <li className="reveal stagger-2">
