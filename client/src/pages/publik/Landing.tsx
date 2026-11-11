@@ -10,6 +10,9 @@ export default function Landing() {
   const [isStuck, setIsStuck] = useState(false);
   const [activeSection, setActiveSection] = useState('beranda');
 
+  // Exclusive Accordion state untuk FAQ
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
+
   // Interactive Demo Blackboard state
   const [demoRevealed, setDemoRevealed] = useState(false);
   const [demoHint, setDemoHint] = useState('Lingkari soalnya dengan mouse atau jari.');
@@ -1040,42 +1043,49 @@ export default function Landing() {
             Pertanyaan <u>yang Sering Muncul</u>
           </h2>
           <div className="faq">
-            <details className="reveal stagger-1">
-              <summary>Bagaimana AI membuat soal, dan apakah saya masih bisa mengubahnya?</summary>
-              <p>
-                AI membuat soal dari materi yang kamu masukkan, atau kamu bisa menulis soal sendiri dari awal. Sebelum dipakai di kelas, semua soal bisa kamu edit, hapus, atau tambah. Jadi AI membantu mempercepat, tapi kualitas soal tetap kamu yang menentukan.
-              </p>
-            </details>
-            <details className="reveal stagger-2">
-              <summary>Apa bedanya mode solo dan multiplayer, dan kapan sebaiknya pakai yang mana?</summary>
-              <p>
-                Mode solo cocok kalau kelas hanya punya satu layar atau proyektor, semua siswa menjawab bersama secara bergiliran. Mode multiplayer cocok kalau tiap siswa punya HP sendiri dan ingin main serentak dengan skor masing-masing. Keduanya dirancang supaya tidak ada siswa yang tertinggal hanya karena keterbatasan alat.
-              </p>
-            </details>
-            <details className="reveal stagger-3">
-              <summary>Kenapa game-nya bertema lomba 17 Agustusan, bukan kuis biasa?</summary>
-              <p>
-                Supaya sesi belajar terasa seperti permainan, bukan ulangan. Tema yang akrab buat siswa Indonesia (tarik tambang, dan sejenisnya) membuat mereka lebih terlibat dibanding tampilan kuis pilihan ganda yang itu-itu saja.
-              </p>
-            </details>
-            <details className="reveal stagger-4">
-              <summary>Apa yang tersimpan dari sesi kelas saya, dan siapa yang bisa melihatnya?</summary>
-              <p>
-                Materi dan template kelas tersimpan di akun guru, bisa dipakai ulang kapan saja. Siswa cukup masuk pakai token sesi, tanpa perlu membuat akun sendiri, jadi tidak ada data pribadi siswa yang disimpan di luar yang memang dibutuhkan untuk sesi itu.
-              </p>
-            </details>
-            <details className="reveal stagger-5">
-              <summary>Apakah Discere cocok dipakai di semua mata pelajaran?</summary>
-              <p>
-                Cocok, karena materi dan soalnya memang kamu yang mengisi, baik lewat AI dari bahan ajar yang kamu punya, maupun diketik manual. Discere menyediakan cara menyampaikannya, bukan membatasi kontennya.
-              </p>
-            </details>
-            <details className="reveal stagger-6">
-              <summary>Apakah Discere berbayar?</summary>
-              <p>
-                Saat ini Discere bisa dicoba gratis sebagai bagian dari proyek kompetisi Logicodix 2026. Rencana jangka panjang soal biaya belum diputuskan.
-              </p>
-            </details>
+            {[
+              {
+                q: 'Bagaimana AI membuat soal, dan apakah saya masih bisa mengubahnya?',
+                a: 'AI membuat soal dari materi yang kamu masukkan, atau kamu bisa menulis soal sendiri dari awal. Sebelum dipakai di kelas, semua soal bisa kamu edit, hapus, atau tambah. Jadi AI membantu mempercepat, tapi kualitas soal tetap kamu yang menentukan.',
+              },
+              {
+                q: 'Apa bedanya mode solo dan multiplayer, dan kapan sebaiknya pakai yang mana?',
+                a: 'Mode solo cocok kalau kelas hanya punya satu layar atau proyektor, semua siswa menjawab bersama secara bergiliran. Mode multiplayer cocok kalau tiap siswa punya HP sendiri dan ingin main serentak dengan skor masing-masing. Keduanya dirancang supaya tidak ada siswa yang tertinggal hanya karena keterbatasan alat.',
+              },
+              {
+                q: 'Kenapa game-nya bertema lomba 17 Agustusan, bukan kuis biasa?',
+                a: 'Supaya sesi belajar terasa seperti permainan, bukan ulangan. Tema yang akrab buat siswa Indonesia (tarik tambang, dan sejenisnya) membuat mereka lebih terlibat dibanding tampilan kuis pilihan ganda yang itu-itu saja.',
+              },
+              {
+                q: 'Apa yang tersimpan dari sesi kelas saya, dan siapa yang bisa melihatnya?',
+                a: 'Materi dan template kelas tersimpan di akun guru, bisa dipakai ulang kapan saja. Siswa cukup masuk pakai token sesi, tanpa perlu membuat akun sendiri, jadi tidak ada data pribadi siswa yang disimpan di luar yang memang dibutuhkan untuk sesi itu.',
+              },
+              {
+                q: 'Apakah Discere cocok dipakai di semua mata pelajaran?',
+                a: 'Cocok, karena materi dan soalnya memang kamu yang mengisi, baik lewat AI dari bahan ajar yang kamu punya, maupun diketik manual. Discere menyediakan cara menyampaikannya, bukan membatasi kontennya.',
+              },
+              {
+                q: 'Apakah Discere berbayar?',
+                a: 'Saat ini Discere bisa dicoba gratis sebagai bagian dari proyek kompetisi Logicodix 2026. Rencana jangka panjang soal biaya belum diputuskan.',
+              },
+            ].map((item, idx) => (
+              <details
+                key={idx}
+                name="faq"
+                className={`reveal stagger-${idx + 1}`}
+                open={openFaqIndex === idx}
+              >
+                <summary
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setOpenFaqIndex((prev) => (prev === idx ? null : idx));
+                  }}
+                >
+                  {item.q}
+                </summary>
+                <p>{item.a}</p>
+              </details>
+            ))}
           </div>
         </section>
 
