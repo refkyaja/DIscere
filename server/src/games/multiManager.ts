@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { prisma } from '../db.js';
+import { mapDbQuestionForGame } from '../utils/questionOptions.js';
 import {
   TimTarikTambang,
   HasilPemenang,
@@ -365,6 +366,98 @@ export const multiManager = {
     const sessionId = tokenToSessionIdMap.get(token);
     if (!sessionId) return undefined;
     return sesiMultiMap.get(sessionId);
+  },
+
+  async pulihkanSesiDariDb(sessionId: string): Promise<SesiMultiplayerActive | null> {
+    const existing = sesiMultiMap.get(sessionId);
+    if (existing) return existing;
+
+    const sessionDb = await prisma.session.findUnique({
+      where: { id: sessionId },
+      include: {
+        template: {
+          include: { questions: { orderBy: { urutan: 'asc' } } },
+        },
+        players: true,
+        result: true,
+      },
+    });
+
+    if (!sessionDb || sessionDb.template.game !== 'tarik_tambang' || sessionDb.mode !== 'multi') {
+      return null;
+    }
+
+    let parsedConfig: Partial<KonfigurasiTarikTambang> | undefined;
+    if (sessionDb.konfigurasi) {
+      try {
+        const parsed = JSON.parse(sessionDb.konfigurasi);
+        parsedConfig = parsed?.config || parsed;
+      } catch {
+        parsedConfig = undefined;
+      }
+    }
+
+    try {
+      const token = sessionDb.token || this.generateUniqueToken();
+      const mappedQuestions = sessionDb.template.questions.map(mapDbQuestionForGame);
+      const sesi = this.inisialisasiSesi(
+        sessionDb.id,
+        token,
+        sessionDb.hostId,
+        { id: sessionDb.template.id, judul: sessionDb.template.judul },
+        mappedQuestions,
+        parsedConfig
+      );
+
+      sesi.status =
+        sessionDb.status === 'jalan'
+          ? 'jalan'
+          : sessionDb.status === 'selesai'
+            ? 'selesai'
+            : 'lobi';
+      sesi.waktuMulaiMs = sessionDb.mulaiPada ? sessionDb.mulaiPada.getTime() : null;
+      sesi.waktuSelesaiMs = sessionDb.selesaiPada ? sessionDb.selesaiPada.getTime() : null;
+
+      if (sessionDb.result) {
+        sesi.taliPosition = sessionDb.result.posisiAkhir;
+        sesi.skorMerah = sessionDb.result.skorMerah;
+        sesi.skorPutih = sessionDb.result.skorPutih;
+      }
+
+      for (const pl of sessionDb.players) {
+        const tim: TimTarikTambang = pl.tim === 'tim2' || pl.tim === 'putih' ? 'putih' : 'merah';
+        const jumlahJawab = pl.jumlahJawab || pl.totalBenar + pl.totalSalah;
+        sesi.peserta.set(pl.id, {
+          id: pl.id,
+          pesertaSecret: crypto.randomUUID(),
+          socketId: '',
+          nama: pl.nama,
+          tim,
+          connected: false,
+          terakhirAktif: Date.now(),
+          totalBenar: pl.totalBenar,
+          totalSalah: pl.totalSalah,
+          jumlahJawab,
+          akurasiPersen: jumlahJawab > 0 ? Math.round((pl.totalBenar / jumlahJawab) * 100) : 0,
+          streakSaatIni: pl.streakSaatIni,
+          streakTertinggi: pl.streakTertinggi,
+          milestone3Sudah: pl.streakSaatIni >= 3,
+          milestone5Sudah: pl.streakSaatIni >= 5,
+          totalBonusStreak: pl.poinBonus,
+          totalWaktuJawabMs: pl.totalWaktuJawabMs,
+          rataRataWaktuJawabMs:
+            jumlahJawab > 0 ? Math.round(pl.totalWaktuJawabMs / jumlahJawab) : 0,
+        });
+      }
+
+      if (sesi.status === 'selesai') {
+        sesi.hasil = (await this.muatLaporanDariDatabase(sessionDb.id)) || undefined;
+      }
+
+      return sesi;
+    } catch {
+      return null;
+    }
   },
 
   gabungPeserta(
