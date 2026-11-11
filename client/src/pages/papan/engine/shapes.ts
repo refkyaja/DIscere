@@ -155,7 +155,7 @@ export const TOOLS: [ToolType, string, string, string][] = [
     'ai',
     'Tanya AI',
     'A',
-    '<path d="M9 6l1.8 4.2L15 12l-4.2 1.8L9 18l-1.8-4.2L3 12l4.2-1.8z" style="stroke:#fbbf24"/><path d="M18 3v4M16 5h4M18 15v3M16.5 16.5h3" style="stroke:#fbbf24"/>',
+    '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" style="stroke:#fbbf24"/>',
   ],
   [
     'upload',

@@ -422,16 +422,18 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
         }
 
         .discere-masuk-wrapper .page {
-          width: 100%;
-          height: 100%;
-          max-height: 100vh;
-          max-height: 100dvh;
-          overflow: hidden !important;
+          min-height: 100%;
           display: flex;
           flex-direction: column;
-          background: radial-gradient(ellipse at 30% 8%, rgba(255,255,255,.11), transparent 55%),
-                      radial-gradient(ellipse at 85% 75%, rgba(0,0,0,.22), transparent 60%),
-                      linear-gradient(160deg, #2c5f47, var(--board) 55%, var(--board-d));
+          background-color: #163a2b;
+          background-image:
+            radial-gradient(ellipse at 15% 15%, rgba(255, 255, 255, 0.12) 0%, transparent 45%),
+            radial-gradient(ellipse at 85% 25%, rgba(255, 255, 255, 0.09) 0%, transparent 42%),
+            radial-gradient(ellipse at 30% 70%, rgba(255, 255, 255, 0.11) 0%, transparent 50%),
+            radial-gradient(ellipse at 80% 80%, rgba(255, 255, 255, 0.10) 0%, transparent 46%),
+            radial-gradient(circle at 50% 45%, rgba(255, 255, 255, 0.05) 0%, transparent 60%),
+            radial-gradient(ellipse at 50% 50%, transparent 60%, rgba(0, 0, 0, 0.45) 100%),
+            linear-gradient(175deg, #2b5641 0%, #204634 50%, #173829 100%);
         }
 
         .discere-masuk-wrapper .stage {
@@ -459,7 +461,7 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
         .discere-masuk-wrapper .brand {
           position: absolute;
           left: 24px;
-          top: 16px;
+          top: 22px;
           z-index: 5;
           display: flex;
           align-items: center;
@@ -471,15 +473,6 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
         }
         .discere-masuk-wrapper .brand:hover {
           opacity: 0.9;
-        }
-
-        .discere-masuk-wrapper .flagr {
-          position: absolute;
-          right: -16px;
-          top: 14px;
-          width: 140px;
-          opacity: .95;
-          pointer-events: none;
         }
 
         .discere-masuk-wrapper .scaler {
@@ -502,7 +495,7 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
           transform: translateX(720px);
         }
 
-        /* Tali & Orang */
+        /* Tali & Orang (Berdasarkan referensi-desain/Masuk & Daftar – Discere.html) */
         .discere-masuk-wrapper .rope {
           position: absolute;
           top: 433px;
@@ -513,15 +506,26 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
         }
         .discere-masuk-wrapper .rope path {
           fill: none;
+          stroke-linecap: round;
         }
-        .discere-masuk-wrapper .rope path:first-child {
-          stroke: #6f4521;
-          stroke-width: 10;
+        .discere-masuk-wrapper .rope .o {
+          stroke: #4a361a;
+          stroke-width: 15px;
         }
-        .discere-masuk-wrapper .rope path:last-child {
-          stroke: #c59a5f;
-          stroke-width: 10;
-          stroke-dasharray: 3 7;
+        .discere-masuk-wrapper .rope .m {
+          stroke: url(#rp);
+          stroke-width: 12.5px;
+          stroke-linecap: butt;
+        }
+        .discere-masuk-wrapper .rope .h {
+          stroke: #fff;
+          stroke-opacity: 0.24;
+          stroke-width: 3px;
+        }
+        .discere-masuk-wrapper .rope .s {
+          stroke: #000;
+          stroke-opacity: 0.26;
+          stroke-width: 3.5px;
         }
 
         .discere-masuk-wrapper .ring {
@@ -888,7 +892,10 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
           .discere-masuk-wrapper .rope,
           .discere-masuk-wrapper .ring,
           .discere-masuk-wrapper .chalk,
-          .discere-masuk-wrapper .under {
+          .discere-masuk-wrapper .flagr,
+          .discere-masuk-wrapper .under,
+          .discere-masuk-wrapper .bunting,
+          .discere-masuk-wrapper .doodle {
             display: none !important;
           }
           .discere-masuk-wrapper .scaler {
@@ -1117,12 +1124,27 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
         }
       `}</style>
 
+      {/* DEFINISI TEKSTUR TALI TAMBANG (BERDASARKAN referensi-desain/Masuk & Daftar – Discere.html) */}
+      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+        <defs>
+          <pattern id="rp" patternUnits="userSpaceOnUse" width="14" height="20">
+            <rect width="14" height="20" fill="#c9ad74" />
+            <g fill="none">
+              <path d="M3.3 21L18.7 -1M-10.7 21L4.7 -1" stroke="#f0e0b4" strokeWidth="3.4" />
+              <path d="M7.3 21L22.7 -1M-6.7 21L8.7 -1" stroke="#a98a50" strokeWidth="2.2" />
+              <path d="M-0.7 21L14.7 -1" stroke="#5a4424" strokeWidth="2.8" />
+            </g>
+          </pattern>
+        </defs>
+      </svg>
+
       <div className="page">
         {/* ELEMEN STAGE UTAMA */}
         <main
           className={`stage ${isReg ? 'reg' : ''} ${isWalking ? 'walk' : ''}`}
           id="stage"
         >
+
           {/* LOGO DISCERE */}
           <Link to="/" className="brand" title="Kembali ke Beranda">
             <svg
@@ -1141,12 +1163,6 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
             </svg>
             <span>Discere</span>
           </Link>
-
-          {/* BENDERA MERAH PUTIH BERKIBAR (KANAN ATAS) */}
-          <svg className="flagr" viewBox="0 0 230 120" aria-hidden="true">
-            <path d="M0 6C50 -6 90 30 140 20S200 10 230 30L230 62C200 42 160 56 130 62S50 40 0 54z" fill="#c8362f" />
-            <path d="M0 54C50 40 90 62 130 62S200 42 230 62L230 92C200 74 160 86 130 92S50 70 0 86z" fill="#f6f1e6" />
-          </svg>
 
           {/* HIASAN & DOODLE PAPAN TULIS KHUSUS MODE MOBILE */}
           <div className="mobile-doodles" aria-hidden="true">
@@ -1226,6 +1242,34 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
 
           {/* SCALER KANVAS 1200px */}
           <div className="scaler">
+            {/* DOODLE SUDUT PAPAN TULIS ELEGAN (TERINSPIRASI HALAMAN JOIN) */}
+            <div className="absolute top-8 left-10 w-28 h-28 pointer-events-none opacity-35 text-[#f4ecd8] select-none" aria-hidden="true">
+              <svg viewBox="0 0 130 130" fill="none" className="w-full h-full">
+                <path d="M10 110 C 20 70, 60 55, 45 28 C 30 12, 10 38, 38 60 C 65 75, 88 56, 105 38" stroke="currentColor" strokeWidth="2.2" strokeDasharray="4 6" strokeLinecap="round" />
+                <path d="M105 38 L 126 18 L 84 48 L 94 62 L 105 38 Z" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" fill="rgba(244, 236, 216, 0.08)" />
+                <path d="M126 18 L 91 55" stroke="currentColor" strokeWidth="1.8" />
+              </svg>
+            </div>
+            <div className="absolute top-6 right-14 w-28 h-28 pointer-events-none opacity-40 text-[#f4ecd8] select-none" aria-hidden="true">
+              <svg viewBox="0 0 110 110" fill="none" className="w-full h-full">
+                <path d="M40 62 C 30 52, 28 40, 33 28 C 40 16, 70 16, 77 28 C 82 40, 80 52, 70 62 L 70 70 L 40 70 Z" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" fill="rgba(244, 236, 216, 0.06)" />
+                <path d="M43 75 H 67 M46 80 H 64 M50 85 H 60" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+                <path d="M48 46 C 48 38, 62 38, 62 46 L 55 54 Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <path d="M55 8 V 3 M28 17 L 22 11 M82 17 L 88 11 M16 36 L 9 36 M94 36 L 101 36" stroke="#f2c230" strokeWidth="2.4" strokeLinecap="round" />
+              </svg>
+            </div>
+            {/* Bintang kapur kecil di tepi luar */}
+            <div className="absolute top-36 right-40 w-5 h-5 pointer-events-none opacity-30 text-[#f4ecd8] select-none" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full">
+                <path d="M12 2 L 15 9 L 22 9 L 16.5 13.5 L 18.5 20.5 L 12 16 L 5.5 20.5 L 7.5 13.5 L 2 9 L 9 9 Z" />
+              </svg>
+            </div>
+            <div className="absolute top-44 left-36 w-6 h-6 pointer-events-none opacity-25 text-[#f2c230] select-none" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full">
+                <path d="M12 2 L 15 9 L 22 9 L 16.5 13.5 L 18.5 20.5 L 12 16 L 5.5 20.5 L 7.5 13.5 L 2 9 L 9 9 Z" />
+              </svg>
+            </div>
+
             {/* ANIMASI TEKS KAPUR DI TENGAH PAPAN TULIS */}
             <div className="chalk" aria-hidden="true">
               <div className="t a">
@@ -1241,12 +1285,16 @@ export default function MasukDaftar({ initialView = 'log' }: MasukDaftarProps) {
             {/* TRACK DENGAN TALI, KARAKTER & KARTU */}
             <div className="track" id="track" ref={trackRef}>
               <svg className="rope" id="rL" ref={rLRef} style={{ left: '-457px' }} aria-hidden="true">
-                <path />
-                <path />
+                <path className="o" />
+                <path className="m" />
+                <path className="h" transform="translate(0 -3)" />
+                <path className="s" transform="translate(0 3.5)" />
               </svg>
               <svg className="rope" id="rR" ref={rRRef} style={{ left: '440px' }} aria-hidden="true">
-                <path />
-                <path />
+                <path className="o" />
+                <path className="m" />
+                <path className="h" transform="translate(0 -3)" />
+                <path className="s" transform="translate(0 3.5)" />
               </svg>
 
               <svg

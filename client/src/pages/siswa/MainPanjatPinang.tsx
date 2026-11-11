@@ -16,7 +16,6 @@ import {
   Droplets,
   HandMetal,
   Gift,
-  Sparkles,
   ArrowRight,
 } from 'lucide-react';
 
@@ -566,7 +565,7 @@ export default function MainPanjatPinang({
             )}
             {soalAktif?.isBonusKulitPisang && (
               <span className="px-2.5 py-1 rounded-full bg-yellow-400 text-slate-950 text-[11px] font-black flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5" /> Soal Bonus Perisai!
+                Soal Bonus Perisai!
               </span>
             )}
           </div>

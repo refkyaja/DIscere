@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Sparkles, Pause } from 'lucide-react';
+import { Pause } from 'lucide-react';
 
 export interface HasilGachaGigitanProps {
   tipe: 'besar' | 'sedang' | 'kecil' | 'sangat_kecil' | 'zonk';
@@ -416,7 +416,6 @@ export default function KerupukVirtual({
                 : 'bg-emerald-600 text-white'
             }`}
           >
-            <Sparkles className="w-3.5 h-3.5" />
             <span>{terakhirGigitan.label}</span>
             <span className="font-mono">
               {typeof terakhirGigitan.penguranganEfektifPoin === 'number'

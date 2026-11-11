@@ -12,7 +12,6 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  Sparkles,
   LogOut,
   ShieldAlert,
   Loader2,
@@ -1225,7 +1224,6 @@ export default function MainSiswa() {
           {/* Status Pemain Terhubung */}
           <div className="p-4 bg-slate-800/80 border border-slate-700 rounded-2xl mb-6">
             <div className="flex items-center justify-center gap-2 text-indigo-400 font-semibold mb-3">
-              <Sparkles className="w-5 h-5" />
               <span>{totalPeserta} Siswa Sudah Bergabung</span>
             </div>
             <div className="flex flex-wrap justify-center gap-2 max-h-36 overflow-y-auto p-1">

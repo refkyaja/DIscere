@@ -18,7 +18,6 @@ import {
   VolumeX,
   Trophy,
   Flame,
-  Sparkles,
   CheckCircle2,
   XCircle,
   Loader2,
@@ -532,7 +531,7 @@ export default function LayarHostKerupuk() {
             <div className="lg:col-span-7 bg-[#fcf8ed] border-2 border-[#e0d5b8] rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
               <div>
                 <span className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-[#c8362f] mb-1">
-                  <Sparkles className="w-4 h-4" /> Siap Dimainkan di Proyektor Kelas
+                  Siap Dimainkan di Proyektor Kelas
                 </span>
                 <h2 className="text-2xl sm:text-3xl font-black text-[#1d3b2e]">
                   {sesi.templateJudul}

@@ -27,14 +27,12 @@ import {
   Check,
   User as UserIcon,
   Globe,
-  Sparkles,
   Copy,
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router';
 import {
   parseAiQuizText,
   PROMPT_TEMPLATE,
-  CONTOH_TEXT,
   type QuestionItem as AdminQuestionItem,
 } from '../../lib/quizParser';
 
@@ -126,13 +124,21 @@ export default function DashboardAdmin() {
   const [templateTeksAi, setTemplateTeksAi] = useState('');
   const [templateErrorTempel, setTemplateErrorTempel] = useState<string | null>(null);
   const [templateSuksesTempel, setTemplateSuksesTempel] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!templateSuksesTempel) return;
+    const timer = setTimeout(() => {
+      setTemplateSuksesTempel(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [templateSuksesTempel]);
   const [templatePromptCopied, setTemplatePromptCopied] = useState(false);
 
   // Generator AI Otomatis (Admin)
   const [modalAiAdminOpen, setModalAiAdminOpen] = useState(false);
   const [aiMateri, setAiMateri] = useState('');
   const [aiJumlah, setAiJumlah] = useState<number>(5);
-  const [aiTingkat, setAiTingkat] = useState<'SD' | 'SMP'>('SD');
+  const aiTingkat = 'SD';
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiSuksesPesan, setAiSuksesPesan] = useState<string | null>(null);
@@ -1463,7 +1469,6 @@ export default function DashboardAdmin() {
                     : 'text-[#1d3b2e] hover:bg-[#e4d3ad]'
                 }`}
               >
-                <Sparkles className="w-3.5 h-3.5 text-[#f2c230]" />
                 <span>Tempel Teks (AI)</span>
               </button>
             </div>
@@ -1478,7 +1483,6 @@ export default function DashboardAdmin() {
                 }}
                 className="portal-btn yellow sm"
               >
-                <Sparkles className="w-4 h-4 text-[#8a6a00]" />
                 <span>AI Otomatis</span>
               </button>
               {templateInputMode === 'manual' && (
@@ -1565,21 +1569,13 @@ export default function DashboardAdmin() {
                 />
               </div>
 
-              <div className="flex items-center justify-between pt-1">
-                <button
-                  type="button"
-                  onClick={() => setTemplateTeksAi(CONTOH_TEXT)}
-                  className="portal-btn ghost sm text-xs"
-                >
-                  Muat Contoh Format
-                </button>
+              <div className="flex items-center justify-end pt-1">
                 <button
                   type="button"
                   onClick={handleKonversiTeksAiAdmin}
                   className="portal-btn red sm"
                   disabled={!templateTeksAi.trim()}
                 >
-                  <Sparkles className="w-4 h-4" />
                   <span>Konversi & Masukkan ke Soal</span>
                 </button>
               </div>
@@ -1599,7 +1595,7 @@ export default function DashboardAdmin() {
                       <span className="portal-cv text-xl text-[#c8362f]">Soal #{idx + 1}</span>
                       {soal.dibuatAi && (
                         <span className="portal-tag yellow">
-                          <Sparkles className="w-3 h-3 text-[#8a6a00]" /> Dibuat AI
+                          Dibuat AI
                         </span>
                       )}
                     </div>
@@ -1749,38 +1745,21 @@ export default function DashboardAdmin() {
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-[#1d3b2e] uppercase tracking-wider mb-1">
-                Jumlah Soal
-              </label>
-              <select
-                disabled={aiLoading}
-                value={aiJumlah}
-                onChange={(e) => setAiJumlah(parseInt(e.target.value, 10))}
-                className="portal-select"
-              >
-                <option value={5}>5 Soal (Rekomendasi Cepat)</option>
-                <option value={8}>8 Soal</option>
-                <option value={10}>10 Soal (Lomba Standar)</option>
-                <option value={15}>15 Soal (Maksimal)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-[#1d3b2e] uppercase tracking-wider mb-1">
-                Jenjang / Tingkat
-              </label>
-              <select
-                disabled={aiLoading}
-                value={aiTingkat}
-                onChange={(e) => setAiTingkat(e.target.value as 'SD' | 'SMP')}
-                className="portal-select"
-              >
-                <option value="SD">Sekolah Dasar (SD Kelas 4 - 6)</option>
-                <option value="SMP">Sekolah Menengah Pertama (SMP)</option>
-              </select>
-            </div>
+          <div className="mb-3">
+            <label className="block text-xs font-bold text-[#1d3b2e] uppercase tracking-wider mb-1">
+              Jumlah Soal
+            </label>
+            <select
+              disabled={aiLoading}
+              value={aiJumlah}
+              onChange={(e) => setAiJumlah(parseInt(e.target.value, 10))}
+              className="portal-select"
+            >
+              <option value={5}>5 Soal (Rekomendasi Cepat)</option>
+              <option value={8}>8 Soal</option>
+              <option value={10}>10 Soal (Lomba Standar)</option>
+              <option value={15}>15 Soal (Maksimal)</option>
+            </select>
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#e0d5b8]">
@@ -1798,7 +1777,6 @@ export default function DashboardAdmin() {
               onClick={handleGenerateAiAdmin}
               disabled={aiLoading || aiMateri.trim().length < 20}
             >
-              <Sparkles className="w-4 h-4" />
               <span>{aiLoading ? 'Menyusun Soal...' : 'Buat Soal Sekarang'}</span>
             </button>
           </div>

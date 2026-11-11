@@ -8,7 +8,6 @@ import {
   Trash2,
   Save,
   Loader2,
-  Sparkles,
   AlertTriangle,
   CheckCircle2,
   Copy,
@@ -19,7 +18,6 @@ import {
 import {
   parseAiQuizText,
   PROMPT_TEMPLATE,
-  CONTOH_TEXT,
   type QuestionItem as QuestionFormItem,
 } from '../../lib/quizParser';
 
@@ -52,13 +50,21 @@ export default function TemplateForm() {
   const [teksTempelAi, setTeksTempelAi] = useState('');
   const [errorTempel, setErrorTempel] = useState<string | null>(null);
   const [suksesTempel, setSuksesTempel] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!suksesTempel) return;
+    const timer = setTimeout(() => {
+      setSuksesTempel(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [suksesTempel]);
   const [promptCopied, setPromptCopied] = useState(false);
 
   // State Generator Soal AI (Modal Otomatis)
   const [modalAiOpen, setModalAiOpen] = useState(false);
   const [aiMateri, setAiMateri] = useState('');
   const [aiJumlah, setAiJumlah] = useState<number>(5);
-  const [aiTingkat, setAiTingkat] = useState<'SD' | 'SMP'>('SD');
+  const aiTingkat = 'SD';
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiSuksesPesan, setAiSuksesPesan] = useState<string | null>(null);
@@ -452,7 +458,6 @@ export default function TemplateForm() {
                   className={modeInput === 'tempel_ai' ? 'on' : ''}
                   onClick={() => setModeInput('tempel_ai')}
                 >
-                  <Sparkles className="w-4 h-4 inline-block mr-1.5 text-[#f2c230]" />
                   Tempel Teks (AI)
                 </button>
               </div>
@@ -466,7 +471,6 @@ export default function TemplateForm() {
                     style={{ background: '#f2c230', color: '#1d3b2e' }}
                     title="Buat soal instan dari rangkuman materi dengan AI Discere"
                   >
-                    <Sparkles className="w-4 h-4" />
                     <span>AI Otomatis</span>
                   </button>
                 </div>
@@ -566,37 +570,27 @@ export default function TemplateForm() {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#e0d5b8]">
-                    <button
-                      type="button"
-                      onClick={() => setTeksTempelAi(CONTOH_TEXT)}
-                      className="portal-btn ghost sm text-xs"
-                    >
-                      Muat Contoh Format
-                    </button>
-                    <div className="flex items-center gap-2">
-                      {teksTempelAi && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setTeksTempelAi('');
-                            setErrorTempel(null);
-                          }}
-                          className="portal-btn ghost sm"
-                        >
-                          Bersihkan
-                        </button>
-                      )}
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#e0d5b8]">
+                    {teksTempelAi && (
                       <button
                         type="button"
-                        onClick={handleKonversiTeksAi}
-                        className="portal-btn red sm"
-                        disabled={!teksTempelAi.trim()}
+                        onClick={() => {
+                          setTeksTempelAi('');
+                          setErrorTempel(null);
+                        }}
+                        className="portal-btn ghost sm"
                       >
-                        <Sparkles className="w-4 h-4" />
-                        <span>Konversi & Masukkan ke Soal</span>
+                        Bersihkan
                       </button>
-                    </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleKonversiTeksAi}
+                      className="portal-btn red sm"
+                      disabled={!teksTempelAi.trim()}
+                    >
+                      <span>Konversi & Masukkan ke Soal</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -614,7 +608,7 @@ export default function TemplateForm() {
                         </span>
                         {soal.dibuatAi && (
                           <span className="portal-tag yellow">
-                            <Sparkles className="w-3 h-3 text-[#8a6a00]" /> Dibuat AI
+                            Dibuat AI
                           </span>
                         )}
                       </div>
@@ -783,38 +777,21 @@ export default function TemplateForm() {
             </div>
 
             {/* Pilihan Pengaturan AI */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-[#1d3b2e] uppercase tracking-wider mb-1">
-                  Jumlah Soal
-                </label>
-                <select
-                  disabled={aiLoading}
-                  value={aiJumlah}
-                  onChange={(e) => setAiJumlah(parseInt(e.target.value, 10))}
-                  className="portal-select"
-                >
-                  <option value={5}>5 Soal (Rekomendasi Cepat)</option>
-                  <option value={8}>8 Soal</option>
-                  <option value={10}>10 Soal (Lomba Standar)</option>
-                  <option value={15}>15 Soal (Maksimal)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#1d3b2e] uppercase tracking-wider mb-1">
-                  Jenjang / Tingkat
-                </label>
-                <select
-                  disabled={aiLoading}
-                  value={aiTingkat}
-                  onChange={(e) => setAiTingkat(e.target.value as 'SD' | 'SMP')}
-                  className="portal-select"
-                >
-                  <option value="SD">Sekolah Dasar (SD Kelas 4 - 6)</option>
-                  <option value="SMP">Sekolah Menengah Pertama (SMP)</option>
-                </select>
-              </div>
+            <div className="mb-3">
+              <label className="block text-xs font-bold text-[#1d3b2e] uppercase tracking-wider mb-1">
+                Jumlah Soal
+              </label>
+              <select
+                disabled={aiLoading}
+                value={aiJumlah}
+                onChange={(e) => setAiJumlah(parseInt(e.target.value, 10))}
+                className="portal-select"
+              >
+                <option value={5}>5 Soal (Rekomendasi Cepat)</option>
+                <option value={8}>8 Soal</option>
+                <option value={10}>10 Soal (Lomba Standar)</option>
+                <option value={15}>15 Soal (Maksimal)</option>
+              </select>
             </div>
 
             {/* Action Buttons */}
@@ -833,7 +810,6 @@ export default function TemplateForm() {
                 onClick={handleGenerateAi}
                 disabled={aiLoading || aiMateri.trim().length < 20}
               >
-                <Sparkles className="w-4 h-4" />
                 <span>{aiLoading ? 'Menyusun Soal...' : 'Buat Soal Sekarang'}</span>
               </button>
             </div>

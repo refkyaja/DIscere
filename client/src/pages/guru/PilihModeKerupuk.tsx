@@ -17,7 +17,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   Target,
-  Sparkles,
   Play,
   Loader2,
   BookOpen,
@@ -336,7 +335,7 @@ export default function PilihModeKerupuk() {
                     <Monitor className="w-3.5 h-3.5" /> Tanpa PIN / QR Code
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5" /> Karakter 2D Proyektor
+                    Karakter 2D Proyektor
                   </span>
                   <span className="flex items-center gap-1.5">
                     <Play className="w-3.5 h-3.5" /> Kontrol Jeda &amp; Ulang
@@ -519,7 +518,7 @@ export default function PilihModeKerupuk() {
             <div className="lg:col-span-6 bg-[#fcf8ed] border-2 border-[#e0d5b8] rounded-3xl p-5 space-y-4 shadow-xs">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-[#c8362f]" /> 4. Probabilitas Gigitan
+                  4. Probabilitas Gigitan
                 </label>
                 <span className="text-[11px] font-bold text-[#6b7d6c] flex items-center gap-1">
                   <Sliders className="w-3.5 h-3.5" />
