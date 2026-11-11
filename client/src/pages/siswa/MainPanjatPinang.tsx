@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getSocket } from '../../lib/socket';
 import { bindStudentReconnect } from '../../lib/socketReconnect';
-import { Button } from '../../components';
 import { soundEffects } from '../../lib/soundEffects';
 import TiangPinangVisual, { EfekAktifVisual } from './TiangPinangVisual';
 import KarakterPanjatPinang from './KarakterPanjatPinang';
+import '../../components/balapKarungFestival.css';
 import {
   Users,
   Trophy,
@@ -435,51 +435,51 @@ export default function MainPanjatPinang({
 
   const timerStyleMap = {
     normal: {
-      container: 'bg-slate-800/95 border-sky-500/45 text-sky-100',
-      bar: 'bg-sky-400',
+      container: 'bg-[#e9f4ff] border-[#add6fa] text-[#2b2a4a]',
+      bar: 'bg-[#1d8fe0]',
       label: 'Waktu Jawab',
-      labelColor: 'text-sky-300',
+      labelColor: 'text-[#1368ad]',
     },
     peringatan: {
-      container: 'bg-amber-500/15 border-amber-400/75 text-amber-100',
-      bar: 'bg-amber-400',
+      container: 'bg-[#fff3c4] border-[#ffb81c] text-[#4a3000]',
+      bar: 'bg-[#e6a100]',
       label: 'Ayo Cepat!',
-      labelColor: 'text-amber-300',
+      labelColor: 'text-[#7a5200]',
     },
     kritis: {
-      container: 'bg-rose-500/20 border-rose-400 text-rose-100 motion-safe:animate-pulse',
-      bar: 'bg-rose-400',
+      container: 'bg-[#fdecec] border-[#d63b3b] text-[#8a1f1f] motion-safe:animate-pulse',
+      bar: 'bg-[#e2312d]',
       label: 'Segera Jawab!',
-      labelColor: 'text-rose-300',
+      labelColor: 'text-[#b81f1c]',
     },
     selesai: {
-      container: 'bg-emerald-500/15 border-emerald-400/60 text-emerald-100',
-      bar: 'bg-emerald-400',
+      container: 'bg-[#e9f9ef] border-[#9de0b6] text-[#136837]',
+      bar: 'bg-[#1f9d55]',
       label: 'Selesai Menjawab',
-      labelColor: 'text-emerald-300',
+      labelColor: 'text-[#1f9d55]',
     },
   } as const;
 
   const timerStyle = timerStyleMap[timerPhase];
 
   // =========================================================================
-  // 1. TAHAP LOBI SISWA (Konsisten Dark Navy + Aksen Karnaval DISCERE)
+  // 1. TAHAP LOBI SISWA (TEMA FESTIVAL 17 AGUSTUS)
   // =========================================================================
   if (stage === 'LOBBY') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#070d1d] via-[#0c1836] to-[#0b1f33] text-white p-3 sm:p-6 flex flex-col justify-between select-none">
+      <div className="bk-festival p-3 sm:p-6 flex flex-col justify-between select-none">
         <div className="max-w-4xl mx-auto w-full flex-1 flex flex-col justify-between gap-4 sm:gap-6">
-          <header className="flex items-center justify-between gap-3 bg-slate-900/90 backdrop-blur border border-slate-700/80 rounded-2xl p-3.5 sm:px-5 shadow-lg">
+          <header className="flex items-center justify-between gap-3 bg-[#fffdf6] border-2 border-[#f0dfb4] rounded-2xl p-3.5 sm:px-5 shadow-sm">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                <span className="px-2.5 py-0.5 rounded-full bg-[#D7262E] text-white text-[10px] font-black uppercase tracking-wider">
+                <span className="px-2.5 py-0.5 rounded-full bg-[#e2312d] text-white text-[10px] font-black uppercase tracking-wider">
                   Panjat Pinang
                 </span>
-                <span className="px-2.5 py-0.5 rounded-full bg-amber-400/20 border border-amber-400/50 text-amber-300 text-[10px] font-mono font-black tracking-wider">
+                <span className="px-2.5 py-0.5 rounded-full bg-[#fff3c4] border border-[#ffb81c] text-[#7a5200] text-[10px] font-mono font-black tracking-wider">
                   PIN {token}
                 </span>
               </div>
-              <h2 className="text-sm sm:text-base font-extrabold text-white truncate">
+              <h2 className="bk-h text-base sm:text-lg font-extrabold text-[#2b2a4a] truncate">
                 {templateJudul}
               </h2>
             </div>
@@ -489,19 +489,19 @@ export default function MainPanjatPinang({
                 type="button"
                 onClick={handleToggleSound}
                 aria-label={isMuted ? 'Nyalakan suara' : 'Bisukan suara'}
-                className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition-colors cursor-pointer"
+                className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-[#fff3d6] hover:bg-[#fde9b8] border border-[#f0dfb4] text-[#2b2a4a] transition-colors cursor-pointer"
               >
                 {isMuted ? (
-                  <VolumeX className="w-4 h-4 text-rose-400" />
+                  <VolumeX className="w-4 h-4 text-[#d63b3b]" />
                 ) : (
-                  <Volume2 className="w-4 h-4 text-emerald-400" />
+                  <Volume2 className="w-4 h-4 text-[#1f9d55]" />
                 )}
               </button>
               <button
                 type="button"
                 onClick={onKeluar}
                 aria-label="Keluar dari sesi"
-                className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-slate-800 hover:bg-rose-500/20 border border-slate-700 hover:border-rose-400/60 text-slate-300 hover:text-rose-300 transition-colors cursor-pointer"
+                className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-[#fde0e0] hover:bg-[#fccbcb] border border-[#f4b6b6] text-[#8a1f1f] transition-colors cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -509,7 +509,7 @@ export default function MainPanjatPinang({
           </header>
 
           <main className="my-auto grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-center">
-            <div className="md:col-span-5 bg-slate-900/90 border border-slate-700/80 rounded-3xl p-4 sm:p-5 shadow-2xl flex flex-col items-center">
+            <div className="md:col-span-5 bk-card !p-4 sm:!p-5 flex flex-col items-center">
               <TiangPinangVisual
                 posisi={0}
                 namaPemain={nama}
@@ -517,31 +517,31 @@ export default function MainPanjatPinang({
               />
             </div>
 
-            <div className="md:col-span-7 bg-slate-900/90 border border-slate-700/80 rounded-3xl p-5 sm:p-7 shadow-2xl space-y-5">
+            <div className="md:col-span-7 bk-card !p-5 sm:!p-7 space-y-5">
               <div className="space-y-2">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-400/15 border border-amber-400/40 text-amber-300 text-xs font-black rounded-full uppercase tracking-wider">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#ffe9a8] border border-[#ffb81c] text-[#7a5200] text-xs font-extrabold rounded-full uppercase tracking-wider">
                   <Sparkles className="w-3.5 h-3.5" /> Siap Memanjat!
                 </span>
-                <h1 className="text-2xl sm:text-3xl font-black text-white break-words">
+                <h1 className="bk-h text-2xl sm:text-3xl font-extrabold text-[#2b2a4a] break-words">
                   Halo, {nama}!
                 </h1>
-                <p className="text-sm text-slate-300 leading-relaxed">
+                <p className="text-sm text-[#6b6a85] font-semibold leading-relaxed">
                   Jawab pertanyaan dengan tepat dan cepat untuk memanjat tiang pinang hingga mencapai{' '}
-                  <strong className="text-amber-300">Puncak 100%</strong>.
+                  <strong className="text-[#b81f1c]">Puncak 100%</strong>.
                 </p>
               </div>
 
               {config && (
-                <div className="grid grid-cols-2 gap-3 text-xs bg-slate-800/80 p-4 rounded-2xl border border-slate-700">
+                <div className="grid grid-cols-2 gap-3 text-xs bg-[#fff3d6] p-4 rounded-2xl border-2 border-[#f0dfb4]">
                   <div>
-                    <span className="text-slate-400 font-semibold block mb-0.5">Tingkat & Langkah</span>
-                    <strong className="text-amber-300 uppercase">
+                    <span className="text-[#6b6a85] font-bold block mb-0.5">Tingkat & Langkah</span>
+                    <strong className="text-[#2b2a4a] uppercase">
                       {config.kesulitan || 'normal'} (+{config.naikBenar ?? 10}% / -{config.turunSalah ?? 5}%)
                     </strong>
                   </div>
                   <div>
-                    <span className="text-slate-400 font-semibold block mb-0.5">Fitur Aktif</span>
-                    <strong className="text-emerald-300">
+                    <span className="text-[#6b6a85] font-bold block mb-0.5">Fitur Aktif</span>
+                    <strong className="text-[#1f9d55]">
                       {config.bonusStreakAktif ? 'Streak Aktif' : 'Tanpa Streak'}
                       {config.rintanganAktif ? ' • Rintangan' : ''}
                     </strong>
@@ -549,27 +549,27 @@ export default function MainPanjatPinang({
                 </div>
               )}
 
-              <div className="bg-amber-400/10 border border-amber-400/40 rounded-2xl p-4 flex items-center gap-3">
-                <span className="w-3 h-3 bg-amber-400 rounded-full motion-safe:animate-ping shrink-0" />
-                <span className="text-xs sm:text-sm font-bold text-amber-200">
+              <div className="bg-[#fff3c4] border-2 border-[#ffb81c] rounded-2xl p-4 flex items-center gap-3">
+                <span className="w-3 h-3 bg-[#e2312d] rounded-full motion-safe:animate-ping shrink-0" />
+                <span className="text-xs sm:text-sm font-extrabold text-[#7a5200]">
                   Menunggu guru memulai perlombaan Panjat Pinang...
                 </span>
               </div>
 
-              <div className="flex items-center justify-between text-xs font-bold text-slate-300 bg-slate-800/60 px-4 py-3 rounded-2xl border border-slate-700/70">
-                <span className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-sky-400" />
+              <div className="flex items-center justify-between text-xs font-extrabold text-[#2b2a4a] bg-[#fff3d6] px-4 py-3 rounded-2xl border border-[#f0dfb4]">
+                <span className="flex items-center gap-2 text-[#6b6a85]">
+                  <Users className="w-4 h-4 text-[#1d8fe0]" />
                   Peserta siap di lobi
                 </span>
-                <span className="font-mono text-sm font-black text-white">
+                <span className="font-mono text-sm font-black text-[#2b2a4a]">
                   {totalPeserta} Siswa
                 </span>
               </div>
             </div>
           </main>
 
-          <footer className="text-center text-xs font-semibold text-slate-500 py-1">
-            DISCERE • Lomba Panjat Pinang Edukatif
+          <footer className="text-center text-xs font-bold text-[#6b6a85] py-1">
+            DISCERE • Lomba Panjat Pinang 17 Agustus
           </footer>
         </div>
       </div>
@@ -577,7 +577,7 @@ export default function MainPanjatPinang({
   }
 
   // =========================================================================
-  // 2. TAHAP PERMAINAN BERJALAN
+  // 2. TAHAP PERMAINAN BERJALAN (TEMA FESTIVAL 17 AGUSTUS)
   // =========================================================================
   if (stage === 'PLAYING') {
     // 2a. Pemain sudah mencapai puncak 100% (menunggu pemain lain)
@@ -586,25 +586,25 @@ export default function MainPanjatPinang({
       const akurasi = totalJawab > 0 ? Math.round((myState.totalBenar / totalJawab) * 100) : 0;
 
       return (
-        <div className="min-h-screen bg-gradient-to-br from-[#070d1d] via-[#0c1836] to-[#0b1f33] text-white flex flex-col justify-between p-3 sm:p-6 select-none">
+        <div className="bk-festival p-3 sm:p-6 flex flex-col justify-between select-none">
           <div className="max-w-4xl mx-auto w-full flex-1 flex flex-col justify-between gap-4 sm:gap-6">
-            <header className="flex items-center justify-between gap-3 bg-slate-900/90 rounded-2xl p-4 border border-amber-400/40 shadow-lg">
+            <header className="flex items-center justify-between gap-3 bg-[#fffdf6] rounded-2xl p-4 border-2 border-[#ffb81c] shadow-sm">
               <div className="min-w-0">
-                <span className="text-[11px] font-black uppercase text-amber-400 block tracking-wider">
+                <span className="text-[11px] font-black uppercase text-[#b81f1c] block tracking-wider">
                   Panjat Pinang • Puncak Tercapai!
                 </span>
-                <h2 className="text-sm sm:text-base font-extrabold text-white truncate">
+                <h2 className="bk-h text-sm sm:text-base font-extrabold text-[#2b2a4a] truncate">
                   {templateJudul}
                 </h2>
               </div>
-              <div className="flex items-center gap-2 px-3.5 py-2 bg-amber-400/20 border border-amber-400/50 text-amber-300 rounded-xl text-xs sm:text-sm font-black shrink-0">
-                <Trophy className="w-4 h-4 text-amber-400" />
+              <div className="flex items-center gap-2 px-3.5 py-2 bg-[#ffe9a8] border-2 border-[#ffb81c] text-[#7a5200] rounded-xl text-xs sm:text-sm font-black shrink-0">
+                <Trophy className="w-4 h-4 text-[#e6a100]" />
                 <span>Rank #{myRank || 1}</span>
               </div>
             </header>
 
             <main className="my-auto grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
-              <div className="md:col-span-5 bg-slate-900/90 border-2 border-amber-400/50 rounded-3xl p-4 sm:p-5 shadow-2xl flex flex-col items-center">
+              <div className="md:col-span-5 bk-card !border-[3px] !border-[#ffb81c] !p-4 sm:!p-5 flex flex-col items-center">
                 <TiangPinangVisual
                   posisi={100}
                   namaPemain={myState.nama}
@@ -613,51 +613,51 @@ export default function MainPanjatPinang({
                 />
               </div>
 
-              <div className="md:col-span-7 bg-slate-900/95 border-2 border-amber-400/60 rounded-3xl p-5 sm:p-7 shadow-2xl space-y-5">
+              <div className="md:col-span-7 bk-card !border-[3px] !border-[#ffb81c] bg-gradient-to-b from-[#fffdf6] to-[#fff3d6] !p-5 sm:!p-7 space-y-5">
                 <div>
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-emerald-300 bg-emerald-500/15 border border-emerald-400/40 px-3 py-1 rounded-full mb-2">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-[#136837] bg-[#e9f9ef] border border-[#9de0b6] px-3 py-1 rounded-full mb-2">
                     <Flag className="w-3.5 h-3.5" /> Lomba Selesai Untukmu
                   </span>
-                  <h1 className="text-2xl sm:text-3xl font-black text-white">
+                  <h1 className="bk-h text-2xl sm:text-3xl font-extrabold text-[#2b2a4a]">
                     Puncak 100% Tercapai!
                   </h1>
-                  <p className="text-sm text-slate-300 mt-1">
-                    Hebat, {myState.nama}! Kamu berhasil menaklukkan tiang pinang.
+                  <p className="text-sm text-[#6b6a85] font-semibold mt-1">
+                    Hebat, <strong className="text-[#2b2a4a]">{myState.nama}</strong>! Kamu berhasil menaklukkan tiang pinang.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 text-left">
-                  <div className="bg-slate-800/85 p-3.5 rounded-2xl border border-slate-700">
-                    <span className="text-[11px] uppercase font-bold text-slate-400 block">
+                  <div className="bg-white p-3.5 rounded-2xl border-2 border-[#f0dfb4]">
+                    <span className="text-[11px] uppercase font-extrabold text-[#6b6a85] block">
                       Jawaban Benar / Salah
                     </span>
-                    <span className="text-base sm:text-lg font-black text-emerald-400 font-mono">
+                    <span className="text-base sm:text-lg font-black text-[#1f9d55] font-mono">
                       {myState.totalBenar}✓ / {myState.totalSalah}✗ ({akurasi}%)
                     </span>
                   </div>
-                  <div className="bg-slate-800/85 p-3.5 rounded-2xl border border-slate-700">
-                    <span className="text-[11px] uppercase font-bold text-slate-400 block">
+                  <div className="bg-white p-3.5 rounded-2xl border-2 border-[#f0dfb4]">
+                    <span className="text-[11px] uppercase font-extrabold text-[#6b6a85] block">
                       Waktu Capai Puncak
                     </span>
-                    <span className="text-base sm:text-lg font-black text-amber-400 font-mono">
+                    <span className="text-base sm:text-lg font-black text-[#e6a100] font-mono">
                       {myState.waktuSelesaiMs
                         ? `${(myState.waktuSelesaiMs / 1000).toFixed(1)}s`
                         : '-'}
                     </span>
                   </div>
-                  <div className="bg-slate-800/85 p-3.5 rounded-2xl border border-slate-700">
-                    <span className="text-[11px] uppercase font-bold text-slate-400 block">
+                  <div className="bg-white p-3.5 rounded-2xl border-2 border-[#f0dfb4]">
+                    <span className="text-[11px] uppercase font-extrabold text-[#6b6a85] block">
                       Streak Tertinggi
                     </span>
-                    <span className="text-base sm:text-lg font-black text-orange-400 font-mono">
+                    <span className="text-base sm:text-lg font-black text-[#e2312d] font-mono">
                       {myState.streakTertinggi}x berturut
                     </span>
                   </div>
-                  <div className="bg-slate-800/85 p-3.5 rounded-2xl border border-slate-700">
-                    <span className="text-[11px] uppercase font-bold text-slate-400 block">
+                  <div className="bg-white p-3.5 rounded-2xl border-2 border-[#f0dfb4]">
+                    <span className="text-[11px] uppercase font-extrabold text-[#6b6a85] block">
                       Rata-rata Kecepatan
                     </span>
-                    <span className="text-base sm:text-lg font-black text-sky-400 font-mono">
+                    <span className="text-base sm:text-lg font-black text-[#1d8fe0] font-mono">
                       {myState.rataRataWaktuJawabMs
                         ? `${(myState.rataRataWaktuJawabMs / 1000).toFixed(1)}s`
                         : '-'}
@@ -665,14 +665,14 @@ export default function MainPanjatPinang({
                   </div>
                 </div>
 
-                <div className="bg-amber-500/10 border border-amber-500/35 rounded-2xl p-3.5 flex items-center gap-3 text-xs sm:text-sm text-amber-200 font-semibold">
-                  <span className="w-2.5 h-2.5 bg-amber-400 rounded-full motion-safe:animate-ping shrink-0" />
+                <div className="bg-[#fff3c4] border-2 border-[#ffb81c] rounded-2xl p-3.5 flex items-center gap-3 text-xs sm:text-sm text-[#7a5200] font-extrabold">
+                  <span className="w-2.5 h-2.5 bg-[#e2312d] rounded-full motion-safe:animate-ping shrink-0" />
                   <span>Menunggu teman lain selesai atau guru mengakhiri permainan...</span>
                 </div>
               </div>
             </main>
 
-            <footer className="text-center text-xs text-slate-500 pb-1">
+            <footer className="text-center text-xs font-bold text-[#6b6a85] pb-1">
               Laporan akhir & podium akan tampil otomatis saat sesi ditutup.
             </footer>
           </div>
@@ -688,58 +688,58 @@ export default function MainPanjatPinang({
       : 'netral';
 
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#070d1d] via-[#0c1836] to-[#0a1529] text-white flex flex-col p-3 sm:p-5 lg:p-6 select-none overflow-x-hidden">
+      <div className="bk-festival p-3 sm:p-5 lg:p-6 flex flex-col select-none overflow-x-hidden">
         <div className="max-w-6xl mx-auto w-full flex-1 flex flex-col gap-3 sm:gap-4">
           {/* 1. HEADER PERMAINAN & TIMER */}
-          <header className="bg-slate-900/90 backdrop-blur border border-slate-700/85 rounded-2xl sm:rounded-3xl p-3 sm:px-5 sm:py-3.5 shadow-xl flex flex-wrap items-center justify-between gap-3">
+          <header className="bg-[#fffdf6] border-2 border-[#f0dfb4] rounded-2xl sm:rounded-3xl p-3 sm:px-5 sm:py-3.5 shadow-sm flex flex-wrap items-center justify-between gap-3">
             {/* Identitas Mode & Progress Soal */}
             <div className="min-w-0 flex-1 basis-[210px]">
               <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                <span className="px-2 py-0.5 rounded-md bg-[#D7262E] text-white text-[10px] font-black uppercase tracking-wider">
+                <span className="px-2.5 py-0.5 rounded-full bg-[#e2312d] text-white text-[10px] font-black uppercase tracking-wider">
                   Panjat Pinang • PIN {token}
                 </span>
                 {config?.kesulitan && (
-                  <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-slate-600/80 text-amber-300 text-[10px] font-extrabold uppercase">
+                  <span className="px-2 py-0.5 rounded-full bg-[#fff3c4] border border-[#ffb81c] text-[#7a5200] text-[10px] font-extrabold uppercase">
                     {config.kesulitan}
                   </span>
                 )}
-                <span className="px-2 py-0.5 rounded-md bg-sky-500/15 border border-sky-400/35 text-sky-300 text-[10px] font-mono font-bold">
+                <span className="px-2 py-0.5 rounded-full bg-[#e9f4ff] border border-[#add6fa] text-[#1368ad] text-[10px] font-mono font-extrabold">
                   Soal #{soalAktif?.nomorSoal ?? Math.max(1, myState.jumlahJawab + 1)}
                   {soalAktif?.totalSoalTemplate ? `/${soalAktif.totalSoalTemplate}` : ''}
                 </span>
               </div>
-              <h1 className="text-sm sm:text-base font-extrabold text-white truncate">
+              <h1 className="bk-h text-sm sm:text-base font-extrabold text-[#2b2a4a] truncate">
                 {templateJudul}
               </h1>
             </div>
 
             {/* Statistik Pemain: Rank, Benar/Salah, Streak */}
             <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-extrabold">
-                <Trophy className="w-4 h-4 text-amber-400 shrink-0" />
-                <span className="text-amber-300">Rank #{myRank || 1}</span>
-                <span className="text-slate-500 text-[11px]">/ {totalPeserta}</span>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#fff3d6] border border-[#f0dfb4] text-xs font-extrabold">
+                <Trophy className="w-4 h-4 text-[#e6a100] shrink-0" />
+                <span className="text-[#2b2a4a]">Rank #{myRank || 1}</span>
+                <span className="text-[#6b6a85] text-[11px]">/ {totalPeserta}</span>
               </div>
 
-              <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-mono font-black">
-                <span className="flex items-center gap-1 text-emerald-400" title="Jawaban Benar">
+              <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-[#fff3d6] border border-[#f0dfb4] text-xs font-mono font-black">
+                <span className="flex items-center gap-1 text-[#1f9d55]" title="Jawaban Benar">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   {myState.totalBenar}
                 </span>
-                <span className="text-slate-600">|</span>
-                <span className="flex items-center gap-1 text-rose-400" title="Jawaban Salah">
+                <span className="text-[#e6cfa0]">|</span>
+                <span className="flex items-center gap-1 text-[#d63b3b]" title="Jawaban Salah">
                   <XCircle className="w-3.5 h-3.5" />
                   {myState.totalSalah}
                 </span>
               </div>
 
               {myState.streakSaatIni > 0 ? (
-                <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-orange-500/15 border border-orange-400/45 text-orange-300 text-xs font-black">
-                  <Flame className="w-3.5 h-3.5 fill-current" />
+                <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-[#fff3c4] border border-[#ffb81c] text-[#7a5200] text-xs font-black">
+                  <Flame className="w-3.5 h-3.5 fill-current text-[#e2312d]" />
                   <span>{myState.streakSaatIni} Streak</span>
                 </div>
               ) : myState.poinBonus > 0 ? (
-                <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-500/15 border border-amber-400/40 text-amber-300 text-xs font-mono font-black">
+                <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-[#fff3c4] border border-[#ffb81c] text-[#7a5200] text-xs font-mono font-black">
                   +{myState.poinBonus} pt
                 </div>
               ) : null}
@@ -748,7 +748,7 @@ export default function MainPanjatPinang({
             {/* Timer Menonjol + Mute */}
             <div className="flex items-center gap-2 ml-auto sm:ml-0">
               <div
-                className={`min-w-[138px] sm:min-w-[156px] px-3 py-1.5 rounded-2xl border-2 shadow-inner transition-colors ${timerStyle.container}`}
+                className={`min-w-[138px] sm:min-w-[156px] px-3 py-1.5 rounded-2xl border-2 transition-colors ${timerStyle.container}`}
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className={`text-[10px] font-black uppercase tracking-wider ${timerStyle.labelColor}`}>
@@ -765,7 +765,7 @@ export default function MainPanjatPinang({
                     <span>{detikElapsed.toFixed(1)}s</span>
                   </div>
                 </div>
-                <div className="w-full h-1 bg-slate-950/50 rounded-full overflow-hidden mt-1">
+                <div className="w-full h-1.5 bg-white/70 rounded-full overflow-hidden mt-1">
                   <div
                     className={`h-full transition-all duration-150 ${timerStyle.bar}`}
                     style={{ width: `${Math.min(100, (detikElapsed / 30) * 100)}%` }}
@@ -778,12 +778,12 @@ export default function MainPanjatPinang({
                 onClick={handleToggleSound}
                 aria-label={isMuted ? 'Nyalakan suara efek' : 'Bisukan suara efek'}
                 title={isMuted ? 'Nyalakan Suara' : 'Bisukan Suara'}
-                className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition-colors cursor-pointer shrink-0"
+                className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-[#fff3d6] hover:bg-[#fde9b8] border border-[#f0dfb4] text-[#2b2a4a] transition-colors cursor-pointer shrink-0"
               >
                 {isMuted ? (
-                  <VolumeX className="w-4 h-4 text-rose-400" />
+                  <VolumeX className="w-4 h-4 text-[#d63b3b]" />
                 ) : (
-                  <Volume2 className="w-4 h-4 text-emerald-400" />
+                  <Volume2 className="w-4 h-4 text-[#1f9d55]" />
                 )}
               </button>
             </div>
@@ -793,9 +793,9 @@ export default function MainPanjatPinang({
           {isDisconnected && (
             <div
               role="status"
-              className="px-4 py-2.5 rounded-2xl bg-amber-500/15 border border-amber-400/60 text-amber-200 text-xs font-bold flex items-center gap-2"
+              className="px-4 py-2.5 rounded-2xl bg-[#fff3c4] border-2 border-[#ffb81c] text-[#7a5200] text-xs font-extrabold flex items-center gap-2"
             >
-              <WifiOff className="w-4 h-4 text-amber-400 shrink-0" />
+              <WifiOff className="w-4 h-4 text-[#e2312d] shrink-0" />
               <span>Koneksi sedang terputus. Mencoba menyambung kembali otomatis...</span>
             </div>
           )}
@@ -803,16 +803,16 @@ export default function MainPanjatPinang({
           {submitError && (
             <div
               role="alert"
-              className="px-4 py-2.5 rounded-2xl bg-rose-500/20 border border-rose-400 text-rose-100 text-xs font-bold flex items-center justify-between gap-2"
+              className="px-4 py-2.5 rounded-2xl bg-[#fdecec] border-2 border-[#f4b6b6] text-[#8a1f1f] text-xs font-extrabold flex items-center justify-between gap-2"
             >
               <span className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-rose-300 shrink-0" />
+                <AlertTriangle className="w-4 h-4 text-[#d63b3b] shrink-0" />
                 {submitError}
               </span>
               <button
                 type="button"
                 onClick={() => setSubmitError(null)}
-                className="text-rose-200 hover:text-white underline text-[11px] shrink-0 cursor-pointer"
+                className="text-[#8a1f1f] hover:text-[#2b2a4a] underline text-[11px] shrink-0 cursor-pointer"
               >
                 Tutup
               </button>
@@ -820,11 +820,11 @@ export default function MainPanjatPinang({
           )}
 
           {/* AREA UTAMA: 2 Kolom Seimbang (Desktop & Tablet) / 1 Kolom Berurutan (Smartphone) */}
-          <main className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4 lg:gap-6 items-stretch">
+          <main className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4 lg:gap-5 items-stretch">
             {/* KOLOM KIRI: Visual Tiang & Karakter (#2 Mobile) + Kartu Progress Pemain (#3 Mobile) */}
             <section className="md:col-span-5 flex flex-col gap-3 sm:gap-4">
               {/* 2. Visual Karakter & Tiang */}
-              <div className="bg-slate-900/90 border border-slate-700/85 rounded-3xl p-3.5 sm:p-4 lg:p-5 shadow-xl flex-1 flex flex-col items-center justify-between gap-3">
+              <div className="bk-card !p-3.5 sm:!p-4 lg:!p-5 flex-1 flex flex-col items-center justify-between gap-3">
                 {/* Badge Efek Rintangan Aktif pada Tiang */}
                 {(myState.efekAktif?.tiangLicin ||
                   myState.efekAktif?.perisaiKulitPisang ||
@@ -832,22 +832,22 @@ export default function MainPanjatPinang({
                   soalAktif?.isBonusKulitPisang) && (
                   <div className="w-full flex flex-wrap items-center justify-center gap-1.5">
                     {myState.efekAktif?.tiangLicin && (
-                      <span className="px-2.5 py-1 rounded-full bg-cyan-500/20 border border-cyan-400/50 text-cyan-200 text-[11px] font-bold flex items-center gap-1">
+                      <span className="px-2.5 py-1 rounded-full bg-[#e9f4ff] border border-[#add6fa] text-[#1368ad] text-[11px] font-extrabold flex items-center gap-1">
                         <Droplets className="w-3.5 h-3.5" /> Tiang Licin Aktif
                       </span>
                     )}
                     {myState.efekAktif?.perisaiKulitPisang && (
-                      <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/50 text-emerald-200 text-[11px] font-bold flex items-center gap-1">
+                      <span className="px-2.5 py-1 rounded-full bg-[#e9f9ef] border border-[#9de0b6] text-[#136837] text-[11px] font-extrabold flex items-center gap-1">
                         <Shield className="w-3.5 h-3.5" /> Perisai Aktif (1x)
                       </span>
                     )}
                     {myState.efekAktif?.peganganKuat && (
-                      <span className="px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-400/50 text-amber-200 text-[11px] font-bold flex items-center gap-1">
+                      <span className="px-2.5 py-1 rounded-full bg-[#fff3c4] border border-[#ffb81c] text-[#7a5200] text-[11px] font-extrabold flex items-center gap-1">
                         <HandMetal className="w-3.5 h-3.5" /> Pegangan Kuat Siap
                       </span>
                     )}
                     {soalAktif?.isBonusKulitPisang && (
-                      <span className="px-2.5 py-1 rounded-full bg-amber-400 text-slate-950 text-[11px] font-black flex items-center gap-1">
+                      <span className="px-2.5 py-1 rounded-full bg-[#ffb81c] text-[#4a3000] border border-[#c98a00] text-[11px] font-black flex items-center gap-1">
                         <Shield className="w-3.5 h-3.5" /> Soal Bonus Perisai!
                       </span>
                     )}
@@ -867,14 +867,14 @@ export default function MainPanjatPinang({
                 />
               </div>
 
-              {/* 3. Kartu Progress Pemain (Tunggal — tanpa duplikasi di Header atau Tiang) */}
-              <div className="bg-slate-900/90 border border-slate-700/85 rounded-2xl sm:rounded-3xl p-4 shadow-xl space-y-2.5">
+              {/* 3. Kartu Progress Pemain */}
+              <div className="bk-card !p-4 space-y-2.5">
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#6b6a85] block">
                       Pemain
                     </span>
-                    <h2 className="text-sm sm:text-base font-extrabold text-white truncate">
+                    <h2 className="bk-h text-base font-extrabold text-[#2b2a4a] truncate">
                       {myState.nama || nama}
                     </h2>
                   </div>
@@ -882,43 +882,43 @@ export default function MainPanjatPinang({
                   <div className="flex items-baseline gap-2 shrink-0">
                     {lastDelta !== null && lastDelta !== 0 && (
                       <span
-                        className={`text-xs font-mono font-black px-2 py-0.5 rounded-full ${
+                        className={`text-xs font-mono font-black px-2 py-0.5 rounded-full border ${
                           lastDelta > 0
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
-                            : 'bg-rose-500/20 text-rose-300 border border-rose-400/40'
+                            ? 'bg-[#e9f9ef] text-[#1f9d55] border-[#9de0b6]'
+                            : 'bg-[#fdecec] text-[#d63b3b] border-[#f4b6b6]'
                         }`}
                       >
                         {lastDelta > 0 ? `+${lastDelta}%` : `${lastDelta}%`}
                       </span>
                     )}
-                    <span className="text-xl sm:text-2xl font-black font-mono text-amber-300 tabular-nums">
+                    <span className="bk-h text-2xl font-extrabold text-[#1f9d55] tabular-nums">
                       {safePosisi}%
                     </span>
                   </div>
                 </div>
 
                 {/* Progress Bar Smooth + Penanda Milestone */}
-                <div className="relative w-full h-3.5 bg-slate-800 rounded-full overflow-hidden border border-slate-700 p-0.5">
+                <div className="relative w-full h-3.5 bg-[#fff3d6] rounded-full overflow-hidden border border-[#f0dfb4] p-0.5">
                   <div
                     style={{ width: `${safePosisi}%` }}
                     className={`h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none ${
                       safePosisi >= 100
-                        ? 'bg-gradient-to-r from-amber-400 to-yellow-300'
-                        : 'bg-gradient-to-r from-[#D7262E] via-amber-400 to-emerald-400'
+                        ? 'bg-gradient-to-r from-[#ffb81c] to-[#ffd23f]'
+                        : 'bg-gradient-to-r from-[#e2312d] via-[#ffb81c] to-[#1f9d55]'
                     }`}
                   />
                   {[25, 50, 75].map((tick) => (
                     <span
                       key={tick}
                       style={{ left: `${tick}%` }}
-                      className="absolute inset-y-0 w-px bg-slate-950/50 pointer-events-none"
+                      className="absolute inset-y-0 w-px bg-[#2b2a4a]/20 pointer-events-none"
                     />
                   ))}
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] font-semibold text-slate-400">
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] font-bold text-[#6b6a85]">
                   <span>Posisi Tiang</span>
-                  <span className="text-slate-200">
+                  <span className="text-[#2b2a4a] font-extrabold">
                     {safePosisi >= 100
                       ? 'Puncak 100% tercapai!'
                       : `Butuh ${100 - safePosisi}% lagi`}
@@ -930,110 +930,100 @@ export default function MainPanjatPinang({
             {/* KOLOM KANAN: Pertanyaan (#4 Mobile), Pilihan Jawaban (#5 Mobile) & Feedback */}
             <section className="md:col-span-7 flex flex-col justify-start gap-4">
               {/* 4. Area Pertanyaan */}
-              <div className="bg-slate-900/95 border-2 border-slate-700/90 rounded-3xl p-5 sm:p-6 shadow-xl space-y-3">
+              <div className="bk-card space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-amber-400">
+                  <span className="bk-chip red !text-[11px]">
                     {soalAktif?.isBonusKulitPisang
                       ? 'Tantangan Bonus Perisai'
                       : `Pertanyaan #${soalAktif?.nomorSoal ?? 1}`}
                   </span>
                   {soalAktif?.totalSoalTemplate ? (
-                    <span className="text-[11px] font-bold text-slate-400">
+                    <span className="text-xs font-extrabold text-[#6b6a85]">
                       Bank Soal: {soalAktif.totalSoalTemplate} Soal
                     </span>
                   ) : null}
                 </div>
 
                 {soalAktif?.isBonusKulitPisang && (
-                  <div className="p-2.5 rounded-xl bg-amber-400/15 border border-amber-400/45 text-amber-200 text-xs font-bold flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-amber-300 shrink-0" />
+                  <div className="p-2.5 rounded-xl bg-[#fff3c4] border-2 border-[#ffb81c] text-[#7a5200] text-xs font-extrabold flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-[#e6a100] shrink-0" />
                     <span>Jawab benar untuk mendapatkan Perisai Anti-Turun!</span>
                   </div>
                 )}
 
                 {soalAktif ? (
-                  <p className="text-base sm:text-xl lg:text-[22px] font-bold text-white leading-relaxed break-words">
+                  <p className="bk-h text-lg sm:text-xl lg:text-[22px] font-extrabold text-[#2b2a4a] leading-snug break-words">
                     {soalAktif.teks}
                   </p>
                 ) : (
-                  <div className="py-6 flex items-center justify-center gap-2.5 text-slate-400">
-                    <Loader2 className="w-5 h-5 animate-spin text-amber-400" />
-                    <span className="text-sm font-semibold">Menyiapkan pertanyaan berikutnya...</span>
+                  <div className="py-6 flex items-center justify-center gap-2.5 text-[#6b6a85]">
+                    <Loader2 className="w-5 h-5 animate-spin text-[#e2312d]" />
+                    <span className="text-sm font-extrabold">Menyiapkan pertanyaan berikutnya...</span>
                   </div>
                 )}
               </div>
 
-              {/* 5. Daftar Pilihan Jawaban (6 State Visual Jelas) */}
+              {/* 5. Daftar Pilihan Jawaban (6 State Visual Jelas bertema Festival) */}
               <div className="grid grid-cols-1 gap-2.5 sm:gap-3" role="group" aria-label="Pilihan jawaban">
                 {soalAktif?.pilihan.map((opsi) => {
                   const isDipilih = choiceDipilih === opsi.choiceId;
                   const isKunci = feedback?.kunciKey === opsi.key;
                   const isTampilkanHasil = Boolean(feedback?.tampil);
 
-                  let cardCls =
-                    'bg-slate-800/95 border-slate-600/80 text-slate-100 hover:bg-slate-800 hover:border-sky-400 hover:shadow-lg hover:shadow-sky-950/40';
-                  let keyCls = 'bg-slate-700 text-amber-300 border border-slate-600';
+                  let cardCls = 'bk-opt w-full justify-between';
+                  let keyCls = 'bk-opt-k';
                   let statusNode = (
-                    <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-sky-300 transition-colors shrink-0" />
+                    <ChevronRight className="w-4 h-4 text-[#9e9cb3] group-hover:text-[#1d8fe0] transition-colors shrink-0" />
                   );
 
                   if (isTampilkanHasil) {
                     if (isKunci && feedback?.benar && isDipilih) {
-                      // State: Benar & Dipilih
-                      cardCls =
-                        'bg-emerald-500/20 border-emerald-400 text-white ring-2 ring-emerald-400/45 shadow-lg shadow-emerald-950/40';
-                      keyCls = 'bg-emerald-400 text-slate-950 border border-emerald-200';
+                      cardCls = 'bk-opt ok w-full justify-between ring-2 ring-[#1f9d55]/35';
+                      keyCls = 'bk-opt-k';
                       statusNode = (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/25 border border-emerald-400/50 text-emerald-200 text-[11px] font-black shrink-0">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#1f9d55] text-white text-[11px] font-extrabold shrink-0">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
                           <span className="hidden sm:inline">
                             {feedback.isBonusKulitPisang ? 'Perisai!' : 'Memanjat!'}
                           </span>
                         </span>
                       );
                     } else if (isKunci) {
-                      // State: Kunci Benar (saat user memilih opsi lain)
-                      cardCls =
-                        'bg-emerald-500/15 border-emerald-400/85 text-emerald-50 ring-1 ring-emerald-400/40';
-                      keyCls = 'bg-emerald-500 text-slate-950 border border-emerald-300';
+                      cardCls = 'bk-opt ok w-full justify-between';
+                      keyCls = 'bk-opt-k';
                       statusNode = (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/45 text-emerald-200 text-[11px] font-black shrink-0">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#1f9d55]/15 text-[#136837] text-[11px] font-extrabold shrink-0">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
                           <span className="hidden sm:inline">Jawaban Benar</span>
                         </span>
                       );
                     } else if (isDipilih && !feedback?.benar) {
-                      // State: Salah & Dipilih
-                      cardCls =
-                        'bg-rose-500/20 border-rose-400 text-rose-50 ring-2 ring-rose-400/40';
-                      keyCls = 'bg-rose-500 text-white border border-rose-300';
+                      cardCls = 'bk-opt no w-full justify-between ring-2 ring-[#d63b3b]/35';
+                      keyCls = 'bk-opt-k';
                       statusNode = (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-500/25 border border-rose-400/50 text-rose-200 text-[11px] font-black shrink-0">
-                          <XCircle className="w-3.5 h-3.5 text-rose-300" />
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#d63b3b] text-white text-[11px] font-extrabold shrink-0">
+                          <XCircle className="w-3.5 h-3.5" />
                           <span className="hidden sm:inline">Kurang Tepat</span>
                         </span>
                       );
                     } else {
-                      // State: Disabled / Nonaktif setelah dijawab
-                      cardCls = 'bg-slate-900/60 border-slate-800 text-slate-500 opacity-55';
-                      keyCls = 'bg-slate-800 text-slate-500 border border-slate-700';
+                      cardCls = 'bk-opt w-full justify-between opacity-55';
+                      keyCls = 'bk-opt-k';
                       statusNode = <span className="sr-only">Nonaktif</span>;
                     }
                   } else if (isDipilih) {
-                    // State: Selected (menunggu konfirmasi backend)
                     cardCls =
-                      'bg-amber-500/20 border-amber-400 text-white ring-2 ring-amber-400/50 shadow-lg shadow-amber-950/30';
-                    keyCls = 'bg-amber-400 text-slate-950 border border-amber-200';
+                      'bk-opt w-full justify-between !border-[#ffb81c] !bg-[#fff8dc] ring-2 ring-[#ffb81c]/45';
+                    keyCls = 'bk-opt-k !bg-[#ffb81c] !text-[#4a3000] !border-[#c98a00]';
                     statusNode = (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-400/20 border border-amber-400/50 text-amber-200 text-[11px] font-black shrink-0">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#ffe9a8] border border-[#ffb81c] text-[#7a5200] text-[11px] font-extrabold shrink-0">
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         <span>Dipilih</span>
                       </span>
                     );
                   } else if (sudahKirim) {
-                    // State: Disabled sementara
-                    cardCls = 'bg-slate-900/60 border-slate-800 text-slate-500 opacity-60';
-                    keyCls = 'bg-slate-800 text-slate-500 border border-slate-700';
+                    cardCls = 'bk-opt w-full justify-between opacity-60';
+                    keyCls = 'bk-opt-k';
                     statusNode = <span className="sr-only">Terkunci</span>;
                   }
 
@@ -1044,16 +1034,10 @@ export default function MainPanjatPinang({
                       disabled={sudahKirim}
                       aria-pressed={isDipilih}
                       onClick={() => handlePilihJawaban(opsi)}
-                      className={`group w-full p-3.5 sm:p-4 rounded-2xl border-2 flex items-center gap-3 sm:gap-3.5 transition-all duration-150 active:scale-[0.99] motion-reduce:transform-none text-left min-h-[54px] sm:min-h-[60px] ${cardCls} ${
-                        sudahKirim ? 'cursor-not-allowed' : 'cursor-pointer'
-                      }`}
+                      className={`group min-h-[54px] sm:min-h-[60px] ${cardCls}`}
                     >
-                      <span
-                        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-xs sm:text-sm font-black shrink-0 transition-colors ${keyCls}`}
-                      >
-                        {opsi.key}
-                      </span>
-                      <span className="text-sm sm:text-base font-bold flex-1 min-w-0 leading-snug break-words">
+                      <span className={keyCls}>{opsi.key}</span>
+                      <span className="text-sm sm:text-base font-extrabold flex-1 min-w-0 leading-snug break-words text-left">
                         {opsi.teks}
                       </span>
                       {statusNode}
@@ -1066,21 +1050,21 @@ export default function MainPanjatPinang({
               {feedback?.tampil && (
                 <div
                   role="status"
-                  className={`p-4 rounded-2xl sm:rounded-3xl text-xs sm:text-sm font-bold shadow-xl space-y-2.5 border-2 motion-safe:panjat-anim-feedback ${
+                  className={`p-4 rounded-[20px] text-xs sm:text-sm font-bold shadow-sm space-y-2.5 border-2 motion-safe:panjat-anim-feedback ${
                     feedback.benar
-                      ? 'bg-emerald-950/90 border-emerald-400/75 text-emerald-100'
-                      : 'bg-rose-950/90 border-rose-400/75 text-rose-100'
+                      ? 'bg-[#e9f9ef] border-[#1f9d55] text-[#136837]'
+                      : 'bg-[#fdecec] border-[#d63b3b] text-[#8a1f1f]'
                   }`}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       {feedback.benar ? (
-                        <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                        <CheckCircle2 className="w-5 h-5 text-[#1f9d55] shrink-0" />
                       ) : (
-                        <XCircle className="w-5 h-5 text-rose-400 shrink-0" />
+                        <XCircle className="w-5 h-5 text-[#d63b3b] shrink-0" />
                       )}
                       <div>
-                        <div className="font-black text-white text-sm sm:text-base">
+                        <div className="bk-h font-extrabold text-[#2b2a4a] text-sm sm:text-base">
                           {feedback.isBonusKulitPisang
                             ? feedback.benar
                               ? 'Perisai Kulit Pisang Diperoleh!'
@@ -1091,7 +1075,7 @@ export default function MainPanjatPinang({
                                 feedback.perubahanPosisi ? `(${feedback.perubahanPosisi}%)` : ''
                               }`}
                         </div>
-                        <p className="text-[11px] font-medium text-slate-300">
+                        <p className="text-[11px] font-bold text-[#6b6a85]">
                           Soal berikutnya segera dimulai otomatis, atau lanjut sekarang.
                         </p>
                       </div>
@@ -1100,7 +1084,7 @@ export default function MainPanjatPinang({
                     <button
                       type="button"
                       onClick={handleLanjutCepat}
-                      className="px-4 py-2.5 min-h-[44px] bg-white hover:bg-amber-300 text-slate-950 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md transition-colors cursor-pointer shrink-0"
+                      className="bk-btn alt !py-2 !px-4 !text-xs shrink-0"
                     >
                       <span>Lanjut Soal</span>
                       <ArrowRight className="w-4 h-4" />
@@ -1110,27 +1094,27 @@ export default function MainPanjatPinang({
                   {/* Detail Bonus & Rintangan */}
                   <div className="flex flex-wrap gap-2">
                     {feedback.bonusStreakDidapat && feedback.bonusStreakDidapat > 0 ? (
-                      <span className="px-2.5 py-1 rounded-lg bg-orange-500/20 border border-orange-400/40 text-orange-200 text-[11px] flex items-center gap-1">
-                        <Flame className="w-3.5 h-3.5 fill-current" /> Bonus Streak (+
+                      <span className="px-2.5 py-1 rounded-full bg-[#fff3c4] border border-[#ffb81c] text-[#7a5200] text-[11px] font-extrabold flex items-center gap-1">
+                        <Flame className="w-3.5 h-3.5 fill-current text-[#e2312d]" /> Bonus Streak (+
                         {feedback.bonusStreakDidapat}%)
                       </span>
                     ) : null}
 
                     {feedback.bonusPeganganKuatDidapat && feedback.bonusPeganganKuatDidapat > 0 ? (
-                      <span className="px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-400/40 text-amber-200 text-[11px] flex items-center gap-1">
+                      <span className="px-2.5 py-1 rounded-full bg-[#fff3c4] border border-[#ffb81c] text-[#7a5200] text-[11px] font-extrabold flex items-center gap-1">
                         <HandMetal className="w-3.5 h-3.5" /> Pegangan Kuat (+
                         {feedback.bonusPeganganKuatDidapat}%)
                       </span>
                     ) : null}
 
                     {feedback.perisaiDigunakan && (
-                      <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-[11px] flex items-center gap-1">
+                      <span className="px-2.5 py-1 rounded-full bg-[#e9f9ef] border border-[#1f9d55] text-[#136837] text-[11px] font-extrabold flex items-center gap-1">
                         <Shield className="w-3.5 h-3.5" /> Perisai Menahan Tiang Licin!
                       </span>
                     )}
 
                     {feedback.penaltiTiangLicin && feedback.penaltiTiangLicin > 0 ? (
-                      <span className="px-2.5 py-1 rounded-lg bg-cyan-500/20 border border-cyan-400/40 text-cyan-200 text-[11px] flex items-center gap-1">
+                      <span className="px-2.5 py-1 rounded-full bg-[#e9f4ff] border border-[#add6fa] text-[#1368ad] text-[11px] font-extrabold flex items-center gap-1">
                         <Droplets className="w-3.5 h-3.5" /> Terpeleset Tiang Licin (-
                         {feedback.penaltiTiangLicin}% tambahan)
                       </span>
@@ -1138,13 +1122,13 @@ export default function MainPanjatPinang({
                   </div>
 
                   {feedback.rintanganBaru && (
-                    <div className="p-2.5 rounded-xl bg-amber-400/15 border border-amber-400/45 text-amber-100 flex items-start gap-2.5">
-                      <Gift className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
+                    <div className="p-2.5 rounded-xl bg-[#fff3c4] border border-[#ffb81c] text-[#7a5200] flex items-start gap-2.5">
+                      <Gift className="w-4 h-4 text-[#e6a100] shrink-0 mt-0.5" />
                       <div className="text-xs">
-                        <div className="font-black text-amber-300">
+                        <div className="font-extrabold text-[#4a3000]">
                           {feedback.rintanganBaru.judul}
                         </div>
-                        <div className="text-[11px] text-slate-200 font-medium">
+                        <div className="text-[11px] text-[#7a5200] font-semibold">
                           {feedback.rintanganBaru.deskripsi}
                         </div>
                       </div>
@@ -1152,7 +1136,7 @@ export default function MainPanjatPinang({
                   )}
 
                   {feedback.penjelasan && (
-                    <p className="text-xs text-slate-200 font-medium pt-1 border-t border-white/10 leading-relaxed">
+                    <p className="text-xs text-[#2b2a4a] font-semibold pt-2 border-t border-black/10 leading-relaxed">
                       {feedback.penjelasan}
                     </p>
                   )}
@@ -1166,7 +1150,7 @@ export default function MainPanjatPinang({
   }
 
   // =========================================================================
-  // 3. TAHAP SELESAI & PODIUM JUARA
+  // 3. TAHAP SELESAI & PODIUM JUARA (TEMA FESTIVAL 17 AGUSTUS)
   // =========================================================================
   const finalLeaderboard: PesertaPanjatData[] = hasilAkhir?.leaderboard || leaderboard;
   const juara1 = hasilAkhir?.podium?.juara1 || finalLeaderboard[0];
@@ -1181,23 +1165,25 @@ export default function MainPanjatPinang({
     (totalJawabFinal > 0 ? Math.round((myFinalData.totalBenar / totalJawabFinal) * 100) : 0);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#070d1d] via-[#0c1836] to-[#0b1f33] text-white p-3 sm:p-6 flex flex-col justify-between select-none">
+    <div className="bk-festival p-3 sm:p-6 flex flex-col justify-between select-none">
       <div className="max-w-4xl mx-auto w-full flex-1 flex flex-col justify-between gap-5">
         <div className="text-center pt-2 space-y-1.5">
-          <span className="inline-block px-3 py-1 bg-amber-400/20 border border-amber-400/40 text-amber-300 text-xs font-black rounded-full uppercase tracking-wider">
-            Panjat Pinang Selesai
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1 bg-[#ffe9a8] border border-[#ffb81c] text-[#7a5200] text-xs font-extrabold rounded-full uppercase tracking-wider">
+            <Trophy className="w-3.5 h-3.5" /> Panjat Pinang Selesai
           </span>
-          <h1 className="text-2xl sm:text-4xl font-black text-white">Podium Juara 🏆</h1>
+          <h1 className="bk-h text-3xl sm:text-4xl font-extrabold text-[#2b2a4a]">
+            Podium Juara
+          </h1>
           {myFinalIndex === 0 && (
-            <p className="text-sm font-black text-amber-400">
-              Selamat! Kamu Berhasil Meraih Juara 1! 🥇
+            <p className="text-sm font-extrabold text-[#b81f1c]">
+              Selamat! Kamu Berhasil Meraih Juara 1!
             </p>
           )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-center my-auto">
           {/* Podium 1, 2, 3 dengan Karakter 2D Juara */}
-          <div className="md:col-span-6 bg-slate-900/90 border border-slate-700/80 rounded-3xl p-5 shadow-2xl flex items-end justify-center gap-3">
+          <div className="md:col-span-6 bk-card !p-5 flex items-end justify-center gap-3">
             {juara2 && (
               <div className="flex flex-col items-center w-24 sm:w-28 text-center">
                 <KarakterPanjatPinang
@@ -1208,11 +1194,11 @@ export default function MainPanjatPinang({
                   size="sm"
                   className="mb-1"
                 />
-                <span className="text-xs font-bold text-slate-200 truncate w-full">{juara2.nama}</span>
-                <span className="text-[11px] font-mono text-slate-400 mb-1">{juara2.posisi}%</span>
-                <div className="w-full bg-slate-700 h-24 rounded-t-2xl flex flex-col items-center justify-center font-black text-slate-200 border-t-2 border-slate-400">
-                  <span className="text-xl leading-none">2</span>
-                  <span className="text-[9px] font-bold uppercase text-sky-300 mt-0.5">Perak</span>
+                <span className="text-xs font-extrabold text-[#2b2a4a] truncate w-full">{juara2.nama}</span>
+                <span className="text-[11px] font-mono font-bold text-[#6b6a85] mb-1">{juara2.posisi}%</span>
+                <div className="w-full bg-[#8d9bb5] h-24 rounded-t-2xl flex flex-col items-center justify-center font-black text-white border-t-2 border-[#cbd5e1] shadow-sm">
+                  <span className="bk-h text-xl leading-none">2</span>
+                  <span className="text-[9px] font-extrabold uppercase mt-0.5">Perak</span>
                 </div>
               </div>
             )}
@@ -1227,16 +1213,16 @@ export default function MainPanjatPinang({
                   size="md"
                   className="mb-1"
                 />
-                <span className="text-xs sm:text-sm font-black text-amber-300 truncate w-full">
+                <span className="text-xs sm:text-sm font-black text-[#e2312d] truncate w-full">
                   {juara1.nama}
                 </span>
-                <span className="text-xs font-mono font-bold text-amber-400 mb-1">
+                <span className="text-xs font-mono font-extrabold text-[#1f9d55] mb-1">
                   {juara1.posisi}%
                 </span>
-                <div className="w-full bg-amber-500 h-32 rounded-t-2xl flex flex-col items-center justify-center font-black text-slate-950 border-t-2 border-amber-300 shadow-lg">
-                  <span className="text-2xl leading-none">1</span>
+                <div className="w-full bg-[#ffb81c] h-32 rounded-t-2xl flex flex-col items-center justify-center font-black text-[#4a3000] border-t-2 border-[#fde047] shadow-md">
+                  <span className="bk-h text-2xl leading-none">1</span>
                   <span className="text-[9px] font-black uppercase tracking-wider mt-0.5">
-                    Mahkota Juara
+                    Juara 1
                   </span>
                 </div>
               </div>
@@ -1252,65 +1238,65 @@ export default function MainPanjatPinang({
                   size="sm"
                   className="mb-1"
                 />
-                <span className="text-xs font-bold text-slate-200 truncate w-full">{juara3.nama}</span>
-                <span className="text-[11px] font-mono text-slate-400 mb-1">{juara3.posisi}%</span>
-                <div className="w-full bg-amber-800/85 h-18 rounded-t-2xl flex flex-col items-center justify-center font-black text-amber-200 border-t-2 border-amber-600">
-                  <span className="text-xl leading-none">3</span>
-                  <span className="text-[9px] font-bold uppercase text-amber-200 mt-0.5">Perunggu</span>
+                <span className="text-xs font-extrabold text-[#2b2a4a] truncate w-full">{juara3.nama}</span>
+                <span className="text-[11px] font-mono font-bold text-[#6b6a85] mb-1">{juara3.posisi}%</span>
+                <div className="w-full bg-[#c0814a] h-18 rounded-t-2xl flex flex-col items-center justify-center font-black text-white border-t-2 border-[#e9b778] shadow-sm">
+                  <span className="bk-h text-xl leading-none">3</span>
+                  <span className="text-[9px] font-extrabold uppercase mt-0.5">Perunggu</span>
                 </div>
               </div>
             )}
           </div>
 
           {/* Rapor Pribadi */}
-          <div className="md:col-span-6 bg-slate-900/90 border border-slate-700/80 rounded-3xl p-5 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-700">
+          <div className="md:col-span-6 bk-card !border-[3px] !border-[#ffb81c] bg-gradient-to-b from-[#fffdf6] to-[#fff3d6] !p-5 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b-2 border-[#f0dfb4]">
               <div>
-                <span className="text-[11px] uppercase font-bold text-slate-400">Peringkat Akhir</span>
-                <h3 className="text-lg sm:text-xl font-black text-white">
+                <span className="text-[11px] uppercase font-extrabold text-[#6b6a85]">Peringkat Akhir</span>
+                <h3 className="bk-h text-lg sm:text-xl font-extrabold text-[#2b2a4a]">
                   {myFinalIndex >= 0 ? `#${myFinalIndex + 1}` : '-'} dari {finalLeaderboard.length} Siswa
                 </h3>
               </div>
               <div className="text-right">
-                <span className="text-[11px] uppercase font-bold text-slate-400">Ketinggian Akhir</span>
-                <div className="text-xl sm:text-2xl font-black text-amber-400 font-mono">
+                <span className="text-[11px] uppercase font-extrabold text-[#6b6a85]">Ketinggian Akhir</span>
+                <div className="bk-h text-2xl font-extrabold text-[#1f9d55] font-mono">
                   {myFinalData.posisi}%
                 </div>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-xs sm:text-sm">
-              <div className="bg-slate-800/80 border border-slate-700 p-3 rounded-2xl">
-                <span className="text-slate-400 text-[10px] uppercase font-bold block">
+              <div className="bg-white border-2 border-[#f0dfb4] p-3 rounded-2xl">
+                <span className="text-[#6b6a85] text-[10px] uppercase font-extrabold block">
                   Akurasi Jawaban
                 </span>
-                <span className="font-bold text-emerald-400 font-mono">
+                <span className="font-extrabold text-[#1f9d55] font-mono">
                   {myFinalData.totalBenar}✓ / {myFinalData.totalSalah}✗ ({akurasiFinal}%)
                 </span>
               </div>
-              <div className="bg-slate-800/80 border border-slate-700 p-3 rounded-2xl">
-                <span className="text-slate-400 text-[10px] uppercase font-bold block">
+              <div className="bg-white border-2 border-[#f0dfb4] p-3 rounded-2xl">
+                <span className="text-[#6b6a85] text-[10px] uppercase font-extrabold block">
                   Streak Tertinggi
                 </span>
-                <span className="font-bold text-orange-400 font-mono">
+                <span className="font-extrabold text-[#e2312d] font-mono">
                   {myFinalData.streakTertinggi}x berturut
                 </span>
               </div>
-              <div className="bg-slate-800/80 border border-slate-700 p-3 rounded-2xl">
-                <span className="text-slate-400 text-[10px] uppercase font-bold block">
+              <div className="bg-white border-2 border-[#f0dfb4] p-3 rounded-2xl">
+                <span className="text-[#6b6a85] text-[10px] uppercase font-extrabold block">
                   Rata-rata Kecepatan
                 </span>
-                <span className="font-bold text-sky-400 font-mono">
+                <span className="font-extrabold text-[#1d8fe0] font-mono">
                   {myFinalData.rataRataWaktuJawabMs
                     ? `${(myFinalData.rataRataWaktuJawabMs / 1000).toFixed(1)}s`
                     : '-'}
                 </span>
               </div>
-              <div className="bg-slate-800/80 border border-slate-700 p-3 rounded-2xl">
-                <span className="text-slate-400 text-[10px] uppercase font-bold block">
+              <div className="bg-white border-2 border-[#f0dfb4] p-3 rounded-2xl">
+                <span className="text-[#6b6a85] text-[10px] uppercase font-extrabold block">
                   Waktu Puncak / Bonus
                 </span>
-                <span className="font-bold text-amber-300 font-mono">
+                <span className="font-extrabold text-[#e6a100] font-mono">
                   {myFinalData.waktuSelesaiMs
                     ? `${(myFinalData.waktuSelesaiMs / 1000).toFixed(1)}s`
                     : `${myFinalData.poinBonus || 0} pt bonus`}
@@ -1318,13 +1304,13 @@ export default function MainPanjatPinang({
               </div>
             </div>
 
-            <Button
-              variant="utama"
+            <button
+              type="button"
               onClick={onKeluar}
-              className="w-full py-3.5 min-h-[48px] text-sm font-black bg-[#D7262E] hover:bg-[#b81e25] text-white rounded-2xl"
+              className="bk-btn w-full justify-center"
             >
-              Selesai & Keluar
-            </Button>
+              Selesai &amp; Keluar
+            </button>
           </div>
         </div>
       </div>

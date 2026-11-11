@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router';
+import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { apiRequest } from '../../lib/api';
 import { getSocket } from '../../lib/socket';
 import { bindHostReconnect } from '../../lib/socketReconnect';
-import { Button, Card, Modal } from '../../components';
+import { Modal } from '../../components';
+import { FestivalStadiumShell } from '../../components/FestivalStadiumShell';
 import { soundEffects } from '../../lib/soundEffects';
 import TiangPinangVisual, { EfekAktifVisual } from '../siswa/TiangPinangVisual';
 import KarakterPanjatPinang, { EkspresiKarakterPanjat } from '../siswa/KarakterPanjatPinang';
@@ -21,11 +22,8 @@ import {
   Droplets,
   Clock,
   Eye,
-  Volume2,
-  VolumeX,
   Flag,
   RefreshCw,
-  ArrowLeft,
   CheckCircle2,
 } from 'lucide-react';
 
@@ -154,6 +152,8 @@ const LABEL_RINTANGAN: Record<string, string> = {
 export default function LayarHostPanjatPinang() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnUrl = searchParams.get('kembali') || '/guru';
 
   const [loading, setLoading] = useState(true);
   const [errorPesan, setErrorPesan] = useState<string | null>(null);
@@ -183,6 +183,7 @@ export default function LayarHostPanjatPinang() {
   const [isMainLagi, setIsMainLagi] = useState(false);
   const [isMuted, setIsMuted] = useState(soundEffects.getMuted());
   const [copied, setCopied] = useState(false);
+  const [crowdCheer, setCrowdCheer] = useState(false);
 
   const fetchSesi = useCallback(async () => {
     if (!id) return;
@@ -323,6 +324,8 @@ export default function LayarHostPanjatPinang() {
           teks = `${aksi.nama} mencapai PUNCAK 100%!`;
           tipe = 'puncak';
           soundEffects.playVictoryFanfare();
+          setCrowdCheer(true);
+          setTimeout(() => setCrowdCheer(false), 2000);
         } else if (aksi.rintanganBaru) {
           teks = `${aksi.nama} memicu rintangan ${aksi.rintanganBaru.judul}!`;
           tipe = 'rintangan';
@@ -411,7 +414,7 @@ export default function LayarHostPanjatPinang() {
       const res = await apiRequest<{ session: { id: string } }>(`/sesi/${id}/main-lagi`, {
         method: 'POST',
       });
-      navigate(`/guru/sesi/${res.session.id}`);
+      navigate(`/guru/sesi/${res.session.id}?kembali=${encodeURIComponent(returnUrl)}`);
     } catch (err: any) {
       alert(err.pesan || 'Gagal membuat sesi ulang.');
     } finally {
@@ -433,216 +436,211 @@ export default function LayarHostPanjatPinang() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
-        <Loader2 className="w-10 h-10 animate-spin text-emerald-400 mb-3" />
-        <p className="text-sm font-bold text-slate-300">Menyiapkan Layar Panjat Pinang...</p>
+      <div className="bk-festival flex flex-col items-center justify-center p-6">
+        <Loader2 className="w-10 h-10 animate-spin text-[#e2312d] mb-3" />
+        <p className="font-extrabold text-[#2b2a4a]">Menyiapkan Arena Panjat Pinang...</p>
       </div>
     );
   }
 
   if (errorPesan) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-        <Card className="max-w-md p-6 bg-slate-800 border-slate-700 text-center">
-          <h2 className="text-xl font-bold text-white mb-2">Terjadi Kesalahan</h2>
-          <p className="text-slate-400 text-sm mb-6">{errorPesan}</p>
-          <Button variant="utama" onClick={() => navigate('/guru')} className="w-full">
-            Kembali ke Dashboard
-          </Button>
-        </Card>
+      <div className="bk-festival flex items-center justify-center p-4">
+        <div className="bk-card max-w-md w-full text-center space-y-4">
+          <h2 className="bk-h text-2xl font-extrabold">Sesi Tidak Tersedia</h2>
+          <p className="text-sm text-[#6b6a85]">{errorPesan}</p>
+          <button
+            type="button"
+            onClick={() => navigate(returnUrl)}
+            className="bk-btn w-full justify-center"
+          >
+            {returnUrl.includes('panjat-pinang') ? 'Kembali ke Pengaturan' : 'Kembali ke Dashboard'}
+          </button>
+        </div>
       </div>
     );
   }
 
+  const ruleSummaryText = config
+    ? `Benar +${config.naikBenar}% • Salah -${config.turunSalah}%`
+    : 'Benar = memanjat • Salah = meluncur';
+
+  const stadiumHeader = (
+    <FestivalStadiumShell
+      title="Panjat Pinang Kuis"
+      subtitle={`Multiplayer Individu (${templateJudul})`}
+      statusLabel={
+        status === 'lobi'
+          ? 'Menunggu siswa'
+          : status === 'jalan'
+          ? 'Berlangsung'
+          : 'Selesai'
+      }
+      statusTone={status === 'jalan' ? 'live' : status === 'selesai' ? 'done' : 'idle'}
+      targetLabel="Target Puncak 100%"
+      ruleSummary={ruleSummaryText}
+      crowdCheer={crowdCheer || status === 'selesai'}
+      isMuted={isMuted}
+      onToggleMute={handleToggleSound}
+      onBack={() => navigate(returnUrl)}
+      backLabel={returnUrl.includes('panjat-pinang') ? 'Pengaturan' : 'Dashboard'}
+      onStop={status === 'jalan' ? () => setModalAkhiriOpen(true) : undefined}
+    />
+  );
+
   // -------------------------------------------------------------------------
-  // FASE 1: LOBI PROYEKTOR
+  // FASE 1: LOBI PROYEKTOR (TEMA FESTIVAL 17 AGUSTUS)
   // -------------------------------------------------------------------------
   if (status === 'lobi') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 text-white flex flex-col justify-between p-6 sm:p-10 select-none">
-        <header className="flex justify-between items-center bg-slate-800/80 backdrop-blur border border-slate-700/80 rounded-2xl p-4 sm:px-6 shadow-md">
-          <div>
-            <span className="text-xs font-black uppercase tracking-widest text-emerald-400 block">
-              Panjat Pinang • Mode Individu Multiplayer
-            </span>
-            <h1 className="text-xl sm:text-2xl font-black text-white">{templateJudul}</h1>
-          </div>
+      <div className="bk-festival">
+        {stadiumHeader}
 
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleToggleSound}
-              className="p-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors"
-              title={isMuted ? 'Nyalakan Suara' : 'Bisukan Suara'}
-            >
-              {isMuted ? (
-                <VolumeX className="w-5 h-5 text-red-400" />
-              ) : (
-                <Volume2 className="w-5 h-5 text-emerald-400" />
-              )}
-            </button>
-            <Button
-              variant="hantu"
-              onClick={() => navigate('/guru')}
-              className="text-xs text-slate-300 border border-slate-600 hover:bg-slate-700"
-            >
-              Dashboard
-            </Button>
-          </div>
-        </header>
+        <main className="bk-wrap">
+          <section className="bk-card mt-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Kolom Kiri: PIN, QR & Ringkasan Aturan */}
+              <div>
+                <h2 className="bk-h text-2xl font-extrabold text-[#2b2a4a]">
+                  Siswa gabung lewat HP
+                </h2>
+                <p className="text-sm text-[#6b6a85] mt-1 mb-3">
+                  Masukkan PIN atau pindai QR, lalu tulis nama untuk memanjat tiang pinang masing-masing.
+                </p>
 
-        <main className="grid grid-cols-1 lg:grid-cols-12 gap-8 my-auto py-6 items-start">
-          {/* Kolom Kiri: QR, PIN & Ringkasan Aturan */}
-          <div className="lg:col-span-5 flex flex-col items-center bg-slate-800/90 border-2 border-emerald-500/40 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5 text-center">
-            <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                Gabung dari HP Siswa
-              </span>
-              <p className="text-sm font-semibold text-emerald-300">
-                Pindai kode QR atau masukkan PIN 6 digit
-              </p>
-            </div>
-
-            {qrDataUrl && (
-              <div className="bg-white p-3 rounded-2xl shadow-inner border-4 border-emerald-400">
-                <img
-                  src={qrDataUrl}
-                  alt="QR Code Panjat Pinang"
-                  className="w-44 h-44 sm:w-52 sm:h-52 object-contain"
-                />
-              </div>
-            )}
-
-            <div className="w-full bg-slate-900/90 border border-slate-700 rounded-2xl p-4">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block mb-1">
-                KODE PIN GAME
-              </span>
-              <div className="text-4xl sm:text-5xl font-mono font-black tracking-[0.25em] text-amber-400">
-                {token}
-              </div>
-            </div>
-
-            {joinUrl && (
-              <div className="w-full flex items-center justify-between gap-2 bg-slate-900/60 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-300">
-                <span className="truncate font-mono">{joinUrl}</span>
-                <button
-                  type="button"
-                  onClick={handleCopyLink}
-                  className="shrink-0 p-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-amber-300 transition-colors"
-                  title="Salin tautan"
-                >
-                  {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                </button>
-              </div>
-            )}
-
-            {/* Ringkasan Aturan Sesi */}
-            {config && (
-              <div className="w-full text-left bg-slate-900/70 border border-slate-700/80 rounded-2xl p-3.5 space-y-2 text-xs">
-                <div className="flex flex-wrap gap-1.5">
-                  <span className="px-2 py-0.5 rounded-md bg-emerald-950/90 border border-emerald-700 text-emerald-300 font-bold uppercase">
-                    Mode: {config.kesulitan}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-md bg-emerald-900/50 text-emerald-200 font-bold">
-                    Benar +{config.naikBenar}%
-                  </span>
-                  <span className="px-2 py-0.5 rounded-md bg-rose-950/80 text-rose-300 font-bold">
-                    Salah -{config.turunSalah}%
-                  </span>
-                  <span className="px-2 py-0.5 rounded-md bg-amber-950/80 text-amber-300 font-bold">
-                    Streak: {config.bonusStreakAktif ? `+${config.bonusStreak3}% / +${config.bonusStreak5}%` : 'Nonaktif'}
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-400">
-                  <span className="font-semibold text-slate-300">Rintangan: </span>
-                  {config.rintanganAktif && config.rintanganDipilih.length > 0
-                    ? config.rintanganDipilih.map((r) => LABEL_RINTANGAN[r] || r).join(', ')
-                    : 'Nonaktif'}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Kolom Kanan: Daftar Siswa di Lobi */}
-          <div className="lg:col-span-7 flex flex-col bg-slate-800/80 border border-slate-700 rounded-3xl p-6 sm:p-8 shadow-xl min-h-[440px] justify-between">
-            <div>
-              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-700 pb-4 mb-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
-                    <Users className="w-6 h-6" />
+                <div className="flex flex-wrap items-center gap-4 mb-3">
+                  <div className="bk-pin-row">
+                    {(token || '------').split('').map((digit, idx) => (
+                      <div key={idx} className="bk-pin-tile">
+                        {digit}
+                      </div>
+                    ))}
                   </div>
-                  <div>
-                    <h2 className="text-xl font-black text-white">Pemain di Lobi</h2>
-                    <p className="text-xs text-slate-400">
-                      {totalSoal} soal acak berulang • Target puncak 100%
-                    </p>
-                  </div>
-                </div>
-                <div className="bg-emerald-500/20 border border-emerald-500/50 rounded-2xl px-4 py-2 text-center">
-                  <span className="text-2xl font-black text-emerald-300 font-mono">
-                    {totalPeserta}
-                  </span>
-                  <span className="text-[11px] font-bold text-slate-400 ml-1">
-                    / {config?.maxPeserta || 100} Siswa
-                  </span>
-                </div>
-              </div>
 
-              {leaderboard.length === 0 ? (
-                <div className="h-56 flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-slate-700 rounded-2xl p-6 text-center">
-                  <Loader2 className="w-8 h-8 animate-spin text-slate-600 mb-3" />
-                  <p className="font-bold text-slate-300">Menunggu siswa bergabung...</p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Siswa masuk dengan PIN atau QR lalu memanjat tiangnya masing-masing.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-h-[300px] overflow-y-auto pr-1">
-                  {leaderboard.map((p, idx) => (
-                    <div
-                      key={p.id}
-                      className="flex items-center gap-2 bg-slate-900/80 border border-slate-700/80 rounded-xl p-2.5 shadow-sm"
-                    >
-                      <span className="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-300 text-xs font-black flex items-center justify-center shrink-0">
-                        {idx + 1}
-                      </span>
-                      <span className="font-bold text-sm text-white truncate">{p.nama}</span>
+                  {qrDataUrl && (
+                    <div className="p-1.5 bg-white border-[3px] border-[#2b2a4a] rounded-xl shrink-0">
+                      <img
+                        src={qrDataUrl}
+                        alt="QR Code Panjat Pinang"
+                        className="w-[104px] h-[104px] block"
+                      />
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
-            </div>
 
-            <div className="pt-6 border-t border-slate-700 mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <p className="text-xs text-slate-400 text-center sm:text-left">
-                Tidak ada batas waktu global. Permainan berakhir saat semua pemain mencapai 100% atau guru menghentikan sesi.
-              </p>
-              <Button
-                variant="utama"
-                size="lg"
-                onClick={handleMulai}
-                disabled={totalPeserta === 0 || isStarting}
-                className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base shadow-lg shadow-emerald-900/40 shrink-0"
-              >
-                {isStarting ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin mr-2" /> Memulai...
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-5 h-5 mr-2 fill-current" /> Mulai Panjat Pinang
-                  </>
+                {joinUrl && (
+                  <div className="flex items-center gap-2 bg-[#fff3d6] border-2 border-[#f0dfb4] rounded-xl px-3 py-2 mb-4">
+                    <span className="text-xs font-bold text-[#6b6a85] truncate flex-1 font-mono">
+                      {joinUrl}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopyLink}
+                      className="inline-flex items-center gap-1 text-xs font-extrabold px-2.5 py-1 rounded-lg bg-white border border-[#f0dfb4] text-[#2b2a4a] hover:bg-[#ffe9a8] cursor-pointer shrink-0"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-[#1f9d55]" /> Disalin
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" /> Salin
+                        </>
+                      )}
+                    </button>
+                  </div>
                 )}
-              </Button>
+
+                {/* Ringkasan Aturan Sesi */}
+                {config && (
+                  <div className="bg-[#fff3d6] border-2 border-[#f0dfb4] rounded-2xl p-3.5 space-y-2 text-xs">
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="bk-chip uppercase">Mode: {config.kesulitan}</span>
+                      <span className="bk-chip live">Benar +{config.naikBenar}%</span>
+                      <span className="bk-chip red">Salah -{config.turunSalah}%</span>
+                      <span className="bk-chip blue">
+                        Streak: {config.bonusStreakAktif ? `+${config.bonusStreak3}% / +${config.bonusStreak5}%` : 'Nonaktif'}
+                      </span>
+                    </div>
+                    <div className="text-[11px] font-bold text-[#6b6a85]">
+                      <span className="text-[#2b2a4a]">Rintangan: </span>
+                      {config.rintanganAktif && config.rintanganDipilih.length > 0
+                        ? config.rintanganDipilih.map((r) => LABEL_RINTANGAN[r] || r).join(', ')
+                        : 'Nonaktif'}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Kolom Kanan: Daftar Pemanjat + Tombol Mulai */}
+              <div className="flex flex-col justify-between gap-4">
+                <div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <h2 className="bk-h text-2xl font-extrabold text-[#2b2a4a] flex items-center gap-2">
+                      <Users className="w-5 h-5 text-[#1d8fe0]" />
+                      Pemain di Lobi ({totalPeserta}/{config?.maxPeserta || 100})
+                    </h2>
+                    <span className="bk-chip">{totalSoal} soal acak</span>
+                  </div>
+
+                  {leaderboard.length === 0 ? (
+                    <div className="h-52 flex flex-col items-center justify-center text-[#6b6a85] bg-[#fff3d6] border-2 border-dashed border-[#e6cfa0] rounded-2xl p-6 text-center">
+                      <Loader2 className="w-7 h-7 animate-spin text-[#e2312d] mb-2.5" />
+                      <p className="font-extrabold text-[#2b2a4a]">Menunggu siswa bergabung...</p>
+                      <p className="text-xs font-bold text-[#6b6a85] mt-1">
+                        Siswa masuk dengan PIN atau QR lalu memanjat tiang pinang masing-masing.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[260px] overflow-y-auto pr-1">
+                      {leaderboard.map((p, idx) => (
+                        <div
+                          key={p.id}
+                          className="flex items-center gap-2 bg-[#fff3d6] border-2 border-[#f0dfb4] rounded-xl px-2.5 py-2"
+                        >
+                          <span className="w-6 h-6 rounded-full bg-[#e2312d] text-white text-xs font-black flex items-center justify-center shrink-0">
+                            {idx + 1}
+                          </span>
+                          <span className="font-extrabold text-sm text-[#2b2a4a] truncate">
+                            {p.nama}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-3 border-t-2 border-dashed border-[#f0dfb4] flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs font-bold text-[#6b6a85] max-w-sm">
+                    Tanpa batas waktu global. Sesi berakhir saat semua mencapai 100% atau guru menekan Akhiri.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleMulai}
+                    disabled={totalPeserta === 0 || isStarting}
+                    className="bk-btn"
+                  >
+                    {isStarting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" /> Memulai...
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-4 h-4 fill-current" /> Mulai lomba
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
+          </section>
         </main>
       </div>
     );
   }
 
   // -------------------------------------------------------------------------
-  // FASE 3: PODIUM & LAPORAN AKHIR
+  // FASE 3: PODIUM & LAPORAN AKHIR (TEMA FESTIVAL 17 AGUSTUS)
   // -------------------------------------------------------------------------
   if (status === 'selesai') {
     const laporanPemain = hasilAkhir?.laporanPemain || [];
@@ -654,214 +652,231 @@ export default function LayarHostPanjatPinang() {
     const statsSoal = hasilAkhir?.questionStats || [];
 
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-emerald-950/60 to-slate-900 text-white p-6 sm:p-10">
-        <div className="max-w-7xl mx-auto space-y-8">
+      <div className="bk-festival">
+        {stadiumHeader}
+
+        <main className="bk-wrap space-y-5">
           {/* Banner Juara */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-slate-800/80 border border-emerald-500/40 rounded-3xl p-6 shadow-xl">
-            <div className="space-y-1">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/50 text-amber-300 text-xs font-black uppercase tracking-wider">
-                <Trophy className="w-3.5 h-3.5" /> Lomba Panjat Pinang Selesai
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white">{templateJudul}</h1>
-              <p className="text-xs sm:text-sm text-slate-300">
-                {hasilAkhir?.dihentikanManual
-                  ? 'Permainan dihentikan secara manual oleh guru.'
-                  : 'Seluruh pemain berhasil mencapai puncak 100%!'}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <Button
-                variant="hantu"
-                onClick={handleMainLagi}
-                disabled={isMainLagi}
-                className="border border-emerald-500/50 bg-emerald-900/40 text-emerald-200 hover:bg-emerald-800/60"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${isMainLagi ? 'animate-spin' : ''}`} />
-                Main Lagi
-              </Button>
-              <Button
-                variant="utama"
-                onClick={() => navigate('/guru')}
-                className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" /> Kembali ke Dashboard
-              </Button>
-            </div>
-          </div>
-
-          {/* Ringkasan Statistik */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-4">
-              <p className="text-xs text-slate-400 font-bold uppercase">Total Pemain</p>
-              <p className="text-2xl font-black text-white mt-1">
-                {hasilAkhir?.totalPeserta ?? leaderboard.length}
-              </p>
-            </div>
-            <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-4">
-              <p className="text-xs text-slate-400 font-bold uppercase">Mencapai Puncak 100%</p>
-              <p className="text-2xl font-black text-emerald-400 mt-1">
-                {hasilAkhir?.totalSelesai ?? leaderboard.filter((p) => p.status === 'selesai').length}
-              </p>
-            </div>
-            <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-4">
-              <p className="text-xs text-slate-400 font-bold uppercase">Total Jawaban Benar</p>
-              <p className="text-2xl font-black text-amber-400 mt-1">
-                {hasilAkhir?.totalJawabanBenar ?? 0}
-              </p>
-            </div>
-            <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-4">
-              <p className="text-xs text-slate-400 font-bold uppercase">Total Jawaban Salah</p>
-              <p className="text-2xl font-black text-rose-400 mt-1">
-                {hasilAkhir?.totalJawabanSalah ?? 0}
-              </p>
-            </div>
-          </div>
-
-          {/* Top 3 Podium dengan Karakter 2D Juara */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-            {/* Juara 2: Kalung Medali Perak */}
-            {podium.juara2 && (
-              <div className="order-2 md:order-1 bg-slate-800/90 border border-slate-500 rounded-3xl p-5 text-center shadow-lg flex flex-col items-center">
-                <KarakterPanjatPinang
-                  nama={podium.juara2.nama}
-                  pose="podium"
-                  ekspresi="bahagia"
-                  podiumRank={2}
-                  size="md"
-                  className="mb-2"
-                />
-                <span className="inline-block px-3 py-1 rounded-full bg-slate-600/80 border border-slate-400/60 text-slate-100 text-xs font-black mb-2">
-                  Juara 2 • Kalung Perak
+          <section className="bk-card mt-2 space-y-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <span className="inline-block px-3 py-1 rounded-full bg-[#ffe9a8] text-[#7a5200] text-xs font-extrabold mb-1.5">
+                  <Trophy className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />
+                  Hasil Lomba Panjat Pinang
                 </span>
-                <h3 className="text-xl font-black text-white truncate max-w-full">{podium.juara2.nama}</h3>
-                <p className="text-2xl font-black text-emerald-300 mt-1">{podium.juara2.posisi}%</p>
-                <p className="text-xs text-slate-400 mt-1">
-                  Akurasi {podium.juara2.akurasiPersen}% • Rata-rata {formatDurasiDetik(podium.juara2.rataRataWaktuJawabMs)}
+                <h1 className="bk-h text-2xl sm:text-3xl font-extrabold text-[#2b2a4a]">
+                  {podium.juara1 ? `Pemenang: ${podium.juara1.nama}!` : templateJudul}
+                </h1>
+                <p className="text-sm text-[#6b6a85] mt-0.5">
+                  {hasilAkhir?.dihentikanManual
+                    ? 'Perlombaan dihentikan manual oleh guru.'
+                    : 'Seluruh pemanjat telah menyelesaikan lomba puncak 100%!'}
                 </p>
               </div>
-            )}
 
-            {/* Juara 1: Mahkota Emas */}
-            {podium.juara1 && (
-              <div className="order-1 md:order-2 bg-gradient-to-b from-amber-500/20 to-slate-800/95 border-2 border-amber-400 rounded-3xl p-6 text-center shadow-2xl flex flex-col items-center">
-                <KarakterPanjatPinang
-                  nama={podium.juara1.nama}
-                  pose="podium"
-                  ekspresi="bahagia"
-                  podiumRank={1}
-                  size="lg"
-                  className="mb-2"
-                />
-                <span className="inline-block px-3 py-1 rounded-full bg-amber-400 text-slate-950 text-xs font-black mb-2">
-                  Juara 1 • Mahkota Puncak Pinang
-                </span>
-                <h3 className="text-2xl font-black text-white truncate max-w-full">{podium.juara1.nama}</h3>
-                <p className="text-3xl font-black text-amber-300 mt-1">{podium.juara1.posisi}%</p>
-                <p className="text-xs text-slate-300 mt-1">
-                  Benar {podium.juara1.totalBenar} • Akurasi {podium.juara1.akurasiPersen}% •{' '}
-                  {podium.juara1.waktuSelesaiMs
-                    ? `Selesai ${formatDurasiDetik(podium.juara1.waktuSelesaiMs)}`
-                    : `Rata-rata ${formatDurasiDetik(podium.juara1.rataRataWaktuJawabMs)}`}
+              <div className="flex flex-wrap items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleMainLagi}
+                  disabled={isMainLagi}
+                  className="bk-btn alt"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isMainLagi ? 'animate-spin' : ''}`} />
+                  {isMainLagi ? 'Menyiapkan...' : 'Main lagi'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/guru')}
+                  className="bk-btn gold"
+                >
+                  Selesai
+                </button>
+              </div>
+            </div>
+
+            {/* Ringkasan Statistik */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-[#fff3d6] border-2 border-[#f0dfb4] rounded-2xl p-3.5">
+                <p className="text-[11px] text-[#6b6a85] font-extrabold uppercase">Total Pemain</p>
+                <p className="bk-h text-2xl font-extrabold text-[#2b2a4a] mt-0.5">
+                  {hasilAkhir?.totalPeserta ?? leaderboard.length}
                 </p>
               </div>
-            )}
-
-            {/* Juara 3: Kalung Medali Perunggu */}
-            {podium.juara3 && (
-              <div className="order-3 bg-slate-800/90 border border-amber-700/70 rounded-3xl p-5 text-center shadow-lg flex flex-col items-center">
-                <KarakterPanjatPinang
-                  nama={podium.juara3.nama}
-                  pose="podium"
-                  ekspresi="bahagia"
-                  podiumRank={3}
-                  size="md"
-                  className="mb-2"
-                />
-                <span className="inline-block px-3 py-1 rounded-full bg-amber-900/60 border border-amber-600/60 text-amber-200 text-xs font-black mb-2">
-                  Juara 3 • Kalung Perunggu
-                </span>
-                <h3 className="text-xl font-black text-white truncate max-w-full">{podium.juara3.nama}</h3>
-                <p className="text-2xl font-black text-emerald-300 mt-1">{podium.juara3.posisi}%</p>
-                <p className="text-xs text-slate-400 mt-1">
-                  Akurasi {podium.juara3.akurasiPersen}% • Rata-rata {formatDurasiDetik(podium.juara3.rataRataWaktuJawabMs)}
+              <div className="bg-[#fff3d6] border-2 border-[#f0dfb4] rounded-2xl p-3.5">
+                <p className="text-[11px] text-[#6b6a85] font-extrabold uppercase">Capai Puncak 100%</p>
+                <p className="bk-h text-2xl font-extrabold text-[#1f9d55] mt-0.5">
+                  {hasilAkhir?.totalSelesai ?? leaderboard.filter((p) => p.status === 'selesai').length}
                 </p>
               </div>
-            )}
-          </div>
+              <div className="bg-[#fff3d6] border-2 border-[#f0dfb4] rounded-2xl p-3.5">
+                <p className="text-[11px] text-[#6b6a85] font-extrabold uppercase">Jawaban Benar</p>
+                <p className="bk-h text-2xl font-extrabold text-[#e6a100] mt-0.5">
+                  {hasilAkhir?.totalJawabanBenar ?? 0}
+                </p>
+              </div>
+              <div className="bg-[#fff3d6] border-2 border-[#f0dfb4] rounded-2xl p-3.5">
+                <p className="text-[11px] text-[#6b6a85] font-extrabold uppercase">Jawaban Salah</p>
+                <p className="bk-h text-2xl font-extrabold text-[#d63b3b] mt-0.5">
+                  {hasilAkhir?.totalJawabanSalah ?? 0}
+                </p>
+              </div>
+            </div>
+
+            {/* Top 3 Podium dengan Karakter 2D Juara */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end pt-1">
+              {/* Juara 2: Kalung Medali Perak */}
+              {podium.juara2 && (
+                <div className="order-2 md:order-1 bg-[#fff3d6] border-2 border-[#cbd5e1] rounded-[20px] p-5 text-center flex flex-col items-center">
+                  <KarakterPanjatPinang
+                    nama={podium.juara2.nama}
+                    pose="podium"
+                    ekspresi="bahagia"
+                    podiumRank={2}
+                    size="md"
+                    className="mb-2"
+                  />
+                  <span className="inline-block px-3 py-0.5 rounded-full bg-[#dfe3ee] text-[#394060] text-xs font-extrabold mb-1.5">
+                    Juara 2 • Medali Perak
+                  </span>
+                  <h3 className="bk-h text-xl font-extrabold text-[#2b2a4a] truncate max-w-full">
+                    {podium.juara2.nama}
+                  </h3>
+                  <p className="bk-h text-2xl font-extrabold text-[#1f9d55] mt-0.5">
+                    {podium.juara2.posisi}%
+                  </p>
+                  <p className="text-xs font-bold text-[#6b6a85] mt-1">
+                    Akurasi {podium.juara2.akurasiPersen}% • Rata-rata {formatDurasiDetik(podium.juara2.rataRataWaktuJawabMs)}
+                  </p>
+                </div>
+              )}
+
+              {/* Juara 1: Mahkota Emas */}
+              {podium.juara1 && (
+                <div className="order-1 md:order-2 bg-gradient-to-b from-[#fff3c4] to-[#fff3d6] border-[3px] border-[#ffb81c] rounded-[20px] p-6 text-center shadow-md flex flex-col items-center">
+                  <KarakterPanjatPinang
+                    nama={podium.juara1.nama}
+                    pose="podium"
+                    ekspresi="bahagia"
+                    podiumRank={1}
+                    size="lg"
+                    className="mb-2"
+                  />
+                  <span className="inline-block px-3 py-0.5 rounded-full bg-[#ffb81c] text-[#4a3000] text-xs font-extrabold mb-1.5">
+                    Juara 1 • Pemenang Puncak
+                  </span>
+                  <h3 className="bk-h text-2xl font-extrabold text-[#e2312d] truncate max-w-full">
+                    {podium.juara1.nama}
+                  </h3>
+                  <p className="bk-h text-3xl font-extrabold text-[#2b2a4a] mt-0.5">
+                    {podium.juara1.posisi}%
+                  </p>
+                  <p className="text-xs font-bold text-[#6b6a85] mt-1">
+                    Benar {podium.juara1.totalBenar} • Akurasi {podium.juara1.akurasiPersen}% •{' '}
+                    {podium.juara1.waktuSelesaiMs
+                      ? `Selesai ${formatDurasiDetik(podium.juara1.waktuSelesaiMs)}`
+                      : `Rata-rata ${formatDurasiDetik(podium.juara1.rataRataWaktuJawabMs)}`}
+                  </p>
+                </div>
+              )}
+
+              {/* Juara 3: Kalung Medali Perunggu */}
+              {podium.juara3 && (
+                <div className="order-3 bg-[#fff3d6] border-2 border-[#d99b52] rounded-[20px] p-5 text-center flex flex-col items-center">
+                  <KarakterPanjatPinang
+                    nama={podium.juara3.nama}
+                    pose="podium"
+                    ekspresi="bahagia"
+                    podiumRank={3}
+                    size="md"
+                    className="mb-2"
+                  />
+                  <span className="inline-block px-3 py-0.5 rounded-full bg-[#f4dec0] text-[#7c2d12] text-xs font-extrabold mb-1.5">
+                    Juara 3 • Medali Perunggu
+                  </span>
+                  <h3 className="bk-h text-xl font-extrabold text-[#2b2a4a] truncate max-w-full">
+                    {podium.juara3.nama}
+                  </h3>
+                  <p className="bk-h text-2xl font-extrabold text-[#1f9d55] mt-0.5">
+                    {podium.juara3.posisi}%
+                  </p>
+                  <p className="text-xs font-bold text-[#6b6a85] mt-1">
+                    Akurasi {podium.juara3.akurasiPersen}% • Rata-rata {formatDurasiDetik(podium.juara3.rataRataWaktuJawabMs)}
+                  </p>
+                </div>
+              )}
+            </div>
+          </section>
 
           {/* Tabel Laporan Lengkap Semua Pemain */}
-          <div className="bg-slate-800/90 border border-slate-700 rounded-3xl overflow-hidden shadow-xl">
-            <div className="p-5 border-b border-slate-700 flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h2 className="text-lg font-black text-white">Laporan Detail Pemain</h2>
-                <p className="text-xs text-slate-400">
-                  Diurutkan berdasarkan status puncak, waktu selesai tercepat, posisi tertinggi, jumlah benar, dan kecepatan jawab.
-                </p>
-              </div>
+          <section className="bk-card space-y-4">
+            <div>
+              <h2 className="bk-h text-xl font-extrabold text-[#2b2a4a]">Laporan Detail Pemain</h2>
+              <p className="text-xs font-bold text-[#6b6a85]">
+                Diurutkan berdasarkan status puncak, waktu selesai tercepat, posisi tertinggi, jumlah benar, dan kecepatan jawab.
+              </p>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-900/80 text-slate-400 uppercase font-bold">
+            <div className="bk-hm-wrap">
+              <table className="bk-hm text-left">
+                <thead>
                   <tr>
-                    <th className="px-4 py-3">Rank</th>
-                    <th className="px-4 py-3">Nama Pemain</th>
-                    <th className="px-4 py-3 text-right">Posisi</th>
-                    <th className="px-4 py-3 text-right">Poin Bonus</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3 text-center">Benar / Salah</th>
-                    <th className="px-4 py-3 text-right">Akurasi</th>
-                    <th className="px-4 py-3 text-right">Streak Maks</th>
-                    <th className="px-4 py-3 text-right">Rata Jawab</th>
-                    <th className="px-4 py-3 text-right">Waktu Selesai</th>
-                    <th className="px-4 py-3 text-center">Rintangan</th>
+                    <th className="px-3 py-2.5">Rank</th>
+                    <th className="nm px-3 py-2.5">Nama Pemain</th>
+                    <th className="px-3 py-2.5 text-right">Posisi</th>
+                    <th className="px-3 py-2.5 text-right">Bonus</th>
+                    <th className="px-3 py-2.5">Status</th>
+                    <th className="px-3 py-2.5 text-center">Benar / Salah</th>
+                    <th className="px-3 py-2.5 text-right">Akurasi</th>
+                    <th className="px-3 py-2.5 text-right">Streak Maks</th>
+                    <th className="px-3 py-2.5 text-right">Rata Jawab</th>
+                    <th className="px-3 py-2.5 text-right">Waktu Selesai</th>
+                    <th className="px-3 py-2.5 text-center">Rintangan</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-700/70">
+                <tbody>
                   {laporanPemain.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-700/30 transition-colors">
-                      <td className="px-4 py-3 font-black text-amber-300">#{p.peringkat}</td>
-                      <td className="px-4 py-3 font-bold text-white">{p.nama}</td>
-                      <td className="px-4 py-3 text-right font-mono font-black text-emerald-300">
+                    <tr key={p.id} className="hover:bg-[#fff8e7]/70 transition-colors">
+                      <td className="px-3 py-2.5 font-extrabold text-[#e2312d]">#{p.peringkat}</td>
+                      <td className="nm px-3 py-2.5 font-extrabold text-[#2b2a4a]">{p.nama}</td>
+                      <td className="px-3 py-2.5 text-right font-mono font-extrabold text-[#1f9d55]">
                         {p.posisiAkhir}%
                       </td>
-                      <td className="px-4 py-3 text-right font-mono text-amber-300">
+                      <td className="px-3 py-2.5 text-right font-mono font-bold text-[#c48300]">
                         {p.poinBonus > 0 ? `+${p.poinBonus}` : '-'}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-2.5">
                         {p.status === 'selesai' ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#e9f9ef] text-[#1f9d55] text-[11px] font-extrabold">
                             <CheckCircle2 className="w-3 h-3" /> Selesai
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-700 text-slate-300 font-semibold">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#f4f3f8] text-[#6b6a85] text-[11px] font-bold">
                             Belum Selesai
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-center font-mono">
-                        <span className="text-emerald-400 font-bold">{p.totalBenar}</span>
-                        <span className="text-slate-500 mx-1">/</span>
-                        <span className="text-rose-400 font-bold">{p.totalSalah}</span>
+                      <td className="px-3 py-2.5 text-center font-mono">
+                        <span className="text-[#1f9d55] font-extrabold">{p.totalBenar}</span>
+                        <span className="text-[#9e9cb3] mx-1">/</span>
+                        <span className="text-[#d63b3b] font-extrabold">{p.totalSalah}</span>
                       </td>
-                      <td className="px-4 py-3 text-right font-mono font-bold text-white">
+                      <td className="px-3 py-2.5 text-right font-mono font-extrabold text-[#2b2a4a]">
                         {p.akurasiPersen}%
                       </td>
-                      <td className="px-4 py-3 text-right font-mono text-amber-400 font-bold">
+                      <td className="px-3 py-2.5 text-right font-mono font-extrabold text-[#e6a100]">
                         {p.streakTertinggi}x
                       </td>
-                      <td className="px-4 py-3 text-right font-mono text-slate-300">
+                      <td className="px-3 py-2.5 text-right font-mono text-[#6b6a85]">
                         {formatDurasiDetik(p.rataRataWaktuJawabMs)}
                       </td>
-                      <td className="px-4 py-3 text-right font-mono text-emerald-300">
+                      <td className="px-3 py-2.5 text-right font-mono font-bold text-[#1f9d55]">
                         {formatDurasiDetik(p.waktuSelesaiMs)}
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-3 py-2.5 text-center">
                         <button
                           type="button"
                           onClick={() => setDetailPemain(p)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold transition-colors"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#fff3d6] hover:bg-[#ffe9a8] border border-[#f0dfb4] text-[#2b2a4a] font-extrabold transition-colors cursor-pointer"
                         >
                           <Eye className="w-3.5 h-3.5" />
                           <span>{p.riwayatRintangan?.length || 0}</span>
@@ -872,38 +887,40 @@ export default function LayarHostPanjatPinang() {
                 </tbody>
               </table>
             </div>
-          </div>
+          </section>
 
           {/* Statistik Soal (jika tersedia) */}
           {statsSoal.length > 0 && (
-            <div className="bg-slate-800/90 border border-slate-700 rounded-3xl p-5 shadow-xl">
-              <h3 className="text-base font-black text-white mb-3">Statistik Tingkat Kesulitan Soal</h3>
+            <section className="bk-card space-y-3">
+              <h3 className="bk-h text-lg font-extrabold text-[#2b2a4a]">
+                Statistik Tingkat Kesulitan Soal
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {statsSoal.map((sq, idx) => (
                   <div
                     key={sq.questionId}
-                    className="bg-slate-900/70 border border-slate-700/80 rounded-2xl p-3.5 flex items-center justify-between gap-3"
+                    className="bg-[#fffaf0] border-2 border-[#f0dfb4] rounded-2xl p-3.5 flex items-center justify-between gap-3"
                   >
                     <div className="min-w-0">
-                      <span className="text-[10px] font-bold uppercase text-slate-400">
+                      <span className="text-[10px] font-extrabold uppercase text-[#6b6a85]">
                         Soal #{idx + 1}
                       </span>
-                      <p className="text-xs font-semibold text-white line-clamp-2">{sq.teks}</p>
+                      <p className="text-xs font-bold text-[#2b2a4a] line-clamp-2">{sq.teks}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <span className="text-xs font-mono font-black text-emerald-400 block">
+                      <span className="text-xs font-mono font-extrabold text-[#1f9d55] block">
                         {sq.totalBenar} Benar
                       </span>
-                      <span className="text-[11px] font-mono text-rose-400">
+                      <span className="text-[11px] font-mono font-bold text-[#d63b3b]">
                         {sq.totalSalah} Salah ({sq.tingkatSalahPersen}%)
                       </span>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
+            </section>
           )}
-        </div>
+        </main>
 
         {/* Modal Riwayat Rintangan & Pergerakan Pemain */}
         <Modal
@@ -914,28 +931,28 @@ export default function LayarHostPanjatPinang() {
           variant="standard"
         >
           {detailPemain && (
-            <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1 text-slate-800">
-              <div className="grid grid-cols-3 gap-2 text-center bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs">
+            <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1 text-[#2b2a4a]">
+              <div className="grid grid-cols-3 gap-2 text-center bg-[#fff3d6] border border-[#f0dfb4] rounded-xl p-3 text-xs">
                 <div>
-                  <span className="text-slate-500 block">Posisi Akhir</span>
-                  <span className="font-black text-emerald-700 text-base">{detailPemain.posisiAkhir}%</span>
+                  <span className="text-[#6b6a85] font-bold block">Posisi Akhir</span>
+                  <span className="font-extrabold text-[#1f9d55] text-base">{detailPemain.posisiAkhir}%</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Akurasi</span>
-                  <span className="font-black text-slate-800 text-base">{detailPemain.akurasiPersen}%</span>
+                  <span className="text-[#6b6a85] font-bold block">Akurasi</span>
+                  <span className="font-extrabold text-[#2b2a4a] text-base">{detailPemain.akurasiPersen}%</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Streak Maks</span>
-                  <span className="font-black text-amber-600 text-base">{detailPemain.streakTertinggi}x</span>
+                  <span className="text-[#6b6a85] font-bold block">Streak Maks</span>
+                  <span className="font-extrabold text-[#e6a100] text-base">{detailPemain.streakTertinggi}x</span>
                 </div>
               </div>
 
               <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
+                <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#6b6a85] mb-2">
                   Riwayat Rintangan ({detailPemain.riwayatRintangan?.length || 0})
                 </h4>
-                {(!detailPemain.riwayatRintangan || detailPemain.riwayatRintangan.length === 0) ? (
-                  <p className="text-xs text-slate-500 italic bg-slate-50 p-3 rounded-xl">
+                {!detailPemain.riwayatRintangan || detailPemain.riwayatRintangan.length === 0 ? (
+                  <p className="text-xs text-[#6b6a85] italic bg-[#fffaf0] border border-[#f0dfb4] p-3 rounded-xl">
                     Pemain ini tidak mengalami rintangan selama permainan.
                   </p>
                 ) : (
@@ -943,13 +960,13 @@ export default function LayarHostPanjatPinang() {
                     {detailPemain.riwayatRintangan.map((r) => (
                       <div
                         key={r.id}
-                        className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs flex items-start justify-between gap-2"
+                        className="p-3 rounded-xl bg-[#fff3c4] border border-[#ffb81c] text-xs flex items-start justify-between gap-2"
                       >
                         <div>
-                          <p className="font-bold text-amber-900">{r.judul}</p>
-                          <p className="text-amber-800 mt-0.5">{r.deskripsi}</p>
+                          <p className="font-extrabold text-[#7a5200]">{r.judul}</p>
+                          <p className="text-[#6b4423] mt-0.5">{r.deskripsi}</p>
                         </div>
-                        <span className="shrink-0 px-2 py-0.5 rounded-md bg-white border border-amber-300 font-mono font-bold text-amber-900">
+                        <span className="shrink-0 px-2 py-0.5 rounded-md bg-white border border-[#f0dfb4] font-mono font-bold text-[#7a5200]">
                           {r.efekNilai !== 0 ? `${r.efekNilai > 0 ? '+' : ''}${r.efekNilai} ${r.satuan}` : r.satuan}
                         </span>
                       </div>
@@ -972,226 +989,215 @@ export default function LayarHostPanjatPinang() {
   const pesertaVisual = leaderboard.slice(0, maxVisualTiang);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 text-white p-4 sm:p-6 flex flex-col gap-5 select-none">
-      {/* Header Proyektor */}
-      <header className="flex flex-wrap items-center justify-between gap-4 bg-slate-800/80 border border-slate-700 rounded-2xl p-4 shadow-md">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-black uppercase tracking-wider">
-              Live Race • PIN {token}
-            </span>
-            <span className="text-xs text-slate-400">
-              {totalSelesaiCount} / {totalPeserta} Mencapai Puncak
-            </span>
+    <div className="bk-festival">
+      {stadiumHeader}
+
+      <main className="bk-wrap space-y-4">
+        {/* Live Feed Aktivitas */}
+        {liveFeed.length > 0 && (
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 mt-1">
+            {liveFeed.map((item) => {
+              const warna =
+                item.tipe === 'puncak'
+                  ? 'bg-[#fff3c4] border-[#ffb81c] text-[#7a5200]'
+                  : item.tipe === 'rintangan'
+                  ? 'bg-[#f3e8ff] border-[#c084fc] text-[#581c87]'
+                  : item.tipe === 'bonus'
+                  ? 'bg-[#e9f9ef] border-[#9de0b6] text-[#136837]'
+                  : item.tipe === 'turun'
+                  ? 'bg-[#fdecec] border-[#f4b6b6] text-[#8a1f1f]'
+                  : 'bg-[#fffdf6] border-[#f0dfb4] text-[#2b2a4a]';
+              return (
+                <div
+                  key={item.id}
+                  className={`shrink-0 px-3 py-1.5 rounded-xl border-2 text-xs font-extrabold flex items-center gap-1.5 shadow-xs ${warna}`}
+                >
+                  <span>{item.teks}</span>
+                </div>
+              );
+            })}
           </div>
-          <h1 className="text-lg sm:text-xl font-black text-white mt-0.5">{templateJudul}</h1>
-        </div>
+        )}
 
-        <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={handleToggleSound}
-            className="p-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors"
-            title={isMuted ? 'Nyalakan Suara' : 'Bisukan Suara'}
-          >
-            {isMuted ? (
-              <VolumeX className="w-5 h-5 text-red-400" />
-            ) : (
-              <Volume2 className="w-5 h-5 text-emerald-400" />
-            )}
-          </button>
-          <Button
-            variant="utama"
-            onClick={() => setModalAkhiriOpen(true)}
-            className="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl"
-          >
-            <StopCircle className="w-4 h-4 mr-1.5" /> Akhiri Sesi
-          </Button>
-        </div>
-      </header>
-
-      {/* Live Feed Aktivitas */}
-      {liveFeed.length > 0 && (
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          {liveFeed.map((item) => {
-            const warna =
-              item.tipe === 'puncak'
-                ? 'bg-amber-500/20 border-amber-400 text-amber-200'
-                : item.tipe === 'rintangan'
-                ? 'bg-purple-500/20 border-purple-400 text-purple-200'
-                : item.tipe === 'bonus'
-                ? 'bg-emerald-500/20 border-emerald-400 text-emerald-200'
-                : item.tipe === 'turun'
-                ? 'bg-rose-500/20 border-rose-400 text-rose-200'
-                : 'bg-slate-800 border-slate-600 text-slate-200';
-            return (
-              <div
-                key={item.id}
-                className={`shrink-0 px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 ${warna}`}
-              >
-                <span>{item.teks}</span>
+        {/* Area Utama: Kiri Visual Tiang Pinang, Kanan Leaderboard Real-time */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+          {/* Visual Tiang Para Pemimpin */}
+          <section className="lg:col-span-7 bk-card flex flex-col">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <div>
+                <h2 className="bk-h text-xl font-extrabold text-[#2b2a4a] flex items-center gap-2">
+                  <Flag className="w-4 h-4 text-[#e2312d]" />
+                  Arena Tiang Pinang ({pesertaVisual.length} dari {leaderboard.length} Pemain)
+                </h2>
+                <p className="text-xs font-bold text-[#6b6a85]">
+                  {totalSelesaiCount} / {totalPeserta} mencapai puncak 100% • Tersinkronisasi langsung
+                </p>
               </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Area Utama: Kiri Visual Tiang Pinang, Kanan Leaderboard Real-time */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1">
-        {/* Visual Tiang Para Pemimpin */}
-        <section className="lg:col-span-7 bg-slate-800/75 border border-slate-700 rounded-3xl p-5 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-base font-black text-white flex items-center gap-2">
-                <Flag className="w-4 h-4 text-amber-400" />
-                Arena Tiang Pinang ({pesertaVisual.length} dari {leaderboard.length} Pemain)
-              </h2>
-              <p className="text-xs text-slate-400">
-                Posisi tiang tersinkronisasi langsung dengan progres di server.
-              </p>
+              {leaderboard.length > 12 && (
+                <button
+                  type="button"
+                  onClick={() => setTampilSemuaTiang((v) => !v)}
+                  className="bk-btn alt !py-1.5 !px-3 !text-xs"
+                >
+                  {tampilSemuaTiang ? 'Tampilkan Top 12' : `Tampilkan Semua (${leaderboard.length})`}
+                </button>
+              )}
             </div>
-            {leaderboard.length > 12 && (
-              <button
-                type="button"
-                onClick={() => setTampilSemuaTiang((v) => !v)}
-                className="px-3 py-1.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-xs font-bold text-slate-200 transition-colors"
-              >
-                {tampilSemuaTiang ? 'Tampilkan Top 12' : `Tampilkan Semua (${leaderboard.length})`}
-              </button>
-            )}
-          </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 max-h-[540px] overflow-y-auto pr-1">
-            {pesertaVisual.map((p) => (
-              <div
-                key={p.id}
-                className="bg-slate-900/60 border border-slate-700/80 rounded-2xl p-2.5 flex flex-col items-center gap-1.5"
-              >
-                <div className="w-full flex items-center justify-between text-[11px] px-1">
-                  <span className="font-black text-amber-400">#{p.peringkat}</span>
-                  {p.status === 'selesai' ? (
-                    <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold text-[10px]">
-                      PUNCAK
-                    </span>
-                  ) : (
-                    <span className="font-mono font-bold text-slate-300">{p.posisi}%</span>
-                  )}
-                </div>
-                <TiangPinangVisual
-                  posisi={p.posisi}
-                  namaPemain={p.nama}
-                  efekAktif={p.efekAktif}
-                  lastDelta={deltaMap[p.id]}
-                  ekspresi={ekspresiMap[p.id]}
-                  streak={p.streakSaatIni}
-                  status={p.status}
-                  compact
-                />
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Leaderboard Real-Time Lengkap */}
-        <section className="lg:col-span-5 bg-slate-800/85 border border-slate-700 rounded-3xl p-5 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-black text-white flex items-center gap-2">
-              <Trophy className="w-4 h-4 text-amber-400" />
-              Leaderboard Real-Time
-            </h2>
-            <span className="text-xs font-mono text-slate-400">{leaderboard.length} Pemain</span>
-          </div>
-
-          <div className="space-y-2 max-h-[540px] overflow-y-auto pr-1">
-            {leaderboard.map((p) => (
-              <div
-                key={p.id}
-                className={`p-3 rounded-2xl border transition-all ${
-                  p.status === 'selesai'
-                    ? 'bg-emerald-950/50 border-emerald-500/50'
-                    : 'bg-slate-900/75 border-slate-700/80'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span
-                      className={`w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center shrink-0 ${
-                        p.peringkat === 1
-                          ? 'bg-amber-400 text-slate-950'
-                          : p.peringkat === 2
-                          ? 'bg-slate-300 text-slate-900'
-                          : p.peringkat === 3
-                          ? 'bg-amber-700 text-white'
-                          : 'bg-slate-700 text-slate-300'
-                      }`}
-                    >
-                      {p.peringkat}
-                    </span>
-                    <span
-                      className={`w-2 h-2 rounded-full shrink-0 ${
-                        p.connected === false ? 'bg-slate-500' : 'bg-emerald-400'
-                      }`}
-                      title={p.connected === false ? 'Terputus' : 'Terhubung'}
-                    />
-                    <span className="font-bold text-sm text-white truncate">{p.nama}</span>
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 max-h-[540px] overflow-y-auto pr-1">
+              {pesertaVisual.map((p) => (
+                <div
+                  key={p.id}
+                  className={`rounded-2xl p-2.5 flex flex-col items-center gap-1.5 border-2 ${
+                    p.status === 'selesai'
+                      ? 'bg-[#fff8dc] border-[#ffb81c]'
+                      : 'bg-[#fff3d6] border-[#f0dfb4]'
+                  }`}
+                >
+                  <div className="w-full flex items-center justify-between text-[11px] px-1">
+                    <span className="font-extrabold text-[#e2312d]">#{p.peringkat}</span>
+                    {p.status === 'selesai' ? (
+                      <span className="px-1.5 py-0.5 rounded-full bg-[#e9f9ef] text-[#1f9d55] font-extrabold text-[10px]">
+                        PUNCAK
+                      </span>
+                    ) : (
+                      <span className="font-mono font-extrabold text-[#2b2a4a]">{p.posisi}%</span>
+                    )}
                   </div>
-
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {p.efekAktif?.perisaiKulitPisang && (
-                      <span title="Perisai Anti-Turun" className="text-sky-400">
-                        <Shield className="w-3.5 h-3.5" />
-                      </span>
-                    )}
-                    {p.efekAktif?.peganganKuat && (
-                      <span title="Pegangan Kuat" className="text-emerald-400">
-                        <HandMetal className="w-3.5 h-3.5" />
-                      </span>
-                    )}
-                    {p.efekAktif?.tiangLicin && (
-                      <span title="Tiang Licin" className="text-amber-400">
-                        <Droplets className="w-3.5 h-3.5" />
-                      </span>
-                    )}
-                    {p.streakSaatIni >= 2 && (
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-black">
-                        <Flame className="w-3 h-3" /> {p.streakSaatIni}
-                      </span>
-                    )}
-                    <span className="font-mono font-black text-sm text-emerald-300">
-                      {p.posisi}%
-                    </span>
-                  </div>
-                </div>
-
-                {/* Progress bar mini */}
-                <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden mb-1.5">
-                  <div
-                    className={`h-full transition-all duration-300 ${
-                      p.status === 'selesai'
-                        ? 'bg-amber-400'
-                        : 'bg-gradient-to-r from-emerald-500 to-amber-400'
-                    }`}
-                    style={{ width: `${Math.max(0, Math.min(100, p.posisi))}%` }}
+                  <TiangPinangVisual
+                    posisi={p.posisi}
+                    namaPemain={p.nama}
+                    efekAktif={p.efekAktif}
+                    lastDelta={deltaMap[p.id]}
+                    ekspresi={ekspresiMap[p.id]}
+                    streak={p.streakSaatIni}
+                    status={p.status}
+                    compact
                   />
                 </div>
+              ))}
+            </div>
+          </section>
 
-                <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
-                  <span>
-                    Benar {p.totalBenar} • Salah {p.totalSalah} • Akurasi {p.akurasiPersen}%
+          {/* Leaderboard Real-Time Lengkap */}
+          <section className="lg:col-span-5 bk-card flex flex-col justify-between gap-4">
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <h2 className="bk-h text-xl font-extrabold text-[#2b2a4a] flex items-center gap-2">
+                  <Trophy className="w-4 h-4 text-[#ffb81c]" />
+                  Leaderboard Real-Time
+                </h2>
+                {config?.allowLateJoin !== false && token ? (
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#2b2a4a] text-[#fff3d6] text-xs font-extrabold font-mono">
+                    PIN: {token}
                   </span>
-                  {p.status === 'selesai' && p.waktuSelesaiMs ? (
-                    <span className="text-amber-300 font-bold flex items-center gap-1">
-                      <Clock className="w-3 h-3" /> {formatDurasiDetik(p.waktuSelesaiMs)}
-                    </span>
-                  ) : (
-                    <span>{p.poinBonus > 0 ? `+${p.poinBonus} pt` : `${p.jumlahJawab} soal`}</span>
-                  )}
-                </div>
+                ) : (
+                  <span className="bk-chip">{leaderboard.length} Pemain</span>
+                )}
               </div>
-            ))}
-          </div>
-        </section>
-      </div>
+
+              <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
+                {leaderboard.map((p) => (
+                  <div
+                    key={p.id}
+                    className={`p-3 rounded-2xl border-2 transition-all ${
+                      p.status === 'selesai'
+                        ? 'bg-[#e9f9ef] border-[#1f9d55]'
+                        : 'bg-[#fff3d6] border-[#f0dfb4]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className={`w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center shrink-0 ${
+                            p.peringkat === 1
+                              ? 'bg-[#ffb81c] text-[#4a3000]'
+                              : p.peringkat === 2
+                              ? 'bg-[#dfe3ee] text-[#2b2a4a]'
+                              : p.peringkat === 3
+                              ? 'bg-[#c0814a] text-white'
+                              : 'bg-white border border-[#f0dfb4] text-[#6b6a85]'
+                          }`}
+                        >
+                          {p.peringkat}
+                        </span>
+                        <span
+                          className={`w-2 h-2 rounded-full shrink-0 ${
+                            p.connected === false ? 'bg-[#9e9cb3]' : 'bg-[#1f9d55]'
+                          }`}
+                          title={p.connected === false ? 'Terputus' : 'Terhubung'}
+                        />
+                        <span className="font-extrabold text-sm text-[#2b2a4a] truncate">
+                          {p.nama}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {p.efekAktif?.perisaiKulitPisang && (
+                          <span title="Perisai Anti-Turun" className="text-[#1f9d55]">
+                            <Shield className="w-3.5 h-3.5" />
+                          </span>
+                        )}
+                        {p.efekAktif?.peganganKuat && (
+                          <span title="Pegangan Kuat" className="text-[#e6a100]">
+                            <HandMetal className="w-3.5 h-3.5" />
+                          </span>
+                        )}
+                        {p.efekAktif?.tiangLicin && (
+                          <span title="Tiang Licin" className="text-[#1d8fe0]">
+                            <Droplets className="w-3.5 h-3.5" />
+                          </span>
+                        )}
+                        {p.streakSaatIni >= 2 && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#fff3c4] border border-[#ffb81c] text-[#7a5200] text-[10px] font-black">
+                            <Flame className="w-3 h-3" /> {p.streakSaatIni}
+                          </span>
+                        )}
+                        <span className="font-mono font-black text-sm text-[#1f9d55]">
+                          {p.posisi}%
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Progress bar */}
+                    <div className="w-full h-2.5 bg-[#e6cfa0]/50 rounded-full overflow-hidden mb-1.5">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${
+                          p.status === 'selesai'
+                            ? 'bg-[#1f9d55]'
+                            : 'bg-gradient-to-r from-[#e2312d] via-[#ffb81c] to-[#1f9d55]'
+                        }`}
+                        style={{ width: `${Math.max(0, Math.min(100, p.posisi))}%` }}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-[#6b6a85] font-mono font-bold">
+                      <span>
+                        Benar {p.totalBenar} • Salah {p.totalSalah} • Akurasi {p.akurasiPersen}%
+                      </span>
+                      {p.status === 'selesai' && p.waktuSelesaiMs ? (
+                        <span className="text-[#1f9d55] font-extrabold flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> {formatDurasiDetik(p.waktuSelesaiMs)}
+                        </span>
+                      ) : (
+                        <span>{p.poinBonus > 0 ? `+${p.poinBonus} pt` : `${p.jumlahJawab} soal`}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setModalAkhiriOpen(true)}
+              className="bk-btn w-full justify-center"
+            >
+              <StopCircle className="w-4 h-4" /> Akhiri Lomba
+            </button>
+          </section>
+        </div>
+      </main>
 
       {/* Modal Konfirmasi Akhiri Sesi Manual */}
       <Modal
@@ -1201,22 +1207,26 @@ export default function LayarHostPanjatPinang() {
         maxWidth="md"
         variant="standard"
       >
-        <div className="space-y-4 text-slate-700">
-          <p className="text-sm leading-relaxed">
+        <div className="space-y-4 text-[#2b2a4a]">
+          <p className="text-sm leading-relaxed text-[#6b6a85]">
             Seluruh siswa akan langsung melihat hasil akhir dan peringkat saat ini. Sesi yang dihentikan manual tidak dapat dilanjutkan kembali.
           </p>
-          <div className="flex justify-end gap-2">
-            <Button variant="hantu" onClick={() => setModalAkhiriOpen(false)}>
-              Lanjutkan Permainan
-            </Button>
-            <Button
-              variant="utama"
+          <div className="flex justify-end gap-2.5">
+            <button
+              type="button"
+              onClick={() => setModalAkhiriOpen(false)}
+              className="px-4 py-2 rounded-xl border border-[#f0dfb4] bg-[#fffdf6] text-xs font-extrabold text-[#2b2a4a] cursor-pointer"
+            >
+              Lanjutkan Lomba
+            </button>
+            <button
+              type="button"
               onClick={handleAkhiriManual}
               disabled={isEnding}
-              className="bg-rose-600 hover:bg-rose-700 text-white"
+              className="bk-btn"
             >
               {isEnding ? 'Mengakhiri...' : 'Ya, Akhiri Sekarang'}
-            </Button>
+            </button>
           </div>
         </div>
       </Modal>

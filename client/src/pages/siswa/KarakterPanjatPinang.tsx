@@ -39,7 +39,7 @@ const UKURAN_MAP: Record<NonNullable<KarakterPanjatPinangProps['size']>, number>
   md: 72,
   lg: 92,
   xl: 112,
-};
+          };
 
 /**
  * Karakter 2D kartun anak lomba Panjat Pinang (17 Agustus).
@@ -87,7 +87,7 @@ export default function KarakterPanjatPinang({
       viewBox="0 0 120 130"
       role="img"
       aria-label={labelAkses}
-      className={`overflow-visible select-none drop-shadow-[0_3px_4px_rgba(0,0,0,0.45)] ${
+      className={`overflow-visible select-none drop-shadow-[0_4px_4px_rgba(43,42,74,0.22)] ${
         isBahagia
           ? 'motion-safe:animate-bounce'
           : isSedih
@@ -123,13 +123,17 @@ export default function KarakterPanjatPinang({
         <g opacity="0.95">
           <path
             d="M 18 32 L 20 26 L 22 32 L 28 34 L 22 36 L 20 42 L 18 36 L 12 34 Z"
-            fill="#FACC15"
+            fill="#FFB81C"
+            stroke="#B45309"
+            strokeWidth="0.9"
           />
           <path
             d="M 101 26 L 103 21 L 105 26 L 110 28 L 105 30 L 103 35 L 101 30 L 96 28 Z"
-            fill="#FDE047"
+            fill="#FFD23F"
+            stroke="#B45309"
+            strokeWidth="0.9"
           />
-          <circle cx="96" cy="48" r="2.2" fill="#FEF08A" />
+          <circle cx="96" cy="48" r="2.3" fill="#FFB81C" stroke="#B45309" strokeWidth="0.8" />
         </g>
       )}
 
