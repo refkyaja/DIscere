@@ -903,29 +903,33 @@ export default function DashboardGuru() {
                               <BookOpen className="w-6 h-6" />
                             </div>
 
-                            <div>
-                              <h4>{tmpl.judul}</h4>
-                              <div style={{ fontSize: '12px', color: '#6b7d6c', marginTop: '4px' }}>
-                                {tmpl.jumlahSoal} Soal Tersedia • {labelJenisGame(tmpl.game)}
+                            <div className="flex-1 flex flex-col justify-between my-2">
+                              <div>
+                                <h4 className="break-words [overflow-wrap:anywhere] [word-break:break-word]">{tmpl.judul}</h4>
+                                <div className="break-words [overflow-wrap:anywhere]" style={{ fontSize: '12px', color: '#6b7d6c', marginTop: '4px' }}>
+                                  {tmpl.jumlahSoal} Soal Tersedia • {labelJenisGame(tmpl.game)}
+                                </div>
                               </div>
 
                               {/* Progress bar porsi sesi */}
-                              <div className="portal-prow">
-                                <span>Porsi sesi</span>
-                                <b>{percentage}%</b>
-                              </div>
-                              <div className="portal-bar">
-                                <i style={{ width: `${percentage}%` }} />
+                              <div className="mt-3">
+                                <div className="portal-prow">
+                                  <span>Porsi sesi</span>
+                                  <b>{percentage}%</b>
+                                </div>
+                                <div className="portal-bar">
+                                  <i style={{ width: `${percentage}%` }} />
+                                </div>
                               </div>
                             </div>
 
                             {/* Footer: X dari Y sesi & tombol Mulai */}
                             <div className="portal-foot">
-                              <span>{playedCount} dari {totalSesiInt} sesi</span>
+                              <span className="whitespace-nowrap shrink-0">{playedCount} dari {totalSesiInt} sesi</span>
                               <button
                                 type="button"
                                 onClick={() => handleMulaiGame(tmpl.id, tmpl.mode, tmpl.game)}
-                                className="portal-chip"
+                                className="portal-chip whitespace-nowrap shrink-0"
                               >
                                 {labelTombolMulai(tmpl.game)}
                               </button>
@@ -1142,7 +1146,7 @@ export default function DashboardGuru() {
                           className="portal-card p-4 sm:p-5 flex flex-col justify-between gap-4 overflow-hidden"
                         >
                           <div className="space-y-2">
-                            <div className="flex items-center gap-1.5 flex-nowrap">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <span
                                 className={`portal-tag xs whitespace-nowrap shrink-0 ${
                                   tmpl.game === 'panjat_pinang'
@@ -1170,10 +1174,10 @@ export default function DashboardGuru() {
                                 </span>
                               )}
                             </div>
-                            <h3 className="portal-cv text-2xl text-[#1d3b2e] leading-snug">
+                            <h3 className="portal-cv text-2xl text-[#1d3b2e] leading-snug break-words [overflow-wrap:anywhere] [word-break:break-word]">
                               {tmpl.judul}
                             </h3>
-                            <p className="text-xs text-[#6b7d6c] font-bold">
+                            <p className="text-xs text-[#6b7d6c] font-bold break-words [overflow-wrap:anywhere]">
                               {jumlahSoal} Soal Tersedia
                               {isAdminOfficial && ' • Dibuat oleh Admin Kurikulum'}
                             </p>
@@ -1508,7 +1512,7 @@ export default function DashboardGuru() {
                                           })}
                                         </span>
                                       </div>
-                                      <h3 className="portal-cv text-2xl text-[#1d3b2e]">
+                                      <h3 className="portal-cv text-2xl text-[#1d3b2e] break-words [overflow-wrap:anywhere] [word-break:break-word]">
                                         {r.templateJudul}
                                       </h3>
                                       <div className="text-xs font-semibold text-[#1d3b2e]">

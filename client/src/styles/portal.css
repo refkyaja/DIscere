@@ -45,6 +45,8 @@
 .portal-cv {
   font-family: 'Caveat Brush', 'Caveat', cursive;
   font-weight: 400;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* SHELL LAYOUT WITH SMOOTH COLLAPSIBLE SIDEBAR */
@@ -435,6 +437,8 @@
   color: var(--portal-ink);
   border-radius: 22px;
   box-shadow: 0 5px 0 rgba(0, 0, 0, .22);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .portal-over {
@@ -734,7 +738,7 @@ select.portal-sel {
 /* TEMPLATE GAME CARDS (3 COLS WITH FLOATING BADGE) */
 .portal-cards-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 20px;
   padding-top: 22px;
 }
@@ -746,6 +750,7 @@ select.portal-sel {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  min-width: 0;
 }
 
 .portal-pc .badge {
@@ -765,8 +770,11 @@ select.portal-sel {
 
 .portal-pc h4 {
   margin: 0;
-  font: 400 22px/1.15 'Caveat Brush', cursive;
+  font: 400 22px/1.2 'Caveat Brush', cursive;
   color: var(--portal-ink);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
 }
 
 .portal-prow {
@@ -798,9 +806,17 @@ select.portal-sel {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 10px;
+  gap: 8px;
+  margin-top: 14px;
   font-size: 11px;
   color: var(--portal-mute);
+  flex-wrap: wrap;
+}
+
+.portal-foot > span {
+  white-space: nowrap;
+  font-weight: 700;
+  font-size: 11px;
 }
 
 .portal-chip {
@@ -813,6 +829,8 @@ select.portal-sel {
   border: none;
   cursor: pointer;
   transition: all 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .portal-chip:hover {
