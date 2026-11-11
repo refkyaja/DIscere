@@ -122,10 +122,10 @@ export const VisualisasiTali: React.FC<VisualisasiTaliProps> = ({
       }`}
     >
       {/* Header Tim 1 Merah (Kiri) vs Tengah vs Tim 2 Biru (Kanan) */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 mb-4">
         {/* Tim 1 (Merah - Kiri) */}
         <div
-          className={`flex items-center gap-3 p-3 sm:p-3.5 rounded-2xl transition-all duration-300 ${
+          className={`order-1 flex-1 sm:flex-initial min-w-0 flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3.5 rounded-2xl transition-all duration-300 ${
             isChalk
               ? timAktif === 'merah'
                 ? 'bg-[#fde8e7] border-2 border-[#c8362f] shadow-md scale-[1.02]'
@@ -175,7 +175,7 @@ export const VisualisasiTali: React.FC<VisualisasiTaliProps> = ({
         </div>
 
         {/* Indikator Posisi Tengah [-batas .. +batas] */}
-        <div className="text-center mx-auto sm:mx-0">
+        <div className="order-3 w-full sm:w-auto sm:order-2 text-center mx-auto sm:mx-0">
           <div className={`text-[11px] font-bold uppercase tracking-wider mb-0.5 ${isChalk ? 'text-[#6b7d6c]' : 'text-slate-400'}`}>
             Posisi Tali (Skala -{batas}..+{batas})
           </div>
@@ -196,7 +196,7 @@ export const VisualisasiTali: React.FC<VisualisasiTaliProps> = ({
 
         {/* Tim 2 (Biru - Kanan) */}
         <div
-          className={`flex items-center gap-3 p-3 sm:p-3.5 rounded-2xl transition-all duration-300 ${
+          className={`order-2 sm:order-3 flex-1 sm:flex-initial min-w-0 justify-end flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3.5 rounded-2xl transition-all duration-300 ${
             isChalk
               ? timAktif === 'putih'
                 ? 'bg-[#dbeafe] border-2 border-[#2563eb] shadow-md scale-[1.02]'

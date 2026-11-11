@@ -5,7 +5,8 @@ import { soundEffects } from '../../lib/soundEffects';
 import MainKerupuk from './MainKerupuk';
 import MainPanjatPinang from './MainPanjatPinang';
 import MainBalapKarung from './MainBalapKarung';
-import KarakterTarikTambang from './KarakterTarikTambang';
+import KarakterTarikTambang, { EkspresiTarikTambang } from './KarakterTarikTambang';
+import { VisualisasiTali } from '../game/VisualisasiTali';
 import {
   Users,
   Trophy,
@@ -141,6 +142,14 @@ export default function MainSiswa() {
   const [taliPosition, setTaliPosition] = useState<number>(0);
   const [skorMerah, setSkorMerah] = useState<number>(0);
   const [skorPutih, setSkorPutih] = useState<number>(0);
+  const [powerUpKeduaTim, setPowerUpKeduaTim] = useState<{
+    tim1: string | null;
+    tim2: string | null;
+  }>({ tim1: null, tim2: null });
+  const [reaksiTarik, setReaksiTarik] = useState<{
+    merah?: EkspresiTarikTambang;
+    putih?: EkspresiTarikTambang;
+  } | null>(null);
 
   // Final Result state
   const [hasilAkhir, setHasilAkhir] = useState<SelesaiResult | null>(null);
@@ -233,6 +242,16 @@ export default function MainSiswa() {
             }
             if (res.tim) setTim(res.tim);
             if (res.config) setTarikConfig((prev) => ({ ...prev, ...res.config }));
+            if (res.daftarPeserta) {
+              setDaftarPeserta(res.daftarPeserta);
+              setTotalPeserta(res.daftarPeserta.length);
+            }
+            if (res.powerUpTim1 || res.powerUpTim2) {
+              setPowerUpKeduaTim({
+                tim1: res.powerUpTim1?.aktifBerikutnya ?? null,
+                tim2: res.powerUpTim2?.aktifBerikutnya ?? null,
+              });
+            }
             if (res.powerUpTim) setPowerUpTim(res.powerUpTim);
             if (res.pesertaStat) setPesertaStat(res.pesertaStat);
             setTaliPosition(res.taliPosition ?? 0);
@@ -275,10 +294,18 @@ export default function MainSiswa() {
       totalPeserta: number;
       daftarPeserta: any[];
       config?: any;
+      powerUpTim1?: { aktifBerikutnya?: string | null };
+      powerUpTim2?: { aktifBerikutnya?: string | null };
     }) => {
       setTotalPeserta(data.totalPeserta);
       setDaftarPeserta(data.daftarPeserta);
       if (data.config) setTarikConfig((prev) => ({ ...prev, ...data.config }));
+      if (data.powerUpTim1 || data.powerUpTim2) {
+        setPowerUpKeduaTim({
+          tim1: data.powerUpTim1?.aktifBerikutnya ?? null,
+          tim2: data.powerUpTim2?.aktifBerikutnya ?? null,
+        });
+      }
       const me = data.daftarPeserta?.find((p) => p.id === pesertaId);
       if (me?.tim) setTim(me.tim);
     };
@@ -295,6 +322,7 @@ export default function MainSiswa() {
     // 3. Soal Baru Ditampilkan (khusus tim sendiri)
     const handleSoalTampil = (data: any) => {
       setStage('PLAYING');
+      setReaksiTarik(null);
       const resolvedId = data.id || data.questionId || '';
       const resolvedQuestionId = data.questionId || data.id || '';
       setSoalAktif({
@@ -322,6 +350,12 @@ export default function MainSiswa() {
 
     // 4b. Pembaruan Status Power-Up Tim
     const handlePowerUpUpdate = (data: any) => {
+      if (data.powerUpTim1 || data.powerUpTim2) {
+        setPowerUpKeduaTim((prev) => ({
+          tim1: data.powerUpTim1 ? (data.powerUpTim1.aktifBerikutnya ?? null) : prev.tim1,
+          tim2: data.powerUpTim2 ? (data.powerUpTim2.aktifBerikutnya ?? null) : prev.tim2,
+        }));
+      }
       if (tim === 'merah' && data.powerUpTim1) {
         setPowerUpTim(data.powerUpTim1);
       } else if (tim === 'putih' && data.powerUpTim2) {
@@ -335,9 +369,18 @@ export default function MainSiswa() {
       setSkorMerah(data.skorMerah ?? 0);
       setSkorPutih(data.skorPutih ?? 0);
 
+      if (data.powerUpTim1 || data.powerUpTim2) {
+        setPowerUpKeduaTim((prev) => ({
+          tim1: data.powerUpTim1 ? (data.powerUpTim1.aktifBerikutnya ?? null) : prev.tim1,
+          tim2: data.powerUpTim2 ? (data.powerUpTim2.aktifBerikutnya ?? null) : prev.tim2,
+        }));
+      }
       if (tim === 'merah' && data.powerUpTim1) setPowerUpTim(data.powerUpTim1);
       if (tim === 'putih' && data.powerUpTim2) setPowerUpTim(data.powerUpTim2);
 
+      if (data.daftarPeserta) {
+        setDaftarPeserta(data.daftarPeserta);
+      }
       const me = data.daftarPeserta?.find((p: any) => p.id === pesertaId);
       if (me) {
         setPesertaStat({
@@ -365,6 +408,11 @@ export default function MainSiswa() {
 
       if (siswaBenar) soundEffects.playCorrect();
       else soundEffects.playIncorrect();
+
+      if (hr && typeof hr.perubahanTali === 'number') {
+        if (hr.perubahanTali > 0) setReaksiTarik({ merah: 'bahagia', putih: 'sedih' });
+        else if (hr.perubahanTali < 0) setReaksiTarik({ merah: 'sedih', putih: 'bahagia' });
+      }
 
       setFeedback({
         tampil: true,
@@ -519,6 +567,16 @@ export default function MainSiswa() {
 
         if (res.tim) setTim(res.tim);
         if ((res as any).config) setTarikConfig((prev) => ({ ...prev, ...(res as any).config }));
+        if ((res as any).daftarPeserta) {
+          setDaftarPeserta((res as any).daftarPeserta);
+          setTotalPeserta((res as any).daftarPeserta.length);
+        }
+        if ((res as any).powerUpTim1 || (res as any).powerUpTim2) {
+          setPowerUpKeduaTim({
+            tim1: (res as any).powerUpTim1?.aktifBerikutnya ?? null,
+            tim2: (res as any).powerUpTim2?.aktifBerikutnya ?? null,
+          });
+        }
         if ((res as any).powerUpTim) setPowerUpTim((res as any).powerUpTim);
         if ((res as any).pesertaStat) setPesertaStat((res as any).pesertaStat);
         setTaliPosition(res.taliPosition ?? 0);
@@ -1420,13 +1478,19 @@ export default function MainSiswa() {
       ? 'bg-[#c8362f] border-[#8f1e19]'
       : 'bg-[#2563eb] border-[#1e3a8a]';
     const batasMenang = Math.max(10, Math.min(100, Math.round(tarikConfig.batasMenang ?? 100)));
-    const clampPos = Math.max(-batasMenang, Math.min(batasMenang, taliPosition));
-    const ropePersen = Math.max(0, Math.min(100, ((batasMenang - clampPos) / (batasMenang * 2)) * 100));
     const durasiTotal = soalAktif?.duration || tarikConfig.durasiRonde || 20;
+    const jumlahPemainMerah =
+      daftarPeserta.length > 0
+        ? daftarPeserta.filter((p) => p.tim === 'merah').length
+        : undefined;
+    const jumlahPemainPutih =
+      daftarPeserta.length > 0
+        ? daftarPeserta.filter((p) => p.tim === 'putih').length
+        : undefined;
 
     return (
       <div className="portal-bg min-h-screen flex flex-col justify-between p-4 sm:p-6 select-none">
-        <div className="max-w-lg mx-auto w-full flex-1 flex flex-col justify-between space-y-4">
+        <div className="max-w-4xl mx-auto w-full flex-1 flex flex-col justify-between space-y-4">
           {/* Top Bar: Karakter & Tim Badge, Ronde, Timer */}
           <header className="portal-card rounded-2xl p-3.5 sm:p-4 border-2 border-[#e0d5b8] shadow-[0_4px_0_rgba(0,0,0,0.16)] space-y-2.5">
             <div className="flex justify-between items-center gap-2">
@@ -1469,19 +1533,19 @@ export default function MainSiswa() {
                 </div>
               </div>
 
-              <div className="text-xs font-extrabold text-[#1d3b2e] bg-[#f4ecd9] px-3 py-1.5 rounded-full border border-[#e0d5b8]">
-                Ronde {soalAktif?.nomorRonde ?? soalAktif?.nomorSoal ?? '-'}
+              <div className="text-xs sm:text-sm font-extrabold text-[#1d3b2e] bg-[#f4ecd9] px-3 py-1.5 rounded-full border border-[#e0d5b8]">
+                Ronde #{soalAktif?.nomorRonde ?? soalAktif?.nomorSoal ?? '-'}
               </div>
 
               <div
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-black text-sm border-2 ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-2xl font-black text-sm sm:text-base border-2 ${
                   sisaDetik <= 5
-                    ? 'bg-[#fde8e7] text-[#c8362f] border-[#c8362f] animate-bounce'
-                    : 'bg-[#f4ecd9] text-[#1d3b2e] border-[#e0d5b8]'
+                    ? 'bg-[#fde8e7] text-[#c8362f] border-[#c8362f] animate-pulse'
+                    : 'bg-[#244a39] text-[#f2c230] border-[#1d3b2e]'
                 }`}
               >
                 <Clock className="w-4 h-4" />
-                <span>{sisaDetik}s</span>
+                <span>{sisaDetik}d</span>
               </div>
             </div>
 
@@ -1522,28 +1586,22 @@ export default function MainSiswa() {
             )}
           </header>
 
-          {/* Mini Bar Posisi Tali Live */}
-          <div className="portal-card rounded-2xl px-4 py-2.5 border-2 border-[#e0d5b8] shadow-xs">
-            <div className="flex justify-between items-center text-xs font-extrabold mb-1">
-              <span className="text-[#c8362f]">
-                {tarikConfig.namaTim1}: {skorMerah}
-              </span>
-              <span className="text-[#6b7d6c]">
-                {taliPosition > 0
-                  ? `${tarikConfig.namaTim1} +${taliPosition}`
-                  : taliPosition < 0
-                  ? `${tarikConfig.namaTim2} ${taliPosition}`
-                  : 'Seimbang (0)'}{' '}
-                <span className="text-[10px] opacity-75">(±{batasMenang})</span>
-              </span>
-              <span className="text-[#2563eb]">
-                {tarikConfig.namaTim2}: {skorPutih}
-              </span>
-            </div>
-            <div className="portal-rope" style={{ margin: '6px 4px 2px' }}>
-              <i style={{ left: `${ropePersen}%` }} />
-            </div>
-          </div>
+          {/* Arena Visualisasi Tali (sama dengan tampilan guru) */}
+          <VisualisasiTali
+            posisi={taliPosition}
+            batasMenang={batasMenang}
+            skorMerah={skorMerah}
+            skorPutih={skorPutih}
+            namaTim1={tarikConfig.namaTim1}
+            namaTim2={tarikConfig.namaTim2}
+            timAktif={tim ?? undefined}
+            jumlahPemainMerah={jumlahPemainMerah}
+            jumlahPemainPutih={jumlahPemainPutih}
+            powerUpTim1Aktif={powerUpKeduaTim.tim1}
+            powerUpTim2Aktif={powerUpKeduaTim.tim2}
+            reaksiTim={reaksiTarik || undefined}
+            theme="chalk"
+          />
 
           {/* Question Area */}
           <main className="my-auto space-y-4">
@@ -1680,10 +1738,12 @@ export default function MainSiswa() {
       (hasilAkhir?.timMenang === 'merah' && isMerah) ||
       (hasilAkhir?.timMenang === 'putih' && !isMerah);
     const isSeri = hasilAkhir?.timMenang === 'seri';
+    const batasMenangAkhir =
+      hasilAkhir?.konfigurasi?.batasMenang ?? tarikConfig.batasMenang ?? 100;
 
     return (
       <div className="portal-bg min-h-screen flex flex-col justify-between select-none">
-        <div className="max-w-md mx-auto w-full p-4 sm:p-6 my-auto">
+        <div className="max-w-2xl mx-auto w-full p-4 sm:p-6 my-auto space-y-5">
           <div className="portal-card p-6 sm:p-8 rounded-[30px] border-2 border-[#e0d5b8] shadow-[0_10px_0_rgba(0,0,0,0.22)] text-center space-y-5">
             {/* Karakter 2D Hasil Akhir (Mahkota Emas jika menang) */}
             <div className="flex flex-col items-center">
@@ -1781,6 +1841,31 @@ export default function MainSiswa() {
                 </strong>
               </div>
             </div>
+
+            <VisualisasiTali
+              posisi={hasilAkhir?.posisiAkhir ?? taliPosition}
+              batasMenang={batasMenangAkhir}
+              skorMerah={hasilAkhir?.skorMerah ?? skorMerah}
+              skorPutih={hasilAkhir?.skorPutih ?? skorPutih}
+              namaTim1={
+                hasilAkhir?.konfigurasi?.namaTim1 || hasilAkhir?.namaTim1 || tarikConfig.namaTim1
+              }
+              namaTim2={
+                hasilAkhir?.konfigurasi?.namaTim2 || hasilAkhir?.namaTim2 || tarikConfig.namaTim2
+              }
+              jumlahPemainMerah={
+                daftarPeserta.length > 0
+                  ? daftarPeserta.filter((p) => p.tim === 'merah').length
+                  : undefined
+              }
+              jumlahPemainPutih={
+                daftarPeserta.length > 0
+                  ? daftarPeserta.filter((p) => p.tim === 'putih').length
+                  : undefined
+              }
+              pemenang={hasilAkhir?.timMenang ?? null}
+              theme="chalk"
+            />
 
             <button
               type="button"

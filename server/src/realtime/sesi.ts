@@ -424,6 +424,15 @@ export function setupMultiplayerSocket(io: Server) {
             soalAktif,
             sudahJawabRondeAktif,
             sudahJawabSoalAktif: sudahJawabRondeAktif,
+            daftarPeserta,
+            powerUpTim1: {
+              bank: sesi.powerUpTim1.bank,
+              aktifBerikutnya: sesi.powerUpTim1.aktifBerikutnya,
+            },
+            powerUpTim2: {
+              bank: sesi.powerUpTim2.bank,
+              aktifBerikutnya: sesi.powerUpTim2.aktifBerikutnya,
+            },
             riwayatTali: sesi.riwayatTali,
             hasil: sesi.status === 'selesai' ? sesi.hasil : undefined,
           });
@@ -434,6 +443,14 @@ export function setupMultiplayerSocket(io: Server) {
             totalPeserta: sesi.peserta.size,
             daftarPeserta,
             config: sesi.config,
+            powerUpTim1: {
+              bank: sesi.powerUpTim1.bank,
+              aktifBerikutnya: sesi.powerUpTim1.aktifBerikutnya,
+            },
+            powerUpTim2: {
+              bank: sesi.powerUpTim2.bank,
+              aktifBerikutnya: sesi.powerUpTim2.aktifBerikutnya,
+            },
           });
         } catch (err: any) {
           callback?.({ success: false, pesan: err.message || 'Gagal bergabung ke sesi.' });
