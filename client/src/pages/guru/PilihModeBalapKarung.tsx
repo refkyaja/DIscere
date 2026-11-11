@@ -467,9 +467,9 @@ export default function PilihModeBalapKarung() {
           </div>
         </div>
 
-        {/* Judul Materi Kuis Terpilih (Tengah papan tulis tanpa kotak, font kapur kasar) */}
+        {/* Judul Materi Kuis Terpilih (Tengah papan tulis tanpa kotak & garis pembatas, font kapur kasar) */}
         {selectedTemplate && (
-          <div className="flex flex-col items-center text-center gap-3 pb-6 border-b-2 border-dashed border-[#f4ecd8]/20">
+          <div className="flex flex-col items-center text-center gap-3 pb-2">
             <div className="flex flex-wrap items-center justify-center gap-2">
               <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#cfd9c3] inline-flex items-center gap-1.5">
                 <Lock className="w-3.5 h-3.5 text-[#f2c230]" /> Materi Kuis Terpilih
@@ -480,7 +480,7 @@ export default function PilihModeBalapKarung() {
             </div>
 
             <h2
-              className="text-4xl sm:text-5xl md:text-[56px] text-white leading-[1.15] tracking-wide break-words max-w-full"
+              className="text-5xl sm:text-6xl md:text-[72px] text-white leading-[1.12] tracking-wide break-words max-w-full"
               style={{
                 fontFamily: "'Permanent Marker', 'Caveat Brush', cursive",
                 filter: 'url(#discere-chalk-title)',

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router';
-import { useAuth } from '../../lib/auth';
 
 interface SectionMeta {
   id: string;
@@ -24,13 +23,10 @@ const SECTIONS: SectionMeta[] = [
 ];
 
 export default function Dokumentasi() {
-  const { user } = useAuth();
   const [activeSection, setActiveSection] = useState('pengantar');
   const [searchQuery, setSearchQuery] = useState('');
   const [tocOpen, setTocOpen] = useState(false);
   const mainRef = useRef<HTMLElement | null>(null);
-
-  const dashboardUrl = user?.role === 'admin' ? '/admin' : '/guru';
 
   // IntersectionObserver untuk melacak seksi yang sedang aktif
   useEffect(() => {
@@ -163,26 +159,6 @@ export default function Dokumentasi() {
           color: var(--chalk);
         }
 
-        .discere-doc-page .nav-action-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 7px 16px;
-          border-radius: 999px;
-          font-size: 13px;
-          font-weight: 700;
-          text-decoration: none;
-          color: var(--chalk);
-          background: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          transition: all 0.2s;
-        }
-
-        .discere-doc-page .nav-action-btn:hover {
-          background: rgba(255, 255, 255, 0.2);
-          color: #fff;
-        }
-
         .discere-doc-page .hero {
           padding-top: 30px;
           max-width: 680px;
@@ -219,7 +195,7 @@ export default function Dokumentasi() {
         /* Tata Letak */
         .discere-doc-page .layout {
           display: grid;
-          grid-template-columns: 240px minmax(0, 1fr);
+          grid-template-columns: 250px minmax(0, 1fr);
           gap: 48px;
           max-width: 1100px;
           margin: 0 auto;
@@ -233,8 +209,25 @@ export default function Dokumentasi() {
           top: 16px;
           align-self: start;
           max-height: calc(100vh - 32px);
-          overflow: auto;
-          padding-top: 8px;
+          overflow-y: auto;
+          overflow-x: hidden;
+          padding: 8px 12px 16px 4px;
+          margin-left: -4px;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(31, 74, 55, 0.25) transparent;
+        }
+
+        .discere-doc-page .side::-webkit-scrollbar {
+          width: 5px;
+        }
+
+        .discere-doc-page .side::-webkit-scrollbar-thumb {
+          background: rgba(31, 74, 55, 0.25);
+          border-radius: 999px;
+        }
+
+        .discere-doc-page .side::-webkit-scrollbar-track {
+          background: transparent;
         }
 
         .discere-doc-page .side h2 {
@@ -243,13 +236,14 @@ export default function Dokumentasi() {
           letter-spacing: 0.08em;
           color: var(--muted);
           margin-bottom: 8px;
+          padding-left: 2px;
           font-family: 'Nunito', sans-serif;
           font-weight: 700;
         }
 
         .discere-doc-page .side input[type=search] {
           width: 100%;
-          margin-bottom: 12px;
+          margin-bottom: 14px;
           padding: 9px 12px;
           border-radius: 12px;
           border: 1px solid var(--line);
@@ -258,6 +252,14 @@ export default function Dokumentasi() {
           font-size: 14px;
           color: var(--ink);
           box-shadow: inset 0 1px 2px rgba(0,0,0,0.04);
+          transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .discere-doc-page .side input[type=search]:focus,
+        .discere-doc-page .side input[type=search]:focus-visible {
+          outline: none;
+          border-color: var(--yellow);
+          box-shadow: 0 0 0 3px rgba(242, 194, 48, 0.35);
         }
 
         .discere-doc-page .side input[type=search]::placeholder {
@@ -662,21 +664,6 @@ export default function Dokumentasi() {
               </svg>
               Discere
             </Link>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Link to="/" className="nav-action-btn">
-                ← Beranda
-              </Link>
-              {user ? (
-                <Link to={dashboardUrl} className="nav-action-btn" style={{ background: 'var(--yellow)', color: 'var(--board-d)', borderColor: 'var(--yellow)' }}>
-                  Dashboard
-                </Link>
-              ) : (
-                <Link to="/masuk" className="nav-action-btn">
-                  Masuk
-                </Link>
-              )}
-            </div>
           </nav>
           <div className="hero">
             <h1 className="hand">
