@@ -296,24 +296,26 @@ export default function DashboardGuru() {
 
   // Handler: Mulai Game dari Template (semua 4 game diarahkan ke halaman pengaturan seragam)
   const handleMulaiGame = async (templateId: string, mode?: string, gameType?: string) => {
-    const kembaliTemplate = encodeURIComponent('/guru?tab=template');
+    const currentPath = `${location.pathname}${location.search}`;
+    const kembaliParam = encodeURIComponent(currentPath || '/guru?tab=template');
+
     if (gameType === 'makan_kerupuk') {
-      navigate(`/guru/makan-kerupuk?templateId=${encodeURIComponent(templateId)}&kembali=${kembaliTemplate}`);
+      navigate(`/guru/makan-kerupuk?templateId=${encodeURIComponent(templateId)}&kembali=${kembaliParam}`);
       return;
     }
 
     if (gameType === 'panjat_pinang') {
-      navigate(`/guru/panjat-pinang?templateId=${encodeURIComponent(templateId)}&kembali=${kembaliTemplate}`);
+      navigate(`/guru/panjat-pinang?templateId=${encodeURIComponent(templateId)}&kembali=${kembaliParam}`);
       return;
     }
 
     if (gameType === 'balap_karung') {
-      navigate(`/guru/balap-karung?templateId=${encodeURIComponent(templateId)}&kembali=${kembaliTemplate}`);
+      navigate(`/guru/balap-karung?templateId=${encodeURIComponent(templateId)}&kembali=${kembaliParam}`);
       return;
     }
 
     if (!gameType || gameType === 'tarik_tambang') {
-      navigate(`/guru/tarik-tambang?templateId=${encodeURIComponent(templateId)}&kembali=${kembaliTemplate}`);
+      navigate(`/guru/tarik-tambang?templateId=${encodeURIComponent(templateId)}&kembali=${kembaliParam}`);
       return;
     }
 
@@ -906,7 +908,7 @@ export default function DashboardGuru() {
 
                             <div className="flex-1 flex flex-col justify-between my-2">
                               <div>
-                                <h4 className="break-words [overflow-wrap:anywhere] [word-break:break-word]">{tmpl.judul}</h4>
+                                <h4 className="break-words break-all [overflow-wrap:anywhere]">{tmpl.judul}</h4>
                                 <div className="break-words [overflow-wrap:anywhere]" style={{ fontSize: '12px', color: '#6b7d6c', marginTop: '4px' }}>
                                   {tmpl.jumlahSoal} Soal Tersedia • {labelJenisGame(tmpl.game)}
                                 </div>
@@ -1144,9 +1146,9 @@ export default function DashboardGuru() {
                       return (
                         <div
                           key={tmpl.id}
-                          className="portal-card p-4 sm:p-5 flex flex-col justify-between gap-4 overflow-hidden"
+                          className="portal-card p-4 sm:p-5 flex flex-col justify-between gap-4 overflow-hidden min-w-0"
                         >
-                          <div className="space-y-2">
+                          <div className="space-y-2 min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span
                                 className={`portal-tag xs whitespace-nowrap shrink-0 ${
@@ -1175,7 +1177,7 @@ export default function DashboardGuru() {
                                 </span>
                               )}
                             </div>
-                            <h3 className="portal-cv text-2xl text-[#1d3b2e] leading-snug break-words [overflow-wrap:anywhere] [word-break:break-word]">
+                            <h3 className="portal-cv text-2xl text-[#1d3b2e] leading-snug break-words break-all [overflow-wrap:anywhere]">
                               {tmpl.judul}
                             </h3>
                             <p className="text-xs text-[#6b7d6c] font-bold break-words [overflow-wrap:anywhere]">
@@ -1513,7 +1515,7 @@ export default function DashboardGuru() {
                                           })}
                                         </span>
                                       </div>
-                                      <h3 className="portal-cv text-2xl text-[#1d3b2e] break-words [overflow-wrap:anywhere] [word-break:break-word]">
+                                      <h3 className="portal-cv text-2xl text-[#1d3b2e] break-words break-all [overflow-wrap:anywhere]">
                                         {r.templateJudul}
                                       </h3>
                                       <div className="text-xs font-semibold text-[#1d3b2e]">

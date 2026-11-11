@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate, useSearchParams } from 'react-router';
 import {
   ArrowLeft,
   AlertTriangle,
@@ -37,7 +38,7 @@ interface GameConfigPageShellProps {
   loadingText: string;
   title: string;
   subtitle: string;
-  onBack: () => void;
+  onBack?: () => void;
   errorMessage: string | null;
   templateTitle?: string | null;
   isOfficialTemplate?: boolean;
@@ -62,6 +63,23 @@ export function GameConfigPageShell({
   missingTemplateMessage = 'Tidak dapat memuat pengaturan karena materi kuis belum tersedia.',
   children,
 }: GameConfigPageShellProps) {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+      return;
+    }
+    const queryKembali = searchParams.get('kembali');
+    if (window.history.state && typeof window.history.state.idx === 'number' && window.history.state.idx > 0) {
+      navigate(-1);
+    } else if (queryKembali) {
+      navigate(queryKembali);
+    } else {
+      navigate('/guru');
+    }
+  };
   if (loading) {
     return (
       <div className="portal-bg relative">
@@ -128,7 +146,7 @@ export function GameConfigPageShell({
           </div>
 
           <div className="shrink-0 self-start pt-1">
-            <button type="button" onClick={onBack} className="portal-btn ghost sm">
+            <button type="button" onClick={handleBack} className="portal-btn ghost sm">
               <ArrowLeft className="w-4 h-4" /> Kembali
             </button>
           </div>
@@ -176,7 +194,7 @@ export function GameConfigPageShell({
         {!templateTitle ? (
           <div className="portal-card p-8 text-center space-y-4">
             <p className="text-sm font-bold text-[#6b7d6c]">{missingTemplateMessage}</p>
-            <button type="button" onClick={onBack} className="portal-btn red">
+            <button type="button" onClick={handleBack} className="portal-btn red">
               <ArrowLeft className="w-4 h-4" /> Kembali ke Daftar Materi
             </button>
           </div>

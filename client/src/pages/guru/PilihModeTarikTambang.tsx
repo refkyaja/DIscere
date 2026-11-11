@@ -254,7 +254,6 @@ export default function PilihModeTarikTambang() {
       loadingText="Menyiapkan Pengaturan Tarik Tambang..."
       title="Tarik Tambang Challenge"
       subtitle="Atur mode permainan, batas kemenangan tali, nama tim, durasi ronde, dan kesetaraan soal sebelum lomba."
-      onBack={() => navigate(queryKembali)}
       errorMessage={errorPesan}
       templateTitle={selectedTemplate?.judul}
       isOfficialTemplate={Boolean(selectedTemplate?.resmi)}

@@ -111,7 +111,13 @@ export default function TemplateForm() {
           <div className="shrink-0 self-start pt-1">
             <button
               type="button"
-              onClick={() => navigate('/guru?tab=template')}
+              onClick={() => {
+                if (window.history.state && typeof window.history.state.idx === 'number' && window.history.state.idx > 0) {
+                  navigate(-1);
+                } else {
+                  navigate('/guru?tab=template');
+                }
+              }}
               className="portal-btn ghost sm"
             >
               <ArrowLeft className="w-4 h-4" /> Kembali ke Daftar Template

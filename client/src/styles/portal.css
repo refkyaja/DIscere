@@ -47,6 +47,7 @@
   font-weight: 400;
   overflow-wrap: anywhere;
   word-break: break-word;
+  word-break: break-all;
 }
 
 /* SHELL LAYOUT WITH SMOOTH COLLAPSIBLE SIDEBAR */
@@ -774,6 +775,7 @@ select.portal-sel {
   color: var(--portal-ink);
   overflow-wrap: anywhere;
   word-break: break-word;
+  word-break: break-all;
   hyphens: auto;
 }
 
@@ -810,13 +812,13 @@ select.portal-sel {
   margin-top: 14px;
   font-size: 11px;
   color: var(--portal-mute);
-  flex-wrap: wrap;
 }
 
 .portal-foot > span {
   white-space: nowrap;
   font-weight: 700;
   font-size: 11px;
+  flex-shrink: 0;
 }
 
 .portal-chip {

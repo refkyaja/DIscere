@@ -248,7 +248,6 @@ export default function PilihModeKerupuk() {
       loadingText="Menyiapkan Pengaturan Makan Kerupuk..."
       title="Makan Kerupuk Challenge"
       subtitle="Atur mode permainan, target poin kerupuk, peserta, dan peluang gigitan sebelum memulai lomba."
-      onBack={() => navigate(queryKembali)}
       errorMessage={errorPesan}
       templateTitle={selectedTemplate?.judul}
       isOfficialTemplate={Boolean(selectedTemplate?.resmi)}

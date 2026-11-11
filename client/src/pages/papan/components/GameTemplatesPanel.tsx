@@ -439,7 +439,7 @@ export function GameTemplatesPanel({
                 <GameIcon game={item.game} />
               </i>
               <div className="qc-info">
-                <b title={item.judul} className="break-words [overflow-wrap:anywhere] [word-break:break-word]">{item.judul}</b>
+                <b title={item.judul} className="break-words break-all [overflow-wrap:anywhere]">{item.judul}</b>
                 <small>
                   {item.questionsCount} soal ·{' '}
                   <span

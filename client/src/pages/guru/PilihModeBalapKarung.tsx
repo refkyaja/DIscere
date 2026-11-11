@@ -420,7 +420,6 @@ export default function PilihModeBalapKarung() {
       loadingText="Menyiapkan Pengaturan Balap Karung..."
       title="Balap Karung Challenge"
       subtitle="Atur mode permainan, target lintasan, keseimbangan, dan rintangan sebelum memulai lomba."
-      onBack={() => navigate(queryKembali)}
       errorMessage={errorPesan}
       templateTitle={selectedTemplate?.judul}
       isOfficialTemplate={Boolean(selectedTemplate?.resmi)}

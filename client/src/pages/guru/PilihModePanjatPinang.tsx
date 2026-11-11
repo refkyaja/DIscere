@@ -291,7 +291,6 @@ export default function PilihModePanjatPinang() {
       loadingText="Menyiapkan Pengaturan Panjat Pinang..."
       title="Panjat Pinang Challenge"
       subtitle="Atur pergerakan tiang, kapasitas peserta, bonus streak, dan rintangan sebelum memulai lomba."
-      onBack={() => navigate(queryKembali)}
       errorMessage={errorPesan}
       templateTitle={selectedTemplate?.judul}
       isOfficialTemplate={Boolean(selectedTemplate?.resmi)}
