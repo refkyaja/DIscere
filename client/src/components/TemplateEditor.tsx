@@ -695,22 +695,6 @@ export function TemplateEditor({
                       <span className="portal-cv text-2xl text-[#c8362f]">
                         Soal #{index + 1}
                       </span>
-                      <select
-                        aria-label={`Tingkat kesulitan soal ${index + 1}`}
-                        value={soal.kesulitan || 'sedang'}
-                        onChange={(e) =>
-                          handleUpdateSoal(
-                            index,
-                            'kesulitan',
-                            e.target.value as 'mudah' | 'sedang' | 'sulit'
-                          )
-                        }
-                        className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#f4ecd9] border border-[#e0d5b8] text-[#1d3b2e] cursor-pointer"
-                      >
-                        <option value="mudah">Mudah</option>
-                        <option value="sedang">Sedang</option>
-                        <option value="sulit">Sulit</option>
-                      </select>
                       {soal.dibuatAi && (
                         <span className="portal-tag yellow">
                           Dibuat AI

@@ -365,15 +365,56 @@ export default function DashboardAdmin() {
   const areaPath = `${curvePath} L ${lastX} 130 L 0 130 Z`;
   const [curX, curY] = pts[chartCurrentIdx] || [360, 28];
 
+  // Jika sedang membuat atau mengedit template resmi di Pustaka, sembunyikan sidebar (tampilan penuh)
+  if (activeTab === 'pustaka' && pustakaView === 'form') {
+    return (
+      <div className="portal-bg min-h-screen">
+        <div className="max-w-4xl mx-auto w-full p-6 md:p-10 space-y-6">
+          <div className="portal-head">
+            <div>
+              <h1>{editingTemplate ? 'Ubah Template Resmi' : 'Buat Template Resmi Baru'}</h1>
+              <p>Susun materi soal resmi untuk dimainkan dalam mini-game edukasi interaktif DISCERE.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPustakaView('list');
+                  setEditingTemplate(null);
+                }}
+                className="portal-btn ghost sm"
+              >
+                <ArrowLeft className="w-4 h-4" /> Kembali ke Pustaka Resmi
+              </button>
+            </div>
+          </div>
+
+          <TemplateEditor
+            key={editingTemplate?.id || 'baru'}
+            initialData={editingInitialData}
+            onSubmit={handleSimpanTemplateResmi}
+            onCancel={() => {
+              setPustakaView('list');
+              setEditingTemplate(null);
+            }}
+            submitLabel="Simpan Template Resmi"
+            judulPlaceholder="Contoh: Tata Surya dan Planet Kelas 6 SD"
+          />
+        </div>
+        <PortalLedge />
+      </div>
+    );
+  }
+
   return (
     <div className="portal-bg">
       <div className={`portal-shell ${sidebarMinimized ? 'minimized' : ''}`}>
         {/* Sidebar Papan Tulis (Sticky Mengikuti Scroll & Minimizable) */}
         <aside className="portal-side">
           <div className="portal-side-header">
-            <div className="portal-brand flex-1 min-w-0 pr-1">
+            <div className="portal-brand">
               <svg
-                className="w-7 h-7 shrink-0 text-[#f4ecd8]"
+                className="w-7 h-7 mx-auto shrink-0 text-[#f4ecd8]"
                 viewBox="0 0 48 48"
                 fill="none"
                 stroke="currentColor"
@@ -385,7 +426,7 @@ export default function DashboardAdmin() {
                 <path d="M5 11c7-3 14-1 19 4v26c-5-5-12-7-19-4zM43 11c-7-3-14-1-19 4v26c5-5 12-7 19-4z" />
                 <path d="M10 19h8M10 26h8M30 19h8M30 26h8" />
               </svg>
-              <span className="!text-[17px] tracking-tight">Discere Admin</span>
+              {!sidebarMinimized && <span className="!text-[17px] tracking-tight">Discere Admin</span>}
             </div>
             <button
               type="button"
@@ -498,24 +539,17 @@ export default function DashboardAdmin() {
               <h1>
                 {activeTab === 'statistik' && 'Statistik Pembelajaran'}
                 {activeTab === 'guru' && 'Daftar & Status Guru'}
-                {activeTab === 'pustaka' &&
-                  (pustakaView === 'form'
-                    ? editingTemplate
-                      ? 'Ubah Template Resmi'
-                      : 'Buat Template Resmi Baru'
-                    : 'Pustaka Template Resmi')}
+                {activeTab === 'pustaka' && 'Pustaka Template Resmi'}
                 {activeTab === 'ai' && 'Monitoring Pemakaian AI'}
                 {activeTab === 'log' && 'Log Audit Administrator'}
                 {activeTab === 'profil' && 'Profil Administrator'}
               </h1>
               <p>
-                {activeTab === 'pustaka' && pustakaView === 'form'
-                  ? 'Susun materi soal resmi untuk dimainkan dalam mini-game edukasi interaktif DISCERE.'
-                  : 'Platform Pembelajaran Cerdas & Menyenangkan • Akses Terisolasi Administrator'}
+                Platform Pembelajaran Cerdas &amp; Menyenangkan • Akses Terisolasi Administrator
               </p>
             </div>
 
-            {activeTab === 'pustaka' && pustakaView === 'list' && (
+            {activeTab === 'pustaka' && (
               <button
                 type="button"
                 onClick={handleBukaTemplateBaru}
@@ -523,19 +557,6 @@ export default function DashboardAdmin() {
               >
                 <Plus className="w-4 h-4" />
                 <span>Buat Template Resmi</span>
-              </button>
-            )}
-
-            {activeTab === 'pustaka' && pustakaView === 'form' && (
-              <button
-                type="button"
-                onClick={() => {
-                  setPustakaView('list');
-                  setEditingTemplate(null);
-                }}
-                className="portal-btn ghost sm"
-              >
-                <ArrowLeft className="w-4 h-4" /> Kembali ke Pustaka Resmi
               </button>
             )}
           </header>
@@ -868,19 +889,6 @@ export default function DashboardAdmin() {
               {/* 3. TAB PUSTAKA TEMPLATE RESMI */}
               {/* ========================================================= */}
               {activeTab === 'pustaka' && (
-                pustakaView === 'form' ? (
-                  <TemplateEditor
-                    key={editingTemplate?.id || 'baru'}
-                    initialData={editingInitialData}
-                    onSubmit={handleSimpanTemplateResmi}
-                    onCancel={() => {
-                      setPustakaView('list');
-                      setEditingTemplate(null);
-                    }}
-                    submitLabel="Simpan Template Resmi"
-                    judulPlaceholder="Contoh: Tata Surya dan Planet Kelas 6 SD"
-                  />
-                ) : (
                 <div className="space-y-5">
                   {suksesPesan && (
                     <div className="portal-banner success">
@@ -953,7 +961,6 @@ export default function DashboardAdmin() {
                     </div>
                   )}
                 </div>
-                )
               )}
 
               {/* ========================================================= */}
