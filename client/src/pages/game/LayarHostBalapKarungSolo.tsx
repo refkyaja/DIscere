@@ -282,16 +282,21 @@ export default function LayarHostBalapKarungSolo() {
 
       pulseCheer();
 
-      if (playAudio) {
-        if (fb.selesaiBaru) {
-          soundEffects.playVictoryFanfare();
-        } else if (fb.benar) {
-          soundEffects.playCorrect();
-        } else {
-          soundEffects.playIncorrect();
-        }
-      } else if (fb.selesaiBaru) {
+      if (fb.selesaiBaru) {
         soundEffects.playVictoryFanfare();
+      } else {
+        soundEffects.playBalapKarungAction({
+          benar: fb.benar,
+          streakSaatIni: fb.streakSaatIni,
+          isBoosted: Boolean(fb.bonusLompatanKuatDidapat || fb.bonusStreakJarakDidapat),
+          terjatuh: fb.terjatuh,
+          perisaiDigunakan: fb.perisaiDigunakan,
+          isMud:
+            (fb.penaltiJalanBerlumpurDipakai ?? 0) > 0 ||
+            fb.rintanganBaru?.tipe === 'jalan_berlumpur',
+          playAnswerChime: playAudio,
+          playStumbleOnWrong: playAudio,
+        });
       }
 
       if (timersRef.current[slot]) {
@@ -516,7 +521,7 @@ export default function LayarHostBalapKarungSolo() {
         method: 'POST',
         body: JSON.stringify({ kesulitanBot: sesi.config.kesulitanBot }),
       });
-      soundEffects.playWhistle();
+      soundEffects.playRaceStart();
       pulseCheer();
       setSesi(res.session);
     } catch (err: any) {

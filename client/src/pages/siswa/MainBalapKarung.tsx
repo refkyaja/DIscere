@@ -246,7 +246,7 @@ export default function MainBalapKarung({
       setSudahKirim(false);
       timeoutSentRef.current = null;
       setStage('PLAYING');
-      soundEffects.playWhistle();
+      soundEffects.playRaceStart();
     };
 
     const handleSoalTampil = (data: SoalBalapData) => {
@@ -301,8 +301,17 @@ export default function MainBalapKarung({
         rintanganBaru: data.rintanganBaru || null,
       });
 
-      if (benar) soundEffects.playCorrect();
-      else soundEffects.playIncorrect();
+      soundEffects.playBalapKarungAction({
+        benar,
+        isBoosted: Boolean(data.bonusLompatanKuatDidapat || data.bonusStreakJarakDidapat),
+        terjatuh: Boolean(data.terjatuh),
+        perisaiDigunakan: Boolean(data.perisaiDigunakan),
+        isMud:
+          (data.penaltiJalanBerlumpurDipakai || 0) > 0 ||
+          data.rintanganBaru?.tipe === 'jalan_berlumpur',
+        playAnswerChime: true,
+        playStumbleOnWrong: true,
+      });
     };
 
     const handleSesiSelesai = (data: { game?: string; hasil?: any }) => {

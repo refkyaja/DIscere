@@ -552,64 +552,41 @@ export function TarikTambangStadium({
         </div>
         <div className="tt-ban">DIRGAHAYU REPUBLIK INDONESIA KE-81</div>
 
-        {/* Penonton Terbelah Kiri (Merah) vs Kanan (Biru) */}
+        {/* Penonton Terbelah Kiri (Merah) vs Kanan (Biru) — seluruh bendera tetap Merah-Putih */}
         <div className="tt-crowd" aria-hidden="true">
-          <div className={`tt-crowd-side ${leftCheer ? 'cheer' : ''}`}>
-            {leftSpectators.map((sp) => (
-              <svg
-                key={`cl-${sp.idx}`}
-                width={sp.width}
-                viewBox="0 -16 40 76"
-                style={{ animationDelay: `-${sp.delay}s` }}
-              >
-                <path
-                  d="M9 40L3 16M31 40L37 16"
-                  stroke={sp.skin}
-                  strokeWidth="5"
-                  strokeLinecap="round"
-                />
-                {sp.hasFlag && (
-                  <>
-                    <path d="M37 16V-12" stroke="#6b4423" strokeWidth="2" />
-                    <path d="M37 -12h12v5h-12z" fill="#e2312d" />
-                    <path d="M37 -7h12v5h-12z" fill="#ffffff" stroke="#dddddd" strokeWidth="0.5" />
-                  </>
-                )}
-                <rect x="8" y="30" width="24" height="30" rx="8" fill={sp.shirt} />
-                <circle cx="20" cy="19" r="10" fill={sp.skin} />
-                <path d="M10 18Q20 4 30 18Q20 11 10 18Z" fill={sp.hair} />
-                <ellipse cx="20" cy="23" rx="3" ry="2.4" fill="#8a2a2a" />
-              </svg>
-            ))}
-          </div>
-          <div className={`tt-crowd-side ${rightCheer ? 'cheer' : ''}`}>
-            {rightSpectators.map((sp) => (
-              <svg
-                key={`cr-${sp.idx}`}
-                width={sp.width}
-                viewBox="0 -16 40 76"
-                style={{ animationDelay: `-${sp.delay}s` }}
-              >
-                <path
-                  d="M9 40L3 16M31 40L37 16"
-                  stroke={sp.skin}
-                  strokeWidth="5"
-                  strokeLinecap="round"
-                />
-                {sp.hasFlag && (
-                  <>
-                    <path d="M37 16V-12" stroke="#6b4423" strokeWidth="2" />
-                    <path d="M37 -12h12v5h-12z" fill="#1d8fe0" />
-                    <path d="M37 -7h12v5h-12z" fill="#ffffff" stroke="#dddddd" strokeWidth="0.5" />
-                  </>
-                )}
-                <rect x="8" y="30" width="24" height="30" rx="8" fill={sp.shirt} />
-                <circle cx="20" cy="19" r="10" fill={sp.skin} />
-                <path d="M10 18Q20 4 30 18Q20 11 10 18Z" fill={sp.hair} />
-                <ellipse cx="20" cy="23" rx="3" ry="2.4" fill="#8a2a2a" />
-              </svg>
-            ))}
-          </div>
+          {[
+            { key: 'cl', list: leftSpectators, cheer: leftCheer },
+            { key: 'cr', list: rightSpectators, cheer: rightCheer },
+          ].map((group) => (
+            <div key={group.key} className={`tt-crowd-side ${group.cheer ? 'cheer' : ''}`}>
+              {group.list.map((sp) => (
+                <svg
+                  key={`${group.key}-${sp.idx}`}
+                  width={sp.width}
+                  viewBox="0 -16 40 76"
+                  style={{ animationDelay: `-${sp.delay}s` }}
+                >
+                  <path
+                    d="M9 40L3 16M31 40L37 16"
+                    stroke={sp.skin}
+                    strokeWidth="5"
+                    strokeLinecap="round"
+                  />
+                  {sp.hasFlag && (
+                    <>
+                      <path d="M37 16V-12" stroke="#6b4423" strokeWidth="2" />
+                      <path d="M37 -12h12v5h-12z" fill="#e2312d" />
+                      <path d="M37 -7h12v5h-12z" fill="#ffffff" stroke="#dddddd" strokeWidth="0.5" />
+                    </>
+                  )}
+                  <rect x="8" y="30" width="24" height="30" rx="8" fill={sp.shirt} />
+                  <circle cx="20" cy="19" r="10" fill={sp.skin} />
+                  <path d="M10 18Q20 4 30 18Q20 11 10 18Z" fill={sp.hair} />
+                  <ellipse cx="20" cy="23" rx="3" ry="2.4" fill="#8a2a2a" />
+                </svg>
+              ))}
+            </div>
+          ))}
         </div>
 
         {/* Rumbai Bawah + Tembok Pembatas */}
