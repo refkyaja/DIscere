@@ -208,12 +208,12 @@ export const konfigurasiBalapKarungSchema = z
     penaltiJalanBerlumpur: z.number().int().min(1).max(30).default(5),
     maxPeserta: z
       .preprocess((v) => {
-        if (v === undefined || v === null || v === '') return 36;
+        if (v === undefined || v === null || v === '') return 40;
         const num = Number(v);
-        if (!Number.isFinite(num)) return 36;
-        return Math.min(36, Math.max(1, Math.round(num)));
-      }, z.number().int().min(1).max(36))
-      .default(36),
+        if (!Number.isFinite(num)) return 40;
+        return Math.min(40, Math.max(1, Math.round(num)));
+      }, z.number().int().min(1).max(40))
+      .default(40),
     allowLateJoin: z.boolean().default(true),
     jumlahTim: z
       .preprocess((v) => (v === 4 || v === '4' ? 4 : 3), z.union([z.literal(3), z.literal(4)]))

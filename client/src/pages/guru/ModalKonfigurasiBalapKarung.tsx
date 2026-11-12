@@ -173,7 +173,7 @@ export default function ModalKonfigurasiBalapKarung({
   const [bonusLompatanKuat, setBonusLompatanKuat] = useState<number>(5);
   const [penaltiJalanBerlumpur, setPenaltiJalanBerlumpur] = useState<number>(5);
 
-  const [maxPeserta, setMaxPeserta] = useState<number>(36);
+  const [maxPeserta, setMaxPeserta] = useState<number>(40);
   const [allowLateJoin, setAllowLateJoin] = useState<boolean>(true);
 
   const pilihPresetKesulitan = (mode: KesulitanBalap) => {
@@ -672,7 +672,7 @@ export default function ModalKonfigurasiBalapKarung({
               <option value={12}>Maksimal 12 Siswa</option>
               <option value={24}>Maksimal 24 Siswa</option>
               <option value={30}>Maksimal 30 Siswa</option>
-              <option value={36}>Maksimal 36 Siswa</option>
+              <option value={40}>Maksimal 40 Siswa</option>
             </select>
           </div>
           <label className="p-3 bg-[#fcf8ed] border border-[#e0d5b8] rounded-xl flex items-center justify-between gap-2 cursor-pointer">

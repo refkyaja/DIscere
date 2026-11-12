@@ -134,7 +134,7 @@ function jalankanUnitTests() {
   assert.strictEqual(confDefault.kekuatanTimMulti, 40);
   assert.strictEqual(confDefault.rasioTerpeleset, 0.4);
   assert.strictEqual(confDefault.batasMenang, 100);
-  assert.strictEqual(confDefault.maxPeserta, 36);
+  assert.strictEqual(confDefault.maxPeserta, 40);
 
   assert.strictEqual(konfigurasiTarikTambangSchema.parse({ batasMenang: 25 }).batasMenang, 25);
   assert.throws(() => konfigurasiTarikTambangSchema.parse({ batasMenang: 5 }));

@@ -123,7 +123,7 @@ export default function PilihModeBalapKarung() {
 
   // Multiplayer Tim Settings
   const [jumlahTim, setJumlahTim] = useState<3 | 4>(3);
-  const [maxPeserta, setMaxPeserta] = useState<number>(36);
+  const [maxPeserta, setMaxPeserta] = useState<number>(40);
   const [allowLateJoin, setAllowLateJoin] = useState<boolean>(true);
   const [showAdvancedRules, setShowAdvancedRules] = useState<boolean>(false);
 
@@ -696,7 +696,7 @@ export default function PilihModeBalapKarung() {
 
                       <div>
                         <label className="text-xs font-bold uppercase tracking-wider text-[#6b7d6c] block mb-1.5">
-                          Maksimal Peserta (1–36 siswa / 1 kelas)
+                          Maksimal Peserta (1–40 siswa / 1 kelas)
                         </label>
                         <select
                           value={maxPeserta}
@@ -706,7 +706,7 @@ export default function PilihModeBalapKarung() {
                           <option value={12}>Maksimal 12 Siswa</option>
                           <option value={24}>Maksimal 24 Siswa</option>
                           <option value={30}>Maksimal 30 Siswa</option>
-                          <option value={36}>Maksimal 36 Siswa</option>
+                          <option value={40}>Maksimal 40 Siswa</option>
                         </select>
                       </div>
 

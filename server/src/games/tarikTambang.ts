@@ -118,7 +118,7 @@ export const konfigurasiTarikTambangSchema = z.object({
   powerUpAktif: z.boolean().default(false),
   namaTim1: z.string().trim().min(1).max(40).default('Tim Merah'),
   namaTim2: z.string().trim().min(1).max(40).default('Tim Biru'),
-  maxPeserta: z.number().int().min(2).max(100).default(36),
+  maxPeserta: z.number().int().min(2).max(100).default(40),
   batasMenang: z.number().int().min(10).max(200).default(100),
   allowLateJoin: z.boolean().default(false),
 });
