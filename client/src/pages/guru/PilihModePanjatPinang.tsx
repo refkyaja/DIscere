@@ -129,7 +129,7 @@ export default function PilihModePanjatPinang() {
   const [playMode, setPlayMode] = useState<PlayModePanjat>('MULTIPLAYER');
   const [waktuPerSoalDetik, setWaktuPerSoalDetik] = useState<number>(15);
   const [tipeLawanSolo, setTipeLawanSolo] = useState<TipeLawanSoloPanjat>('bot');
-  const [kesulitanBot, setKesulitanBot] = useState<KesulitanBotPanjat>('sedang');
+  const [kesulitanBot] = useState<KesulitanBotPanjat>('sedang');
   const [namaPemain1, setNamaPemain1] = useState<string>('Pemain 1');
   const [namaPemain2, setNamaPemain2] = useState<string>('Lawan Bot');
   const hasSyncedInitialMode = useRef(false);
@@ -493,37 +493,6 @@ export default function PilihModePanjatPinang() {
                       </p>
                     </button>
                   </div>
-
-                  {tipeLawanSolo === 'bot' && (
-                    <div>
-                      <label className="text-[11px] font-bold text-[#6b7d6c] uppercase tracking-wider block mb-1.5">
-                        Kecepatan &amp; Akurasi Lawan Bot
-                      </label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {(
-                          [
-                            { key: 'santai', label: 'Bot Santai', desc: '62% benar' },
-                            { key: 'sedang', label: 'Bot Sedang', desc: '78% benar' },
-                            { key: 'cepat', label: 'Bot Cepat', desc: '90% benar' },
-                          ] as const
-                        ).map((b) => (
-                          <button
-                            key={b.key}
-                            type="button"
-                            onClick={() => setKesulitanBot(b.key)}
-                            className={`py-2 px-2 rounded-xl border-2 text-xs font-extrabold transition-all cursor-pointer ${
-                              kesulitanBot === b.key
-                                ? 'bg-[#1d3b2e] text-[#f4ecd8] border-[#1d3b2e]'
-                                : 'bg-[#fffdf6] text-[#1d3b2e] border-[#e0d5b8]'
-                            }`}
-                          >
-                            <div>{b.label}</div>
-                            <div className="text-[10px] font-normal opacity-80">{b.desc}</div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
 
                   <div className="grid grid-cols-2 gap-3 text-xs pt-1">
                     <div>
