@@ -118,6 +118,17 @@ export const konfigurasiPanjatPinangSchema = z.object({
     .max(200, 'Maksimal 200 peserta dalam satu sesi.')
     .default(100),
   allowLateJoin: z.boolean().default(true),
+  waktuPerSoalDetik: z.number().int().min(5).max(120).default(15),
+  tipeLawanSolo: z.enum(['bot', 'lokal']).default('bot'),
+  kesulitanBot: z
+    .preprocess((v) => {
+      if (v === 'mudah' || v === 'santai') return 'santai';
+      if (v === 'sulit' || v === 'cepat') return 'cepat';
+      return 'sedang';
+    }, z.enum(['santai', 'sedang', 'cepat']))
+    .default('sedang'),
+  namaPemain1: z.string().trim().min(1).max(24).default('Pemain 1'),
+  namaPemain2: z.string().trim().min(1).max(24).default('Lawan Bot'),
 });
 
 export interface KonfigurasiPanjatPinang {
@@ -136,6 +147,11 @@ export interface KonfigurasiPanjatPinang {
   peluangRintanganPersen: number;
   maxPeserta: number;
   allowLateJoin: boolean;
+  waktuPerSoalDetik: number;
+  tipeLawanSolo: 'bot' | 'lokal';
+  kesulitanBot: 'santai' | 'sedang' | 'cepat';
+  namaPemain1: string;
+  namaPemain2: string;
 }
 
 /**
@@ -184,6 +200,15 @@ export function bangunKonfigurasiPanjatPinang(
     peluangRintanganPersen: parsed.peluangRintanganPersen,
     maxPeserta: parsed.maxPeserta,
     allowLateJoin: parsed.allowLateJoin,
+    waktuPerSoalDetik: parsed.waktuPerSoalDetik,
+    tipeLawanSolo: parsed.tipeLawanSolo,
+    kesulitanBot: parsed.kesulitanBot,
+    namaPemain1: parsed.namaPemain1 || 'Pemain 1',
+    namaPemain2: rawInput?.namaPemain2?.trim()
+      ? parsed.namaPemain2
+      : parsed.tipeLawanSolo === 'lokal'
+        ? 'Pemain 2'
+        : 'Lawan Bot',
   });
 }
 
@@ -236,7 +261,8 @@ export interface RiwayatJawabanEntry {
   presentationId: string;
   questionId: string;
   choiceId: string;
-  jawabanKey: KunciPilihan;
+  jawabanKey: KunciPilihan | 'TIMEOUT';
+  timedOut?: boolean;
   benar: boolean;
   isBonusKulitPisang: boolean;
   waktuJawabMs: number;
@@ -511,6 +537,7 @@ export interface ProsesJawabanPanjatParams {
   presentasi: PresentasiSoalPanjat;
   choiceId?: string;
   fallbackJawabanKey?: string;
+  timedOut?: boolean;
   config: KonfigurasiPanjatPinang;
   gameMulaiPadaMs: number;
   nowMs?: number;
@@ -519,7 +546,8 @@ export interface ProsesJawabanPanjatParams {
 
 export interface HasilJawabanPanjat {
   benar: boolean;
-  pilihanDipilih: OpsiPilihanPanjat;
+  pilihanDipilih: OpsiPilihanPanjat | null;
+  timedOut?: boolean;
   isBonusKulitPisang: boolean;
   posisiSebelum: number;
   posisiBaru: number;
@@ -561,6 +589,7 @@ export function prosesJawabanPanjatPinang(
     presentasi,
     choiceId,
     fallbackJawabanKey,
+    timedOut = false,
     config,
     gameMulaiPadaMs,
     nowMs = Date.now(),
@@ -571,9 +600,15 @@ export function prosesJawabanPanjatPinang(
     throw new Error('Anda sudah mencapai puncak 100% dan tidak dapat menjawab lagi.');
   }
 
-  const cekPilihan = validasiPilihanDenganChoiceId(presentasi, choiceId, fallbackJawabanKey);
-  if (!cekPilihan.valid || !cekPilihan.dipilih) {
-    throw new Error('Pilihan jawaban tidak valid untuk soal yang aktif.');
+  let cekPilihan: { valid: boolean; dipilih: OpsiPilihanPanjat | null; benar: boolean };
+  if (timedOut) {
+    cekPilihan = { valid: true, dipilih: null, benar: false };
+  } else {
+    const validasi = validasiPilihanDenganChoiceId(presentasi, choiceId, fallbackJawabanKey);
+    if (!validasi.valid || !validasi.dipilih) {
+      throw new Error('Pilihan jawaban tidak valid untuk soal yang aktif.');
+    }
+    cekPilihan = validasi;
   }
 
   const updated = clonePesertaPanjat(peserta);
@@ -619,8 +654,10 @@ export function prosesJawabanPanjatPinang(
       const log: RiwayatRintanganEntry = {
         id: crypto.randomUUID(),
         tipe: 'kulit_pisang',
-        judul: 'Gagal Mendapat Perisai',
-        deskripsi: 'Jawaban soal bonus belum tepat. Posisi tidak turun, namun tanpa perlindungan.',
+        judul: timedOut ? 'Waktu Soal Bonus Habis' : 'Gagal Mendapat Perisai',
+        deskripsi: timedOut
+          ? 'Waktu habis pada soal bonus. Posisi tidak turun, namun tanpa perlindungan.'
+          : 'Jawaban soal bonus belum tepat. Posisi tidak turun, namun tanpa perlindungan.',
         efekNilai: 0,
         satuan: 'perisai',
         timestampMs: nowMs,
@@ -677,7 +714,9 @@ export function prosesJawabanPanjatPinang(
       updated.bonus5DalamStreak = false;
 
       delta -= config.turunSalah;
-      catatanAlasan.push(`Salah -${config.turunSalah}%`);
+      catatanAlasan.push(
+        timedOut ? `Waktu habis -${config.turunSalah}%` : `Salah -${config.turunSalah}%`
+      );
 
       // Cek Tiang Licin dan Perisai Kulit Pisang saat salah
       if (updated.efekAktif.tiangLicin) {
@@ -728,8 +767,9 @@ export function prosesJawabanPanjatPinang(
   updated.riwayatJawaban.push({
     presentationId: presentasi.presentationId,
     questionId: presentasi.questionId,
-    choiceId: cekPilihan.dipilih.choiceId,
-    jawabanKey: cekPilihan.dipilih.key,
+    choiceId: cekPilihan.dipilih?.choiceId || 'TIMEOUT',
+    jawabanKey: cekPilihan.dipilih?.key || 'TIMEOUT',
+    timedOut,
     benar,
     isBonusKulitPisang: presentasi.isBonusKulitPisang,
     waktuJawabMs,
@@ -753,6 +793,7 @@ export function prosesJawabanPanjatPinang(
   return {
     benar,
     pilihanDipilih: cekPilihan.dipilih,
+    timedOut,
     isBonusKulitPisang: presentasi.isBonusKulitPisang,
     posisiSebelum,
     posisiBaru: updated.posisi,

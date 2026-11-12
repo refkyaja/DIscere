@@ -318,7 +318,7 @@ adminRouter.get('/pustaka', async (_req: AuthRequest, res: Response) => {
 adminRouter.post('/pustaka', async (req: AuthRequest, res: Response) => {
   try {
     const parsed = pustakaTemplateSchema.parse(req.body);
-    const resolvedMode = parsed.game === 'panjat_pinang' ? 'multi' : parsed.mode;
+    const resolvedMode = parsed.mode;
 
     const created = await prisma.template.create({
       data: {
@@ -359,7 +359,7 @@ adminRouter.put('/pustaka/:id', async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
     const parsed = pustakaTemplateSchema.parse(req.body);
-    const resolvedMode = parsed.game === 'panjat_pinang' ? 'multi' : parsed.mode;
+    const resolvedMode = parsed.mode;
 
     const existing = await prisma.template.findUnique({
       where: { id },

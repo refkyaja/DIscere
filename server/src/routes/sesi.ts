@@ -40,6 +40,7 @@ import {
   validasiProbabilitas,
 } from '../games/makanKerupuk.js';
 import { panjatPinangManager } from '../games/panjatPinangManager.js';
+import { panjatPinangSoloManager } from '../games/panjatPinangSoloManager.js';
 import {
   bangunKonfigurasiPanjatPinang,
   konfigurasiPanjatPinangSchema,
@@ -57,6 +58,7 @@ export const sesiRouter = Router();
 type ResolvedSessionManager =
   | { kind: 'balap_solo'; session: NonNullable<ReturnType<typeof balapKarungSoloManager.dapatkanSesi>> }
   | { kind: 'balap_multi'; session: NonNullable<ReturnType<typeof balapKarungManager.dapatkanSesi>> }
+  | { kind: 'panjat_solo'; session: NonNullable<ReturnType<typeof panjatPinangSoloManager.dapatkanSesi>> }
   | { kind: 'panjat_multi'; session: NonNullable<ReturnType<typeof panjatPinangManager.dapatkanSesi>> }
   | { kind: 'kerupuk_multi'; session: NonNullable<ReturnType<typeof kerupukMultiManager.dapatkanSesi>> }
   | { kind: 'kerupuk_solo'; session: NonNullable<ReturnType<typeof kerupukManager.dapatkanSesi>> }
@@ -69,6 +71,8 @@ async function resolveSessionAnyManager(id: string): Promise<ResolvedSessionMana
   if (bSolo) return { kind: 'balap_solo', session: bSolo };
   const bMulti = balapKarungManager.dapatkanSesi(id);
   if (bMulti) return { kind: 'balap_multi', session: bMulti };
+  const pSolo = panjatPinangSoloManager.dapatkanSesi(id);
+  if (pSolo) return { kind: 'panjat_solo', session: pSolo };
   const pMulti = panjatPinangManager.dapatkanSesi(id);
   if (pMulti) return { kind: 'panjat_multi', session: pMulti };
   const kMulti = kerupukMultiManager.dapatkanSesi(id);
@@ -99,6 +103,10 @@ async function resolveSessionAnyManager(id: string): Promise<ResolvedSessionMana
     return s ? { kind: 'balap_multi', session: s } : null;
   }
   if (g === 'panjat_pinang') {
+    if (m === 'solo') {
+      const s = await panjatPinangSoloManager.pulihkanSesiDariDb(id);
+      return s ? { kind: 'panjat_solo', session: s } : null;
+    }
     const s = await panjatPinangManager.pulihkanSesiDariDb(id);
     return s ? { kind: 'panjat_multi', session: s } : null;
   }
@@ -222,7 +230,12 @@ async function generateTokenUnikSemuaGame(): Promise<string> {
 sesiRouter.get('/token/:token', async (req: Request, res: Response) => {
   try {
     const token = req.params.token as string;
-    if (soloManager.dapatkanSesi(token) || kerupukManager.dapatkanSesi(token)) {
+    if (
+      soloManager.dapatkanSesi(token) ||
+      kerupukManager.dapatkanSesi(token) ||
+      balapKarungSoloManager.dapatkanSesi(token) ||
+      panjatPinangSoloManager.dapatkanSesi(token)
+    ) {
       return res.status(400).json({
         valid: false,
         pesan: 'Mode Solo tidak memakai kode PIN dan tidak menerima peserta siswa.',
@@ -374,6 +387,7 @@ sesiRouter.delete('/:id', roleMiddleware(['guru', 'admin']), async (req: AuthReq
     bersihkanTimerSesi(id);
     balapKarungSoloManager.hapusSesi(id);
     balapKarungManager.hapusSesi(id);
+    panjatPinangSoloManager.hapusSesi(id);
     panjatPinangManager.hapusSesi(id);
     kerupukManager.hapusSesi(id);
     kerupukMultiManager.hapusSesi(id);
@@ -515,7 +529,9 @@ sesiRouter.get('/riwayat/:id', async (req: AuthRequest, res: Response) => {
 
     const laporanPanjatPinang =
       session.template.game === 'panjat_pinang'
-        ? await panjatPinangManager.muatLaporanDariDatabase(session.id)
+        ? session.mode === 'solo'
+          ? await panjatPinangSoloManager.muatLaporanDariDatabase(session.id)
+          : await panjatPinangManager.muatLaporanDariDatabase(session.id)
         : null;
 
     const laporanBalapKarung =
@@ -736,9 +752,59 @@ sesiRouter.post('/', async (req: AuthRequest, res: Response) => {
     }
 
     // -------------------------------------------------------------
-    // CABANG 0: Game Panjat Pinang (Individual Multiplayer)
+    // CABANG 0: Game Panjat Pinang (Dual-Mode: SOLO / MULTIPLAYER)
     // -------------------------------------------------------------
     if (targetGame === 'panjat_pinang') {
+      const requestedSolo =
+        parsed.playMode === 'SOLO' ||
+        parsed.mode === 'solo' ||
+        (!parsed.playMode && !parsed.mode && template.mode === 'solo');
+
+      if (requestedSolo) {
+        const rawSoloCfg = parsed.panjatPinangConfig || {};
+        const configSnapshot = bangunKonfigurasiPanjatPinang({
+          waktuPerSoalDetik: 15,
+          ...rawSoloCfg,
+          maxPeserta: 2,
+          allowLateJoin: false,
+        });
+        const autoStart = parsed.autoStart === true;
+
+        const session = await prisma.session.create({
+          data: {
+            templateId: template.id,
+            hostId: req.user!.id,
+            mode: 'solo',
+            token: null,
+            status: autoStart ? 'jalan' : 'lobi',
+            mulaiPada: autoStart ? new Date() : null,
+            konfigurasi: JSON.stringify({
+              playMode: 'SOLO',
+              config: configSnapshot,
+            }),
+          },
+        });
+
+        const activeSoloPanjat = panjatPinangSoloManager.inisialisasiSesi(
+          session.id,
+          req.user!.id,
+          { id: template.id, judul: template.judul },
+          template.questions.map(mapDbQuestionForGame),
+          configSnapshot,
+          autoStart
+        );
+
+        await panjatPinangSoloManager.simpanStatusKeDatabase(activeSoloPanjat);
+
+        return res.status(201).json({
+          pesan: 'Sesi Mode Solo Panjat Pinang Challenge siap dimulai.',
+          session: {
+            id: session.id,
+            ...panjatPinangSoloManager.serialisasiUntukClient(activeSoloPanjat),
+          },
+        });
+      }
+
       const configSnapshot = bangunKonfigurasiPanjatPinang({
         ...(parsed.panjatPinangConfig || {}),
         ...(parsed.maxPeserta ? { maxPeserta: parsed.maxPeserta } : {}),
@@ -1101,6 +1167,16 @@ sesiRouter.get('/:id', async (req: AuthRequest, res: Response) => {
       });
     }
 
+    if (resolved.kind === 'panjat_solo') {
+      const activePanjatSolo = resolved.session;
+      if (activePanjatSolo.hostId !== req.user!.id) {
+        return res.status(403).json({ pesan: 'Anda tidak memiliki hak akses ke sesi ini.' });
+      }
+      return res.json({
+        session: panjatPinangSoloManager.serialisasiUntukClient(activePanjatSolo),
+      });
+    }
+
     if (resolved.kind === 'panjat_multi') {
       const activePanjat = resolved.session;
       if (activePanjat.hostId !== req.user!.id) {
@@ -1211,6 +1287,24 @@ sesiRouter.post('/:id/mulai', async (req: AuthRequest, res: Response) => {
     const id = req.params.id as string;
     const resolved = await resolveSessionAnyManager(id);
 
+    if (resolved?.kind === 'panjat_solo') {
+      const kesulitanBotReq = req.body?.kesulitanBot as 'santai' | 'sedang' | 'cepat' | 'mudah' | 'sulit' | undefined;
+      if (kesulitanBotReq) {
+        const mappedBot =
+          kesulitanBotReq === 'mudah'
+            ? 'santai'
+            : kesulitanBotReq === 'sulit'
+              ? 'cepat'
+              : kesulitanBotReq;
+        panjatPinangSoloManager.ubahKesulitanBot(id, req.user!.id, mappedBot);
+      }
+      const sesiPanjatSolo = panjatPinangSoloManager.mulaiSesi(id, req.user!.id);
+      return res.json({
+        pesan: 'Permainan Panjat Pinang Solo 1 vs 1 dimulai.',
+        session: panjatPinangSoloManager.serialisasiUntukClient(sesiPanjatSolo),
+      });
+    }
+
     if (resolved?.kind === 'balap_solo') {
       const kesulitanBotReq = req.body?.kesulitanBot as 'santai' | 'sedang' | 'cepat' | 'mudah' | 'sulit' | undefined;
       const sesiBalapSolo = balapKarungSoloManager.mulaiSesi(id, req.user!.id, {
@@ -1289,6 +1383,27 @@ sesiRouter.patch('/:id/pengaturan', async (req: AuthRequest, res: Response) => {
     const id = req.params.id as string;
     const { kesulitanBot, jumlahTim } = pengaturanBalapSchema.parse(req.body);
 
+    const activeSoloPanjat =
+      panjatPinangSoloManager.dapatkanSesi(id) ||
+      (await panjatPinangSoloManager.pulihkanSesiDariDb(id));
+    if (activeSoloPanjat && kesulitanBot) {
+      const mappedBot =
+        kesulitanBot === 'mudah'
+          ? 'santai'
+          : kesulitanBot === 'sulit'
+            ? 'cepat'
+            : kesulitanBot;
+      const updatedSoloPanjat = panjatPinangSoloManager.ubahKesulitanBot(
+        id,
+        req.user!.id,
+        mappedBot
+      );
+      return res.json({
+        pesan: 'Kesulitan Bot diperbarui.',
+        session: panjatPinangSoloManager.serialisasiUntukClient(updatedSoloPanjat),
+      });
+    }
+
     const activeSolo =
       balapKarungSoloManager.dapatkanSesi(id) ||
       (await balapKarungSoloManager.pulihkanSesiDariDb(id));
@@ -1346,6 +1461,19 @@ sesiRouter.post('/:id/state', async (req: AuthRequest, res: Response) => {
     const id = req.params.id as string;
     const { state } = stateSchema.parse(req.body);
     const resolved = await resolveSessionAnyManager(id);
+
+    if (resolved?.kind === 'panjat_solo') {
+      const sesiPanjatSolo = panjatPinangSoloManager.ubahStateSesi(
+        id,
+        req.user!.id,
+        state === 'PAUSED' ? 'pause' : 'resume'
+      );
+      return res.json({
+        pesan: `Permainan berhasil di-${state === 'PAUSED' ? 'jeda' : 'lanjutkan'}.`,
+        state: sesiPanjatSolo.state,
+        session: panjatPinangSoloManager.serialisasiUntukClient(sesiPanjatSolo),
+      });
+    }
 
     if (resolved?.kind === 'balap_solo') {
       const sesiBalapSolo = balapKarungSoloManager.ubahStateSesi(id, req.user!.id, state);
@@ -1415,6 +1543,30 @@ sesiRouter.post('/:id/jawab', async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
     const resolved = await resolveSessionAnyManager(id);
+
+    if (resolved?.kind === 'panjat_solo') {
+      const inputPanjat = jawabBalapSoloSchema.parse(req.body);
+      const hasilPanjat = panjatPinangSoloManager.prosesJawaban(id, req.user!.id, {
+        slot: inputPanjat.slot,
+        presentationId: inputPanjat.presentationId,
+        choiceId: inputPanjat.choiceId,
+        questionId: inputPanjat.questionId,
+        timedOut: Boolean(inputPanjat.timedOut),
+      });
+
+      if (hasilPanjat.isFinished) {
+        await panjatPinangSoloManager.simpanHasilKeDatabase(hasilPanjat.sesi);
+      }
+
+      return res.json({
+        game: 'panjat_pinang',
+        slot: hasilPanjat.feedback.slot,
+        feedback: hasilPanjat.feedback,
+        hasilJawaban: hasilPanjat.hasilJawaban,
+        isFinished: hasilPanjat.isFinished,
+        session: panjatPinangSoloManager.serialisasiUntukClient(hasilPanjat.sesi),
+      });
+    }
 
     if (resolved?.kind === 'balap_solo') {
       const inputBalap = jawabBalapSoloSchema.parse(req.body);
@@ -1602,6 +1754,20 @@ sesiRouter.post('/:id/bot-langkah', async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
     const resolved = await resolveSessionAnyManager(id);
+    if (resolved?.kind === 'panjat_solo') {
+      const resBot = panjatPinangSoloManager.jalankanLangkahBot(id, req.user!.id);
+      if (resBot.isFinished) {
+        await panjatPinangSoloManager.simpanHasilKeDatabase(resBot.sesi);
+      }
+
+      return res.json({
+        executed: resBot.acted,
+        feedback: resBot.feedback,
+        isFinished: resBot.isFinished,
+        session: panjatPinangSoloManager.serialisasiUntukClient(resBot.sesi),
+      });
+    }
+
     if (resolved?.kind === 'balap_solo') {
       const resBot = balapKarungSoloManager.jalankanLangkahBot(id, req.user!.id);
       if (resBot.selesai) {
@@ -1642,6 +1808,16 @@ sesiRouter.post('/:id/selesai', async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
     const resolved = await resolveSessionAnyManager(id);
+
+    if (resolved?.kind === 'panjat_solo') {
+      const sesiPanjatSolo = panjatPinangSoloManager.hentikanPermainan(id, req.user!.id);
+      await panjatPinangSoloManager.simpanHasilKeDatabase(sesiPanjatSolo);
+      return res.json({
+        pesan: 'Permainan Panjat Pinang Solo berhasil dihentikan.',
+        hasil: sesiPanjatSolo.hasil,
+        session: panjatPinangSoloManager.serialisasiUntukClient(sesiPanjatSolo),
+      });
+    }
 
     if (resolved?.kind === 'balap_solo') {
       const sesiBalapSolo = balapKarungSoloManager.hentikanPermainan(id, req.user!.id);
@@ -1688,6 +1864,22 @@ sesiRouter.post('/:id/ulang', async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
     const resolved = await resolveSessionAnyManager(id);
+
+    if (resolved?.kind === 'panjat_solo') {
+      const activePanjatSolo = resolved.session;
+      if (activePanjatSolo.state === 'FINISHED' || activePanjatSolo.state === 'STOPPED') {
+        return res.status(400).json({
+          pesan:
+            'Sesi yang sudah selesai tidak dapat direset in-place agar riwayat tetap terjaga. Gunakan Main Lagi untuk membuat sesi baru.',
+        });
+      }
+
+      const sesiReset = await panjatPinangSoloManager.ulangPermainan(id, req.user!.id);
+      return res.json({
+        pesan: 'Permainan Panjat Pinang Solo dikembalikan ke posisi awal (READY).',
+        session: panjatPinangSoloManager.serialisasiUntukClient(sesiReset),
+      });
+    }
 
     if (resolved?.kind === 'balap_solo') {
       const activeBalapSolo = resolved.session;
@@ -1809,6 +2001,26 @@ sesiRouter.get('/:id/hasil', async (req: AuthRequest, res: Response) => {
     }
 
     // 0. Cek Panjat Pinang (memori atau database)
+    const activePanjatSolo = panjatPinangSoloManager.dapatkanSesi(id);
+    if (activePanjatSolo) {
+      if (activePanjatSolo.hostId !== req.user!.id) {
+        return res.status(403).json({ pesan: 'Anda tidak memiliki hak akses ke sesi ini.' });
+      }
+      const serialized = panjatPinangSoloManager.serialisasiUntukClient(activePanjatSolo);
+      const laporan =
+        serialized.hasil ||
+        (await panjatPinangSoloManager.muatLaporanDariDatabase(activePanjatSolo.sessionId));
+      if (laporan) {
+        return res.json({
+          hasil: {
+            ...laporan,
+            game: 'panjat_pinang',
+            questionStats: serialized.questionStats,
+          },
+        });
+      }
+    }
+
     const activePanjat = panjatPinangManager.dapatkanSesi(id);
     if (activePanjat) {
       if (activePanjat.hostId !== req.user!.id) {
@@ -1956,7 +2168,10 @@ sesiRouter.get('/:id/hasil', async (req: AuthRequest, res: Response) => {
     }
 
     if (sessionDb.template.game === 'panjat_pinang') {
-      const laporanDb = await panjatPinangManager.muatLaporanDariDatabase(sessionDb.id);
+      const laporanDb =
+        sessionDb.mode === 'solo'
+          ? await panjatPinangSoloManager.muatLaporanDariDatabase(sessionDb.id)
+          : await panjatPinangManager.muatLaporanDariDatabase(sessionDb.id);
       if (laporanDb) {
         return res.json({
           hasil: {
@@ -2250,11 +2465,58 @@ sesiRouter.post('/:id/main-lagi', async (req: AuthRequest, res: Response) => {
       let configSebelumnya: any;
       if (sessionLama.konfigurasi) {
         try {
-          configSebelumnya = JSON.parse(sessionLama.konfigurasi);
+          const parsedKonf = JSON.parse(sessionLama.konfigurasi);
+          configSebelumnya =
+            parsedKonf?.config && typeof parsedKonf.config === 'object'
+              ? parsedKonf.config
+              : parsedKonf;
         } catch {
           configSebelumnya = undefined;
         }
       }
+
+      if (sessionLama.mode === 'solo') {
+        const configSnapshot = bangunKonfigurasiPanjatPinang({
+          waktuPerSoalDetik: 15,
+          ...configSebelumnya,
+          maxPeserta: 2,
+          allowLateJoin: false,
+        });
+        const sessionBaru = await prisma.session.create({
+          data: {
+            templateId: sessionLama.templateId,
+            hostId: req.user!.id,
+            mode: 'solo',
+            token: null,
+            status: 'lobi',
+            konfigurasi: JSON.stringify({
+              playMode: 'SOLO',
+              config: configSnapshot,
+            }),
+          },
+        });
+        const activeSolo = panjatPinangSoloManager.inisialisasiSesi(
+          sessionBaru.id,
+          req.user!.id,
+          { id: sessionLama.template.id, judul: sessionLama.template.judul },
+          sessionLama.template.questions.map(mapDbQuestionForGame),
+          configSnapshot,
+          false
+        );
+        await panjatPinangSoloManager.simpanStatusKeDatabase(activeSolo);
+        return res.status(201).json({
+          pesan: 'Sesi Panjat Pinang Solo baru berhasil dibuat.',
+          sessionId: sessionBaru.id,
+          session: {
+            id: sessionBaru.id,
+            ...panjatPinangSoloManager.serialisasiUntukClient(activeSolo),
+          },
+          game: 'panjat_pinang',
+          mode: 'solo',
+          playMode: 'SOLO',
+        });
+      }
+
       const configSnapshot = bangunKonfigurasiPanjatPinang(configSebelumnya);
       const token = await generateTokenUnikSemuaGame();
       const baseUrl = getNetworkBaseUrl(req);
