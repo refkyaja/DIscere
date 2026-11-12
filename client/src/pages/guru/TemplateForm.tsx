@@ -33,12 +33,7 @@ export default function TemplateForm() {
         const res = await apiRequest<{ template: any }>(`/template/${id}`);
         const t = res.template;
         const game = t.game || 'tarik_tambang';
-        const mode: 'solo' | 'multi' =
-          game === 'panjat_pinang'
-            ? 'multi'
-            : t.mode === 'solo'
-            ? 'solo'
-            : 'multi';
+        const mode: 'solo' | 'multi' = t.mode === 'solo' ? 'solo' : 'multi';
 
         setInitialData({
           judul: t.judul || '',

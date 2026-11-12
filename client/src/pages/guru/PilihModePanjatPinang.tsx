@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { apiRequest } from '../../lib/api';
 import {
@@ -16,6 +16,7 @@ import type {
   KonfigurasiPanjatPinangPayload,
 } from './ModalKonfigurasiPanjatPinang';
 import {
+  Bot,
   ChevronDown,
   ChevronUp,
   Clock,
@@ -25,16 +26,21 @@ import {
   Flame,
   Gift,
   HandMetal,
-  Lock,
   Monitor,
+  Play,
   QrCode,
   Shield,
   ShieldAlert,
   Sliders,
+  Swords,
   Trophy,
   UserCheck,
   Users,
 } from 'lucide-react';
+
+type PlayModePanjat = 'MULTIPLAYER' | 'SOLO';
+type TipeLawanSoloPanjat = 'bot' | 'lokal';
+type KesulitanBotPanjat = 'santai' | 'sedang' | 'cepat';
 
 interface TemplateDetail {
   id: string;
@@ -119,6 +125,20 @@ export default function PilihModePanjatPinang() {
   const [allowLateJoin, setAllowLateJoin] = useState<boolean>(true);
   const [showAdvancedRules, setShowAdvancedRules] = useState<boolean>(false);
 
+  // Mode & Parameter Solo 1 vs 1
+  const [playMode, setPlayMode] = useState<PlayModePanjat>('MULTIPLAYER');
+  const [waktuPerSoalDetik, setWaktuPerSoalDetik] = useState<number>(15);
+  const [tipeLawanSolo, setTipeLawanSolo] = useState<TipeLawanSoloPanjat>('bot');
+  const [kesulitanBot, setKesulitanBot] = useState<KesulitanBotPanjat>('sedang');
+  const [namaPemain1, setNamaPemain1] = useState<string>('Pemain 1');
+  const [namaPemain2, setNamaPemain2] = useState<string>('Lawan Bot');
+  const hasSyncedInitialMode = useRef(false);
+  const hasCustomTimer = useRef(false);
+
+  useEffect(() => {
+    hasSyncedInitialMode.current = false;
+  }, [queryTemplateId]);
+
   useEffect(() => {
     let active = true;
 
@@ -150,6 +170,14 @@ export default function PilihModePanjatPinang() {
         }
 
         setSelectedTemplate(tmpl);
+        if (!hasSyncedInitialMode.current) {
+          hasSyncedInitialMode.current = true;
+          if (tmpl.mode === 'solo') {
+            setPlayMode('SOLO');
+          } else if (tmpl.mode === 'multi') {
+            setPlayMode('MULTIPLAYER');
+          }
+        }
       } catch (err: unknown) {
         if (active) {
           setSelectedTemplate(null);
@@ -170,8 +198,26 @@ export default function PilihModePanjatPinang() {
     selectedTemplate?.questions?.length ?? selectedTemplate?._count?.questions ?? 0;
 
   const rintanganValid = !rintanganAktif || rintanganDipilih.length > 0;
+  const soloNamesValid =
+    playMode !== 'SOLO' || (namaPemain1.trim().length >= 1 && namaPemain2.trim().length >= 1);
   const canSubmit =
-    Boolean(selectedTemplate) && jumlahSoal > 0 && rintanganValid && !submitting;
+    Boolean(selectedTemplate) && jumlahSoal > 0 && rintanganValid && soloNamesValid && !submitting;
+
+  const handleUbahPlayMode = (nextMode: PlayModePanjat) => {
+    setPlayMode(nextMode);
+    if (!hasCustomTimer.current) {
+      setWaktuPerSoalDetik(15);
+    }
+  };
+
+  const handleUbahTipeLawanSolo = (tipe: TipeLawanSoloPanjat) => {
+    setTipeLawanSolo(tipe);
+    if (tipe === 'bot' && (namaPemain2 === 'Pemain 2' || !namaPemain2.trim())) {
+      setNamaPemain2('Lawan Bot');
+    } else if (tipe === 'lokal' && (namaPemain2 === 'Lawan Bot' || !namaPemain2.trim())) {
+      setNamaPemain2('Pemain 2');
+    }
+  };
 
   const pilihPresetKesulitan = (mode: KesulitanPanjatPinang) => {
     setKesulitan(mode);
@@ -250,8 +296,14 @@ export default function PilihModePanjatPinang() {
             ? Math.max(1, Math.min(50, Math.round(hadiahKejutanNilai) || 5))
             : Math.max(1, Math.min(500, Math.round(hadiahKejutanNilai) || 50)),
         peluangRintanganPersen: Math.max(5, Math.min(60, Math.round(peluangRintanganPersen) || 25)),
-        maxPeserta,
-        allowLateJoin,
+        maxPeserta: playMode === 'MULTIPLAYER' ? maxPeserta : 2,
+        allowLateJoin: playMode === 'MULTIPLAYER' ? allowLateJoin : false,
+        waktuPerSoalDetik: Math.min(120, Math.max(5, Math.round(waktuPerSoalDetik) || 15)),
+        tipeLawanSolo,
+        kesulitanBot,
+        namaPemain1: namaPemain1.trim() || 'Pemain 1',
+        namaPemain2:
+          namaPemain2.trim() || (tipeLawanSolo === 'bot' ? 'Lawan Bot' : 'Pemain 2'),
       };
 
       const res = await apiRequest<{ session: { id: string } }>('/sesi', {
@@ -259,7 +311,8 @@ export default function PilihModePanjatPinang() {
         body: JSON.stringify({
           templateId: selectedTemplate.id,
           game: 'panjat_pinang',
-          mode: 'multi',
+          mode: playMode === 'MULTIPLAYER' ? 'multi' : 'solo',
+          playMode,
           panjatPinangConfig,
         }),
       });
@@ -290,7 +343,7 @@ export default function PilihModePanjatPinang() {
       loading={loadingTemplate}
       loadingText="Menyiapkan Pengaturan Panjat Pinang..."
       title="Panjat Pinang Challenge"
-      subtitle="Atur pergerakan tiang, kapasitas peserta, bonus streak, dan rintangan sebelum memulai lomba."
+      subtitle="Atur mode permainan, pergerakan tiang, bonus streak, dan rintangan sebelum memulai lomba."
       errorMessage={errorPesan}
       templateTitle={selectedTemplate?.judul}
       isOfficialTemplate={Boolean(selectedTemplate?.resmi)}
@@ -301,12 +354,13 @@ export default function PilihModePanjatPinang() {
         {/* 1. Pilih Mode Permainan */}
         <GameConfigSection
           title="1. Pilih Mode Permainan"
-          description="Panjat Pinang mempertandingkan seluruh siswa secara individu lewat HP masing-masing menuju puncak tiang 100%."
+          description="Multiplayer mempertandingkan seluruh siswa lewat HP masing-masing; Solo Mode menyajikan duel panjat pinang 1 vs 1 di satu layar proyektor."
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <GameModeCard
-              selected={true}
+              selected={playMode === 'MULTIPLAYER'}
               variant="green"
+              onClick={() => handleUbahPlayMode('MULTIPLAYER')}
               badgeIcon={<Users className="w-3.5 h-3.5" />}
               badgeLabel="Multiplayer Individu"
               title="Siswa Bermain di HP • Lomba Panjat 100%"
@@ -320,23 +374,18 @@ export default function PilihModePanjatPinang() {
             />
 
             <GameModeCard
-              selected={false}
+              selected={playMode === 'SOLO'}
               variant="red"
-              disabled={true}
+              onClick={() => handleUbahPlayMode('SOLO')}
               badgeIcon={<Monitor className="w-3.5 h-3.5" />}
-              badgeLabel="Solo Mode • Belum Tersedia"
-              rightBadge={
-                <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-[#f4ecd9] text-[#6b7d6c] border border-[#d7caa7]">
-                  <Lock className="w-3 h-3" /> Khusus Multiplayer
-                </span>
-              }
-              title="Khusus Lomba Individu via HP Siswa"
-              description="Mode Solo satu perangkat tidak tersedia untuk Panjat Pinang. Gunakan mode Multiplayer Individu agar setiap siswa dapat berlomba dari perangkat masing-masing."
+              badgeLabel="Solo Mode (1 vs 1)"
+              title="Satu Perangkat Guru • 1 vs 1 dengan Lawan"
+              description="Tanpa HP siswa, PIN, atau QR Code. Di layar proyektor tampil 2 tiang pinang (1 vs 1) melawan Bot AI atau pemain ke-2 lokal menuju puncak 100%."
               features={[
-                { icon: <Users className="w-3.5 h-3.5" />, label: 'Hingga 200 Peserta' },
-                { icon: <Flame className="w-3.5 h-3.5" />, label: 'Bonus Streak 3 & 5' },
-                { icon: <ShieldAlert className="w-3.5 h-3.5" />, label: '4 Rintangan & Kejutan' },
-                { icon: <Clock className="w-3.5 h-3.5" />, label: 'Tanpa Timer Global' },
+                { icon: <Monitor className="w-3.5 h-3.5" />, label: 'Tanpa PIN / QR Code' },
+                { icon: <Swords className="w-3.5 h-3.5" />, label: 'Tepat 2 Tiang (1 vs 1)' },
+                { icon: <Bot className="w-3.5 h-3.5" />, label: 'Lawan Bot / Duel Lokal' },
+                { icon: <Play className="w-3.5 h-3.5" />, label: 'Kontrol Jeda & Ulang' },
               ]}
             />
           </div>
@@ -345,7 +394,7 @@ export default function PilihModePanjatPinang() {
         {/* 2. Pengaturan Aturan & Tiang */}
         <GameConfigSection
           title="2. Pengaturan Aturan & Tiang"
-          description="Sesuaikan kapasitas peserta, kecepatan memanjat, bonus streak, dan rintangan kejutan di tiang pinang."
+          description="Sesuaikan aturan lawan atau kapasitas peserta, kecepatan memanjat, bonus streak, dan rintangan kejutan di tiang pinang."
         >
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* Kolom Kiri: Target Puncak & Peserta */}
@@ -391,48 +440,165 @@ export default function PilihModePanjatPinang() {
                 </div>
               </div>
 
-              {/* Pengaturan Peserta & Lobi */}
-              <div className="portal-card p-5 space-y-4">
-                <GameConfigCardHeader
-                  icon={<UserCheck className="w-4 h-4 text-[#1d3b2e]" />}
-                  title="Pengaturan Peserta & Lobi"
-                  tagLabel={`${maxPeserta} Siswa`}
-                  tagColor="green"
-                />
+              {/* Pengaturan Khusus Solo 1 vs 1 ATAU Peserta & Lobi */}
+              {playMode === 'SOLO' ? (
+                <div className="portal-card p-5 space-y-4">
+                  <GameConfigCardHeader
+                    icon={<Swords className="w-4 h-4 text-[#c8362f]" />}
+                    title="Pengaturan Duel 1 vs 1"
+                    tagLabel="Tepat 2 Tiang"
+                    tagColor="red"
+                  />
 
-                <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-[#6b7d6c] block mb-1.5">
-                    Maksimal Peserta (1–200 siswa)
-                  </label>
-                  <select
-                    value={maxPeserta}
-                    onChange={(e) => setMaxPeserta(Number(e.target.value))}
-                    className="portal-select font-bold"
-                  >
-                    <option value={40}>Maksimal 40 Siswa (1 Kelas)</option>
-                    <option value={60}>Maksimal 60 Siswa (Kelas Besar)</option>
-                    <option value={100}>Maksimal 100 Siswa (Standar)</option>
-                    <option value={200}>Maksimal 200 Siswa (Maksimum)</option>
-                  </select>
-                </div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => handleUbahTipeLawanSolo('bot')}
+                      className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+                        tipeLawanSolo === 'bot'
+                          ? 'bg-[#c8362f] text-[#f4ecd8] border-[#c8362f]'
+                          : 'bg-[#fffdf6] text-[#1d3b2e] border-[#e0d5b8] hover:border-[#c8362f]/50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 font-extrabold text-xs">
+                        <Bot className="w-4 h-4" /> Lawan Bot AI
+                      </div>
+                      <p
+                        className={`text-[11px] mt-1 leading-snug ${
+                          tipeLawanSolo === 'bot' ? 'text-[#f4ecd8]/85' : 'text-[#6b7d6c]'
+                        }`}
+                      >
+                        1 pemain memanjat tiang melawan Bot otomatis di layar.
+                      </p>
+                    </button>
 
-                <label className="flex items-center justify-between gap-3 pt-3 border-t border-dashed border-[#e0d5b8] cursor-pointer">
-                  <div>
-                    <div className="text-xs font-extrabold text-[#1d3b2e]">
-                      Izinkan Gabung Susulan
+                    <button
+                      type="button"
+                      onClick={() => handleUbahTipeLawanSolo('lokal')}
+                      className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+                        tipeLawanSolo === 'lokal'
+                          ? 'bg-[#c8362f] text-[#f4ecd8] border-[#c8362f]'
+                          : 'bg-[#fffdf6] text-[#1d3b2e] border-[#e0d5b8] hover:border-[#c8362f]/50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 font-extrabold text-xs">
+                        <Users className="w-4 h-4" /> Duel Lokal (2 Orang)
+                      </div>
+                      <p
+                        className={`text-[11px] mt-1 leading-snug ${
+                          tipeLawanSolo === 'lokal' ? 'text-[#f4ecd8]/85' : 'text-[#6b7d6c]'
+                        }`}
+                      >
+                        2 peserta adu cepat memanjat kiri vs kanan di 1 layar.
+                      </p>
+                    </button>
+                  </div>
+
+                  {tipeLawanSolo === 'bot' && (
+                    <div>
+                      <label className="text-[11px] font-bold text-[#6b7d6c] uppercase tracking-wider block mb-1.5">
+                        Kecepatan &amp; Akurasi Lawan Bot
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(
+                          [
+                            { key: 'santai', label: 'Bot Santai', desc: '62% benar' },
+                            { key: 'sedang', label: 'Bot Sedang', desc: '78% benar' },
+                            { key: 'cepat', label: 'Bot Cepat', desc: '90% benar' },
+                          ] as const
+                        ).map((b) => (
+                          <button
+                            key={b.key}
+                            type="button"
+                            onClick={() => setKesulitanBot(b.key)}
+                            className={`py-2 px-2 rounded-xl border-2 text-xs font-extrabold transition-all cursor-pointer ${
+                              kesulitanBot === b.key
+                                ? 'bg-[#1d3b2e] text-[#f4ecd8] border-[#1d3b2e]'
+                                : 'bg-[#fffdf6] text-[#1d3b2e] border-[#e0d5b8]'
+                            }`}
+                          >
+                            <div>{b.label}</div>
+                            <div className="text-[10px] font-normal opacity-80">{b.desc}</div>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div className="text-[11px] text-[#6b7d6c]">
-                      Siswa yang terlambat tetap dapat bergabung walau lomba sudah berjalan
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3 text-xs pt-1">
+                    <div>
+                      <label className="font-bold text-[#c8362f] block mb-1">
+                        Nama Pemanjat 1 (Kiri)
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={24}
+                        value={namaPemain1}
+                        onChange={(e) => setNamaPemain1(e.target.value)}
+                        className="portal-input font-bold"
+                        placeholder="Pemain 1"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-[#1e40af] block mb-1">
+                        {tipeLawanSolo === 'bot'
+                          ? 'Nama Lawan (Bot)'
+                          : 'Nama Pemanjat 2 (Kanan)'}
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={24}
+                        value={namaPemain2}
+                        onChange={(e) => setNamaPemain2(e.target.value)}
+                        className="portal-input font-bold"
+                        placeholder={tipeLawanSolo === 'bot' ? 'Lawan Bot' : 'Pemain 2'}
+                      />
                     </div>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={allowLateJoin}
-                    onChange={(e) => setAllowLateJoin(e.target.checked)}
-                    className="w-5 h-5 accent-[#1d3b2e]"
+                </div>
+              ) : (
+                <div className="portal-card p-5 space-y-4">
+                  <GameConfigCardHeader
+                    icon={<UserCheck className="w-4 h-4 text-[#1d3b2e]" />}
+                    title="Pengaturan Peserta & Lobi"
+                    tagLabel={`${maxPeserta} Siswa`}
+                    tagColor="green"
                   />
-                </label>
-              </div>
+
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-[#6b7d6c] block mb-1.5">
+                      Maksimal Peserta (1–200 siswa)
+                    </label>
+                    <select
+                      value={maxPeserta}
+                      onChange={(e) => setMaxPeserta(Number(e.target.value))}
+                      className="portal-select font-bold"
+                    >
+                      <option value={40}>Maksimal 40 Siswa (1 Kelas)</option>
+                      <option value={60}>Maksimal 60 Siswa (Kelas Besar)</option>
+                      <option value={100}>Maksimal 100 Siswa (Standar)</option>
+                      <option value={200}>Maksimal 200 Siswa (Maksimum)</option>
+                    </select>
+                  </div>
+
+                  <label className="flex items-center justify-between gap-3 pt-3 border-t border-dashed border-[#e0d5b8] cursor-pointer">
+                    <div>
+                      <div className="text-xs font-extrabold text-[#1d3b2e]">
+                        Izinkan Gabung Susulan
+                      </div>
+                      <div className="text-[11px] text-[#6b7d6c]">
+                        Siswa yang terlambat tetap dapat bergabung walau lomba sudah berjalan
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={allowLateJoin}
+                      onChange={(e) => setAllowLateJoin(e.target.checked)}
+                      className="w-5 h-5 accent-[#1d3b2e]"
+                    />
+                  </label>
+                </div>
+              )}
             </div>
 
             {/* Kolom Kanan: Pergerakan Tiang, Kesulitan & Pengaturan Lanjutan */}
@@ -444,28 +610,96 @@ export default function PilihModePanjatPinang() {
                 tagColor="green"
               />
 
-              {/* Informasi Timer Fleksibel */}
-              <div className="space-y-1.5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs font-extrabold flex items-center gap-1.5 text-[#1d3b2e]">
-                    <Clock className="w-4 h-4 text-[#c8362f]" /> Durasi Permainan
-                  </span>
-                  <span className="text-[11px] font-bold text-[#6b7d6c]">
-                    Fleksibel • Tanpa batas waktu global
-                  </span>
+              {/* Informasi Timer / Batas Waktu per Soal */}
+              {playMode === 'SOLO' ? (
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-extrabold flex items-center gap-1.5 text-[#1d3b2e]">
+                      <Clock className="w-4 h-4 text-[#c8362f]" /> Batas Waktu per Soal
+                    </span>
+                    <span className="text-[11px] font-bold text-[#6b7d6c]">
+                      Default solo: 15 detik (-{turunSalah}% jika habis)
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {[10, 15, 20, 30].map((detik) => {
+                      const active = waktuPerSoalDetik === detik;
+                      return (
+                        <button
+                          key={detik}
+                          type="button"
+                          onClick={() => {
+                            hasCustomTimer.current = true;
+                            setWaktuPerSoalDetik(detik);
+                          }}
+                          className={`px-3 py-2 rounded-xl border-2 text-xs font-extrabold transition-all cursor-pointer ${
+                            active
+                              ? 'bg-[#1d3b2e] text-[#f4ecd8] border-[#1d3b2e]'
+                              : 'bg-[#fcf8ed] text-[#1d3b2e] border-[#e0d5b8] hover:border-[#1d3b2e]/50'
+                          }`}
+                        >
+                          {detik} detik
+                        </button>
+                      );
+                    })}
+                    <div className="flex items-center gap-1.5 ml-auto text-xs">
+                      <span className="text-[11px] font-bold text-[#6b7d6c]">Kustom:</span>
+                      <input
+                        type="number"
+                        min={5}
+                        max={120}
+                        value={waktuPerSoalDetik}
+                        onChange={(e) => {
+                          hasCustomTimer.current = true;
+                          setWaktuPerSoalDetik(
+                            Math.min(120, Math.max(5, Number(e.target.value) || 5))
+                          );
+                        }}
+                        className="w-16 px-2 py-1.5 rounded-xl bg-white border-2 border-[#e0d5b8] text-center font-mono font-bold text-[#1d3b2e]"
+                      />
+                      <span className="text-[11px] font-bold text-[#6b7d6c]">dtk</span>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-[11px] text-[#6b7d6c] leading-relaxed">
-                  Konfigurasi dikunci saat sesi dimulai dan lomba berjalan terus hingga seluruh siswa
-                  mencapai 100% atau guru menekan <strong className="text-[#1d3b2e]">Akhiri Lomba</strong>.
-                </p>
-              </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-extrabold flex items-center gap-1.5 text-[#1d3b2e]">
+                      <Clock className="w-4 h-4 text-[#c8362f]" /> Durasi Permainan
+                    </span>
+                    <span className="text-[11px] font-bold text-[#6b7d6c]">
+                      Fleksibel • Tanpa batas waktu global
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#6b7d6c] leading-relaxed">
+                    Konfigurasi dikunci saat sesi dimulai dan lomba berjalan terus hingga seluruh siswa
+                    mencapai 100% atau guru menekan <strong className="text-[#1d3b2e]">Akhiri Lomba</strong>.
+                  </p>
+                </div>
+              )}
 
               {/* Ringkasan Mekanika */}
               <div className="border-l-4 border-[#d7caa7] pl-3.5 py-0.5 text-xs text-[#1d3b2e] leading-relaxed">
-                <strong>Mekanika Panjat Pinang:</strong> Setiap jawaban benar menaikkan posisi
-                sejauh <strong className="font-mono">+{naikBenar}%</strong>; jawaban salah
-                meluncur turun <strong className="font-mono">-{turunSalah}%</strong>. Urutan soal
-                diacak setiap siswa tanpa pengulangan berturut-turut.
+                {playMode === 'SOLO' ? (
+                  <>
+                    <strong>Mekanika Solo 1 vs 1:</strong> Tepat 2 pemanjat tiang (
+                    <strong>{namaPemain1.trim() || 'Pemain 1'}</strong> vs{' '}
+                    <strong>
+                      {namaPemain2.trim() || (tipeLawanSolo === 'bot' ? 'Lawan Bot' : 'Pemain 2')}
+                    </strong>
+                    ) di 1 layar. Jawaban benar menaikkan posisi{' '}
+                    <strong className="font-mono">+{naikBenar}%</strong>; salah atau waktu habis
+                    meluncur <strong className="font-mono">-{turunSalah}%</strong>. Pemanjat pertama
+                    yang mencapai puncak <strong className="font-mono">100%</strong> menang.
+                  </>
+                ) : (
+                  <>
+                    <strong>Mekanika Panjat Pinang:</strong> Setiap jawaban benar menaikkan posisi
+                    sejauh <strong className="font-mono">+{naikBenar}%</strong>; jawaban salah
+                    meluncur turun <strong className="font-mono">-{turunSalah}%</strong>. Urutan soal
+                    diacak setiap siswa tanpa pengulangan berturut-turut.
+                  </>
+                )}
               </div>
 
               {/* Tingkat Kesulitan & Pergerakan */}
@@ -794,8 +1028,12 @@ export default function PilihModePanjatPinang() {
               <GameConfigFooter
                 canSubmit={canSubmit}
                 submitting={submitting}
-                isSolo={false}
-                submitLabel="Buat Sesi Multiplayer & Buka Lobi PIN"
+                isSolo={playMode === 'SOLO'}
+                submitLabel={
+                  playMode === 'MULTIPLAYER'
+                    ? 'Buat Sesi Multiplayer & Buka Lobi PIN'
+                    : 'Mulai Panjat Pinang Solo (1 vs 1)'
+                }
               />
             </div>
           </div>

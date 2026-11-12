@@ -448,14 +448,16 @@ export function GameTemplatesPanel({
                       color:
                         item.game === 'makan_kerupuk' ||
                         item.game === 'balap_karung' ||
-                        item.game === 'tarik_tambang'
+                        item.game === 'tarik_tambang' ||
+                        item.game === 'panjat_pinang'
                           ? '#f59e0b'
                           : '#60a5fa',
                     }}
                   >
                     {item.game === 'makan_kerupuk' ||
                     item.game === 'balap_karung' ||
-                    item.game === 'tarik_tambang'
+                    item.game === 'tarik_tambang' ||
+                    item.game === 'panjat_pinang'
                       ? 'Multi / Solo'
                       : 'Multiplayer'}
                   </span>

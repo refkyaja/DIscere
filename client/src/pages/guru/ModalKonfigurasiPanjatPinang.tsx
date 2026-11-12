@@ -35,6 +35,11 @@ export interface KonfigurasiPanjatPinangPayload {
   peluangRintanganPersen: number;
   maxPeserta: number;
   allowLateJoin: boolean;
+  waktuPerSoalDetik?: number;
+  tipeLawanSolo?: 'bot' | 'lokal';
+  kesulitanBot?: 'santai' | 'sedang' | 'cepat';
+  namaPemain1?: string;
+  namaPemain2?: string;
 }
 
 interface ModalKonfigurasiPanjatPinangProps {

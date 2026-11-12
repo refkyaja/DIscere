@@ -97,8 +97,7 @@ export function TemplateEditor({
   const initialGame = initialData?.game || 'tarik_tambang';
   const [judul, setJudul] = useState(initialData?.judul ?? '');
   const [game, setGame] = useState(initialGame);
-  const resolvedMode: 'solo' | 'multi' =
-    game === 'panjat_pinang' ? 'multi' : initialData?.mode || 'multi';
+  const resolvedMode: 'solo' | 'multi' = initialData?.mode || 'multi';
   const [questions, setQuestions] = useState<QuestionItem[]>(() =>
     initialData?.questions && initialData.questions.length > 0
       ? initialData.questions.map((q, idx) => {
@@ -455,14 +454,14 @@ export function TemplateEditor({
             >
               <option value="tarik_tambang">Tarik Tambang Challenge (Dual Mode: Multi / Solo)</option>
               <option value="makan_kerupuk">Makan Kerupuk Challenge (Dual Mode: Multi / Solo)</option>
-              <option value="panjat_pinang">Panjat Pinang (Individu Multiplayer)</option>
+              <option value="panjat_pinang">Panjat Pinang Challenge (Dual Mode: Multi / Solo)</option>
               <option value="balap_karung">Balap Karung Challenge (Dual Mode: Multi / Solo)</option>
             </select>
             <span className="text-[11px] text-[#6b7d6c] mt-1 block">
               {game === 'makan_kerupuk'
                 ? 'Mendukung Multiplayer (HP siswa) dan Solo Mode (1 perangkat guru di proyektor) saat memulai permainan.'
                 : game === 'panjat_pinang'
-                ? 'Lomba memanjat tiang pinang menuju puncak 100% dengan bonus streak dan rintangan opsional.'
+                ? 'Lomba memanjat tiang pinang Dual Mode: Multiplayer (HP siswa) maupun Solo 1 vs 1 di proyektor.'
                 : game === 'balap_karung'
                 ? 'Lomba balap karung Dual Mode: Multiplayer lewat HP siswa maupun Solo 1 vs 1 di layar proyektor.'
                 : 'Lomba tarik tambang Dual Mode: Multiplayer (2 tim di HP) maupun Solo 1 vs 1 di proyektor.'}

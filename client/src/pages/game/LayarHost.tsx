@@ -5,6 +5,7 @@ import LayarHostSolo from './LayarHostSolo';
 import LayarHostMulti from './LayarHostMulti';
 import LayarHostKerupuk from './LayarHostKerupuk';
 import LayarHostPanjatPinang from './LayarHostPanjatPinang';
+import LayarHostPanjatPinangSolo from './LayarHostPanjatPinangSolo';
 import LayarHostBalapKarung from './LayarHostBalapKarung';
 import LayarHostBalapKarungSolo from './LayarHostBalapKarungSolo';
 import { Loader2 } from 'lucide-react';
@@ -75,7 +76,7 @@ export default function LayarHost() {
   }
 
   if (game === 'panjat_pinang') {
-    return <LayarHostPanjatPinang />;
+    return mode === 'solo' ? <LayarHostPanjatPinangSolo /> : <LayarHostPanjatPinang />;
   }
 
   if (game === 'balap_karung') {

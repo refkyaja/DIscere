@@ -1167,6 +1167,7 @@ export default function DashboardGuru() {
                                 {tmpl.game === 'makan_kerupuk' ||
                                 tmpl.game === 'balap_karung' ||
                                 tmpl.game === 'tarik_tambang' ||
+                                tmpl.game === 'panjat_pinang' ||
                                 !tmpl.game
                                   ? 'Dual Mode'
                                   : 'Individu'}
