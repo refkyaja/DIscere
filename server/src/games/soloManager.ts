@@ -140,6 +140,7 @@ export interface ActiveSoloSession {
   savedToDb: boolean;
   savingPromise: Promise<void> | null;
   createdAt: number;
+  stateVersion: number;
   hasil?: LaporanTarikTambangSolo;
 }
 
@@ -302,6 +303,7 @@ class SoloSessionManager {
     bersihkanTimerSesi(sesi);
     sesi.state = 'FINISHED';
     sesi.hasil = bangunLaporanAkhirSolo(sesi, alasan);
+    sesi.stateVersion = (sesi.stateVersion || 0) + 1;
   }
 
   private selesaikanJikaWaktuHabis(sesi: ActiveSoloSession): boolean {
@@ -370,6 +372,7 @@ class SoloSessionManager {
       savedToDb: false,
       savingPromise: null,
       createdAt: Date.now(),
+      stateVersion: 0,
     };
 
     this.sessions.set(sessionId, sesi);
@@ -393,6 +396,7 @@ class SoloSessionManager {
     sesi.lastResumedAtMs = Date.now();
     terapkanSoalBerikutnya(sesi, sesi.pemain1);
     terapkanSoalBerikutnya(sesi, sesi.pemain2);
+    sesi.stateVersion += 1;
     this.jadwalkanMatchTimer(sesi);
     return sesi;
   }
@@ -418,11 +422,13 @@ class SoloSessionManager {
       sesi.lastResumedAtMs = null;
       bersihkanTimerSesi(sesi);
       sesi.state = 'PAUSED';
+      sesi.stateVersion += 1;
     } else if (nextState === 'PLAYING' && sesi.state === 'PAUSED') {
       sesi.state = 'PLAYING';
       sesi.lastResumedAtMs = Date.now();
       if (!sesi.pemain1.presentasiAktif) terapkanSoalBerikutnya(sesi, sesi.pemain1);
       if (!sesi.pemain2.presentasiAktif) terapkanSoalBerikutnya(sesi, sesi.pemain2);
+      sesi.stateVersion += 1;
       this.jadwalkanMatchTimer(sesi);
     }
 
@@ -462,6 +468,7 @@ class SoloSessionManager {
 
     puObj.aktifBerikutnya = puObj.bank;
     puObj.bank = null;
+    sesi.stateVersion += 1;
 
     return { tim, powerUp: puObj.aktifBerikutnya, sesi };
   }
@@ -615,6 +622,7 @@ class SoloSessionManager {
       this.selesaikanInternal(sesi, 'garis_menang');
     } else {
       terapkanSoalBerikutnya(sesi, pemain);
+      sesi.stateVersion += 1;
     }
 
     const slipQuote = !val.benar ? ambilKataTerpelesetTarik() : null;
@@ -781,6 +789,7 @@ class SoloSessionManager {
     } else {
       sesi.state = 'READY';
     }
+    sesi.stateVersion += 1;
 
     return sesi;
   }
@@ -1126,6 +1135,7 @@ class SoloSessionManager {
       },
       powerUpTim1: { ...sesi.powerUpTim1 },
       powerUpTim2: { ...sesi.powerUpTim2 },
+      stateVersion: sesi.stateVersion || 0,
       isFinished: sesi.state === 'FINISHED',
       hasil: sesi.hasil || null,
     };

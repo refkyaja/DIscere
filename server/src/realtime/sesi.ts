@@ -1337,15 +1337,22 @@ export function setupMultiplayerSocket(io: Server) {
               pendingNextSoalBalapTimers.delete(bk.pesertaId);
               const sesiCheck = balapKarungManager.dapatkanSesi(bk.sessionId);
               if (!sesiCheck || sesiCheck.status !== 'jalan') return;
+              const pNow = sesiCheck.peserta.get(bk.pesertaId);
+              if (!pNow) return;
               const nextSoal = balapKarungManager.dapatkanSoalAktifPeserta(
                 bk.sessionId,
                 bk.pesertaId
               );
               if (nextSoal) {
-                socket.emit('soal:tampil', {
+                const payload = {
                   game: 'balap_karung',
                   ...nextSoal,
-                });
+                };
+                if (pNow.socketId) {
+                  io.to(pNow.socketId).emit('soal:tampil', payload);
+                } else {
+                  socket.emit('soal:tampil', payload);
+                }
               }
             }, 950);
             pendingNextSoalBalapTimers.set(bk.pesertaId, timer);

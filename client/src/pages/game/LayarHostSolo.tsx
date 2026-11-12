@@ -2,7 +2,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { apiRequest } from '../../lib/api';
 import { soundEffects } from '../../lib/soundEffects';
-import { extractApiErrorMessage, resolveGuruReturnUrl } from '../../components';
+import {
+  extractApiErrorMessage,
+  resolveConfigBackUrl,
+  resolveGuruReturnUrl,
+} from '../../components';
+import {
+  isStaleQuestionErrorMessage,
+  mergeMonotonicSoloSession,
+} from '../../lib/soloSessionSync';
 import {
   TarikActionPulse,
   TarikTambangStadium,
@@ -121,6 +129,7 @@ interface SesiSoloPayload {
   pemain2: PemainSoloClient;
   powerUpTim1?: { bank: string | null; aktifBerikutnya: string | null };
   powerUpTim2?: { bank: string | null; aktifBerikutnya: string | null };
+  stateVersion?: number;
   isFinished: boolean;
   hasil: LaporanSoloClient | null;
 }
@@ -170,6 +179,23 @@ export default function LayarHostSolo() {
   const botTimerRef = useRef<number | null>(null);
   const expiryCalledRef = useRef<boolean>(false);
   const fanfarePlayedRef = useRef<boolean>(false);
+  const submitLockRef = useRef<Record<'merah' | 'putih', string | null>>({
+    merah: null,
+    putih: null,
+  });
+  const matchEndAtRef = useRef<number | null>(null);
+
+  const refreshSesiSilent = useCallback(async () => {
+    if (!id) return;
+    try {
+      const res = await apiRequest<{ session: SesiSoloPayload }>(`/sesi/${id}`);
+      if (res.session) {
+        setSesi((prev) => mergeMonotonicSoloSession(prev, res.session));
+      }
+    } catch {
+      // Ignore silent resync errors
+    }
+  }, [id]);
 
   const triggerSideReveal = useCallback(
     (
@@ -196,7 +222,7 @@ export default function LayarHostSolo() {
         leftTimerRef.current = window.setTimeout(() => {
           setFrozenLeftQuestion(null);
           setRevealLeft(null);
-        }, 850);
+        }, 450);
       } else {
         if (rightTimerRef.current) window.clearTimeout(rightTimerRef.current);
         setFrozenRightQuestion(prevQuestion);
@@ -209,7 +235,7 @@ export default function LayarHostSolo() {
         rightTimerRef.current = window.setTimeout(() => {
           setFrozenRightQuestion(null);
           setRevealRight(null);
-        }, 850);
+        }, 450);
       }
 
       const oppositeSide = side === 'merah' ? 'r' : 'l';
@@ -276,16 +302,32 @@ export default function LayarHostSolo() {
   // Countdown Jam Lomba (3:00 -> 0:00)
   useEffect(() => {
     if (!sesi) return;
-    setSisaDetik(sesi.sisaWaktuDetik);
     if (sesi.state !== 'PLAYING' || !sesi.matchEndsAt) {
+      matchEndAtRef.current = null;
+      setSisaDetik(sesi.sisaWaktuDetik);
+      return;
+    }
+
+    if (
+      matchEndAtRef.current === null ||
+      Math.abs(sesi.matchEndsAt - matchEndAtRef.current) > 1500
+    ) {
+      matchEndAtRef.current = sesi.matchEndsAt;
+      setSisaDetik(sesi.sisaWaktuDetik);
+    }
+  }, [sesi?.state, sesi?.matchEndsAt, sesi?.sisaWaktuDetik]);
+
+  useEffect(() => {
+    if (sesi?.state !== 'PLAYING' || !matchEndAtRef.current) {
       return;
     }
 
     expiryCalledRef.current = false;
-    const endAt = sesi.matchEndsAt;
     const iv = window.setInterval(() => {
+      const endAt = matchEndAtRef.current;
+      if (!endAt) return;
       const rem = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
-      setSisaDetik(rem);
+      setSisaDetik((prev) => (prev === rem ? prev : rem));
       if (rem <= 0 && !expiryCalledRef.current && id) {
         expiryCalledRef.current = true;
         apiRequest<{ session: SesiSoloPayload }>(`/sesi/${id}/tutup-ronde`, {
@@ -293,14 +335,16 @@ export default function LayarHostSolo() {
           body: JSON.stringify({}),
         })
           .then((res) => {
-            if (res.session) setSesi(res.session);
+            if (res.session) {
+              setSesi((prev) => mergeMonotonicSoloSession(prev, res.session));
+            }
           })
           .catch(() => {});
       }
     }, 250);
 
     return () => window.clearInterval(iv);
-  }, [sesi?.state, sesi?.matchEndsAt, id]);
+  }, [sesi?.state, id]);
 
   // Bot AI Autonomous Step Scheduler
   useEffect(() => {
@@ -340,7 +384,11 @@ export default function LayarHostSolo() {
           triggerSideReveal('putih', currentRightQ, res.chosenChoiceId, res.feedback);
         }
         if (res.session) {
-          setSesi(res.session);
+          setSesi((prev) =>
+            mergeMonotonicSoloSession(prev, res.session, {
+              preserveSlot1IfNewer: true,
+            })
+          );
         }
       } catch {
         // Ignore transient poll error if session ended concurrently
@@ -449,6 +497,10 @@ export default function LayarHostSolo() {
 
     const currentQ = tim === 'merah' ? sesi.pemain1.soalAktif : sesi.pemain2.soalAktif;
     if (!currentQ) return;
+    if (submitLockRef.current[tim] === currentQ.presentationId) return;
+
+    submitLockRef.current[tim] = currentQ.presentationId;
+    setErrorPesan(null);
 
     try {
       const res = await apiRequest<{
@@ -472,10 +524,24 @@ export default function LayarHostSolo() {
         triggerSideReveal(tim, currentQ, choice.choiceId, res.feedback);
       }
       if (res.session) {
-        setSesi(res.session);
+        setSesi((prev) =>
+          mergeMonotonicSoloSession(prev, res.session, {
+            preserveSlot1IfNewer: tim !== 'merah',
+            preserveSlot2IfNewer: tim !== 'putih',
+          })
+        );
       }
     } catch (err: unknown) {
-      setErrorPesan(extractApiErrorMessage(err, 'Gagal mengirim jawaban.'));
+      const msg = extractApiErrorMessage(err, 'Gagal mengirim jawaban.');
+      if (isStaleQuestionErrorMessage(msg)) {
+        void refreshSesiSilent();
+      } else {
+        setErrorPesan(msg);
+      }
+    } finally {
+      if (submitLockRef.current[tim] === currentQ.presentationId) {
+        submitLockRef.current[tim] = null;
+      }
     }
   };
 
@@ -768,7 +834,7 @@ export default function LayarHostSolo() {
                     navigate(
                       `/guru/tarik-tambang?templateId=${encodeURIComponent(
                         sesi.templateId
-                      )}&mode=solo&kembali=${encodeURIComponent(returnUrl)}`
+                      )}&mode=solo&kembali=${encodeURIComponent(resolveConfigBackUrl(returnUrl))}`
                     )
                   }
                   className="tt-btn y sm"

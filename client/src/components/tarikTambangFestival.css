@@ -1246,6 +1246,20 @@
   }
 }
 
+/* Stabilisasi hitbox klik & responsivitas sentuh tombol opsi kuis */
+.tt-op {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tt-op:active:not(:disabled) {
+  transform: none;
+  background: #fff3c4;
+  border-color: var(--c, var(--blue));
+  box-shadow: inset 0 2px 0 rgba(43, 42, 74, 0.14);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tt-festival * {
     animation: none !important;

@@ -102,6 +102,7 @@ export interface SesiBalapKarungSoloActive {
   lastBotTickMs: number;
   processedPresentations: Set<string>;
   questionStatsMap: Map<string, { benar: number; salah: number }>;
+  stateVersion: number;
   hasil?: LaporanAkhirBalapKarung & {
     questionStats?: Array<{
       questionId: string;
@@ -126,6 +127,7 @@ export interface SesiBalapKarungSoloClient {
   pemain1: PesertaClientBalapSolo;
   pemain2: PesertaClientBalapSolo;
   leaderboard: LeaderboardItemBalap[];
+  stateVersion: number;
   isFinished: boolean;
   hasil: SesiBalapKarungSoloActive['hasil'] | null;
 }
@@ -525,6 +527,7 @@ export const balapKarungSoloManager = {
       lastBotTickMs: 0,
       processedPresentations: new Set<string>(),
       questionStatsMap: new Map(),
+      stateVersion: 0,
     };
 
     sesiSoloBalapMap.set(sessionId, sesi);
@@ -685,6 +688,7 @@ export const balapKarungSoloManager = {
     }
     sesi.state = 'PLAYING';
     sesi.lastBotTickMs = nowMs;
+    sesi.stateVersion += 1;
 
     if (!sesi.pemain1.presentasiAktif && sesi.pemain1.status !== 'selesai') {
       siapkanSoalUntukPeserta(sesi.pemain1, sesi.questions, nowMs);
@@ -715,6 +719,7 @@ export const balapKarungSoloManager = {
 
     const nowMs = Date.now();
     sesi.state = targetState;
+    sesi.stateVersion += 1;
     if (targetState === 'PLAYING') {
       if (!sesi.gameMulaiPadaMs) sesi.gameMulaiPadaMs = nowMs;
       sesi.lastBotTickMs = nowMs;
@@ -823,6 +828,7 @@ export const balapKarungSoloManager = {
       sesi.pemain1.presentasiAktif = null;
       sesi.pemain2.presentasiAktif = null;
       sesi.hasil = buatLaporanAkhirSolo(sesi, false, nowMs);
+      sesi.stateVersion += 1;
       return {
         slot,
         hasilJawaban,
@@ -834,6 +840,7 @@ export const balapKarungSoloManager = {
 
     const pesertaUpdated = slot === 'pemain1' ? sesi.pemain1 : sesi.pemain2;
     siapkanSoalUntukPeserta(pesertaUpdated, sesi.questions, nowMs);
+    sesi.stateVersion += 1;
 
     return {
       slot,
@@ -931,9 +938,11 @@ export const balapKarungSoloManager = {
       sesi.pemain1.presentasiAktif = null;
       sesi.pemain2.presentasiAktif = null;
       sesi.hasil = buatLaporanAkhirSolo(sesi, false, nowMs);
+      sesi.stateVersion += 1;
       return { executed: true, feedback, selesai: true, sesi };
     }
 
+    sesi.stateVersion += 1;
     return { executed: true, feedback, selesai: false, sesi };
   },
 
@@ -948,6 +957,7 @@ export const balapKarungSoloManager = {
       sesi.pemain1.presentasiAktif = null;
       sesi.pemain2.presentasiAktif = null;
       sesi.hasil = buatLaporanAkhirSolo(sesi, true, Date.now());
+      sesi.stateVersion += 1;
     }
 
     return sesi;
@@ -975,6 +985,7 @@ export const balapKarungSoloManager = {
     sesi.hasil = undefined;
     sesi.pemain1 = buatPesertaKosong(`${sesi.sessionId}__p1`, namaP1, sesi.config, sesi.questions);
     sesi.pemain2 = buatPesertaKosong(`${sesi.sessionId}__p2`, namaP2, sesi.config, sesi.questions);
+    sesi.stateVersion += 1;
 
     return sesi;
   },
@@ -1116,6 +1127,7 @@ export const balapKarungSoloManager = {
         sedangJalan && sesi.config.tipeLawanSolo === 'lokal'
       ),
       leaderboard,
+      stateVersion: sesi.stateVersion || 0,
       isFinished: sesi.state === 'FINISHED' || sesi.state === 'STOPPED',
       hasil: sesi.hasil || null,
     };

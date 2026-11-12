@@ -66,3 +66,61 @@ export function bindStudentReconnect<T = any>(
   };
 }
 
+/**
+ * Menjaga pengiriman jawaban Socket.IO siswa agar tombol tidak terkunci selamanya saat ACK
+ * hilang/terlambat dan memicu `soal:lanjut` jika soal berikutnya gagal tiba tepat waktu.
+ */
+export function createAnswerWatchdogs() {
+  let ackTimer: ReturnType<typeof setTimeout> | null = null;
+  let nextSoalTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const clearAck = () => {
+    if (ackTimer) {
+      clearTimeout(ackTimer);
+      ackTimer = null;
+    }
+  };
+
+  const clearNextSoal = () => {
+    if (nextSoalTimer) {
+      clearTimeout(nextSoalTimer);
+      nextSoalTimer = null;
+    }
+  };
+
+  const clearAll = () => {
+    clearAck();
+    clearNextSoal();
+  };
+
+  const armAckTimeout = (onTimeout: () => void, delayMs: number = 3000) => {
+    clearAck();
+    ackTimer = setTimeout(() => {
+      ackTimer = null;
+      onTimeout();
+    }, delayMs);
+  };
+
+  const armNextSoalFallback = (
+    socket: Socket,
+    payload: { sessionId: string; pesertaId: string; pesertaSecret?: string },
+    delayMs: number = 2000
+  ) => {
+    clearNextSoal();
+    nextSoalTimer = setTimeout(() => {
+      nextSoalTimer = null;
+      if (socket.connected) {
+        socket.emit('soal:lanjut', payload);
+      }
+    }, delayMs);
+  };
+
+  return {
+    clearAck,
+    clearNextSoal,
+    clearAll,
+    armAckTimeout,
+    armNextSoalFallback,
+  };
+}
+

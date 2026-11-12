@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getSocket } from '../../lib/socket';
-import { bindStudentReconnect } from '../../lib/socketReconnect';
+import { bindStudentReconnect, createAnswerWatchdogs } from '../../lib/socketReconnect';
+import { QuestionTimerBar, computeInitialRemainingMs } from '../../components';
+import { isStaleQuestionErrorMessage } from '../../lib/soloSessionSync';
 import { soundEffects } from '../../lib/soundEffects';
 import { TarikAvatarSvg } from '../../components/TarikTambangStadium';
 import '../../components/tarikTambangFestival.css';
@@ -112,8 +114,8 @@ const POWER_UP_LABELS: Record<string, string> = {
   shield: 'Tameng Tim',
 };
 
-function formatClock(ms: number): string {
-  const sec = Math.max(0, Math.ceil(ms / 1000));
+function formatClock(secTotal: number): string {
+  const sec = Math.max(0, Math.floor(secTotal));
   const m = Math.floor(sec / 60);
   const s = sec % 60;
   return `${m}:${String(s).padStart(2, '0')}`;
@@ -172,11 +174,11 @@ export default function MainTarikTambang({
   const [skorMerah, setSkorMerah] = useState<number>(initialSkorMerah);
   const [skorPutih, setSkorPutih] = useState<number>(initialSkorPutih);
   const [matchEndsAt, setMatchEndsAt] = useState<number | null>(initialMatchEndsAt);
-  const [matchRemainingMs, setMatchRemainingMs] = useState<number>(() => {
+  const [matchRemainingSec, setMatchRemainingSec] = useState<number>(() => {
     if (initialMatchEndsAt && initialMatchEndsAt > Date.now()) {
-      return initialMatchEndsAt - Date.now();
+      return Math.max(0, Math.ceil((initialMatchEndsAt - Date.now()) / 1000));
     }
-    return (config?.durasiLombaDetik || 180) * 1000;
+    return config?.durasiLombaDetik || 180;
   });
 
   const [soalAktif, setSoalAktif] = useState<SoalTarikData | null>(initialSoalAktif);
@@ -194,11 +196,8 @@ export default function MainTarikTambang({
   const [isMuted, setIsMuted] = useState<boolean>(soundEffects.getMuted());
 
   const defaultQuestionSec = Math.max(5, Number(activeConfig.waktuPerSoalDetik) || 10);
-  const totalQuestionMsRef = useRef<number>(defaultQuestionSec * 1000);
-  const [remainingQuestionMs, setRemainingQuestionMs] = useState<number>(
-    defaultQuestionSec * 1000
-  );
   const timeoutSentRef = useRef<string | null>(null);
+  const watchdogsRef = useRef(createAnswerWatchdogs());
 
   const namaTim1 = activeConfig.namaTim1 || 'Tim Merah';
   const namaTim2 = activeConfig.namaTim2 || 'Tim Biru';
@@ -213,11 +212,12 @@ export default function MainTarikTambang({
     [daftarPeserta, myTim]
   );
 
-  // Sync match countdown clock smoothly
+  // Sync match countdown clock smoothly (updates state only when integer second changes)
   useEffect(() => {
     if (stage !== 'PLAYING' || !matchEndsAt) return;
     const updateClock = () => {
-      setMatchRemainingMs(Math.max(0, matchEndsAt - Date.now()));
+      const remSec = Math.max(0, Math.ceil((matchEndsAt - Date.now()) / 1000));
+      setMatchRemainingSec((prev) => (prev === remSec ? prev : remSec));
     };
     updateClock();
     const id = window.setInterval(updateClock, 250);
@@ -285,6 +285,7 @@ export default function MainTarikTambang({
         setMatchEndsAt(Date.now() + data.durasiLombaDetik * 1000);
       }
       syncMyTeamFromList(data.daftarPeserta);
+      watchdogsRef.current.clearAll();
       setFeedback(null);
       setPickedChoiceId(null);
       setSudahKirim(false);
@@ -296,6 +297,7 @@ export default function MainTarikTambang({
 
     const handleSoalTampil = (data: SoalTarikData & { game?: string }) => {
       if (data.game && data.game !== 'tarik_tambang') return;
+      watchdogsRef.current.clearAll();
       setStage('PLAYING');
       setSoalAktif({
         ...data,
@@ -308,15 +310,6 @@ export default function MainTarikTambang({
       setFeedback(null);
       setErrorBanner(null);
       timeoutSentRef.current = null;
-
-      const sec = Math.max(5, Number(data.duration || defaultQuestionSec));
-      const fullMs = sec * 1000;
-      totalQuestionMsRef.current = fullMs;
-      if (data.endsAt && data.endsAt > Date.now()) {
-        setRemainingQuestionMs(Math.min(fullMs, Math.max(0, data.endsAt - Date.now())));
-      } else {
-        setRemainingQuestionMs(fullMs);
-      }
     };
 
     const handleTaliUpdate = (data: {
@@ -386,6 +379,7 @@ export default function MainTarikTambang({
       pesertaUpdated?: Partial<PesertaStatTarik>;
     }) => {
       if (data.game && data.game !== 'tarik_tambang') return;
+      watchdogsRef.current.clearAck();
       if (typeof data.taliPosition === 'number') setTaliPosition(data.taliPosition);
       if (typeof data.skorMerah === 'number') setSkorMerah(data.skorMerah);
       if (typeof data.skorPutih === 'number') setSkorPutih(data.skorPutih);
@@ -395,6 +389,7 @@ export default function MainTarikTambang({
 
       const benar = Boolean(data.benar);
       setSudahKirim(true);
+      setErrorBanner(null);
       setFeedback({
         benar,
         timedOut: Boolean(data.timedOut),
@@ -411,10 +406,17 @@ export default function MainTarikTambang({
         isStrong: Math.abs(Number(data.deltaTali || 0)) >= 8,
         playAnswerChime: true,
       });
+
+      watchdogsRef.current.armNextSoalFallback(socket, {
+        sessionId,
+        pesertaId,
+        pesertaSecret,
+      });
     };
 
     const handleSesiSelesai = (data: { game?: string; hasil?: any }) => {
       if (data.game && data.game !== 'tarik_tambang') return;
+      watchdogsRef.current.clearAll();
       if (data.hasil) setHasilAkhir(data.hasil);
       setStage('SELESAI');
       soundEffects.playVictoryFanfare();
@@ -434,6 +436,7 @@ export default function MainTarikTambang({
     socket.on('sesi:selesai', handleSesiSelesai);
 
     return () => {
+      watchdogsRef.current.clearAll();
       socket.off('lobi:update', handleLobiUpdate);
       socket.off('teams_assigned', handleTeamsAssigned);
       socket.off('game:mulai', handleGameMulai);
@@ -445,43 +448,10 @@ export default function MainTarikTambang({
     };
   }, [pesertaId, isMerah, defaultQuestionSec, namaTim1, namaTim2]);
 
-  // Auto-timeout per individual question (smooth 50ms bar matching 10s HTML spec)
+  // Bersihkan timer watchdog setiap kali berpindah soal atau unmount
   useEffect(() => {
-    if (stage !== 'PLAYING' || !soalAktif || sudahKirim) return;
-
-    const presId = soalAktif.presentationId;
-    const sec = Math.max(5, Number(soalAktif.duration || defaultQuestionSec));
-    const fullMs = sec * 1000;
-    totalQuestionMsRef.current = fullMs;
-
-    const deadlineMs =
-      soalAktif.endsAt && soalAktif.endsAt > Date.now()
-        ? soalAktif.endsAt
-        : Date.now() + fullMs;
-
-    const tick = () => {
-      const left = Math.max(0, deadlineMs - Date.now());
-      setRemainingQuestionMs(left);
-
-      if (left <= 0 && timeoutSentRef.current !== presId) {
-        timeoutSentRef.current = presId;
-        setSudahKirim(true);
-        const socket = getSocket();
-        socket.emit('jawab:kirim', {
-          sessionId,
-          pesertaId,
-          pesertaSecret,
-          presentationId: presId,
-          questionId: soalAktif.questionId,
-          timedOut: true,
-        });
-      }
-    };
-
-    tick();
-    const timer = window.setInterval(tick, 50);
-    return () => window.clearInterval(timer);
-  }, [stage, soalAktif, sudahKirim, defaultQuestionSec, sessionId, pesertaId, pesertaSecret]);
+    return () => watchdogsRef.current.clearAll();
+  }, [soalAktif?.presentationId]);
 
   // Reconnect guard
   useEffect(() => {
@@ -524,14 +494,61 @@ export default function MainTarikTambang({
     });
   }, [token, nama, pesertaId, pesertaSecret]);
 
+  const handleTimeoutSoal = useCallback(() => {
+    if (stage !== 'PLAYING' || !soalAktif || sudahKirim || Boolean(feedback)) return;
+    const presId = soalAktif.presentationId;
+    if (timeoutSentRef.current === presId) return;
+    timeoutSentRef.current = presId;
+    setSudahKirim(true);
+
+    const socket = getSocket();
+    watchdogsRef.current.armAckTimeout(() => {
+      setSudahKirim(false);
+      setErrorBanner('Waktu habis, mencoba menyinkronkan soal berikutnya...');
+      if (socket.connected) {
+        socket.emit('soal:lanjut', { sessionId, pesertaId, pesertaSecret });
+      }
+    });
+
+    socket.emit(
+      'jawab:kirim',
+      {
+        sessionId,
+        pesertaId,
+        pesertaSecret,
+        presentationId: presId,
+        questionId: soalAktif.questionId,
+        timedOut: true,
+      },
+      (res: any) => {
+        watchdogsRef.current.clearAck();
+        if (!res?.success) {
+          setSudahKirim(false);
+          if (res?.pesan && isStaleQuestionErrorMessage(res.pesan)) {
+            socket.emit('soal:lanjut', { sessionId, pesertaId, pesertaSecret });
+          }
+        }
+      }
+    );
+  }, [stage, soalAktif, sudahKirim, feedback, sessionId, pesertaId, pesertaSecret]);
+
   const handlePilihJawaban = (opsi: PilihanTarikSiswa) => {
-    if (sudahKirim || !soalAktif) return;
+    if (sudahKirim || Boolean(feedback) || !soalAktif) return;
 
     setPickedChoiceId(opsi.choiceId);
     setSudahKirim(true);
     setErrorBanner(null);
 
     const socket = getSocket();
+    watchdogsRef.current.armAckTimeout(() => {
+      setSudahKirim(false);
+      setPickedChoiceId(null);
+      setErrorBanner('Koneksi terputus atau lambat. Silakan ketuk jawaban lagi.');
+      if (socket.connected) {
+        socket.emit('soal:lanjut', { sessionId, pesertaId, pesertaSecret });
+      }
+    });
+
     socket.emit(
       'jawab:kirim',
       {
@@ -544,10 +561,15 @@ export default function MainTarikTambang({
         jawaban: opsi.label,
       },
       (res: any) => {
+        watchdogsRef.current.clearAck();
         if (!res?.success) {
           setSudahKirim(false);
           setPickedChoiceId(null);
-          setErrorBanner(res?.pesan || 'Gagal mengirim jawaban.');
+          const pesan = res?.pesan || 'Gagal mengirim jawaban.';
+          setErrorBanner(pesan);
+          if (isStaleQuestionErrorMessage(pesan)) {
+            socket.emit('soal:lanjut', { sessionId, pesertaId, pesertaSecret });
+          }
         }
       }
     );
@@ -613,6 +635,15 @@ export default function MainTarikTambang({
         </button>
       </div>
     </header>
+  );
+
+  const initialSoalRemainingMs = useMemo(
+    () =>
+      computeInitialRemainingMs(
+        soalAktif?.endsAt,
+        Number(soalAktif?.duration || defaultQuestionSec)
+      ),
+    [soalAktif?.presentationId, soalAktif?.endsAt, soalAktif?.duration, defaultQuestionSec]
   );
 
   // =========================================================================
@@ -815,11 +846,7 @@ export default function MainTarikTambang({
   // =========================================================================
   const ratio = Math.max(-1, Math.min(1, taliPosition / batasMenang));
   const dotLeftPct = Number((50 - ratio * 44).toFixed(2));
-  const timerPct =
-    totalQuestionMsRef.current > 0
-      ? Math.max(0, Math.min(100, (remainingQuestionMs / totalQuestionMsRef.current) * 100))
-      : 0;
-  const isTimeWarning = matchRemainingMs > 0 && matchRemainingMs <= 15000;
+  const isTimeWarning = matchRemainingSec > 0 && matchRemainingSec <= 15;
 
   return (
     <div className="tt-festival min-h-screen p-3 sm:p-4 flex flex-col justify-between gap-3 select-none">
@@ -853,7 +880,7 @@ export default function MainTarikTambang({
 
               <span className={`tt-chip flex items-center gap-1 ${isTimeWarning ? 'red' : 'gold'}`}>
                 <Clock className="w-3.5 h-3.5" />
-                {formatClock(matchRemainingMs)}
+                {formatClock(matchRemainingSec)}
               </span>
             </div>
 
@@ -917,22 +944,15 @@ export default function MainTarikTambang({
             {/* Soal & Countdown 10 Detik */}
             {soalAktif ? (
               <div className="space-y-2.5">
-                <div>
-                  <div className="flex items-center justify-between text-[11px] font-extrabold text-[#6b6a85] mb-1">
-                    <span>Soal #{soalAktif.nomorSoal}</span>
-                    <span className={remainingQuestionMs <= 3000 ? 'text-[#dc2626]' : ''}>
-                      {Math.max(0, Math.ceil(remainingQuestionMs / 1000))} dtk
-                    </span>
-                  </div>
-                  <div className="tt-tb">
-                    <i
-                      style={{
-                        width: `${timerPct}%`,
-                        background: timerPct < 30 ? '#dc2626' : '#ffb81c',
-                      }}
-                    />
-                  </div>
-                </div>
+                <QuestionTimerBar
+                  variant="tt"
+                  presentationKey={soalAktif.presentationId}
+                  durationSec={Math.max(5, Number(soalAktif.duration || defaultQuestionSec))}
+                  initialRemainingMs={initialSoalRemainingMs}
+                  active={stage === 'PLAYING' && !sudahKirim && !feedback}
+                  onTimeout={handleTimeoutSoal}
+                  questionLabel={`Soal #${soalAktif.nomorSoal}`}
+                />
 
                 <div className="tt-q" style={{ minHeight: '2.2em', marginBottom: '10px' }}>
                   {soalAktif.teks}

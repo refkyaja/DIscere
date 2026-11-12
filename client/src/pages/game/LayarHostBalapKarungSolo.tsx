@@ -1,7 +1,16 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { apiRequest } from '../../lib/api';
-import { Modal } from '../../components';
+import {
+  Modal,
+  QuestionTimerBar,
+  resolveConfigBackUrl,
+  resolveGuruReturnUrl,
+} from '../../components';
+import {
+  isStaleQuestionErrorMessage,
+  mergeMonotonicSoloSession,
+} from '../../lib/soloSessionSync';
 import {
   BalapKarungStadium,
   BalapSackSvg,
@@ -17,7 +26,6 @@ import {
   Swords,
   RefreshCw,
   CheckCircle2,
-  Clock,
   Pause,
 } from 'lucide-react';
 
@@ -127,6 +135,7 @@ interface SesiBalapSoloClient {
   pemain1: PesertaBalapSolo;
   pemain2: PesertaBalapSolo;
   leaderboard: Array<PesertaBalapSolo & { peringkat: number }>;
+  stateVersion?: number;
   isFinished: boolean;
   hasil: {
     dihentikanManual?: boolean;
@@ -172,7 +181,7 @@ export default function LayarHostBalapKarungSolo() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const returnUrl = searchParams.get('kembali') || '/guru';
+  const returnUrl = resolveGuruReturnUrl(searchParams.get('kembali'));
 
   const [sesi, setSesi] = useState<SesiBalapSoloClient | null>(null);
   const [loading, setLoading] = useState(true);
@@ -211,10 +220,11 @@ export default function LayarHostBalapKarungSolo() {
     pemain2: null,
   });
 
-  // Countdown timer soal untuk Pemain 1 (mode vs Bot)
-  const [remainingMs, setRemainingMs] = useState<number>(15000);
-  const timerRemainingRef = useRef<number>(15000);
-  const timerLastPresentationRef = useRef<string | null>(null);
+  // Pilihan yang sedang dikirim agar klik terasa instan tanpa delay jaringan
+  const [pendingChoiceMap, setPendingChoiceMap] = useState<Record<SlotPemain, string | null>>({
+    pemain1: null,
+    pemain2: null,
+  });
 
   const submitLockRef = useRef<Record<SlotPemain, boolean>>({
     pemain1: false,
@@ -362,7 +372,11 @@ export default function LayarHostBalapKarungSolo() {
         }>(`/sesi/${id}/bot-langkah`, { method: 'POST' });
 
         if (res.session) {
-          setSesi(res.session);
+          setSesi((prev) =>
+            mergeMonotonicSoloSession(prev, res.session, {
+              preserveSlot1IfNewer: true,
+            })
+          );
         }
         if (res.executed && res.feedback) {
           triggerSlotVisual(res.feedback, false);
@@ -384,6 +398,18 @@ export default function LayarHostBalapKarungSolo() {
     triggerSlotVisual,
   ]);
 
+  const refreshSesiSilent = useCallback(async () => {
+    if (!id) return;
+    try {
+      const res = await apiRequest<{ session: SesiBalapSoloClient }>(`/sesi/${id}`);
+      if (res.session) {
+        setSesi((prev) => mergeMonotonicSoloSession(prev, res.session));
+      }
+    } catch {
+      // Abaikan kegagalan resync diam-diam
+    }
+  }, [id]);
+
   const submitJawabanSlot = useCallback(
     async (
       slot: SlotPemain,
@@ -395,6 +421,9 @@ export default function LayarHostBalapKarungSolo() {
 
       submitLockRef.current[slot] = true;
       setActionError(null);
+      if ('choiceId' in payload) {
+        setPendingChoiceMap((prev) => ({ ...prev, [slot]: payload.choiceId }));
+      }
 
       try {
         const res = await apiRequest<{
@@ -411,7 +440,12 @@ export default function LayarHostBalapKarungSolo() {
           }),
         });
 
-        setSesi(res.session);
+        setSesi((prev) =>
+          mergeMonotonicSoloSession(prev, res.session, {
+            preserveSlot1IfNewer: slot !== 'pemain1',
+            preserveSlot2IfNewer: slot !== 'pemain2',
+          })
+        );
 
         if (res.feedback) {
           const chosenChoiceId = 'choiceId' in payload ? payload.choiceId : null;
@@ -431,58 +465,33 @@ export default function LayarHostBalapKarungSolo() {
           }
           timersRef.current[revealKey] = setTimeout(() => {
             setRevealMap((prev) => ({ ...prev, [slot]: null }));
-          }, res.feedback.selesaiBaru ? 950 : 1200);
+          }, res.feedback.selesaiBaru ? 950 : 450);
         }
       } catch (err: any) {
-        setActionError(err.pesan || 'Gagal mengirim jawaban.');
+        const msg = err?.pesan || 'Gagal mengirim jawaban.';
+        if (isStaleQuestionErrorMessage(msg)) {
+          void refreshSesiSilent();
+        } else {
+          setActionError(msg);
+        }
       } finally {
         submitLockRef.current[slot] = false;
+        setPendingChoiceMap((prev) => ({ ...prev, [slot]: null }));
       }
     },
-    [id, sesi, triggerSlotVisual]
+    [id, sesi, triggerSlotVisual, refreshSesiSilent]
   );
 
-  // Sync & jalankan timer hitung mundur per soal untuk mode Solo vs Bot
+  // Sync & konfigurasi timer per soal untuk mode Solo vs Bot
   const timerSec = Math.max(5, sesi?.config?.waktuPerSoalDetik || 15);
-  const p1PresentationId = sesi?.pemain1?.soalAktif?.presentationId || null;
   const isRevealingP1 = Boolean(revealMap.pemain1);
   const isPlaying = sesi?.state === 'PLAYING' && !sesi?.isFinished;
   const isVsBot = sesi?.config?.tipeLawanSolo === 'bot';
 
-  useEffect(() => {
-    if (!p1PresentationId) return;
-    if (timerLastPresentationRef.current !== p1PresentationId) {
-      timerLastPresentationRef.current = p1PresentationId;
-      const fullMs = timerSec * 1000;
-      timerRemainingRef.current = fullMs;
-      setRemainingMs(fullMs);
-    }
-  }, [p1PresentationId, timerSec]);
-
-  useEffect(() => {
-    if (!isPlaying || !isVsBot || isRevealingP1 || !sesi?.pemain1?.soalAktif) {
-      return;
-    }
-
-    const activeSoal = sesi.pemain1.soalAktif;
-    let lastTick = performance.now();
-
-    const interval = setInterval(() => {
-      const now = performance.now();
-      const delta = now - lastTick;
-      lastTick = now;
-
-      const nextMs = Math.max(0, timerRemainingRef.current - delta);
-      timerRemainingRef.current = nextMs;
-      setRemainingMs(nextMs);
-
-      if (nextMs <= 0 && !submitLockRef.current.pemain1) {
-        clearInterval(interval);
-        submitJawabanSlot('pemain1', activeSoal, { timedOut: true });
-      }
-    }, 50);
-
-    return () => clearInterval(interval);
+  const handleTimeoutP1 = useCallback(() => {
+    if (!isPlaying || !isVsBot || isRevealingP1 || !sesi?.pemain1?.soalAktif) return;
+    if (submitLockRef.current.pemain1) return;
+    void submitJawabanSlot('pemain1', sesi.pemain1.soalAktif, { timedOut: true });
   }, [isPlaying, isVsBot, isRevealingP1, sesi?.pemain1?.soalAktif, submitJawabanSlot]);
 
   // Shortcut keyboard 1-5 atau A-E pada mode vs Bot
@@ -515,7 +524,6 @@ export default function LayarHostBalapKarungSolo() {
       setHurtMap({ pemain1: false, pemain2: false });
       setSayMap({ pemain1: null, pemain2: null });
       setDeltaMap({ pemain1: null, pemain2: null });
-      timerLastPresentationRef.current = null;
 
       const res = await apiRequest<{ session: SesiBalapSoloClient }>(`/sesi/${id}/mulai`, {
         method: 'POST',
@@ -566,7 +574,6 @@ export default function LayarHostBalapKarungSolo() {
       setJumpMap({ pemain1: false, pemain2: false });
       setHurtMap({ pemain1: false, pemain2: false });
       setSayMap({ pemain1: null, pemain2: null });
-      timerLastPresentationRef.current = null;
       setSesi(res.session);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
@@ -680,8 +687,6 @@ export default function LayarHostBalapKarungSolo() {
   const p2Reveal = revealMap.pemain2;
   const p1Soal = p1Reveal ? p1Reveal.soal : sesi.pemain1.soalAktif;
   const p2Soal = p2Reveal ? p2Reveal.soal : sesi.pemain2.soalAktif;
-  const timerRatio = Math.max(0, Math.min(1, remainingMs / (timerSec * 1000)));
-  const remainingSecDisplay = Math.max(0, Math.ceil(remainingMs / 1000));
 
   const renderFeedbackText = (fb: FeedbackAksi) => {
     const extras: string[] = [];
@@ -848,30 +853,22 @@ export default function LayarHostBalapKarungSolo() {
 
               {p1Soal ? (
                 <>
-                  <div className="flex items-center justify-between text-sm font-extrabold text-[#6b6a85] mb-2">
-                    <span className="inline-flex items-center gap-2">
-                      <span>Soal {p1Soal.nomorSoal}</span>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-[#fff3d6] border border-[#f0dfb4] text-[#2b2a4a]">
-                        Bank: {p1Soal.totalSoalBank} soal
+                  <QuestionTimerBar
+                    presentationKey={p1Soal.presentationId}
+                    durationSec={timerSec}
+                    active={isPlaying && isVsBot && !isRevealingP1}
+                    onTimeout={handleTimeoutP1}
+                    unitLabel="detik"
+                    leftContent={
+                      <span className="inline-flex items-center gap-2">
+                        <span>Soal {p1Soal.nomorSoal}</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-[#fff3d6] border border-[#f0dfb4] text-[#2b2a4a]">
+                          Bank: {p1Soal.totalSoalBank} soal
+                        </span>
                       </span>
-                    </span>
-                    <span className="inline-flex items-center gap-1 font-mono text-[#2b2a4a]">
-                      <Clock className="w-4 h-4 text-[#ffb81c]" />
-                      {remainingSecDisplay} detik
-                    </span>
-                  </div>
-
-                  {renderStatusBadges(sesi.pemain1)}
-
-                  <div className="bk-tbar">
-                    <div
-                      className="bk-tbar-fill"
-                      style={{
-                        transform: `scaleX(${timerRatio})`,
-                        transition: 'none',
-                      }}
-                    />
-                  </div>
+                    }
+                    middleContent={renderStatusBadges(sesi.pemain1)}
+                  />
 
                   <div className="bk-h text-xl sm:text-2xl font-extrabold text-[#2b2a4a] leading-snug max-w-[42ch] mb-4">
                     {p1Soal.teks}
@@ -879,13 +876,16 @@ export default function LayarHostBalapKarungSolo() {
 
                   <div className="bk-opts">
                     {p1Soal.pilihan.map((opt) => {
-                      const locked = Boolean(p1Reveal) || sesi.state !== 'PLAYING';
+                      const p1Pending = pendingChoiceMap.pemain1;
+                      const locked =
+                        Boolean(p1Reveal) || p1Pending !== null || sesi.state !== 'PLAYING';
                       const isCorrect =
                         p1Reveal && opt.key === p1Reveal.feedback.jawabanBenarKode;
                       const isWrongChosen =
                         p1Reveal &&
                         !p1Reveal.feedback.benar &&
                         p1Reveal.chosenChoiceId === opt.choiceId;
+                      const isPending = !p1Reveal && p1Pending === opt.choiceId;
 
                       return (
                         <button
@@ -895,7 +895,9 @@ export default function LayarHostBalapKarungSolo() {
                           onClick={() =>
                             submitJawabanSlot('pemain1', p1Soal, { choiceId: opt.choiceId })
                           }
-                          className={`bk-opt ${isCorrect ? 'ok' : isWrongChosen ? 'no' : ''}`}
+                          className={`bk-opt ${
+                            isCorrect ? 'ok' : isWrongChosen ? 'no' : isPending ? 'pending' : ''
+                          }`}
                         >
                           <span className="bk-opt-k">{opt.key}</span>
                           <span className="leading-snug">{opt.teks}</span>
@@ -981,13 +983,16 @@ export default function LayarHostBalapKarungSolo() {
                       </div>
                       <div className="grid grid-cols-1 gap-2">
                         {soal.pilihan.map((opt) => {
-                          const locked = Boolean(reveal) || sesi.state !== 'PLAYING';
+                          const pendingChoice = pendingChoiceMap[slot];
+                          const locked =
+                            Boolean(reveal) || pendingChoice !== null || sesi.state !== 'PLAYING';
                           const isCorrect =
                             reveal && opt.key === reveal.feedback.jawabanBenarKode;
                           const isWrongChosen =
                             reveal &&
                             !reveal.feedback.benar &&
                             reveal.chosenChoiceId === opt.choiceId;
+                          const isPending = !reveal && pendingChoice === opt.choiceId;
                           return (
                             <button
                               key={opt.choiceId}
@@ -997,7 +1002,7 @@ export default function LayarHostBalapKarungSolo() {
                                 submitJawabanSlot(slot, soal, { choiceId: opt.choiceId })
                               }
                               className={`bk-opt !p-3 ${
-                                isCorrect ? 'ok' : isWrongChosen ? 'no' : ''
+                                isCorrect ? 'ok' : isWrongChosen ? 'no' : isPending ? 'pending' : ''
                               }`}
                             >
                               <span className="bk-opt-k">{opt.key}</span>
@@ -1066,7 +1071,7 @@ export default function LayarHostBalapKarungSolo() {
                     navigate(
                       `/guru/balap-karung?templateId=${encodeURIComponent(
                         sesi.templateId
-                      )}&kembali=${encodeURIComponent(returnUrl)}`
+                      )}&kembali=${encodeURIComponent(resolveConfigBackUrl(returnUrl))}`
                     )
                   }
                   className="bk-btn gold"

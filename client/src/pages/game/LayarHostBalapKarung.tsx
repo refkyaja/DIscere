@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { apiRequest } from '../../lib/api';
 import { getSocket } from '../../lib/socket';
 import { bindHostReconnect } from '../../lib/socketReconnect';
-import { Modal } from '../../components';
+import { Modal, resolveGuruReturnUrl } from '../../components';
 import { soundEffects } from '../../lib/soundEffects';
 import {
   BalapKarungStadium,
@@ -99,7 +99,7 @@ export default function LayarHostBalapKarung() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const returnUrl = searchParams.get('kembali') || '/guru';
+  const returnUrl = resolveGuruReturnUrl(searchParams.get('kembali'));
 
   const [loading, setLoading] = useState(true);
   const [errorPesan, setErrorPesan] = useState<string | null>(null);

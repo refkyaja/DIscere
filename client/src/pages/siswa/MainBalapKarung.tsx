@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { getSocket } from '../../lib/socket';
-import { bindStudentReconnect } from '../../lib/socketReconnect';
+import { bindStudentReconnect, createAnswerWatchdogs } from '../../lib/socketReconnect';
+import { QuestionTimerBar, computeInitialRemainingMs } from '../../components';
+import { isStaleQuestionErrorMessage } from '../../lib/soloSessionSync';
 import { soundEffects } from '../../lib/soundEffects';
 import { BalapSackSvg } from '../../components/BalapKarungStadium';
-import { LogOut, Trophy, Clock, Users, Volume2, VolumeX, Loader2 } from 'lucide-react';
+import { LogOut, Trophy, Users, Volume2, VolumeX, Loader2 } from 'lucide-react';
 
 export type KodeTimBalapSiswa = 'merah' | 'biru' | 'hijau' | 'kuning';
 
@@ -160,13 +162,12 @@ export default function MainBalapKarung({
   const [choiceDipilih, setChoiceDipilih] = useState<string | null>(null);
   const [sudahKirim, setSudahKirim] = useState(false);
   const [feedback, setFeedback] = useState<FeedbackSiswaState | null>(null);
+  const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [hasilAkhir, setHasilAkhir] = useState<any>(null);
   const [isMuted, setIsMuted] = useState(soundEffects.getMuted());
 
-  // Timer hitung mundur soal di HP siswa
-  const [remainingMs, setRemainingMs] = useState<number>(defaultTimerDetik * 1000);
-  const totalQuestionMsRef = useRef<number>(defaultTimerDetik * 1000);
   const timeoutSentRef = useRef<string | null>(null);
+  const watchdogsRef = useRef(createAnswerWatchdogs());
 
   // Cari tim milik siswa saat ini (prioritaskan dari daftar teams agar ikut update jika jumlah tim diubah di lobi)
   const myTeam: RingkasanTimSiswa = useMemo(() => {
@@ -241,30 +242,24 @@ export default function MainBalapKarung({
         const self = data.leaderboard.find((p) => p.id === pesertaId);
         if (self) setMyState((prev) => ({ ...prev, ...self }));
       }
+      watchdogsRef.current.clearAll();
       setFeedback(null);
       setChoiceDipilih(null);
       setSudahKirim(false);
+      setErrorBanner(null);
       timeoutSentRef.current = null;
       setStage('PLAYING');
       soundEffects.playRaceStart();
     };
 
     const handleSoalTampil = (data: SoalBalapData) => {
+      watchdogsRef.current.clearAll();
       setSoalAktif(data);
       setChoiceDipilih(null);
       setSudahKirim(false);
       setFeedback(null);
+      setErrorBanner(null);
       timeoutSentRef.current = null;
-
-      const durasiSec = Math.max(5, data.waktuPerSoalDetik || defaultTimerDetik);
-      const totalMs = durasiSec * 1000;
-      totalQuestionMsRef.current = totalMs;
-
-      if (data.berakhirPadaMs && data.berakhirPadaMs > Date.now()) {
-        setRemainingMs(Math.min(totalMs, Math.max(0, data.berakhirPadaMs - Date.now())));
-      } else {
-        setRemainingMs(totalMs);
-      }
     };
 
     const handleBalapUpdate = (data: {
@@ -280,12 +275,15 @@ export default function MainBalapKarung({
 
     const handleJawabHasil = (data: any) => {
       if (data.game && data.game !== 'balap_karung') return;
+      watchdogsRef.current.clearAck();
       if (data.pesertaUpdated) {
         setMyState((prev) => ({ ...prev, ...data.pesertaUpdated }));
       }
       if (data.teams) setTeams(data.teams);
 
       const benar = Boolean(data.benar);
+      setSudahKirim(true);
+      setErrorBanner(null);
       setFeedback({
         benar,
         timedOut: Boolean(data.timedOut),
@@ -312,10 +310,17 @@ export default function MainBalapKarung({
         playAnswerChime: true,
         playStumbleOnWrong: true,
       });
+
+      watchdogsRef.current.armNextSoalFallback(socket, {
+        sessionId,
+        pesertaId,
+        pesertaSecret,
+      });
     };
 
     const handleSesiSelesai = (data: { game?: string; hasil?: any }) => {
       if (data.game && data.game !== 'balap_karung') return;
+      watchdogsRef.current.clearAll();
       if (data.hasil) {
         setHasilAkhir(data.hasil);
         if (data.hasil.teams) setTeams(data.hasil.teams);
@@ -332,6 +337,7 @@ export default function MainBalapKarung({
     socket.on('sesi:selesai', handleSesiSelesai);
 
     return () => {
+      watchdogsRef.current.clearAll();
       socket.off('lobi:update', handleLobiUpdate);
       socket.off('game:mulai', handleGameMulai);
       socket.off('soal:tampil', handleSoalTampil);
@@ -349,43 +355,10 @@ export default function MainBalapKarung({
     }
   }, [initialLeaderboard, pesertaId, myState.tim]);
 
-  // Jalankan timer hitung mundur saat bermain & soal aktif belum dijawab
+  // Bersihkan timer watchdog setiap kali berpindah soal atau unmount
   useEffect(() => {
-    if (stage !== 'PLAYING' || !soalAktif || sudahKirim) return;
-
-    const presId = soalAktif.presentationId;
-    const durasiSec = Math.max(5, soalAktif.waktuPerSoalDetik || defaultTimerDetik);
-    const fullMs = durasiSec * 1000;
-    totalQuestionMsRef.current = fullMs;
-
-    const deadlineMs =
-      soalAktif.berakhirPadaMs && soalAktif.berakhirPadaMs > Date.now()
-        ? soalAktif.berakhirPadaMs
-        : Date.now() + fullMs;
-
-    const tick = () => {
-      const left = Math.max(0, deadlineMs - Date.now());
-      setRemainingMs(left);
-
-      if (left <= 0 && timeoutSentRef.current !== presId) {
-        timeoutSentRef.current = presId;
-        setSudahKirim(true);
-        const socket = getSocket();
-        socket.emit('jawab:kirim', {
-          sessionId,
-          pesertaId,
-          pesertaSecret,
-          presentationId: soalAktif.presentationId,
-          questionId: soalAktif.questionId,
-          timedOut: true,
-        });
-      }
-    };
-
-    tick();
-    const interval = window.setInterval(tick, 50);
-    return () => window.clearInterval(interval);
-  }, [stage, soalAktif, sudahKirim, defaultTimerDetik, sessionId, pesertaId, pesertaSecret]);
+    return () => watchdogsRef.current.clearAll();
+  }, [soalAktif?.presentationId]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -414,13 +387,60 @@ export default function MainBalapKarung({
     });
   }, [token, nama, pesertaId, pesertaSecret]);
 
-  const handlePilihJawaban = (opsi: PilihanBalap) => {
-    if (sudahKirim || !soalAktif) return;
-
-    setChoiceDipilih(opsi.choiceId);
+  const handleTimeoutSoal = useCallback(() => {
+    if (stage !== 'PLAYING' || !soalAktif || sudahKirim || Boolean(feedback)) return;
+    if (timeoutSentRef.current === soalAktif.presentationId) return;
+    timeoutSentRef.current = soalAktif.presentationId;
     setSudahKirim(true);
 
     const socket = getSocket();
+    watchdogsRef.current.armAckTimeout(() => {
+      setSudahKirim(false);
+      setErrorBanner('Waktu habis, mencoba menyinkronkan soal berikutnya...');
+      if (socket.connected) {
+        socket.emit('soal:lanjut', { sessionId, pesertaId, pesertaSecret });
+      }
+    });
+
+    socket.emit(
+      'jawab:kirim',
+      {
+        sessionId,
+        pesertaId,
+        pesertaSecret,
+        presentationId: soalAktif.presentationId,
+        questionId: soalAktif.questionId,
+        timedOut: true,
+      },
+      (res: any) => {
+        watchdogsRef.current.clearAck();
+        if (!res?.success) {
+          setSudahKirim(false);
+          if (res?.pesan && isStaleQuestionErrorMessage(res.pesan)) {
+            socket.emit('soal:lanjut', { sessionId, pesertaId, pesertaSecret });
+          }
+        }
+      }
+    );
+  }, [stage, soalAktif, sudahKirim, feedback, sessionId, pesertaId, pesertaSecret]);
+
+  const handlePilihJawaban = (opsi: PilihanBalap) => {
+    if (sudahKirim || Boolean(feedback) || !soalAktif) return;
+
+    setChoiceDipilih(opsi.choiceId);
+    setSudahKirim(true);
+    setErrorBanner(null);
+
+    const socket = getSocket();
+    watchdogsRef.current.armAckTimeout(() => {
+      setSudahKirim(false);
+      setChoiceDipilih(null);
+      setErrorBanner('Koneksi terputus atau lambat. Silakan ketuk jawaban lagi.');
+      if (socket.connected) {
+        socket.emit('soal:lanjut', { sessionId, pesertaId, pesertaSecret });
+      }
+    });
+
     socket.emit(
       'jawab:kirim',
       {
@@ -433,8 +453,15 @@ export default function MainBalapKarung({
         jawaban: opsi.key,
       },
       (res: any) => {
-        if (!res?.success && res?.pesan) {
-          console.error('Jawaban ditolak:', res.pesan);
+        watchdogsRef.current.clearAck();
+        if (!res?.success) {
+          setSudahKirim(false);
+          setChoiceDipilih(null);
+          const pesan = res?.pesan || 'Gagal mengirim jawaban. Silakan pilih kembali.';
+          setErrorBanner(pesan);
+          if (isStaleQuestionErrorMessage(pesan)) {
+            socket.emit('soal:lanjut', { sessionId, pesertaId, pesertaSecret });
+          }
         }
       }
     );
@@ -482,6 +509,12 @@ export default function MainBalapKarung({
         </button>
       </div>
     </header>
+  );
+
+  const soalDurasiSec = Math.max(5, soalAktif?.waktuPerSoalDetik || defaultTimerDetik);
+  const initialSoalRemainingMs = useMemo(
+    () => computeInitialRemainingMs(soalAktif?.berakhirPadaMs, soalDurasiSec),
+    [soalAktif?.presentationId, soalAktif?.berakhirPadaMs, soalDurasiSec]
   );
 
   // =========================================================================
@@ -654,12 +687,6 @@ export default function MainBalapKarung({
   // =========================================================================
   // 3. TAHAP BERMAIN DI HP SISWA
   // =========================================================================
-  const timerRatio = Math.max(
-    0,
-    Math.min(1, totalQuestionMsRef.current > 0 ? remainingMs / totalQuestionMsRef.current : 0)
-  );
-  const sisaDetik = Math.max(0, Math.ceil(remainingMs / 1000));
-
   return (
     <div className="bk-festival p-3 sm:p-4 flex flex-col gap-3 select-none">
       {renderTopBar()}
@@ -702,23 +729,26 @@ export default function MainBalapKarung({
         >
           {soalAktif ? (
             <div>
-              <div className="flex items-center justify-between text-xs font-extrabold text-[#6b6a85] mb-2">
-                <span>
-                  Soal #{soalAktif.nomorSoal}
-                  {soalAktif.totalSoalTemplate ? ` / ${soalAktif.totalSoalTemplate}` : ''}
-                </span>
-                <span className="inline-flex items-center gap-1 text-[#2b2a4a] font-mono">
-                  <Clock className="w-3.5 h-3.5 text-[#ffb81c]" />
-                  {sisaDetik} dtk • {Math.round(myTeam.meter)} m
-                </span>
-              </div>
+              <QuestionTimerBar
+                presentationKey={soalAktif.presentationId}
+                durationSec={soalDurasiSec}
+                initialRemainingMs={initialSoalRemainingMs}
+                active={stage === 'PLAYING' && !sudahKirim && !feedback}
+                onTimeout={handleTimeoutSoal}
+                leftContent={
+                  <>
+                    Soal #{soalAktif.nomorSoal}
+                    {soalAktif.totalSoalTemplate ? ` / ${soalAktif.totalSoalTemplate}` : ''}
+                  </>
+                }
+                rightSuffix={` • ${Math.round(myTeam.meter)} m`}
+              />
 
-              <div className="bk-tbar !h-2.5 !mb-3">
-                <div
-                  className="bk-tbar-fill"
-                  style={{ transform: `scaleX(${timerRatio})`, transition: 'none' }}
-                />
-              </div>
+              {errorBanner && (
+                <div className="mb-3 bg-[#fde0e0] border border-[#f4b6b6] text-[#991b1b] text-xs font-bold rounded-xl px-3 py-2">
+                  {errorBanner}
+                </div>
+              )}
 
               {(activeConfig.keseimbanganAktif ||
                 activeConfig.bonusStreakAktif ||
@@ -766,7 +796,7 @@ export default function MainBalapKarung({
                     <button
                       key={opt.choiceId}
                       type="button"
-                      disabled={sudahKirim}
+                      disabled={sudahKirim || Boolean(feedback)}
                       onClick={() => handlePilihJawaban(opt)}
                       className={`bk-opt w-full !p-3 ${
                         isCorrectHighlight ? 'ok' : isWrongHighlight ? 'no' : ''

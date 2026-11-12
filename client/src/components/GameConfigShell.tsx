@@ -19,6 +19,48 @@ export function resolveGuruReturnUrl(raw?: string | null): string {
   return cleaned;
 }
 
+const CONFIG_ROUTE_PREFIXES = [
+  '/guru/balap-karung',
+  '/guru/tarik-tambang',
+  '/guru/makan-kerupuk',
+  '/guru/panjat-pinang',
+];
+
+/**
+ * Mengurai target kembali yang aman untuk keluar dari sesi atau halaman pengaturan game.
+ * Mencegah tombol kembali memantul kembali ke sesi game (`/guru/sesi/...`) atau loop ke halaman config sendiri.
+ */
+export function resolveConfigBackUrl(raw?: string | null): string {
+  let current = typeof raw === 'string' ? raw.trim() : '';
+
+  for (let depth = 0; depth < 4 && current; depth++) {
+    if (current.startsWith('/guru/sesi/')) {
+      return '/guru?tab=template';
+    }
+    const isNestedConfig = CONFIG_ROUTE_PREFIXES.some(
+      (prefix) => current === prefix || current.startsWith(`${prefix}?`)
+    );
+    if (!isNestedConfig) {
+      break;
+    }
+    const qIdx = current.indexOf('?');
+    if (qIdx === -1) {
+      return '/guru?tab=template';
+    }
+    const innerParams = new URLSearchParams(current.slice(qIdx + 1));
+    const innerBack = innerParams.get('kembali');
+    if (!innerBack || innerBack.trim() === current) {
+      return '/guru?tab=template';
+    }
+    current = innerBack.trim();
+  }
+
+  if (current.startsWith('/guru/sesi/')) {
+    return '/guru?tab=template';
+  }
+  return resolveGuruReturnUrl(current);
+}
+
 /** Mengambil pesan kesalahan yang aman dibaca pengguna dari nilai error bertipe unknown. */
 export function extractApiErrorMessage(err: unknown, fallback: string): string {
   if (typeof err === 'object' && err !== null && 'pesan' in err) {
@@ -71,14 +113,7 @@ export function GameConfigPageShell({
       onBack();
       return;
     }
-    const queryKembali = searchParams.get('kembali');
-    if (window.history.state && typeof window.history.state.idx === 'number' && window.history.state.idx > 0) {
-      navigate(-1);
-    } else if (queryKembali) {
-      navigate(queryKembali);
-    } else {
-      navigate('/guru');
-    }
+    navigate(resolveConfigBackUrl(searchParams.get('kembali')));
   };
   if (loading) {
     return (

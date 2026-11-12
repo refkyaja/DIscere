@@ -961,3 +961,27 @@
   color: #9e9cb3;
 }
 
+/* Stabilisasi hitbox klik & responsivitas sentuh tombol opsi kuis */
+.bk-opt {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bk-opt:hover:not(:disabled),
+.bk-opt:active:not(:disabled) {
+  transform: none;
+}
+
+.bk-opt:active:not(:disabled) {
+  background: #fff3c4;
+  border-color: var(--blue, #1d8fe0);
+  box-shadow: inset 0 2px 0 rgba(29, 143, 224, 0.2);
+}
+
+.bk-opt.pending {
+  border-color: var(--blue, #1d8fe0);
+  background: #eaf5ff;
+  box-shadow: 0 0 0 2px rgba(29, 143, 224, 0.25);
+}
+
