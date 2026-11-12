@@ -31,7 +31,6 @@ import {
 } from 'lucide-react';
 
 export type PlayModeTarik = 'MULTIPLAYER' | 'SOLO';
-export type KesulitanTarik = 'semua' | 'mudah' | 'sedang' | 'sulit';
 export type TipeLawanSoloTarik = 'bot' | 'lokal';
 export type KesulitanBotTarik = 'mudah' | 'sedang' | 'sulit';
 export type PresetBatasTarik = '25' | '50' | '75' | '100' | 'custom';
@@ -42,7 +41,7 @@ interface TemplateDetail {
   game: string;
   mode: string;
   resmi?: boolean;
-  questions?: Array<{ id: string; kesulitan?: string | null }>;
+  questions?: Array<{ id: string }>;
   _count?: { questions: number };
 }
 
@@ -60,13 +59,6 @@ const DURASI_LOMBA_PRESETS: Array<{ val: number; label: string }> = [
 ];
 
 const WAKTU_SOAL_PRESETS = [10, 15, 20, 30];
-
-const LABEL_KESULITAN: Record<KesulitanTarik, string> = {
-  semua: 'Semua Soal (Acak Berulang)',
-  mudah: 'Mudah',
-  sedang: 'Sedang',
-  sulit: 'Sulit',
-};
 
 export default function PilihModeTarikTambang() {
   const navigate = useNavigate();
@@ -106,7 +98,6 @@ export default function PilihModeTarikTambang() {
   const [tarikBenarSolo, setTarikBenarSolo] = useState<number>(10);
   const [mundurSalahSolo, setMundurSalahSolo] = useState<number>(4);
   const [kekuatanTimMulti, setKekuatanTimMulti] = useState<number>(40);
-  const [kesulitan, setKesulitan] = useState<KesulitanTarik>('semua');
 
   // Aturan Tambahan Opsional
   const [bonusAktif, setBonusAktif] = useState<boolean>(false);
@@ -175,28 +166,9 @@ export default function PilihModeTarikTambang() {
     };
   }, [queryTemplateId, queryModeParam]);
 
-  const questions = selectedTemplate?.questions || [];
   const jumlahSoal =
     selectedTemplate?.questions?.length ?? selectedTemplate?._count?.questions ?? 0;
-
-  const countsPerKesulitan = useMemo(() => {
-    const counts = { semua: questions.length, mudah: 0, sedang: 0, sulit: 0 };
-    for (const q of questions) {
-      const lvl = (q.kesulitan || 'sedang').toLowerCase();
-      if (lvl === 'mudah' || lvl === 'sedang' || lvl === 'sulit') {
-        counts[lvl] += 1;
-      }
-    }
-    return counts;
-  }, [questions]);
-
-  const soalTerpilih =
-    questions.length === 0
-      ? jumlahSoal
-      : kesulitan === 'semua'
-        ? countsPerKesulitan.semua
-        : countsPerKesulitan[kesulitan];
-  const cukupSoal = soalTerpilih >= 2;
+  const cukupSoal = jumlahSoal >= 2;
 
   const batasMenangFinal = useMemo(() => {
     if (presetBatas === 'custom') {
@@ -288,7 +260,7 @@ export default function PilihModeTarikTambang() {
       const isMulti = playMode === 'MULTIPLAYER';
       const tarikTambangConfig = {
         sumberSoal: 'bank_soal',
-        kesulitan,
+        kesulitan: 'semua',
         durasiLombaDetik,
         waktuPerSoalDetik,
         durasiRonde: Math.min(30, Math.max(15, waktuPerSoalDetik)),
@@ -623,7 +595,7 @@ export default function PilihModeTarikTambang() {
         {/* 3. Skala Tarikan, Waktu Soal & Aturan Tambahan */}
         <GameConfigSection
           title="3. Skala Tarikan & Sumber Soal"
-          description="Sesuaikan kekuatan tarikan tali, filter tingkat kesulitan soal, dan opsi lanjutan permainan."
+          description="Sesuaikan kekuatan tarikan tali, sumber bank soal, dan opsi lanjutan permainan."
         >
           <div className="portal-card p-5 space-y-5">
             <GameConfigCardHeader
@@ -719,45 +691,21 @@ export default function PilihModeTarikTambang() {
                 )}
               </div>
 
-              {/* Kanan: Filter Bank Soal */}
+              {/* Kanan: Sumber Bank Soal */}
               <div className="space-y-3">
                 <label className="text-xs font-bold text-[#6b7d6c] flex items-center gap-1.5">
                   <Shuffle className="w-3.5 h-3.5 text-[#1d3b2e]" />
-                  Cakupan Soal dari Bank Soal ({jumlahSoal} tersedia)
+                  Sumber Soal dari Bank Soal ({jumlahSoal} tersedia)
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {(['semua', 'mudah', 'sedang', 'sulit'] as KesulitanTarik[]).map((lvl) => {
-                    const count = countsPerKesulitan[lvl];
-                    const active = kesulitan === lvl;
-                    const dis = questions.length > 0 && count < 2;
-                    return (
-                      <button
-                        key={lvl}
-                        type="button"
-                        disabled={dis}
-                        onClick={() => setKesulitan(lvl)}
-                        className={`py-2 px-2 rounded-xl border-2 text-center transition-all ${
-                          dis
-                            ? 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
-                            : active
-                              ? 'bg-[#1d3b2e] text-[#f4ecd8] border-[#1d3b2e] cursor-pointer'
-                              : 'bg-[#fffdf6] text-[#1d3b2e] border-[#e0d5b8] hover:border-[#1d3b2e]/50 cursor-pointer'
-                        }`}
-                      >
-                        <div className="text-xs font-extrabold capitalize">
-                          {lvl === 'semua' ? 'Semua' : lvl}
-                        </div>
-                        <div className="text-[10px] opacity-80">{count} soal</div>
-                      </button>
-                    );
-                  })}
-                </div>
+                <p className="text-xs text-[#6b7d6c] leading-relaxed">
+                  Seluruh soal dari template dipilih otomatis dan diacak berulang selama pertandingan berlangsung.
+                </p>
 
                 {!cukupSoal && (
                   <div className="p-3 rounded-2xl bg-red-50 border border-red-200 text-xs font-bold text-[#c8362f] flex flex-wrap items-center justify-between gap-2">
                     <span className="flex items-center gap-1.5">
                       <AlertTriangle className="w-4 h-4 shrink-0" />
-                      Minimal butuh 2 soal ({LABEL_KESULITAN[kesulitan]}).
+                      Minimal butuh 2 soal dari template untuk bermain.
                     </span>
                     {selectedTemplate && !selectedTemplate.resmi && (
                       <button

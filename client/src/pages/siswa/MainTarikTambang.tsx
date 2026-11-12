@@ -119,13 +119,6 @@ function formatClock(ms: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-function kesulitanBadge(k?: string): { text: string; bg: string; fg: string } | null {
-  if (k === 'mudah') return { text: 'Mudah', bg: '#dcfce7', fg: '#166534' };
-  if (k === 'sedang') return { text: 'Sedang', bg: '#fef3c7', fg: '#92400e' };
-  if (k === 'sulit') return { text: 'Sulit', bg: '#fee2e2', fg: '#991b1b' };
-  return null;
-}
-
 export default function MainTarikTambang({
   token,
   nama,
@@ -828,7 +821,6 @@ export default function MainTarikTambang({
       ? Math.max(0, Math.min(100, (remainingQuestionMs / totalQuestionMsRef.current) * 100))
       : 0;
   const isTimeWarning = matchRemainingMs > 0 && matchRemainingMs <= 15000;
-  const kesBadge = kesulitanBadge(soalAktif?.kesulitan);
 
   return (
     <div className="tt-festival min-h-screen p-3 sm:p-4 flex flex-col justify-between gap-3 select-none">
@@ -928,17 +920,7 @@ export default function MainTarikTambang({
               <div className="space-y-2.5">
                 <div>
                   <div className="flex items-center justify-between text-[11px] font-extrabold text-[#6b6a85] mb-1">
-                    <div className="flex items-center gap-1.5">
-                      <span>Soal #{soalAktif.nomorSoal}</span>
-                      {kesBadge && (
-                        <span
-                          className="px-2 py-0.5 rounded-full text-[10px]"
-                          style={{ background: kesBadge.bg, color: kesBadge.fg }}
-                        >
-                          {kesBadge.text}
-                        </span>
-                      )}
-                    </div>
+                    <span>Soal #{soalAktif.nomorSoal}</span>
                     <span className={remainingQuestionMs <= 3000 ? 'text-[#dc2626]' : ''}>
                       {Math.max(0, Math.ceil(remainingQuestionMs / 1000))} dtk
                     </span>
