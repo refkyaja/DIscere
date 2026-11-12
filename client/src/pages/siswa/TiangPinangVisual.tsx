@@ -166,7 +166,24 @@ export default function TiangPinangVisual({
             />
           ))}
 
-          {/* Lapisan Progressive Pole Reveal (Masking dari bawah ke atas tanpa recreate elemen tiang) */}
+          {/* Batang Tiang Pinang Tunggal Tinggi Penuh (TIDAK terpotong di tengah langit, utuh hingga puncak) */}
+          <div
+            data-panjat-pole-rod="true"
+            className={`absolute ${poleInsetClass} left-1/2 -translate-x-1/2 ${
+              compact ? 'w-3 rounded-t-md border' : 'w-5 sm:w-6 rounded-t-lg border-2'
+            } shadow-md overflow-hidden border-[#6b4423] bg-gradient-to-r from-[#8d5c2b] via-[#d99b52] to-[#8d5c2b]`}
+          >
+            <div className="h-full w-full flex flex-col justify-evenly opacity-50">
+              {Array.from({ length: segmentCount }).map((_, idx) => (
+                <div key={idx} className={compact ? 'h-[1px] bg-[#6b4423]' : 'h-[1.5px] bg-[#6b4423]'} />
+              ))}
+            </div>
+            {hasLicin && (
+              <div className="absolute inset-0 bg-gradient-to-b from-sky-200/80 via-cyan-100/70 to-sky-300/80 motion-safe:animate-pulse motion-reduce:animate-none" />
+            )}
+          </div>
+
+          {/* Lapisan Progressive Pole Reveal & Masking Puncak Hadiah (Terbuka mulus seiring mendekati puncak) */}
           <div
             data-panjat-pole-mask="true"
             style={{ clipPath: `inset(${topClipPct}% 0 0 0)` }}
@@ -254,23 +271,6 @@ export default function TiangPinangVisual({
                   </div>
                 );
               })}
-            </div>
-
-            {/* Batang Tiang Pinang Tunggal Tinggi Penuh (Tidak pernah di-recreate) */}
-            <div
-              data-panjat-pole-rod="true"
-              className={`absolute ${poleInsetClass} left-1/2 -translate-x-1/2 ${
-                compact ? 'w-3 rounded-t-md border' : 'w-5 sm:w-6 rounded-t-lg border-2'
-              } shadow-md overflow-hidden border-[#6b4423] bg-gradient-to-r from-[#8d5c2b] via-[#d99b52] to-[#8d5c2b]`}
-            >
-              <div className="h-full w-full flex flex-col justify-evenly opacity-50">
-                {Array.from({ length: segmentCount }).map((_, idx) => (
-                  <div key={idx} className={compact ? 'h-[1px] bg-[#6b4423]' : 'h-[1.5px] bg-[#6b4423]'} />
-                ))}
-              </div>
-              {hasLicin && (
-                <div className="absolute inset-0 bg-gradient-to-b from-sky-200/80 via-cyan-100/70 to-sky-300/80 motion-safe:animate-pulse motion-reduce:animate-none" />
-              )}
             </div>
 
             {/* Alas Tanah Rumput Festival di Dasar Tiang (0%) */}
