@@ -1,3 +1,5 @@
+import { useCallback, useEffect, useState } from 'react';
+
 /**
  * Sound Effects Generator menggunakan Web Audio API murni.
  * Tidak memerlukan berkas audio eksternal sehingga 100% offline,
@@ -30,7 +32,10 @@ class SoundEffectsManager {
   private ctx: AudioContext | null = null;
   private noiseBuffer: AudioBuffer | null = null;
   private isMuted: boolean = false;
+  private isGameActive: boolean = false;
   private lastCheerAt: number = 0;
+  private lastVictoryAt: number = 0;
+  private pendingTimeouts: Set<ReturnType<typeof setTimeout>> = new Set();
 
   constructor() {
     try {
@@ -43,8 +48,34 @@ class SoundEffectsManager {
     }
   }
 
-  private getContext(): AudioContext | null {
+  private clearPendingTimers() {
+    for (const timer of this.pendingTimeouts) {
+      clearTimeout(timer);
+    }
+    this.pendingTimeouts.clear();
+  }
+
+  private scheduleTimer(fn: () => void, delayMs: number) {
+    const timer = setTimeout(() => {
+      this.pendingTimeouts.delete(timer);
+      if (!this.isGameActive || this.isMuted) return;
+      fn();
+    }, delayMs);
+    this.pendingTimeouts.add(timer);
+  }
+
+  private closeContext() {
+    if (this.ctx) {
+      const oldCtx = this.ctx;
+      this.ctx = null;
+      this.noiseBuffer = null;
+      oldCtx.close().catch(() => {});
+    }
+  }
+
+  private getContext(allowAtFinish: boolean = false): AudioContext | null {
     if (this.isMuted) return null;
+    if (!this.isGameActive && !allowAtFinish) return null;
     if (!this.ctx && typeof window !== 'undefined') {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (AudioCtx) {
@@ -157,12 +188,53 @@ class SoundEffectsManager {
 
   public toggleMute(): boolean {
     this.isMuted = !this.isMuted;
+    if (this.isMuted) {
+      this.clearPendingTimers();
+      this.closeContext();
+    }
     try {
       localStorage.setItem('discere_sound_muted', String(this.isMuted));
     } catch {
       // ignore
     }
     return this.isMuted;
+  }
+
+  /**
+   * Mengaktifkan / menonaktifkan gerbang audio sesuai fase game.
+   * Saat non-aktif (di lobi atau setelah selesai), seluruh timer tertunda dibersihkan.
+   */
+  public setGameActive(active: boolean) {
+    this.isGameActive = active;
+    if (!active) {
+      this.clearPendingTimers();
+    } else {
+      this.lastVictoryAt = 0;
+    }
+  }
+
+  /**
+   * Mengaktifkan audio game dan langsung memutar peluit mulai lomba.
+   */
+  public startGame(type: 'race' | 'whistle' = 'race') {
+    this.lastVictoryAt = 0;
+    this.setGameActive(true);
+    if (type === 'race') {
+      this.playRaceStart();
+    } else {
+      this.playWhistle();
+    }
+  }
+
+  /**
+   * Menghentikan seluruh efek suara & konteks audio secara instan
+   * (dipakai saat keluar halaman, ulang ke lobi, atau hentikan manual).
+   */
+  public stopAll() {
+    this.isGameActive = false;
+    this.lastVictoryAt = 0;
+    this.clearPendingTimers();
+    this.closeContext();
   }
 
   /**
@@ -209,7 +281,7 @@ class SoundEffectsManager {
    */
   public playRaceStart() {
     this.playWhistle();
-    setTimeout(() => {
+    this.scheduleTimer(() => {
       this.playCrowdCheer('small');
     }, 220);
   }
@@ -218,8 +290,11 @@ class SoundEffectsManager {
    * Sorakan Penonton & Tepuk Tangan Lomba 17 Agustus.
    * Memiliki jeda minimum agar aksi cepat di mode multiplayer tidak bertumpuk.
    */
-  public playCrowdCheer(intensity: 'small' | 'big' | 'victory' = 'small') {
-    const ctx = this.getContext();
+  public playCrowdCheer(
+    intensity: 'small' | 'big' | 'victory' = 'small',
+    allowAtFinish: boolean = false
+  ) {
+    const ctx = this.getContext(allowAtFinish);
     if (!ctx) return;
 
     const nowMs = Date.now();
@@ -395,13 +470,7 @@ class SoundEffectsManager {
     });
   }
 
-  /**
-   * Suara Kemenangan / Juara 17-an (Fanfare meriah + sorakan penonton)
-   */
-  public playVictoryFanfare() {
-    const ctx = this.getContext();
-    if (!ctx) return;
-
+  private scheduleVictoryFanfareWithContext(ctx: AudioContext, allowAtFinish: boolean) {
     const now = ctx.currentTime;
     const melody = [
       { freq: 523.25, duration: 0.13, time: 0 },
@@ -431,7 +500,40 @@ class SoundEffectsManager {
       attack: 0.02,
     });
 
-    this.playCrowdCheer('victory');
+    this.playCrowdCheer('victory', allowAtFinish);
+  }
+
+  /**
+   * Suara Kemenangan / Juara 17-an (Fanfare meriah + sorakan penonton)
+   * saat permainan masih aktif (mis. peserta pertama mencapai puncak).
+   */
+  public playVictoryFanfare() {
+    if (!this.isGameActive) return;
+    const nowMs = Date.now();
+    if (nowMs - this.lastVictoryAt < 2500) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+    this.lastVictoryAt = nowMs;
+    this.scheduleVictoryFanfareWithContext(ctx, false);
+  }
+
+  /**
+   * Memainkan fanfare kemenangan 1x tepat di momen game berakhir alami
+   * (garis finis / pemenang tercapai), lalu menonaktifkan efek suara lanjutan.
+   */
+  public playNaturalVictory() {
+    const wasActive = this.isGameActive;
+    const nowMs = Date.now();
+    this.clearPendingTimers();
+    this.isGameActive = false;
+
+    if (!wasActive || this.isMuted) return;
+    if (nowMs - this.lastVictoryAt < 2500) return;
+
+    const ctx = this.getContext(true);
+    if (!ctx) return;
+    this.lastVictoryAt = nowMs;
+    this.scheduleVictoryFanfareWithContext(ctx, true);
   }
 
   /**
@@ -675,7 +777,7 @@ class SoundEffectsManager {
       if (opts.playAnswerChime) {
         this.playCorrect();
         if (strong) {
-          setTimeout(() => this.playBoost(), 90);
+          this.scheduleTimer(() => this.playBoost(), 90);
         }
       } else if (strong) {
         this.playBoost();
@@ -716,6 +818,60 @@ class SoundEffectsManager {
 
     this.playStumble();
   }
+
+  /**
+   * Memainkan efek suara gigitan Makan Kerupuk beserta bonus streak jika ada.
+   */
+  public playKerupukAction(opts: {
+    benar: boolean;
+    gachaTipe?: string | null;
+    hasStreakBonus?: boolean;
+  }) {
+    if (!opts.benar) {
+      this.playIncorrect();
+      return;
+    }
+    if (!opts.gachaTipe || opts.gachaTipe === 'zonk') {
+      this.playZonk();
+      return;
+    }
+    this.playCrunch();
+    if (opts.hasStreakBonus) {
+      this.scheduleTimer(() => this.playBoost(), 220);
+    }
+  }
 }
 
 export const soundEffects = new SoundEffectsManager();
+
+/**
+ * Menyelaraskan siklus hidup sound effect pada setiap layar game (Host & Siswa):
+ * - Di Lobi / Ready & setelah Selesai -> gerbang audio nonaktif dan tombol suara disembunyikan.
+ * - Saat permainan benar-benar berlangsung -> audio aktif dan kontrol mute tersedia.
+ * - Saat keluar halaman / berpindah sesi -> seluruh suara & timer tertunda langsung dihentikan.
+ */
+export function useGameSoundLifecycle(isGameActive: boolean, sessionKey?: string) {
+  const [isMuted, setIsMuted] = useState<boolean>(() => soundEffects.getMuted());
+
+  useEffect(() => {
+    soundEffects.setGameActive(isGameActive);
+  }, [isGameActive]);
+
+  useEffect(() => {
+    return () => {
+      soundEffects.stopAll();
+    };
+  }, [sessionKey]);
+
+  const toggleMute = useCallback(() => {
+    const nextMuted = soundEffects.toggleMute();
+    setIsMuted(nextMuted);
+    return nextMuted;
+  }, []);
+
+  return {
+    isMuted,
+    toggleMute,
+    showSoundControl: isGameActive,
+  };
+}

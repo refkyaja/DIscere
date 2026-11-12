@@ -16,7 +16,7 @@ import {
   BalapSackSvg,
   BalapLaneItem,
 } from '../../components/BalapKarungStadium';
-import { soundEffects } from '../../lib/soundEffects';
+import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import {
   Play,
   RotateCcw,
@@ -188,7 +188,10 @@ export default function LayarHostBalapKarungSolo() {
   const [errorPesan, setErrorPesan] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isActionLoading, setIsActionLoading] = useState(false);
-  const [isMuted, setIsMuted] = useState(soundEffects.getMuted());
+  const isSoundActive = Boolean(
+    sesi && !sesi.isFinished && (sesi.state === 'PLAYING' || sesi.state === 'PAUSED')
+  );
+  const { isMuted, toggleMute } = useGameSoundLifecycle(isSoundActive, id);
   const [isMainLagi, setIsMainLagi] = useState(false);
 
   const [modalHentikanOpen, setModalHentikanOpen] = useState(false);
@@ -293,7 +296,7 @@ export default function LayarHostBalapKarungSolo() {
       pulseCheer();
 
       if (fb.selesaiBaru) {
-        soundEffects.playVictoryFanfare();
+        soundEffects.playNaturalVictory();
       } else {
         soundEffects.playBalapKarungAction({
           benar: fb.benar,
@@ -529,7 +532,7 @@ export default function LayarHostBalapKarungSolo() {
         method: 'POST',
         body: JSON.stringify({ kesulitanBot: sesi.config.kesulitanBot }),
       });
-      soundEffects.playRaceStart();
+      soundEffects.startGame('race');
       pulseCheer();
       setSesi(res.session);
     } catch (err: any) {
@@ -564,6 +567,7 @@ export default function LayarHostBalapKarungSolo() {
       setIsActionLoading(true);
       setActionError(null);
       clearAllTimers();
+      soundEffects.stopAll();
       const res = await apiRequest<{ session: SesiBalapSoloClient }>(`/sesi/${id}/ulang`, {
         method: 'POST',
       });
@@ -592,7 +596,7 @@ export default function LayarHostBalapKarungSolo() {
         method: 'POST',
       });
       setModalHentikanOpen(false);
-      soundEffects.playVictoryFanfare();
+      soundEffects.stopAll();
       setSesi(res.session);
       setShowEndCard(true);
     } catch (err: any) {
@@ -763,7 +767,7 @@ export default function LayarHostBalapKarungSolo() {
         lanes={lanes}
         crowdCheer={crowdCheer || isFinished}
         isMuted={isMuted}
-        onToggleMute={() => setIsMuted(soundEffects.toggleMute())}
+        onToggleMute={isSoundActive ? toggleMute : undefined}
         onBack={() => navigate(returnUrl)}
         isPaused={sesi.state === 'PAUSED'}
         onTogglePause={

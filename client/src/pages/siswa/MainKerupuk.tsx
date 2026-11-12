@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getSocket } from '../../lib/socket';
 import { bindStudentReconnect } from '../../lib/socketReconnect';
-import { soundEffects } from '../../lib/soundEffects';
+import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import KerupukVirtual, {
   HasilGachaGigitanProps,
   MoodKarakterKerupuk,
@@ -17,6 +17,8 @@ import {
   Crown,
   Medal,
   ArrowRight,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 
 interface PilihanSoalKerupuk {
@@ -86,6 +88,7 @@ export default function MainKerupuk({
   const [stage, setStage] = useState<'LOBBY' | 'PLAYING' | 'SELESAI'>(
     initialStatus === 'jalan' ? 'PLAYING' : initialStatus === 'selesai' ? 'SELESAI' : 'LOBBY'
   );
+  const { isMuted, toggleMute } = useGameSoundLifecycle(stage === 'PLAYING', sessionId);
 
   const [myState, setMyState] = useState<PesertaKerupukMultiData>(
     initialPesertaState || {
@@ -171,7 +174,7 @@ export default function MainKerupuk({
       if (data.game && data.game !== 'makan_kerupuk') return;
       setStage('PLAYING');
       setMood('playing');
-      soundEffects.playWhistle();
+      soundEffects.startGame('whistle');
     };
 
     const handleSoalTampil = (data: any) => {
@@ -206,14 +209,17 @@ export default function MainKerupuk({
       if (res.benar) {
         if (res.gacha && res.gacha.tipe !== 'zonk') {
           setMood(res.gacha.tipe);
-          soundEffects.playCrunch();
         } else {
           setMood('zonk');
-          soundEffects.playZonk();
         }
+        soundEffects.playKerupukAction({
+          benar: true,
+          gachaTipe: res.gacha?.tipe ?? 'zonk',
+          hasStreakBonus: (res.bonusStreak || 0) > 0,
+        });
       } else {
         setMood('salah');
-        soundEffects.playIncorrect();
+        soundEffects.playKerupukAction({ benar: false });
       }
       setReactionNonce((n) => n + 1);
 
@@ -255,7 +261,11 @@ export default function MainKerupuk({
       stopStopwatch();
       setHasilAkhir(data.hasil);
       setStage('SELESAI');
-      soundEffects.playVictoryFanfare();
+      if (data.hasil?.dihentikanManual) {
+        soundEffects.stopAll();
+      } else {
+        soundEffects.playNaturalVictory();
+      }
     };
 
     socket.on('lobi:update', handleLobiUpdate);
@@ -399,8 +409,19 @@ export default function MainKerupuk({
               </span>
               <h2 className="text-sm font-bold line-clamp-1">{templateJudul}</h2>
             </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f2c230] text-[#1d3b2e] rounded-xl text-xs font-black">
-              <Trophy className="w-4 h-4" /> Rank #{myRank || 1}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={toggleMute}
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-[#f4ecd8] cursor-pointer"
+                aria-label={isMuted ? 'Nyalakan suara' : 'Bisukan suara'}
+                title={isMuted ? 'Nyalakan Suara' : 'Bisukan Suara'}
+              >
+                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              </button>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f2c230] text-[#1d3b2e] rounded-xl text-xs font-black">
+                <Trophy className="w-4 h-4" /> Rank #{myRank || 1}
+              </div>
             </div>
           </header>
 
@@ -467,6 +488,15 @@ export default function MainKerupuk({
                 {myState.skorTotal} pt • #{myRank || '-'}
               </span>
             </div>
+            <button
+              type="button"
+              onClick={toggleMute}
+              className="p-2 rounded-xl bg-[#f4ecd8] border border-[#e0d5b8] text-[#1d3b2e] cursor-pointer shrink-0"
+              aria-label={isMuted ? 'Nyalakan suara' : 'Bisukan suara'}
+              title={isMuted ? 'Nyalakan Suara' : 'Bisukan Suara'}
+            >
+              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            </button>
           </div>
         </div>
 

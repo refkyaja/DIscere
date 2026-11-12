@@ -4,7 +4,7 @@ import { apiRequest } from '../../lib/api';
 import { getSocket } from '../../lib/socket';
 import { bindHostReconnect } from '../../lib/socketReconnect';
 import { Modal, resolveGuruReturnUrl } from '../../components';
-import { soundEffects } from '../../lib/soundEffects';
+import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import {
   BalapKarungStadium,
   BalapSackSvg,
@@ -135,7 +135,7 @@ export default function LayarHostBalapKarung() {
   const [isEnding, setIsEnding] = useState(false);
   const [isMainLagi, setIsMainLagi] = useState(false);
   const [isChangingTeamCount, setIsChangingTeamCount] = useState(false);
-  const [isMuted, setIsMuted] = useState(soundEffects.getMuted());
+  const { isMuted, toggleMute } = useGameSoundLifecycle(status === 'jalan', id);
   const [copied, setCopied] = useState(false);
 
   const timersRef = useRef<number[]>([]);
@@ -233,7 +233,7 @@ export default function LayarHostBalapKarung() {
       setLiveFeed([]);
       if (data.config) setConfig(data.config);
       if (data.teams) setTeams(data.teams);
-      soundEffects.playRaceStart();
+      soundEffects.startGame('race');
       setCrowdCheer(true);
       scheduleTimer(() => setCrowdCheer(false), 1300);
     };
@@ -356,7 +356,11 @@ export default function LayarHostBalapKarung() {
     }) => {
       if (data.game && data.game !== 'balap_karung') return;
       setStatus('selesai');
-      soundEffects.playVictoryFanfare();
+      if (data.hasil?.dihentikanManual) {
+        soundEffects.stopAll();
+      } else {
+        soundEffects.playNaturalVictory();
+      }
       setCrowdCheer(true);
 
       if (data.hasil) {
@@ -442,6 +446,8 @@ export default function LayarHostBalapKarung() {
         setModalAkhiriOpen(false);
         if (!res?.success) {
           alert(res?.pesan || 'Gagal mengakhiri perlombaan.');
+        } else {
+          soundEffects.stopAll();
         }
       }
     );
@@ -612,7 +618,7 @@ export default function LayarHostBalapKarung() {
         crowdCheer={crowdCheer || status === 'selesai'}
         compactLanes={activeTeams.length >= 4}
         isMuted={isMuted}
-        onToggleMute={() => setIsMuted(soundEffects.toggleMute())}
+        onToggleMute={status === 'jalan' ? toggleMute : undefined}
         onBack={() => navigate(returnUrl)}
         onStop={status === 'jalan' ? () => setModalAkhiriOpen(true) : undefined}
       />

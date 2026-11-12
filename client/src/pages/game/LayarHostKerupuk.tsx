@@ -7,7 +7,7 @@ import KerupukVirtual, {
   MoodKarakterKerupuk,
 } from '../siswa/KerupukVirtual';
 import LayarHostKerupukMulti, { SesiKerupukMultiClient } from './LayarHostKerupukMulti';
-import { soundEffects } from '../../lib/soundEffects';
+import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import {
   Play,
   Pause,
@@ -155,7 +155,10 @@ export default function LayarHostKerupuk() {
   const [modalHentikanOpen, setModalHentikanOpen] = useState(false);
   const [modalUlangOpen, setModalUlangOpen] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
-  const [isMuted, setIsMuted] = useState(soundEffects.getMuted());
+  const isSoundActive = Boolean(
+    sesi && (sesi.state === 'PLAYING' || sesi.state === 'PAUSED')
+  );
+  const { isMuted, toggleMute } = useGameSoundLifecycle(isSoundActive, id);
 
   const fetchSesi = useCallback(async () => {
     if (!id) return;
@@ -194,7 +197,7 @@ export default function LayarHostKerupuk() {
       const res = await apiRequest<{ session: SesiKerupukClient }>(`/sesi/${id}/mulai`, {
         method: 'POST',
       });
-      soundEffects.playWhistle();
+      soundEffects.startGame('whistle');
       setFeedback(null);
       setMood('playing');
       setSesi(res.session);
@@ -275,20 +278,17 @@ export default function LayarHostKerupuk() {
 
         if (res.isFinished) {
           setMood('win');
-          soundEffects.playVictoryFanfare();
+          soundEffects.playNaturalVictory();
         } else if (res.benar && res.gacha) {
           setMood(res.gacha.tipe);
-          if (res.gacha.tipe === 'zonk') {
-            soundEffects.playZonk();
-          } else {
-            soundEffects.playCrunch();
-            if (res.bonusStreak > 0) {
-              setTimeout(() => soundEffects.playBoost(), 220);
-            }
-          }
+          soundEffects.playKerupukAction({
+            benar: true,
+            gachaTipe: res.gacha.tipe,
+            hasStreakBonus: res.bonusStreak > 0,
+          });
         } else {
           setMood('salah');
-          soundEffects.playIncorrect();
+          soundEffects.playKerupukAction({ benar: false });
         }
       } catch (err: any) {
         setActionError(err.pesan || 'Gagal mengirim jawaban.');
@@ -309,6 +309,7 @@ export default function LayarHostKerupuk() {
         method: 'POST',
       });
       setModalHentikanOpen(false);
+      soundEffects.stopAll();
       setMood('stopped');
       setSesi(res.session);
     } catch (err: any) {
@@ -324,6 +325,7 @@ export default function LayarHostKerupuk() {
       setIsActionLoading(true);
       setActionError(null);
       setModalUlangOpen(false);
+      soundEffects.stopAll();
 
       if (sesi.state === 'FINISHED' || sesi.state === 'STOPPED') {
         const res = await apiRequest<{ sessionId: string }>(`/sesi/${id}/main-lagi`, {
@@ -344,6 +346,7 @@ export default function LayarHostKerupuk() {
         setFeedback(null);
         setMood('playing');
         setSesi(res.session);
+        soundEffects.startGame('whistle');
       }
     } catch (err: any) {
       setActionError(err.pesan || 'Gagal mengulang permainan.');
@@ -440,17 +443,16 @@ export default function LayarHostKerupuk() {
 
           {/* Kontrol Bar Guru */}
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsMuted(soundEffects.toggleMute())}
-              className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-[#f4ecd8] transition-colors cursor-pointer"
-              title={isMuted ? 'Nyalakan Efek Suara' : 'Matikan Efek Suara'}
-            >
-              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-            </button>
-
             {isPlayOrPause && (
               <>
+                <button
+                  type="button"
+                  onClick={toggleMute}
+                  className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-[#f4ecd8] transition-colors cursor-pointer"
+                  title={isMuted ? 'Nyalakan Efek Suara' : 'Matikan Efek Suara'}
+                >
+                  {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                </button>
                 <button
                   type="button"
                   onClick={handleTogglePause}

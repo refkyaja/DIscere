@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { apiRequest } from '../../lib/api';
-import { soundEffects } from '../../lib/soundEffects';
+import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import {
   extractApiErrorMessage,
   resolveConfigBackUrl,
@@ -166,7 +166,7 @@ export default function LayarHostSolo() {
   const [busyAction, setBusyAction] = useState(false);
 
   const [sisaDetik, setSisaDetik] = useState<number>(180);
-  const [muted, setMuted] = useState<boolean>(() => soundEffects.getMuted());
+  const prevStateRef = useRef<SesiSoloPayload['state'] | null>(null);
   const [actionPulse, setActionPulse] = useState<TarikActionPulse | null>(null);
 
   const [revealLeft, setRevealLeft] = useState<SideRevealState | null>(null);
@@ -271,6 +271,9 @@ export default function LayarHostSolo() {
       setLoading(true);
       setErrorPesan(null);
       const res = await apiRequest<{ session: SesiSoloPayload }>(`/sesi/${id}`);
+      if (res.session.state === 'FINISHED') {
+        fanfarePlayedRef.current = true;
+      }
       setSesi(res.session);
       setSisaDetik(res.session.sisaWaktuDetik ?? res.session.durasiLombaDetik ?? 180);
     } catch (err: unknown) {
@@ -289,15 +292,32 @@ export default function LayarHostSolo() {
     };
   }, [loadSesi]);
 
-  // Victory sound trigger
+  // Victory sound trigger (dijalankan sebelum useGameSoundLifecycle menonaktifkan gerbang audio)
   useEffect(() => {
-    if (sesi?.state === 'FINISHED' && !fanfarePlayedRef.current) {
-      fanfarePlayedRef.current = true;
-      soundEffects.playVictoryFanfare();
-    } else if (sesi?.state !== 'FINISHED') {
+    const prevState = prevStateRef.current;
+    prevStateRef.current = sesi?.state ?? null;
+
+    if (sesi?.state === 'FINISHED') {
+      const isManualStop = sesi.hasil?.alasanSelesai === 'manual';
+      if (isManualStop) {
+        fanfarePlayedRef.current = true;
+        soundEffects.stopAll();
+      } else if (
+        !fanfarePlayedRef.current &&
+        (prevState === 'PLAYING' || prevState === 'PAUSED')
+      ) {
+        fanfarePlayedRef.current = true;
+        soundEffects.playNaturalVictory();
+      }
+    } else {
       fanfarePlayedRef.current = false;
     }
-  }, [sesi?.state]);
+  }, [sesi?.state, sesi?.hasil?.alasanSelesai]);
+
+  const isSoundActive = Boolean(
+    sesi && (sesi.state === 'PLAYING' || sesi.state === 'PAUSED')
+  );
+  const { isMuted: muted, toggleMute } = useGameSoundLifecycle(isSoundActive, id);
 
   // Countdown Jam Lomba (3:00 -> 0:00)
   useEffect(() => {
@@ -412,11 +432,11 @@ export default function LayarHostSolo() {
     if (!id || busyAction) return;
     try {
       setBusyAction(true);
-      soundEffects.playRaceStart();
       const res = await apiRequest<{ session: SesiSoloPayload }>(`/sesi/${id}/mulai`, {
         method: 'POST',
         body: JSON.stringify({}),
       });
+      soundEffects.startGame('race');
       setSesi(res.session);
       setSisaDetik(res.session.sisaWaktuDetik);
     } catch (err: unknown) {
@@ -452,6 +472,8 @@ export default function LayarHostSolo() {
         method: 'POST',
         body: JSON.stringify({}),
       });
+      fanfarePlayedRef.current = true;
+      soundEffects.stopAll();
       setSesi(res.session);
     } catch (err: unknown) {
       setErrorPesan(extractApiErrorMessage(err, 'Gagal mengakhiri pertandingan.'));
@@ -470,6 +492,7 @@ export default function LayarHostSolo() {
       setFrozenRightQuestion(null);
       if (sesi?.state === 'FINISHED') {
         fanfarePlayedRef.current = false;
+        soundEffects.stopAll();
         const res = await apiRequest<{ sessionId: string }>(`/sesi/${id}/main-lagi`, {
           method: 'POST',
           body: JSON.stringify({}),
@@ -477,6 +500,8 @@ export default function LayarHostSolo() {
         navigate(`/guru/sesi/${res.sessionId}?kembali=${encodeURIComponent(returnUrl)}`);
         return;
       }
+      fanfarePlayedRef.current = false;
+      soundEffects.stopAll();
       const res = await apiRequest<{ session: SesiSoloPayload }>(`/sesi/${id}/ulang`, {
         method: 'POST',
         body: JSON.stringify({ autoStart: false }),
@@ -557,11 +582,6 @@ export default function LayarHostSolo() {
     } catch {
       // ignore if empty
     }
-  };
-
-  const handleToggleMute = () => {
-    const nextMuted = soundEffects.toggleMute();
-    setMuted(nextMuted);
   };
 
   if (loading) {
@@ -723,7 +743,7 @@ export default function LayarHostSolo() {
         winnerSide={winnerSide}
         actionPulse={actionPulse}
         isMuted={muted}
-        onToggleMute={handleToggleMute}
+        onToggleMute={isPlaying || isPaused ? toggleMute : undefined}
         onTogglePause={isPlaying || isPaused ? handleTogglePause : undefined}
         onStop={isPlaying || isPaused ? handleAkhiriManual : undefined}
         onBack={() => navigate(returnUrl)}

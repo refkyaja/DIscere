@@ -3,7 +3,7 @@ import { getSocket } from '../../lib/socket';
 import { bindStudentReconnect, createAnswerWatchdogs } from '../../lib/socketReconnect';
 import { QuestionTimerBar, computeInitialRemainingMs } from '../../components';
 import { isStaleQuestionErrorMessage } from '../../lib/soloSessionSync';
-import { soundEffects } from '../../lib/soundEffects';
+import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import { BalapSackSvg } from '../../components/BalapKarungStadium';
 import { LogOut, Trophy, Users, Volume2, VolumeX, Loader2 } from 'lucide-react';
 
@@ -164,7 +164,7 @@ export default function MainBalapKarung({
   const [feedback, setFeedback] = useState<FeedbackSiswaState | null>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [hasilAkhir, setHasilAkhir] = useState<any>(null);
-  const [isMuted, setIsMuted] = useState(soundEffects.getMuted());
+  const { isMuted, toggleMute } = useGameSoundLifecycle(stage === 'PLAYING', sessionId);
 
   const timeoutSentRef = useRef<string | null>(null);
   const watchdogsRef = useRef(createAnswerWatchdogs());
@@ -249,7 +249,7 @@ export default function MainBalapKarung({
       setErrorBanner(null);
       timeoutSentRef.current = null;
       setStage('PLAYING');
-      soundEffects.playRaceStart();
+      soundEffects.startGame('race');
     };
 
     const handleSoalTampil = (data: SoalBalapData) => {
@@ -326,7 +326,11 @@ export default function MainBalapKarung({
         if (data.hasil.teams) setTeams(data.hasil.teams);
       }
       setStage('SELESAI');
-      soundEffects.playVictoryFanfare();
+      if (data.hasil?.dihentikanManual) {
+        soundEffects.stopAll();
+      } else {
+        soundEffects.playNaturalVictory();
+      }
     };
 
     socket.on('lobi:update', handleLobiUpdate);
@@ -491,14 +495,17 @@ export default function MainBalapKarung({
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0">
-        <button
-          type="button"
-          onClick={() => setIsMuted(soundEffects.toggleMute())}
-          className="p-2 rounded-xl bg-[#fff3d6] border border-[#f0dfb4] text-[#2b2a4a] cursor-pointer"
-          aria-label={isMuted ? 'Nyalakan suara' : 'Bisukan suara'}
-        >
-          {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-        </button>
+        {stage === 'PLAYING' && (
+          <button
+            type="button"
+            onClick={toggleMute}
+            className="p-2 rounded-xl bg-[#fff3d6] border border-[#f0dfb4] text-[#2b2a4a] cursor-pointer"
+            aria-label={isMuted ? 'Nyalakan suara' : 'Bisukan suara'}
+            title={isMuted ? 'Nyalakan Suara' : 'Bisukan Suara'}
+          >
+            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+          </button>
+        )}
         <button
           type="button"
           onClick={onKeluar}

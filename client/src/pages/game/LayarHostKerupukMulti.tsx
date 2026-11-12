@@ -4,7 +4,7 @@ import { apiRequest } from '../../lib/api';
 import { getSocket } from '../../lib/socket';
 import { bindHostReconnect } from '../../lib/socketReconnect';
 import { Modal } from '../../components';
-import { soundEffects } from '../../lib/soundEffects';
+import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import { HasilGachaGigitanProps } from '../siswa/KerupukVirtual';
 import {
   Trophy,
@@ -96,7 +96,7 @@ export default function LayarHostKerupukMulti({
   const [isEnding, setIsEnding] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isRematching, setIsRematching] = useState(false);
-  const [isMuted, setIsMuted] = useState(soundEffects.getMuted());
+  const { isMuted, toggleMute } = useGameSoundLifecycle(status === 'jalan', id);
   const [copied, setCopied] = useState(false);
 
   const modeSelectUrl = `/guru/makan-kerupuk?templateId=${encodeURIComponent(initialSession.templateId)}&kembali=${encodeURIComponent('/guru?tab=template')}`;
@@ -120,7 +120,7 @@ export default function LayarHostKerupukMulti({
     const handleGameMulai = (data: { game?: string }) => {
       if (data.game && data.game !== 'makan_kerupuk') return;
       setStatus('jalan');
-      soundEffects.playWhistle();
+      soundEffects.startGame('whistle');
     };
 
     const handleKerupukUpdate = (data: {
@@ -159,7 +159,11 @@ export default function LayarHostKerupukMulti({
       if (data.game && data.game !== 'makan_kerupuk') return;
       setHasilAkhir(data.hasil);
       setStatus('selesai');
-      soundEffects.playVictoryFanfare();
+      if (data.hasil?.dihentikanManual) {
+        soundEffects.stopAll();
+      } else {
+        soundEffects.playNaturalVictory();
+      }
     };
 
     socket.on('lobi:update', handleLobiUpdate);
@@ -197,7 +201,7 @@ export default function LayarHostKerupukMulti({
       if (res?.success) {
         setHasilAkhir(res.hasil);
         setStatus('selesai');
-        soundEffects.playVictoryFanfare();
+        soundEffects.stopAll();
       } else {
         alert(res?.pesan || 'Gagal mengakhiri sesi.');
       }
@@ -207,6 +211,7 @@ export default function LayarHostKerupukMulti({
   const handleMainLagi = async () => {
     try {
       setIsRematching(true);
+      soundEffects.stopAll();
       const res = await apiRequest<{ sessionId: string }>(`/sesi/${id}/main-lagi`, {
         method: 'POST',
       });
@@ -257,14 +262,6 @@ export default function LayarHostKerupukMulti({
             </div>
 
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setIsMuted(soundEffects.toggleMute())}
-                className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 cursor-pointer"
-                title={isMuted ? 'Nyalakan Suara' : 'Bisukan Suara'}
-              >
-                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-              </button>
               <button
                 type="button"
                 onClick={() => navigate(modeSelectUrl)}
@@ -419,8 +416,9 @@ export default function LayarHostKerupukMulti({
               </div>
               <button
                 type="button"
-                onClick={() => setIsMuted(soundEffects.toggleMute())}
+                onClick={toggleMute}
                 className="p-2 rounded-xl bg-white/10 hover:bg-white/20 cursor-pointer"
+                title={isMuted ? 'Nyalakan Suara' : 'Bisukan Suara'}
               >
                 {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
               </button>

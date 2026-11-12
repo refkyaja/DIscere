@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { apiRequest } from '../../lib/api';
 import { getSocket } from '../../lib/socket';
 import { bindHostReconnect } from '../../lib/socketReconnect';
-import { soundEffects } from '../../lib/soundEffects';
+import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import { extractApiErrorMessage, resolveGuruReturnUrl } from '../../components';
 import {
   AnalisisHeatmapData,
@@ -129,7 +129,10 @@ export default function LayarHostMulti() {
 
   const [sisaDetik, setSisaDetik] = useState<number>(180);
   const [copiedPin, setCopiedPin] = useState(false);
-  const [muted, setMuted] = useState(() => soundEffects.getMuted());
+  const { isMuted: muted, toggleMute } = useGameSoundLifecycle(
+    Boolean(sesi && sesi.status === 'jalan'),
+    id
+  );
   const [actionPulse, setActionPulse] = useState<TarikActionPulse | null>(null);
   const [feed, setFeed] = useState<FeedAksiItem[]>([]);
 
@@ -142,6 +145,9 @@ export default function LayarHostMulti() {
       setErrorPesan(null);
       const res = await apiRequest<{ session: SesiMultiInfo }>(`/sesi/${id}`);
       const s = res.session;
+      if (s.status === 'selesai') {
+        fanfarePlayedRef.current = true;
+      }
       setSesi(s);
       if (s.matchEndsAt && s.status === 'jalan') {
         setSisaDetik(Math.max(0, Math.ceil((s.matchEndsAt - Date.now()) / 1000)));
@@ -190,7 +196,7 @@ export default function LayarHostMulti() {
 
     const onGameMulai = (payload: any) => {
       if (payload?.game && payload.game !== 'tarik_tambang') return;
-      soundEffects.playRaceStart();
+      soundEffects.startGame('race');
       setFeed([]);
       setSesi((prev) =>
         prev
@@ -255,9 +261,15 @@ export default function LayarHostMulti() {
 
     const onSesiSelesai = (payload: any) => {
       if (payload?.game && payload.game !== 'tarik_tambang') return;
-      if (!fanfarePlayedRef.current) {
+      const isManualStop = Boolean(
+        payload?.hasil?.dihentikanManual || payload?.hasil?.alasanSelesai === 'manual'
+      );
+      if (isManualStop) {
         fanfarePlayedRef.current = true;
-        soundEffects.playVictoryFanfare();
+        soundEffects.stopAll();
+      } else if (!fanfarePlayedRef.current) {
+        fanfarePlayedRef.current = true;
+        soundEffects.playNaturalVictory();
       }
       setSesi((prev) =>
         prev
@@ -388,6 +400,9 @@ export default function LayarHostMulti() {
       setBusyAction(false);
       if (res && !res.success) {
         setErrorPesan(res.pesan || 'Gagal mengakhiri lomba.');
+      } else {
+        fanfarePlayedRef.current = true;
+        soundEffects.stopAll();
       }
     });
   };
@@ -397,6 +412,7 @@ export default function LayarHostMulti() {
     try {
       setBusyAction(true);
       fanfarePlayedRef.current = false;
+      soundEffects.stopAll();
       const res = await apiRequest<{ sessionId: string }>(`/sesi/${id}/main-lagi`, {
         method: 'POST',
         body: JSON.stringify({}),
@@ -406,10 +422,6 @@ export default function LayarHostMulti() {
       setErrorPesan(extractApiErrorMessage(err, 'Gagal membuka ruang main lagi.'));
       setBusyAction(false);
     }
-  };
-
-  const handleToggleMute = () => {
-    setMuted(soundEffects.toggleMute());
   };
 
   if (loading) {
@@ -474,7 +486,7 @@ export default function LayarHostMulti() {
         winnerSide={winnerSide}
         actionPulse={actionPulse}
         isMuted={muted}
-        onToggleMute={handleToggleMute}
+        onToggleMute={isPlaying ? toggleMute : undefined}
         onStop={isPlaying ? handleAkhiriManual : undefined}
         onBack={() => navigate(returnUrl)}
       />

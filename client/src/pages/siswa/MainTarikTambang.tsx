@@ -3,7 +3,7 @@ import { getSocket } from '../../lib/socket';
 import { bindStudentReconnect, createAnswerWatchdogs } from '../../lib/socketReconnect';
 import { QuestionTimerBar, computeInitialRemainingMs } from '../../components';
 import { isStaleQuestionErrorMessage } from '../../lib/soloSessionSync';
-import { soundEffects } from '../../lib/soundEffects';
+import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import { TarikAvatarSvg } from '../../components/TarikTambangStadium';
 import '../../components/tarikTambangFestival.css';
 import {
@@ -193,7 +193,7 @@ export default function MainTarikTambang({
   } | null>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [hasilAkhir, setHasilAkhir] = useState<any>(initialHasil);
-  const [isMuted, setIsMuted] = useState<boolean>(soundEffects.getMuted());
+  const { isMuted, toggleMute } = useGameSoundLifecycle(stage === 'PLAYING', sessionId);
 
   const defaultQuestionSec = Math.max(5, Number(activeConfig.waktuPerSoalDetik) || 10);
   const timeoutSentRef = useRef<string | null>(null);
@@ -292,7 +292,7 @@ export default function MainTarikTambang({
       setErrorBanner(null);
       timeoutSentRef.current = null;
       setStage('PLAYING');
-      soundEffects.playRaceStart();
+      soundEffects.startGame('race');
     };
 
     const handleSoalTampil = (data: SoalTarikData & { game?: string }) => {
@@ -419,7 +419,11 @@ export default function MainTarikTambang({
       watchdogsRef.current.clearAll();
       if (data.hasil) setHasilAkhir(data.hasil);
       setStage('SELESAI');
-      soundEffects.playVictoryFanfare();
+      if (data.hasil?.dihentikanManual || data.hasil?.alasanSelesai === 'manual') {
+        soundEffects.stopAll();
+      } else {
+        soundEffects.playNaturalVictory();
+      }
       sessionStorage.removeItem('discere_multi_token');
       sessionStorage.removeItem('discere_multi_peserta_id');
       sessionStorage.removeItem('discere_multi_nama');
@@ -617,14 +621,17 @@ export default function MainTarikTambang({
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0">
-        <button
-          type="button"
-          onClick={() => setIsMuted(soundEffects.toggleMute())}
-          className="tt-ib"
-          aria-label={isMuted ? 'Nyalakan suara' : 'Bisukan suara'}
-        >
-          {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-        </button>
+        {stage === 'PLAYING' && (
+          <button
+            type="button"
+            onClick={toggleMute}
+            className="tt-ib"
+            aria-label={isMuted ? 'Nyalakan suara' : 'Bisukan suara'}
+            title={isMuted ? 'Nyalakan Suara' : 'Bisukan Suara'}
+          >
+            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+          </button>
+        )}
         <button
           type="button"
           onClick={onKeluar}

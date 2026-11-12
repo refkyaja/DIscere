@@ -7,7 +7,7 @@ import {
   resolveGuruReturnUrl,
 } from '../../components';
 import { FestivalStadiumShell } from '../../components/FestivalStadiumShell';
-import { soundEffects } from '../../lib/soundEffects';
+import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import TiangPinangVisual, { EfekAktifVisual } from '../siswa/TiangPinangVisual';
 import KarakterPanjatPinang, { EkspresiKarakterPanjat } from '../siswa/KarakterPanjatPinang';
 import {
@@ -245,7 +245,6 @@ export default function LayarHostPanjatPinangSolo() {
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [isMainLagi, setIsMainLagi] = useState(false);
   const [updatingBot, setUpdatingBot] = useState(false);
-  const [isMuted, setIsMuted] = useState<boolean>(() => soundEffects.getMuted());
   const [crowdCheer, setCrowdCheer] = useState(false);
 
   const [revealMap, setRevealMap] = useState<Record<SlotPemain, RevealState | null>>({
@@ -291,6 +290,7 @@ export default function LayarHostPanjatPinangSolo() {
   });
   const cheerTimerRef = useRef<number | null>(null);
   const victorySoundPlayedRef = useRef(false);
+  const prevStateRef = useRef<StatePanjatSolo | null>(null);
 
   const clearSlotTimers = useCallback((slot?: SlotPemain) => {
     const slots: SlotPemain[] = slot ? [slot] : ['pemain1', 'pemain2'];
@@ -420,20 +420,34 @@ export default function LayarHostPanjatPinangSolo() {
     }
   }, [sesi, revealMap]);
 
-  // Suara kemenangan otomatis saat status menjadi selesai
+  // Suara kemenangan otomatis saat status menjadi selesai (sebelum useGameSoundLifecycle menonaktifkan gerbang audio)
   useEffect(() => {
-    if (sesi?.isFinished && !victorySoundPlayedRef.current) {
-      victorySoundPlayedRef.current = true;
-      soundEffects.playVictoryFanfare();
+    const prevState = prevStateRef.current;
+    prevStateRef.current = sesi?.state ?? null;
+
+    if (sesi?.isFinished) {
       setShowEndCard(true);
-    } else if (sesi && !sesi.isFinished) {
+      if (sesi.state === 'STOPPED') {
+        victorySoundPlayedRef.current = true;
+        soundEffects.stopAll();
+      } else if (
+        !victorySoundPlayedRef.current &&
+        (prevState === 'PLAYING' || prevState === 'PAUSED')
+      ) {
+        victorySoundPlayedRef.current = true;
+        soundEffects.playNaturalVictory();
+      } else {
+        victorySoundPlayedRef.current = true;
+      }
+    } else if (sesi) {
       victorySoundPlayedRef.current = false;
     }
   }, [sesi]);
 
-  const handleToggleSound = () => {
-    setIsMuted(soundEffects.toggleMute());
-  };
+  const isSoundActive = Boolean(
+    sesi && !sesi.isFinished && (sesi.state === 'PLAYING' || sesi.state === 'PAUSED')
+  );
+  const { isMuted, toggleMute } = useGameSoundLifecycle(isSoundActive, id);
 
   const handleMulai = async () => {
     if (!id || !sesi || isActionLoading) return;
@@ -444,7 +458,7 @@ export default function LayarHostPanjatPinangSolo() {
         method: 'POST',
         body: JSON.stringify({ kesulitanBot: sesi.config.kesulitanBot }),
       });
-      soundEffects.playWhistle();
+      soundEffects.startGame('whistle');
       pulseCheer();
       const tMs = (res.session.config?.waktuPerSoalDetik || 15) * 1000;
       lastPresIdRef.current = {
@@ -503,6 +517,8 @@ export default function LayarHostPanjatPinangSolo() {
       setIsActionLoading(true);
       setActionError(null);
       clearSlotTimers();
+      soundEffects.stopAll();
+      victorySoundPlayedRef.current = false;
       const res = await apiRequest<{ session: SesiPanjatSoloClient }>(`/sesi/${id}/ulang`, {
         method: 'POST',
       });
@@ -530,6 +546,8 @@ export default function LayarHostPanjatPinangSolo() {
       setIsActionLoading(true);
       setActionError(null);
       clearSlotTimers();
+      victorySoundPlayedRef.current = true;
+      soundEffects.stopAll();
       const res = await apiRequest<{ session: SesiPanjatSoloClient }>(`/sesi/${id}/selesai`, {
         method: 'POST',
       });
@@ -909,7 +927,7 @@ export default function LayarHostPanjatPinangSolo() {
         ruleSummary={`Benar +${sesi.config.naikBenar}% • Salah -${sesi.config.turunSalah}% • ${timerSec} dtk/soal`}
         crowdCheer={crowdCheer || sesi.isFinished}
         isMuted={isMuted}
-        onToggleMute={handleToggleSound}
+        onToggleMute={isSoundActive ? toggleMute : undefined}
         onBack={() => navigate(returnUrl)}
         backLabel={returnUrl.includes('panjat-pinang') ? 'Pengaturan' : 'Dashboard'}
         isPaused={sesi.state === 'PAUSED'}

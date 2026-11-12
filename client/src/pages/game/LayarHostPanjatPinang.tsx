@@ -5,7 +5,7 @@ import { getSocket } from '../../lib/socket';
 import { bindHostReconnect } from '../../lib/socketReconnect';
 import { Modal } from '../../components';
 import { FestivalStadiumShell } from '../../components/FestivalStadiumShell';
-import { soundEffects } from '../../lib/soundEffects';
+import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import TiangPinangVisual, { EfekAktifVisual } from '../siswa/TiangPinangVisual';
 import KarakterPanjatPinang, { EkspresiKarakterPanjat } from '../siswa/KarakterPanjatPinang';
 import {
@@ -181,7 +181,7 @@ export default function LayarHostPanjatPinang() {
   const [isStarting, setIsStarting] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
   const [isMainLagi, setIsMainLagi] = useState(false);
-  const [isMuted, setIsMuted] = useState(soundEffects.getMuted());
+  const { isMuted, toggleMute } = useGameSoundLifecycle(status === 'jalan', id);
   const [copied, setCopied] = useState(false);
   const [crowdCheer, setCrowdCheer] = useState(false);
 
@@ -260,7 +260,7 @@ export default function LayarHostPanjatPinang() {
       setStatus('jalan');
       if (data.config) setConfig(data.config);
       if (data.leaderboard) setLeaderboard(data.leaderboard);
-      soundEffects.playWhistle();
+      soundEffects.startGame('whistle');
     };
 
     const handlePanjatUpdate = (data: {
@@ -355,7 +355,11 @@ export default function LayarHostPanjatPinang() {
     const handleSesiSelesai = async (data: { game?: string; hasil?: LaporanAkhirHost }) => {
       if (data.game && data.game !== 'panjat_pinang') return;
       setStatus('selesai');
-      soundEffects.playVictoryFanfare();
+      if (data.hasil?.dihentikanManual) {
+        soundEffects.stopAll();
+      } else {
+        soundEffects.playNaturalVictory();
+      }
       if (data.hasil) {
         setHasilAkhir(data.hasil);
       }
@@ -403,6 +407,8 @@ export default function LayarHostPanjatPinang() {
       setModalAkhiriOpen(false);
       if (!res?.success) {
         alert(res?.pesan || 'Gagal mengakhiri permainan.');
+      } else {
+        soundEffects.stopAll();
       }
     });
   };
@@ -427,11 +433,6 @@ export default function LayarHostPanjatPinang() {
     navigator.clipboard.writeText(joinUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleToggleSound = () => {
-    const muted = soundEffects.toggleMute();
-    setIsMuted(muted);
   };
 
   if (loading) {
@@ -481,7 +482,7 @@ export default function LayarHostPanjatPinang() {
       ruleSummary={ruleSummaryText}
       crowdCheer={crowdCheer || status === 'selesai'}
       isMuted={isMuted}
-      onToggleMute={handleToggleSound}
+      onToggleMute={status === 'jalan' ? toggleMute : undefined}
       onBack={() => navigate(returnUrl)}
       backLabel={returnUrl.includes('panjat-pinang') ? 'Pengaturan' : 'Dashboard'}
       onStop={status === 'jalan' ? () => setModalAkhiriOpen(true) : undefined}

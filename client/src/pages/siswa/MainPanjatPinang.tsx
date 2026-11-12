@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getSocket } from '../../lib/socket';
 import { bindStudentReconnect } from '../../lib/socketReconnect';
-import { soundEffects } from '../../lib/soundEffects';
+import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import TiangPinangVisual, { EfekAktifVisual } from './TiangPinangVisual';
 import KarakterPanjatPinang from './KarakterPanjatPinang';
 import '../../components/balapKarungFestival.css';
@@ -171,7 +171,7 @@ export default function MainPanjatPinang({
 
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isDisconnected, setIsDisconnected] = useState<boolean>(false);
-  const [isMuted, setIsMuted] = useState<boolean>(soundEffects.getMuted());
+  const { isMuted, toggleMute } = useGameSoundLifecycle(stage === 'PLAYING', sessionId);
 
   // Stopwatch waktu jawab per soal (tampilan kecepatan respon tanpa memblokir tombol)
   const [detikElapsed, setDetikElapsed] = useState<number>(0);
@@ -227,7 +227,7 @@ export default function MainPanjatPinang({
         const me = data.leaderboard.find((p) => p.id === pesertaId);
         if (me) setMyState(me);
       }
-      soundEffects.playWhistle();
+      soundEffects.startGame('whistle');
     };
 
     const handleSoalTampil = (data: SoalPanjatData & { game?: string }) => {
@@ -309,7 +309,11 @@ export default function MainPanjatPinang({
       stopStopwatch();
       setHasilAkhir(data.hasil);
       setStage('SELESAI');
-      soundEffects.playVictoryFanfare();
+      if (data.hasil?.dihentikanManual) {
+        soundEffects.stopAll();
+      } else {
+        soundEffects.playNaturalVictory();
+      }
       sessionStorage.removeItem('discere_multi_token');
       sessionStorage.removeItem('discere_multi_peserta_id');
       sessionStorage.removeItem('discere_multi_peserta_secret');
@@ -416,11 +420,6 @@ export default function MainPanjatPinang({
     socket.emit('soal:lanjut', { sessionId, pesertaId, pesertaSecret });
   };
 
-  const handleToggleSound = () => {
-    const nextMuted = soundEffects.toggleMute();
-    setIsMuted(nextMuted);
-  };
-
   const myRank = leaderboard.findIndex((p) => p.id === pesertaId) + 1;
   const safePosisi = Math.max(0, Math.min(100, Math.round(myState.posisi)));
 
@@ -485,18 +484,6 @@ export default function MainPanjatPinang({
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={handleToggleSound}
-                aria-label={isMuted ? 'Nyalakan suara' : 'Bisukan suara'}
-                className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-[#fff3d6] hover:bg-[#fde9b8] border border-[#f0dfb4] text-[#2b2a4a] transition-colors cursor-pointer"
-              >
-                {isMuted ? (
-                  <VolumeX className="w-4 h-4 text-[#d63b3b]" />
-                ) : (
-                  <Volume2 className="w-4 h-4 text-[#1f9d55]" />
-                )}
-              </button>
               <button
                 type="button"
                 onClick={onKeluar}
@@ -775,7 +762,7 @@ export default function MainPanjatPinang({
 
               <button
                 type="button"
-                onClick={handleToggleSound}
+                onClick={toggleMute}
                 aria-label={isMuted ? 'Nyalakan suara efek' : 'Bisukan suara efek'}
                 title={isMuted ? 'Nyalakan Suara' : 'Bisukan Suara'}
                 className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-[#fff3d6] hover:bg-[#fde9b8] border border-[#f0dfb4] text-[#2b2a4a] transition-colors cursor-pointer shrink-0"
