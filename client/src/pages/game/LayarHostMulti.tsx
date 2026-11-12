@@ -190,7 +190,7 @@ export default function LayarHostMulti() {
 
     const onGameMulai = (payload: any) => {
       if (payload?.game && payload.game !== 'tarik_tambang') return;
-      soundEffects.playWhistle();
+      soundEffects.playRaceStart();
       setFeed([]);
       setSesi((prev) =>
         prev
@@ -225,11 +225,11 @@ export default function LayarHostMulti() {
       if (payload?.aksi) {
         const ax = payload.aksi;
         const ok = ax.action === 'pull';
-        if (ok) {
-          soundEffects.playRopeTug();
-        } else {
-          soundEffects.playIncorrect();
-        }
+        soundEffects.playTarikTambangAction({
+          benar: ok,
+          isStrong: Math.abs(Number(ax.deltaTali || 0)) >= 8,
+          playAnswerChime: false,
+        });
         setActionPulse({
           id: `${Date.now()}-${Math.random()}`,
           side: ax.side === 'r' ? 'r' : 'l',

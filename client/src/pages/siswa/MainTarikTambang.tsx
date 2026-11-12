@@ -291,7 +291,7 @@ export default function MainTarikTambang({
       setErrorBanner(null);
       timeoutSentRef.current = null;
       setStage('PLAYING');
-      soundEffects.playWhistle();
+      soundEffects.playRaceStart();
     };
 
     const handleSoalTampil = (data: SoalTarikData & { game?: string }) => {
@@ -406,12 +406,11 @@ export default function MainTarikTambang({
         penjelasan: data.penjelasan || null,
       });
 
-      if (benar) {
-        soundEffects.playCorrect();
-        soundEffects.playRopeTug();
-      } else {
-        soundEffects.playIncorrect();
-      }
+      soundEffects.playTarikTambangAction({
+        benar,
+        isStrong: Math.abs(Number(data.deltaTali || 0)) >= 8,
+        playAnswerChime: true,
+      });
     };
 
     const handleSesiSelesai = (data: { game?: string; hasil?: any }) => {

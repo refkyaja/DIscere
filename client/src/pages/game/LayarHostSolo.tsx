@@ -332,11 +332,11 @@ export default function LayarHostSolo() {
         });
 
         if (res.executed && res.feedback) {
-          if (res.feedback.benar) {
-            soundEffects.playRopeTug();
-          } else {
-            soundEffects.playIncorrect();
-          }
+          soundEffects.playTarikTambangAction({
+            benar: res.feedback.benar,
+            isStrong: res.feedback.bonusStreakDidapat > 0,
+            playAnswerChime: false,
+          });
           triggerSideReveal('putih', currentRightQ, res.chosenChoiceId, res.feedback);
         }
         if (res.session) {
@@ -364,7 +364,7 @@ export default function LayarHostSolo() {
     if (!id || busyAction) return;
     try {
       setBusyAction(true);
-      soundEffects.playWhistle();
+      soundEffects.playRaceStart();
       const res = await apiRequest<{ session: SesiSoloPayload }>(`/sesi/${id}/mulai`, {
         method: 'POST',
         body: JSON.stringify({}),
@@ -464,12 +464,11 @@ export default function LayarHostSolo() {
       });
 
       if (res.feedback) {
-        if (res.feedback.benar) {
-          soundEffects.playCorrect();
-          soundEffects.playRopeTug();
-        } else {
-          soundEffects.playIncorrect();
-        }
+        soundEffects.playTarikTambangAction({
+          benar: res.feedback.benar,
+          isStrong: res.feedback.bonusStreakDidapat > 0,
+          playAnswerChime: true,
+        });
         triggerSideReveal(tim, currentQ, choice.choiceId, res.feedback);
       }
       if (res.session) {
@@ -487,6 +486,7 @@ export default function LayarHostSolo() {
         method: 'POST',
         body: JSON.stringify({ tim }),
       });
+      soundEffects.playBoost();
       setSesi(res.session);
     } catch {
       // ignore if empty

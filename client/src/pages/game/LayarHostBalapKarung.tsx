@@ -233,7 +233,7 @@ export default function LayarHostBalapKarung() {
       setLiveFeed([]);
       if (data.config) setConfig(data.config);
       if (data.teams) setTeams(data.teams);
-      soundEffects.playWhistle();
+      soundEffects.playRaceStart();
       setCrowdCheer(true);
       scheduleTimer(() => setCrowdCheer(false), 1300);
     };
@@ -311,6 +311,16 @@ export default function LayarHostBalapKarung() {
 
         if (aksi.timMenangId) {
           setTimPemenang(aksi.timMenangId);
+        } else {
+          soundEffects.playBalapKarungAction({
+            benar: aksi.benar,
+            streakSaatIni: aksi.streakSaatIni,
+            terjatuh: aksi.terjatuh,
+            perisaiDigunakan: aksi.perisaiDigunakan,
+            isMud: aksi.rintanganBaru?.tipe === 'jalan_berlumpur',
+            playAnswerChime: false,
+            playStumbleOnWrong: true,
+          });
         }
 
         const labelTim =
