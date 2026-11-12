@@ -785,7 +785,7 @@ export default function LayarHostPanjatPinangSolo() {
     }
 
     return (
-      <div className={`bk-card !p-0 overflow-hidden border-[3px] ${accentBorder}`}>
+      <div className={`bk-card !p-0 overflow-hidden border-[3px] ${accentBorder} flex flex-col`}>
         {/* Header Pemain + Countdown */}
         <div className={`${accentHeader} px-4 py-2.5 flex items-center justify-between gap-2`}>
           <div className="min-w-0">
@@ -818,7 +818,7 @@ export default function LayarHostPanjatPinangSolo() {
           />
         </div>
 
-        <div className="p-4 sm:p-5 space-y-3.5">
+        <div className="p-4 sm:p-5 space-y-3.5 flex-1 flex flex-col justify-between">
           <div className="space-y-3">
             {soal.isBonusKulitPisang && (
               <div className="p-2.5 rounded-xl bg-amber-50 border-2 border-amber-300 text-xs font-extrabold text-amber-900 flex items-center gap-2">
@@ -1226,7 +1226,7 @@ export default function LayarHostPanjatPinangSolo() {
             {(sesi.state === 'PLAYING' || sesi.state === 'PAUSED') && !showEndCard && (
               <div
                 className={`grid grid-cols-1 ${
-                  isDuelLokal ? 'lg:grid-cols-2 items-start' : 'max-w-3xl mx-auto w-full'
+                  isDuelLokal ? 'lg:grid-cols-2' : 'max-w-3xl mx-auto w-full'
                 } gap-4`}
               >
                 {renderQuestionPanel('pemain1')}
