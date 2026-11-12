@@ -35,7 +35,7 @@ interface HasilTarikLaporan {
   playMode?: 'SOLO' | 'MULTIPLAYER';
   templateJudul: string;
   templateId: string;
-  konfigurasi?: { namaTim1?: string; namaTim2?: string; batasMenang?: number };
+  konfigurasi?: { namaTim1?: string; namaTim2?: string; batasMenang?: number; tipeLawanSolo?: string };
   timMenang: 'merah' | 'putih' | 'seri';
   namaTim1?: string;
   namaTim2?: string;
@@ -135,8 +135,13 @@ export default function HasilSolo() {
     );
   }
 
-  const namaTim1 = hasil.konfigurasi?.namaTim1 || hasil.namaTim1 || 'Tim Merah';
-  const namaTim2 = hasil.konfigurasi?.namaTim2 || hasil.namaTim2 || 'Tim Biru';
+  const isMultiResult = hasil.playMode === 'MULTIPLAYER';
+  const namaTim1 =
+    hasil.konfigurasi?.namaTim1 || hasil.namaTim1 || (isMultiResult ? 'Tim Merah' : 'Pemain 1');
+  const namaTim2 =
+    hasil.konfigurasi?.namaTim2 ||
+    hasil.namaTim2 ||
+    (isMultiResult ? 'Tim Biru' : hasil.konfigurasi?.tipeLawanSolo === 'bot' ? 'Bot' : 'Pemain 2');
   const batasMenang = hasil.konfigurasi?.batasMenang ?? 100;
   const labelPemenang =
     hasil.timMenang === 'merah'

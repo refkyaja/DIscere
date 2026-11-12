@@ -36,7 +36,7 @@ import {
   Globe,
   ArrowLeft,
 } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router';
+import { Link, useNavigate, useLocation } from 'react-router';
 
 type AdminTab = 'statistik' | 'guru' | 'pustaka' | 'ai' | 'log' | 'profil';
 
@@ -508,16 +508,14 @@ export default function DashboardAdmin() {
             <span className="portal-who-label">Masuk sebagai:</span>
             <b>{user?.nama || 'Administrator'}</b>
             <span>{user?.email}</span>
-            <a
-              href="/"
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              to="/"
               className="portal-site"
               title="Buka Website Discere"
             >
               <Globe className="w-4 h-4 shrink-0 text-[#f2c230]" />
               <span>Lihat Website</span>
-            </a>
+            </Link>
             <button
               type="button"
               onClick={() => setModalKeluarOpen(true)}

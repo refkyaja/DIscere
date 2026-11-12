@@ -336,12 +336,13 @@ class SoloSessionManager {
     }
 
     const isBot = config.tipeLawanSolo === 'bot';
-    const namaTim1 = config.namaTim1.trim() || 'Pemain 1';
+    const namaTim1Raw = config.namaTim1.trim();
+    const namaTim1 = !namaTim1Raw || namaTim1Raw === 'Tim Merah' ? 'Pemain 1' : namaTim1Raw;
     const namaTim2Raw = config.namaTim2.trim();
     const namaTim2 =
-      !namaTim2Raw || namaTim2Raw === 'Tim Biru'
+      !namaTim2Raw || namaTim2Raw === 'Tim Biru' || namaTim2Raw === 'Lawan Bot'
         ? isBot
-          ? 'Bot AI'
+          ? 'Bot'
           : 'Pemain 2'
         : namaTim2Raw;
 

@@ -449,7 +449,7 @@ export default function LayarHostMulti() {
       <TarikTambangStadium
         title={sesi.templateJudul || 'Tarik Tambang Kuis'}
         subtitle="MULTIPLAYER TIM • LIVE"
-        modeChip={`${sesi.daftarPeserta.length}/${sesi.config?.maxPeserta || 36} Siswa`}
+        modeChip={`${sesi.daftarPeserta.length}/${sesi.config?.maxPeserta || 40} Siswa`}
         statusLabel={
           sesi.status === 'lobi'
             ? 'LOBI PIN'

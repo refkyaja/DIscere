@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../../lib/auth';
 import { apiRequest } from '../../lib/api';
 import { Modal, PortalLedge } from '../../components';
@@ -568,16 +568,14 @@ export default function DashboardGuru() {
             <span className="portal-who-label">Masuk sebagai:</span>
             <b>{user?.nama || 'Guru Demo'}</b>
             <span>{user?.sekolah || 'SD Negeri Merdeka 01'}</span>
-            <a
-              href="/"
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              to="/"
               className="portal-site"
               title="Buka Website Discere"
             >
               <Globe className="w-4 h-4 shrink-0 text-[#f2c230]" />
               <span>Lihat Website</span>
-            </a>
+            </Link>
             <button
               type="button"
               onClick={() => setModalKeluarOpen(true)}

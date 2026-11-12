@@ -3,9 +3,22 @@ import { ArrowLeft, Pause, Play, StopCircle, Volume2, VolumeX } from 'lucide-rea
 import './tarikTambangFestival.css';
 
 const SKINS = ['#ffd9a8', '#e8b27d', '#c58c5a', '#f3c99b'];
-const HAIRS = ['#2b2a4a', '#4a2c17', '#111111', '#6b3b1e'];
+const HAIRS = ['#2b2a4a', '#6b3b1e', '#111111', '#4a2c17'];
 const RED_CROWD_SHIRTS = ['#e2312d', '#ff6b57', '#ffb81c', '#d9483b', '#f28b82'];
 const BLUE_CROWD_SHIRTS = ['#1d8fe0', '#38bdf8', '#ffb81c', '#2563eb', '#60a5fa'];
+
+const PULLER_SKINS: ReadonlyArray<{ sk: string; sh: string }> = [
+  { sk: '#f2c18f', sh: '#d9a06e' },
+  { sk: '#c98d5b', sh: '#a8703f' },
+  { sk: '#ffd9a8', sh: '#e6b883' },
+  { sk: '#a8703f', sh: '#8a5a30' },
+];
+
+const PULLER_HAIRS = [
+  'M17 27Q15 11 31 12Q46 12 45 27Q38 19 29 21Q22 21 17 27Z',
+  'M16 28L13 14L22 18L26 8L33 15L40 9L42 17L49 15L45 27Q38 19 29 21Q22 21 16 28Z',
+  'M16 27Q12 8 31 10Q50 10 45 27Q38 17 29 20Q22 20 16 27Z',
+];
 
 export interface TarikActionPulse {
   id: string;
@@ -26,22 +39,24 @@ export function TarikAvatarSvg({
   side = 'l',
   size = 44,
 }: TarikAvatarSvgProps) {
+  const isRight = side === 'r';
+  const skin = isRight ? '#c98d5b' : '#f2c18f';
+  const hair = isRight ? '#6b3b1e' : '#2b2a4a';
+  const hairPath = isRight
+    ? 'M9 19L8 11L13 13L15 6L20 11L25 6L27 13L32 11L31 19Q20 11 9 19Z'
+    : 'M9 19Q9 7 20 8Q31 7 31 19Q20 12 9 19Z';
+
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 48 48"
-      aria-hidden="true"
-      style={{ flex: 'none', transform: side === 'r' ? 'scaleX(-1)' : undefined }}
-    >
-      <circle cx="24" cy="24" r="22" fill="#fffdf6" stroke={color} strokeWidth="3" />
-      <path d="M11 40c2-8 24-8 26 0" fill={color} stroke="#2b2a4a" strokeWidth="2.5" />
-      <circle cx="24" cy="20" r="10" fill="#ffd9a8" stroke="#2b2a4a" strokeWidth="2.5" />
-      <path d="M14 16Q24 9 34 16l0 4Q24 14 14 20Z" fill="#e2312d" stroke="#2b2a4a" strokeWidth="2" />
-      <path d="M14 18Q24 12 34 18" stroke="#ffffff" strokeWidth="2.5" fill="none" />
-      <circle cx="20.5" cy="21.5" r="1.5" fill="#2b2a4a" />
-      <circle cx="27.5" cy="21.5" r="1.5" fill="#2b2a4a" />
-      <path d="M20 26q4 4 8 0" stroke="#2b2a4a" strokeWidth="2" fill="none" strokeLinecap="round" />
+    <svg width={size} height={size} viewBox="0 0 40 40" aria-hidden="true" style={{ flex: 'none' }}>
+      <rect width="40" height="40" rx="10" fill="#fff3d6" />
+      <rect x="9" y="30" width="22" height="10" rx="5" fill={color} />
+      <circle cx="20" cy="20" r="11" fill={skin} stroke="#2b2a4a" strokeWidth="2" />
+      <path d={hairPath} fill={hair} />
+      <path d="M10 17Q20 8 30 17" stroke="#e2312d" strokeWidth="4" fill="none" />
+      <path d="M10 20.5Q20 12.5 30 20.5" stroke="#ffffff" strokeWidth="3" fill="none" />
+      <circle cx="16" cy="23" r="1.6" fill="#2b2a4a" />
+      <circle cx="24" cy="23" r="1.6" fill="#2b2a4a" />
+      <path d="M16 28q4 3 8 0" stroke="#2b2a4a" strokeWidth="1.6" fill="none" strokeLinecap="round" />
     </svg>
   );
 }
@@ -49,168 +64,144 @@ export function TarikAvatarSvg({
 export interface TarikPullerSvgProps {
   shirtColor: string;
   skinColor?: string;
+  shadowSkinColor?: string;
   hairColor?: string;
+  hairPath?: string;
   numLabel?: string;
   mirrored?: boolean;
 }
 
 /**
- * Karakter penarik tali bergaya kartun Festival 17 Agustus (proporsi 100x130).
- * Menggunakan kelas `.bd`, `.lb`, `.lf`, `.tail`, `.ap`, `.au`, `.mo`, `.smi`
- * agar selaras dengan animasi CSS strain/heave/jerk/slip/win/fall.
+ * Karakter penarik tali atletik bergaya Festival 17 Agustus (proporsi 100x130).
+ * Memiliki variasi gaya rambut, warna kulit, celana pendek putih, ikat kepala Merah-Putih,
+ * dan kelas animasi `.bd`, `.lb`, `.lf`, `.tail`, `.ap`, `.au`, `.mo`, `.smi`.
  */
 export function TarikPullerSvg({
   shirtColor,
-  skinColor = '#ffd9a8',
+  skinColor = '#f2c18f',
+  shadowSkinColor = '#d9a06e',
   hairColor = '#2b2a4a',
+  hairPath = PULLER_HAIRS[0],
   numLabel,
   mirrored = false,
 }: TarikPullerSvgProps) {
   return (
     <svg viewBox="0 0 100 130" aria-hidden="true">
       {/* Bayangan Rumput */}
-      <ellipse cx="48" cy="126" rx="26" ry="5" fill="rgba(0,0,0,0.22)" />
+      <ellipse cx="46" cy="125" rx="34" ry="4.5" fill="rgba(0,0,0,0.2)" />
 
-      {/* Kaki Belakang & Sepatu */}
-      <g className="lb">
-        <path
-          d="M44 86L28 118"
-          stroke="#2b2a4a"
-          strokeWidth="12"
-          strokeLinecap="round"
-        />
-        <path
-          d="M44 86L28 118"
-          stroke="#3b4166"
-          strokeWidth="7"
-          strokeLinecap="round"
-        />
-        <ellipse cx="26" cy="121" rx="9" ry="5" fill="#1f2338" stroke="#2b2a4a" strokeWidth="2.5" />
+      {/* Kaki Belakang & Celana Putih */}
+      <g className="lg lb">
+        <path d="M46 86L33 103" stroke="#ffffff" strokeWidth="14" strokeLinecap="round" />
+        <path d="M33 103L19 120" stroke={skinColor} strokeWidth="8.5" strokeLinecap="round" />
+        <ellipse cx="17" cy="122" rx="10" ry="4.5" fill="#2b2a4a" />
       </g>
 
-      {/* Kaki Depan & Sepatu */}
-      <g className="lf">
-        <path
-          d="M52 86L72 118"
-          stroke="#2b2a4a"
-          strokeWidth="12"
-          strokeLinecap="round"
-        />
-        <path
-          d="M52 86L72 118"
-          stroke="#48507d"
-          strokeWidth="7"
-          strokeLinecap="round"
-        />
-        <ellipse cx="75" cy="121" rx="9" ry="5" fill="#1f2338" stroke="#2b2a4a" strokeWidth="2.5" />
+      {/* Kaki Depan & Celana Putih */}
+      <g className="lg lf">
+        <path d="M52 86L70 100" stroke="#ffffff" strokeWidth="14" strokeLinecap="round" />
+        <path d="M70 100L65 120" stroke={skinColor} strokeWidth="8.5" strokeLinecap="round" />
+        <ellipse cx="68" cy="122" rx="10" ry="4.5" fill="#2b2a4a" />
       </g>
 
-      {/* Tubuh Bagian Atas */}
+      {/* Tubuh Condong Menarik Tali */}
       <g className="bd">
-        {/* Ekor Ikat Kepala Merah-Putih */}
-        <g className="tail">
-          <path d="M18 24L4 19L8 27Z" fill="#e2312d" stroke="#2b2a4a" strokeWidth="2" />
-          <path d="M18 27L5 31L9 36Z" fill="#ffffff" stroke="#2b2a4a" strokeWidth="2" />
+        {/* Lengan Belakang */}
+        <g className="ap">
+          <path
+            d="M40 50L62 61L83 59"
+            stroke={shadowSkinColor}
+            strokeWidth="7.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+          />
+          <circle cx="84" cy="59" r="5" fill={shadowSkinColor} />
         </g>
 
-        {/* Baju / Kaos Tim */}
-        <rect
-          x="30"
-          y="46"
-          width="36"
-          height="42"
-          rx="12"
-          fill={shirtColor}
-          stroke="#2b2a4a"
-          strokeWidth="3.2"
-        />
-
+        {/* Kaos Tim + Selempang Putih + Nomor Punggung */}
+        <path d="M50 85L36 52" stroke="#2b2a4a" strokeWidth="30" strokeLinecap="round" />
+        <path d="M50 85L36 52" stroke={shirtColor} strokeWidth="25" strokeLinecap="round" />
+        <path d="M41 62L53 67" stroke="#ffffff" strokeWidth="3" opacity="0.7" />
         {numLabel && (
           <text
-            x="48"
-            y="74"
-            fontSize="14"
-            fontWeight="800"
+            x="42"
+            y="80"
             textAnchor="middle"
-            fill="#ffffff"
             fontFamily="Baloo 2, sans-serif"
-            transform={mirrored ? 'translate(96, 0) scale(-1, 1)' : undefined}
+            fontWeight="800"
+            fontSize="17"
+            fill="#ffffff"
+            transform={
+              mirrored
+                ? 'rotate(-24 42 68) translate(42 0) scale(-1 1) translate(-42 0)'
+                : 'rotate(-24 42 68)'
+            }
           >
             {numLabel}
           </text>
         )}
 
-        {/* Kepala, Rambut, & Ikat Kepala Merah-Putih */}
-        <circle cx="48" cy="28" r="20" fill={skinColor} stroke="#2b2a4a" strokeWidth="3.2" />
-        <path
-          d="M28 24c1-13 38-13 40 0c-6-6-34-6-40 0Z"
-          fill={hairColor}
-        />
-        <path
-          d="M28 21Q48 11 68 21L68 27Q48 17 28 27Z"
-          fill="#ffffff"
-          stroke="#2b2a4a"
-          strokeWidth="2.6"
-        />
-        <path d="M28 21Q48 11 68 21L68 24Q48 14 28 24Z" fill="#e2312d" />
+        {/* Lengan Depan Menggenggam Tali (y ~ 60) */}
+        <g className="ap">
+          <path
+            d="M35 54L60 65L84 62"
+            stroke={skinColor}
+            strokeWidth="7.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+          />
+          <circle cx="85" cy="62" r="5.5" fill={skinColor} />
+        </g>
 
-        {/* Mata */}
-        <circle cx="54" cy="31" r="2.4" fill="#2b2a4a" />
-        <circle cx="62" cy="30" r="2.2" fill="#2b2a4a" />
-        <path d="M51 27l6 -2" stroke="#2b2a4a" strokeWidth="2" strokeLinecap="round" />
+        {/* Lengan Selebrasi Menang */}
+        <g className="au">
+          <path
+            d="M38 52L52 32L60 12M35 54L20 36L13 18"
+            stroke={skinColor}
+            strokeWidth="7.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+          />
+          <circle cx="60" cy="11" r="5" fill={skinColor} />
+          <circle cx="13" cy="17" r="5" fill={skinColor} />
+        </g>
 
-        {/* Mulut Normal / Mengejan vs Menang */}
+        {/* Ekor Ikat Kepala Merah-Putih */}
+        <g className="tail">
+          <path d="M18 25Q8 23 1 30" stroke="#e2312d" strokeWidth="3.6" fill="none" strokeLinecap="round" />
+          <path d="M18 28Q9 31 3 38" stroke="#ffffff" strokeWidth="3.6" fill="none" strokeLinecap="round" />
+        </g>
+
+        {/* Kepala, Telinga, Rambut Bervariasi & Ikat Kepala */}
+        <circle cx="31" cy="29" r="14" fill={skinColor} stroke="#2b2a4a" strokeWidth="3" />
+        <circle cx="21" cy="32" r="3" fill={skinColor} stroke="#2b2a4a" strokeWidth="1.5" />
+        <path d={hairPath} fill={hairColor} />
+        <path d="M17 24Q31 16 46 23" stroke="#e2312d" strokeWidth="5" fill="none" />
+        <path d="M17 28.5Q31 20.5 46 27.5" stroke="#ffffff" strokeWidth="4" fill="none" />
+
+        {/* Mata, Alis, Rona Pipi & Mulut Ekspresif */}
+        <circle cx="38" cy="31" r="3.2" fill="#ffffff" stroke="#2b2a4a" strokeWidth="1" />
+        <circle cx="39.3" cy="31" r="1.7" fill="#2b2a4a" />
+        <path d="M34 26L43 29" stroke="#2b2a4a" strokeWidth="2.2" strokeLinecap="round" />
+        <circle cx="41" cy="37" r="2.6" fill="#ff8a8a" opacity="0.55" />
         <path
           className="mo"
-          d="M52 38h10"
+          d="M33 38Q38 35.5 43 38L42 42Q38 44 34 42Z"
+          fill="#7a1f1f"
           stroke="#2b2a4a"
-          strokeWidth="2.8"
-          strokeLinecap="round"
+          strokeWidth="1.2"
         />
         <path
           className="smi"
-          d="M50 36q7 9 14 0Z"
-          fill="#c2332f"
+          d="M32 38q6 8 12 0"
           stroke="#2b2a4a"
-          strokeWidth="2"
-          strokeLinejoin="round"
+          strokeWidth="2.4"
+          fill="none"
+          strokeLinecap="round"
         />
-
-        {/* Lengan Menggenggam Tali (y=60 agar sejajar tali .rope) */}
-        <g className="ap">
-          <path
-            d="M42 54L68 60M56 54L80 60"
-            stroke="#2b2a4a"
-            strokeWidth="10"
-            strokeLinecap="round"
-          />
-          <path
-            d="M42 54L68 60M56 54L80 60"
-            stroke={skinColor}
-            strokeWidth="5.5"
-            strokeLinecap="round"
-          />
-          <circle cx="68" cy="60" r="4.8" fill={skinColor} stroke="#2b2a4a" strokeWidth="2.2" />
-          <circle cx="80" cy="60" r="4.8" fill={skinColor} stroke="#2b2a4a" strokeWidth="2.2" />
-        </g>
-
-        {/* Lengan Mengangkat Selebrasi Menang */}
-        <g className="au">
-          <path
-            d="M35 52L20 26M60 52L76 24"
-            stroke="#2b2a4a"
-            strokeWidth="10"
-            strokeLinecap="round"
-          />
-          <path
-            d="M35 52L20 26M60 52L76 24"
-            stroke={skinColor}
-            strokeWidth="5.5"
-            strokeLinecap="round"
-          />
-          <circle cx="20" cy="25" r="4.8" fill={skinColor} stroke="#2b2a4a" strokeWidth="2.2" />
-          <circle cx="76" cy="23" r="4.8" fill={skinColor} stroke="#2b2a4a" strokeWidth="2.2" />
-        </g>
       </g>
     </svg>
   );
@@ -372,14 +363,19 @@ export function TarikTambangStadium({
 
   const renderPuller = (side: 'l' | 'r', idx: number, total: number) => {
     const isLeft = side === 'l';
+    const gap = Math.min(8, 26 / Math.max(total - 1, 1));
     const leftPosPct =
       variant === 'solo'
         ? isLeft
-          ? 32
-          : 68
-        : isLeft
-          ? 35 - idx * 6
-          : 65 + idx * 6;
+          ? 36
+          : 64
+        : total === 1
+          ? isLeft
+            ? 38
+            : 62
+          : isLeft
+            ? 46 - idx * gap
+            : 54 + idx * gap;
 
     const mappedPulseIdx =
       ephemeralPulse && ephemeralPulse.side === side
@@ -402,16 +398,29 @@ export function TarikTambangStadium({
       }
     }
 
-    const skinColor = SKINS[(idx * 3 + (isLeft ? 0 : 1)) % SKINS.length];
-    const hairColor = HAIRS[(idx * 5 + (isLeft ? 0 : 2)) % HAIRS.length];
+    const paletteIdx =
+      variant === 'solo'
+        ? isLeft
+          ? 0
+          : 1
+        : total === 1 && !isLeft
+          ? 1
+          : idx;
+    const skinPair = PULLER_SKINS[paletteIdx % PULLER_SKINS.length];
+    const hairColor = HAIRS[(paletteIdx * 3) % HAIRS.length];
+    const hairPath = PULLER_HAIRS[paletteIdx % PULLER_HAIRS.length];
     const shirtColor = isLeft ? '#e2312d' : '#1d8fe0';
-    const numLabel = variant === 'solo' ? (isLeft ? '#1' : '#2') : `${idx + 1}`;
+    const numLabel = variant === 'solo' ? (isLeft ? '1' : '2') : undefined;
 
     return (
       <div
         key={`${side}-${idx}`}
         className={`tt-pu ${animClass}`}
-        style={{ left: `${leftPosPct}%`, ['--i' as any]: idx }}
+        style={{
+          left: `${leftPosPct}%`,
+          zIndex: variant === 'solo' ? 20 : 20 - idx,
+          ['--i' as any]: idx,
+        }}
       >
         {bubbleText && (
           <div key={ephemeralPulse?.id} className="tt-say">
@@ -422,14 +431,16 @@ export function TarikTambangStadium({
           <div className="tt-pa">
             <TarikPullerSvg
               shirtColor={shirtColor}
-              skinColor={skinColor}
+              skinColor={skinPair.sk}
+              shadowSkinColor={skinPair.sh}
               hairColor={hairColor}
+              hairPath={hairPath}
               numLabel={numLabel}
               mirrored={!isLeft}
             />
           </div>
           <div className="tt-dust" />
-          <div className="tt-dz">z z</div>
+          <div className="tt-dz">✦ ✦</div>
         </div>
       </div>
     );
@@ -665,7 +676,7 @@ export function TarikTambangStadium({
         </div>
 
         {/* Arena Pergeseran Tali & Tim Penarik */}
-        <div className="tt-arena">
+        <div className={`tt-arena ${variant === 'solo' ? 'solo' : ''}`}>
           <div className="tt-grp" style={{ ['--s' as any]: shiftPct }}>
             <div
               className={`tt-team t1 ${isPlaying && !winnerSide ? 'pull' : ''} ${
@@ -685,11 +696,11 @@ export function TarikTambangStadium({
 
             <div className={`tt-rope ${variant === 'solo' ? 'solo' : ''} ${isPlaying && !winnerSide ? 'go' : ''}`} />
 
-            {/* Pita Merah-Putih Penanda Tengah Tali */}
+            {/* Bendera Merah-Putih Penanda Tengah Tali */}
             <svg className="tt-mkr" viewBox="0 0 28 46" aria-hidden="true">
-              <rect x="11" y="0" width="6" height="14" rx="3" fill="#e2312d" stroke="#2b2a4a" strokeWidth="2" />
-              <path d="M14 14L6 40L14 35Z" fill="#e2312d" stroke="#2b2a4a" strokeWidth="2" />
-              <path d="M14 14L22 40L14 35Z" fill="#ffffff" stroke="#2b2a4a" strokeWidth="2" />
+              <rect x="12" y="0" width="4" height="10" fill="#5d3a14" />
+              <rect x="3" y="8" width="22" height="16" fill="#e2312d" stroke="#2b2a4a" strokeWidth="2" />
+              <rect x="3" y="24" width="22" height="16" fill="#ffffff" stroke="#2b2a4a" strokeWidth="2" />
             </svg>
           </div>
         </div>
