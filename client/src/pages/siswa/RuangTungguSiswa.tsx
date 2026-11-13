@@ -121,6 +121,12 @@ export default function RuangTungguSiswa({
     const handleLobiUpdate = (data: any) => {
       if (Array.isArray(data.daftarPeserta)) {
         setLivePeserta(data.daftarPeserta);
+        // Cek jika murid telah dikeluarkan oleh guru dari lobi
+        const stillIn = data.daftarPeserta.some((p: any) => p.id === pesertaId || p.nama === nama);
+        if (!stillIn && data.daftarPeserta.length > 0) {
+          onKeluar();
+          return;
+        }
       }
       if (Array.isArray(data.teams)) {
         setLiveTeams(data.teams);
@@ -163,17 +169,23 @@ export default function RuangTungguSiswa({
       jalankanTransisiMulaiRef.current();
     };
 
+    const handleDikick = () => {
+      onKeluar();
+    };
+
     socket.on('lobi:update', handleLobiUpdate);
     socket.on('teams_assigned', handleTeamsAssigned);
     socket.on('game:mulai', handleGameMulai);
+    socket.on('sesi:dikick', handleDikick);
 
     return () => {
       socket.off('lobi:update', handleLobiUpdate);
       socket.off('teams_assigned', handleTeamsAssigned);
       socket.off('game:mulai', handleGameMulai);
+      socket.off('sesi:dikick', handleDikick);
       startTimerRef.current.forEach(clearTimeout);
     };
-  }, [gameType, pesertaId]);
+  }, [gameType, pesertaId, nama, onKeluar]);
 
   // Nama label mode game
   const labelModeGame = useMemo(() => {
@@ -792,22 +804,26 @@ export default function RuangTungguSiswa({
       {/* ============================================================ */}
       {/* 2. KONTEN UTAMA: 2 LOGIKA (MENUNGGU GURU vs MEMBAGI TIM)     */}
       {/* ============================================================ */}
-      <main className="relative z-10 flex-1 min-h-0 flex flex-col lg:flex-row items-center justify-center gap-3 sm:gap-4 lg:gap-8 px-3 sm:px-6 py-2 max-w-5xl w-full mx-auto overflow-hidden">
-        {/* BAGIAN KIRI / TENGAH: RUANG TUNGGU / PEMBAGIAN KELOMPOK */}
-        <div
-          className={`w-full flex flex-col items-center text-center ${
-            !isStarting
-              ? 'shrink-0 lg:flex-1 lg:min-h-0 my-0 lg:my-auto'
-              : 'flex-1 min-h-0 justify-center my-auto'
-          }`}
-        >
+      <main
+        className={`relative z-10 flex-1 min-h-0 flex flex-col justify-center items-center overflow-hidden transition-[padding] duration-500 ${
+          !isStarting
+            ? 'px-4 py-2 lg:pr-[330px] lg:pl-10'
+            : 'px-4 py-2'
+        }`}
+      >
+        {/* BAGIAN TENGAH: RUANG TUNGGU / PEMBAGIAN KELOMPOK */}
+        <div className="w-full max-w-2xl flex flex-col items-center text-center my-auto">
           {!isStarting ? (
             /* ---------------------------------------------------- */
             /* LOGIKA 1: SAAT DI RUANG TUNGGU (MENUNGGU GURU KLIK)  */
             /* ---------------------------------------------------- */
             <div className="flex flex-col items-center w-full max-w-md animate-[popIn_0.4s_ease-out]">
               {/* ANIMASI JAM PASIR KAPUR BERPUTAR */}
-              <svg className="w-13 sm:w-16 h-16 sm:h-20 mb-0.5 sm:mb-1 overflow-visible select-none shrink-0" viewBox="0 0 120 160" aria-hidden="true">
+              <svg
+                className="w-11 sm:w-14 lg:w-16 h-14 sm:h-18 lg:h-20 mb-0.5 sm:mb-1 overflow-visible select-none shrink-0"
+                viewBox="0 0 120 160"
+                aria-hidden="true"
+              >
                 <defs>
                   <clipPath id="sandClip">
                     <path d="M26 18H94C94 48 66 62 64 80C66 98 94 112 94 142H26C26 112 54 98 56 80C54 62 26 48 26 18Z" />
@@ -849,18 +865,18 @@ export default function RuangTungguSiswa({
               </svg>
 
               {/* Judul Font Tangan */}
-              <h1 className="font-['Caveat',sans-serif] text-3xl sm:text-5xl font-bold text-[#f4ecd8] drop-shadow-md leading-tight">
+              <h1 className="font-['Caveat',sans-serif] text-3xl sm:text-4xl lg:text-5xl font-bold text-[#f4ecd8] drop-shadow-md leading-tight">
                 Menunggu <span className="text-[#f2c230]">Guru…</span>
               </h1>
-              <p className="text-xs sm:text-sm text-[#f4ecd8]/90 font-semibold mt-0.5 mb-2 sm:mb-2.5 max-w-md">
+              <p className="text-[11px] sm:text-xs lg:text-sm text-[#f4ecd8]/90 font-semibold mt-0.5 mb-1.5 sm:mb-2 max-w-md">
                 Game akan dimulai setelah guru menekan tombol mulai.
               </p>
 
               {/* Kotak Info: Peserta & Mode Game */}
-              <div className="w-full max-w-xs sm:max-w-sm grid grid-cols-2 bg-[#fbf6e9] border-2 sm:border-[3px] border-[#e8dfc8] rounded-2xl p-2 sm:p-2.5 text-[#163a2b] shadow-[0_4px_0_rgba(0,0,0,0.2)]">
+              <div className="w-full max-w-[280px] sm:max-w-xs lg:max-w-sm grid grid-cols-2 bg-[#fbf6e9] border-2 sm:border-[3px] border-[#e8dfc8] rounded-xl sm:rounded-2xl p-1.5 sm:p-2 text-[#163a2b] shadow-[0_4px_0_rgba(0,0,0,0.2)]">
                 {/* Kolom Peserta */}
                 <div className="flex flex-col items-center gap-0.5 border-r-2 border-[#1f4a37]/20 pr-1.5">
-                  <svg className="w-4 h-4 sm:w-6 sm:h-6 text-[#1f4a37]" viewBox="0 0 48 48" fill="currentColor">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-[#1f4a37]" viewBox="0 0 48 48" fill="currentColor">
                     <circle cx="24" cy="15" r="7" />
                     <path d="M11 40q0-13 13-13t13 13z" />
                     <g opacity="0.65">
@@ -869,13 +885,13 @@ export default function RuangTungguSiswa({
                       <path d="M0 38q0-10 8-10l3 12zM48 38q0-10-8-10l-3 12z" />
                     </g>
                   </svg>
-                  <small className="font-bold text-[10px] sm:text-xs text-[#5a6f62]">Peserta</small>
+                  <small className="font-bold text-[9px] sm:text-[11px] text-[#5a6f62]">Peserta</small>
                   <b className="text-xs sm:text-base font-black">{jumlahPeserta} siswa</b>
                 </div>
 
                 {/* Kolom Mode Game */}
                 <div className="flex flex-col items-center gap-0.5 pl-1.5">
-                  <svg className="w-4 h-4 sm:w-6 sm:h-6 text-[#1f4a37]" viewBox="0 0 48 48">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-[#1f4a37]" viewBox="0 0 48 48">
                     <path fill="currentColor" d="M14 14h20c7 0 10 6 11 14 .6 5-2 8-6 6l-5-4H14l-5 4c-4 2-6.6-1-6-6 1-8 4-14 11-14z" />
                     <g stroke="#fbf6e9" strokeWidth="3" strokeLinecap="round">
                       <path d="M13 21v6M10 24h6" />
@@ -883,18 +899,63 @@ export default function RuangTungguSiswa({
                     <circle cx="31" cy="22" r="2" fill="#fbf6e9" />
                     <circle cx="36" cy="26" r="2" fill="#fbf6e9" />
                   </svg>
-                  <small className="font-bold text-[10px] sm:text-xs text-[#5a6f62]">Mode Game</small>
+                  <small className="font-bold text-[9px] sm:text-[11px] text-[#5a6f62]">Mode Game</small>
                   <b className="text-xs sm:text-sm font-black truncate max-w-[120px]" title={templateJudul || labelModeGame}>
                     {labelModeGame}
                   </b>
                 </div>
               </div>
 
+              {/* Panel Peserta Khusus Mobile (diletakkan langsung di bawah kotak info) */}
+              <div className="w-full max-w-[320px] sm:max-w-sm lg:hidden mt-2 bg-[#fbf6e9] border-2 border-[#e8dfc8] rounded-xl p-1.5 sm:p-2 text-[#163a2b] shadow-sm flex flex-col h-auto shrink-0">
+                <div className="flex items-center justify-between border-b border-[#1f4a37]/15 pb-1 px-1 mb-1 shrink-0">
+                  <div className="flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5 text-[#1f4a37]" viewBox="0 0 48 48" fill="currentColor">
+                      <circle cx="24" cy="15" r="7" />
+                      <path d="M11 40q0-13 13-13t13 13z" />
+                    </svg>
+                    <h2 className="text-[10px] sm:text-xs font-black uppercase tracking-wide">
+                      Daftar Peserta ({jumlahPeserta})
+                    </h2>
+                  </div>
+                  {jumlahPeserta > 4 && (
+                    <span className="text-[9px] font-bold text-[#5a6f62]">Scroll</span>
+                  )}
+                </div>
+
+                <ul className="grid grid-cols-2 gap-1 max-h-[80px] sm:max-h-[105px] overflow-y-auto overscroll-contain pr-0.5 custom-scrollbar">
+                  {listPesertaTampil.map((p, idx) => {
+                    const isMe = p.id === pesertaId || p.nama === nama;
+                    return (
+                      <li
+                        key={p.id || idx}
+                        className={`flex items-center gap-1 p-0.5 px-1 rounded-lg text-[10px] sm:text-[11px] border ${
+                          isMe
+                            ? 'bg-[#1f4a37]/15 font-black text-[#163a2b] border-[#1f4a37]/30'
+                            : 'bg-[#fffdf6] border-[#e8dfc8] font-bold text-[#163a2b]'
+                        }`}
+                      >
+                        <div className="relative w-4 h-4 sm:w-5 sm:h-5 shrink-0 rounded-full overflow-hidden">
+                          <AvatarSvg name={p.nama} size={20} />
+                          <i className="absolute right-0 bottom-0 w-1 h-1 rounded-full bg-[#4cc36b] border border-[#fbf6e9]" />
+                        </div>
+                        <span className="truncate flex-1">{p.nama}</span>
+                        {isMe && (
+                          <span className="text-[7px] font-black bg-[#1f4a37] text-[#f4ecd8] px-1 py-0.2 rounded-full shrink-0">
+                            Kamu
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+
               {/* Tombol Demo Simulasi untuk Siswa */}
               <button
                 type="button"
                 onClick={handleDemoClick}
-                className="mt-2 sm:mt-3 flex items-center gap-1.5 bg-[#f2c230] hover:bg-[#ffd555] active:scale-95 text-[#163a2b] font-black text-xs sm:text-sm py-1.5 px-4 rounded-full shadow-[0_3px_0_#c79a14] transition-all cursor-pointer"
+                className="mt-1.5 sm:mt-2.5 flex items-center gap-1 bg-transparent hover:bg-white/10 active:scale-95 text-[#f4ecd8] border border-dashed border-[#f4ecd8]/40 font-bold text-[10px] sm:text-xs py-1 px-3 rounded-full transition-all cursor-pointer"
               >
                 <span>▶</span>
                 <span>Demo: Guru Klik Mulai</span>
@@ -907,7 +968,7 @@ export default function RuangTungguSiswa({
             <div className="w-full flex-1 min-h-0 flex flex-col items-center justify-center animate-[popIn_0.35s_ease-out]">
               {teamGroups.length > 0 ? (
                 <>
-                  <h2 className="font-['Caveat',sans-serif] text-2xl sm:text-4xl lg:text-5xl font-bold text-[#f4ecd8] drop-shadow-md leading-tight shrink-0">
+                  <h2 className="font-['Caveat',sans-serif] text-2xl sm:text-3xl lg:text-4xl font-bold text-[#f4ecd8] drop-shadow-md leading-tight shrink-0">
                     {headingText.includes('Kamu di') ? (
                       <>
                         Kamu di <span className="text-[#f2c230]">{headingText.replace('Kamu di ', '')}</span>
@@ -922,7 +983,7 @@ export default function RuangTungguSiswa({
                       </>
                     )}
                   </h2>
-                  <p className="text-xs sm:text-sm text-[#f4ecd8]/90 font-semibold mt-0.5 mb-1.5 sm:mb-2 max-w-lg shrink-0">
+                  <p className="text-[11px] sm:text-xs lg:text-sm text-[#f4ecd8]/90 font-semibold mt-0.5 mb-1 max-w-lg shrink-0">
                     {subText}
                   </p>
 
@@ -941,12 +1002,12 @@ export default function RuangTungguSiswa({
                           className={`pl ${landedIds.includes(p.id) ? 'gone' : ''}`}
                         >
                           <span className={`pc ${isSelf ? 'me' : ''}`}>
-                            <span className="w-5 h-5 rounded-full overflow-hidden shrink-0 inline-block">
-                              <AvatarSvg name={p.nama} size={20} />
+                            <span className="w-4 h-4 rounded-full overflow-hidden shrink-0 inline-block">
+                              <AvatarSvg name={p.nama} size={16} />
                             </span>
-                            <span className="max-w-[80px] sm:max-w-[100px] truncate">{p.nama}</span>
+                            <span className="max-w-[70px] sm:max-w-[90px] truncate">{p.nama}</span>
                             {isSelf && (
-                              <b className="bg-[#c8362f] text-white text-[8px] sm:text-[9px] px-1.5 py-0.2 rounded-full font-black">
+                              <b className="bg-[#c8362f] text-white text-[7px] sm:text-[8px] px-1 py-0.2 rounded-full font-black">
                                 Kamu
                               </b>
                             )}
@@ -957,14 +1018,14 @@ export default function RuangTungguSiswa({
                   </div>
 
                   {/* GRID KARTU KELOMPOK (SESUAI JUMLAH KELOMPOK: 2, 3, ATAU 4 TIM) */}
-                  <div className="w-full flex-1 min-h-0 max-h-[56vh] overflow-y-auto custom-scrollbar p-1">
+                  <div className="w-full flex-1 min-h-0 max-h-[50vh] sm:max-h-[56vh] overflow-y-auto custom-scrollbar p-1">
                     <div
                       className={`grid gap-2 sm:gap-3 w-full text-left mx-auto ${
                         teamGroups.length === 2
-                          ? 'grid-cols-1 sm:grid-cols-2 max-w-xl'
+                          ? 'grid-cols-2 max-w-lg'
                           : teamGroups.length === 3
-                            ? 'grid-cols-1 sm:grid-cols-3 max-w-3xl'
-                            : 'grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 max-w-4xl'
+                            ? 'grid-cols-1 sm:grid-cols-3 max-w-2xl'
+                            : 'grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 max-w-3xl'
                       }`}
                     >
                       {teamGroups.map((team) => {
@@ -978,7 +1039,7 @@ export default function RuangTungguSiswa({
                         return (
                           <article
                             key={team.id}
-                            className={`relative bg-[#fbf6e9] border-2 sm:border-[3px] border-[#e8dfc8] rounded-2xl overflow-hidden text-[#163a2b] shadow-sm transition-all duration-300 flex flex-col ${
+                            className={`relative bg-[#fbf6e9] border-2 sm:border-[3px] border-[#e8dfc8] rounded-xl sm:rounded-2xl overflow-hidden text-[#163a2b] shadow-sm transition-all duration-300 flex flex-col ${
                               isBumping ? 'tm-bump' : ''
                             } ${
                               isMyTeam
@@ -990,25 +1051,25 @@ export default function RuangTungguSiswa({
                           >
                             {/* Header Kartu Tim */}
                             <div
-                              className="flex items-center justify-between gap-1 px-2.5 sm:px-3 py-1 font-black text-xs shrink-0"
+                              className="flex items-center justify-between gap-1 px-2 sm:px-2.5 py-0.5 sm:py-1 font-black text-xs shrink-0"
                               style={{ backgroundColor: team.c, color: team.t }}
                             >
-                              <div className="flex items-center gap-1.5 truncate">
-                                <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                              <div className="flex items-center gap-1 truncate">
+                                <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="currentColor">
                                   <path d="M5 3v18M5 4h13l-3 4 3 4H5z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
                                 </svg>
-                                <h3 className="font-['Caveat',sans-serif] text-base sm:text-xl font-bold truncate leading-none">
+                                <h3 className="font-['Caveat',sans-serif] text-sm sm:text-lg font-bold truncate leading-none">
                                   {team.nama}
                                 </h3>
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
-                                <span className="text-[10px] sm:text-[11px] bg-black/20 px-1.5 py-0.2 rounded-full font-extrabold">
+                                <span className="text-[9px] sm:text-[10px] bg-black/20 px-1.5 py-0.2 rounded-full font-extrabold">
                                   {animStage === 'IDLE'
                                     ? `${team.anggota.length}`
                                     : `${landedInTeam.length}/${team.anggota.length}`}
                                 </span>
                                 {isMyTeam && (
-                                  <span className="bg-[#f2c230] text-[#163a2b] text-[9px] sm:text-[10px] font-black px-1.5 py-0.2 rounded-full shadow-sm">
+                                  <span className="bg-[#f2c230] text-[#163a2b] text-[8px] sm:text-[9px] font-black px-1.5 py-0.2 rounded-full shadow-sm">
                                     Timmu
                                   </span>
                                 )}
@@ -1016,7 +1077,7 @@ export default function RuangTungguSiswa({
                             </div>
 
                             {/* Daftar Anggota di Kelompok Ini */}
-                            <div className="p-1.5 sm:p-2 flex flex-wrap gap-1 min-h-[44px] max-h-[100px] sm:max-h-[140px] overflow-y-auto overscroll-contain content-start custom-scrollbar">
+                            <div className="p-1 sm:p-1.5 flex flex-wrap gap-1 min-h-[36px] max-h-[85px] sm:max-h-[120px] overflow-y-auto overscroll-contain content-start custom-scrollbar">
                               {team.anggota.length > 0 ? (
                                 team.anggota.map((member, mIdx) => {
                                   const isSelf = member.id === pesertaId || member.nama === nama;
@@ -1033,7 +1094,7 @@ export default function RuangTungguSiswa({
                                       }`}
                                     >
                                       <span
-                                        className={`inline-flex items-center gap-1 rounded-full py-0.5 px-1.5 sm:px-2 text-[10px] sm:text-[11px] font-black text-[#163a2b] shadow-xs transition-opacity ${
+                                        className={`inline-flex items-center gap-1 rounded-full py-0.5 px-1.5 text-[9px] sm:text-[10px] font-black text-[#163a2b] shadow-xs transition-opacity ${
                                           hasLanded
                                             ? animStage === 'FLYING'
                                               ? 'land opacity-100'
@@ -1045,10 +1106,10 @@ export default function RuangTungguSiswa({
                                             : 'bg-[#fffdf6] border border-[#e8dfc8]'
                                         }`}
                                       >
-                                        <AvatarSvg name={member.nama} size={18} />
-                                        <span className="truncate max-w-[70px] sm:max-w-[85px]">{member.nama}</span>
+                                        <AvatarSvg name={member.nama} size={15} />
+                                        <span className="truncate max-w-[60px] sm:max-w-[75px]">{member.nama}</span>
                                         {isSelf && (
-                                          <b className="bg-[#c8362f] text-white text-[8px] px-1 py-0.2 rounded-full font-black">
+                                          <b className="bg-[#c8362f] text-white text-[7px] px-1 py-0.2 rounded-full font-black">
                                             Kamu
                                           </b>
                                         )}
@@ -1057,7 +1118,7 @@ export default function RuangTungguSiswa({
                                   );
                                 })
                               ) : (
-                                <p className="text-[11px] text-[#5a6f62] italic m-auto">Menunggu anggota…</p>
+                                <p className="text-[10px] text-[#5a6f62] italic m-auto">Menunggu anggota…</p>
                               )}
                             </div>
                           </article>
@@ -1069,7 +1130,7 @@ export default function RuangTungguSiswa({
               ) : (
                 /* Jika game individu (Makan Kerupuk / Panjat Pinang) */
                 <div className="flex flex-col items-center">
-                  <h2 className="font-['Caveat',sans-serif] text-3xl sm:text-5xl font-bold text-[#f4ecd8] drop-shadow-md leading-tight">
+                  <h2 className="font-['Caveat',sans-serif] text-2xl sm:text-4xl font-bold text-[#f4ecd8] drop-shadow-md leading-tight">
                     Bersiap! <span className="text-[#f2c230]">Game Dimulai…</span>
                   </h2>
                   <p className="text-xs sm:text-sm text-[#f4ecd8]/90 font-semibold mt-1 mb-2">
@@ -1082,12 +1143,12 @@ export default function RuangTungguSiswa({
         </div>
 
         {/* ============================================================ */}
-        {/* PANEL SAMPING: DAFTAR PESERTA YANG SUDAH BERGABUNG           */}
+        {/* PANEL SAMPING: DAFTAR PESERTA KHUSUS DESKTOP                 */}
         {/* ============================================================ */}
         {!isStarting && (
-          <aside className="w-full max-w-sm lg:max-w-none lg:w-64 xl:w-72 bg-[#fbf6e9] border-2 sm:border-[3px] border-[#e8dfc8] rounded-2xl p-2 sm:p-2.5 text-[#163a2b] shadow-[0_4px_0_rgba(0,0,0,0.2)] flex flex-col h-auto shrink-0 animate-[popIn_0.4s_ease-out]">
+          <aside className="hidden lg:flex absolute right-6 xl:right-10 top-1/2 -translate-y-1/2 w-64 xl:w-72 bg-[#fbf6e9] border-[3px] border-[#e8dfc8] rounded-2xl p-3 text-[#163a2b] shadow-[0_5px_0_rgba(0,0,0,0.25)] flex-col h-auto max-h-[min(480px,65vh)] shrink-0 animate-[popIn_0.4s_ease-out] z-20">
             {/* Header Panel */}
-            <div className="flex items-center justify-between border-b border-[#1f4a37]/15 pb-1 px-1 mb-1.5 shrink-0">
+            <div className="flex items-center justify-between border-b border-[#1f4a37]/15 pb-1.5 px-1 mb-2 shrink-0">
               <div className="flex items-center gap-1.5">
                 <svg className="w-4 h-4 text-[#1f4a37]" viewBox="0 0 48 48" fill="currentColor">
                   <circle cx="24" cy="15" r="7" />
@@ -1097,31 +1158,31 @@ export default function RuangTungguSiswa({
                   Daftar Peserta ({jumlahPeserta})
                 </h2>
               </div>
-              <span className="text-[10px] font-bold text-[#5a6f62]">
-                {jumlahPeserta > 4 ? 'Scroll untuk melihat' : ''}
-              </span>
+              {jumlahPeserta > 6 && (
+                <span className="text-[10px] font-bold text-[#5a6f62]">Scroll</span>
+              )}
             </div>
 
-            {/* List Peserta: 2 Kolom di Mobile agar padat & proporsional, 1 Kolom di Desktop */}
-            <ul className="grid grid-cols-2 lg:grid-cols-1 gap-1.5 max-h-[100px] sm:max-h-[140px] lg:max-h-[280px] overflow-y-auto overscroll-contain pr-1 custom-scrollbar">
+            {/* List Peserta 1 Kolom di Desktop */}
+            <ul className="flex flex-col gap-1.5 overflow-y-auto overscroll-contain pr-1 custom-scrollbar max-h-[360px]">
               {listPesertaTampil.map((p, idx) => {
                 const isMe = p.id === pesertaId || p.nama === nama;
                 return (
                   <li
                     key={p.id || idx}
-                    className={`flex items-center gap-1.5 p-1 rounded-xl text-xs transition-all border ${
+                    className={`flex items-center gap-2 p-1.5 rounded-xl text-xs transition-all border ${
                       isMe
                         ? 'bg-[#1f4a37]/15 font-black text-[#163a2b] border-[#1f4a37]/30'
                         : 'bg-[#fffdf6] border-[#e8dfc8] font-bold text-[#163a2b]'
                     }`}
                   >
-                    <div className="relative w-5 h-5 sm:w-6 sm:h-6 shrink-0 rounded-full overflow-hidden">
-                      <AvatarSvg name={p.nama} size={22} />
+                    <div className="relative w-6 h-6 shrink-0 rounded-full overflow-hidden">
+                      <AvatarSvg name={p.nama} size={24} />
                       <i className="absolute right-0 bottom-0 w-1.5 h-1.5 rounded-full bg-[#4cc36b] border border-[#fbf6e9]" />
                     </div>
-                    <span className="truncate flex-1 text-[11px] sm:text-xs">{p.nama}</span>
+                    <span className="truncate flex-1 text-xs">{p.nama}</span>
                     {isMe && (
-                      <span className="text-[8px] font-black bg-[#1f4a37] text-[#f4ecd8] px-1 py-0.2 rounded-full shrink-0">
+                      <span className="text-[9px] font-black bg-[#1f4a37] text-[#f4ecd8] px-1.5 py-0.2 rounded-full shrink-0">
                         Kamu
                       </span>
                     )}

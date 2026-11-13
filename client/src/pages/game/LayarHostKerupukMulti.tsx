@@ -17,6 +17,7 @@ import '../../components/kerupukFestival.css';
 import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import { HasilGachaGigitanProps } from '../siswa/KerupukVirtual';
 import { Copy, Check, RotateCcw, Shuffle, X, Users, Trophy } from 'lucide-react';
+import RuangTungguGuru from '../guru/RuangTungguGuru';
 
 export interface PesertaMultiHost {
   peringkat?: number;
@@ -549,6 +550,29 @@ export default function LayarHostKerupukMulti({
     });
   }, [teamGroups]);
 
+  if (status === 'lobi') {
+    return (
+      <RuangTungguGuru
+        sessionId={initialSession.sessionId}
+        token={initialSession.token}
+        qrDataUrl={initialSession.qrDataUrl}
+        gameType="makan_kerupuk"
+        gameTitle="Makan Kerupuk"
+        templateJudul={initialSession.templateJudul}
+        metaDetail={`Makan Kerupuk, ${numTeams} tim`}
+        daftarPeserta={leaderboard.map((p) => ({ id: p.id, nama: p.nama }))}
+        minPeserta={1}
+        maxPeserta={initialSession.config?.maxPeserta || 40}
+        isStarting={isStarting}
+        onMulai={handleMulaiLomba}
+        onKembali={handleKembaliClick}
+        onKickPeserta={(pid) => {
+          handleKickPeserta(pid);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="kp-festival flex flex-col min-h-screen">
       {/* ====================================================================
@@ -557,13 +581,7 @@ export default function LayarHostKerupukMulti({
       <KerupukStadium
         title={initialSession.templateJudul}
         subtitle="MAKAN KERUPUK • MODE MULTIPLAYER"
-        statusLabel={
-          status === 'lobi'
-            ? 'MENUNGGU SISWA'
-            : status === 'jalan'
-            ? 'BERLANGSUNG'
-            : 'SELESAI'
-        }
+        statusLabel={status === 'jalan' ? 'BERLANGSUNG' : 'SELESAI'}
         statusTone={status === 'jalan' ? 'live' : status === 'selesai' ? 'done' : 'idle'}
         timerText={status === 'jalan' ? formatDetik(timeRemaining) : '3:00'}
         lanes={lanes}
@@ -582,7 +600,7 @@ export default function LayarHostKerupukMulti({
           ==================================================================== */}
       <main className="max-w-5xl w-full mx-auto px-4 py-6 space-y-6 flex-1">
         {/* FASE 1: LOBI GABUNG SISWA */}
-        {status === 'lobi' && (
+        {false && (
           <div className="bg-[#fffaf0] border-2 border-[#e6d3ae] rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
               {/* Kolom Kiri: PIN & QR Code */}

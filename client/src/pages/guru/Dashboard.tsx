@@ -295,7 +295,7 @@ export default function DashboardGuru() {
   };
 
   // Handler: Mulai Game dari Template (semua 4 game diarahkan ke halaman pengaturan seragam)
-  const handleMulaiGame = async (templateId: string, mode?: string, gameType?: string) => {
+  const handleMulaiGame = async (templateId: string, _mode?: string, gameType?: string) => {
     const currentPath = `${location.pathname}${location.search}`;
     const kembaliParam = encodeURIComponent(currentPath || '/guru?tab=template');
 
@@ -314,22 +314,8 @@ export default function DashboardGuru() {
       return;
     }
 
-    if (!gameType || gameType === 'tarik_tambang') {
-      navigate(`/guru/tarik-tambang?templateId=${encodeURIComponent(templateId)}&kembali=${kembaliParam}`);
-      return;
-    }
-
-    try {
-      setActionLoadingId(templateId);
-      const res = await apiRequest<{ session: { id: string } }>('/sesi', {
-        method: 'POST',
-        body: JSON.stringify({ templateId, mode }),
-      });
-      navigate(`/guru/sesi/${res.session.id}`);
-    } catch (err: any) {
-      alert(err.pesan || 'Gagal memulai sesi game.');
-      setActionLoadingId(null);
-    }
+    // Default: Tarik Tambang
+    navigate(`/guru/tarik-tambang?templateId=${encodeURIComponent(templateId)}&kembali=${kembaliParam}`);
   };
 
   // Handler: Duplikat Template

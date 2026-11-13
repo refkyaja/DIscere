@@ -11,12 +11,8 @@ import TiangPinangVisual, { EfekAktifVisual } from '../siswa/TiangPinangVisual';
 import KarakterPanjatPinang, { EkspresiKarakterPanjat } from '../siswa/KarakterPanjatPinang';
 import {
   Trophy,
-  Users,
-  Play,
   StopCircle,
   Loader2,
-  Copy,
-  Check,
   Flame,
   Shield,
   HandMetal,
@@ -26,9 +22,8 @@ import {
   Flag,
   RefreshCw,
   CheckCircle2,
-  Shuffle,
-  X,
 } from 'lucide-react';
+import RuangTungguGuru from '../guru/RuangTungguGuru';
 
 interface KonfigurasiPanjatHost {
   kesulitan: 'mudah' | 'normal' | 'sulit' | 'custom';
@@ -145,13 +140,6 @@ function formatDurasiDetik(ms: number | null | undefined): string {
   return `${menit}m ${sisa}d`;
 }
 
-const LABEL_RINTANGAN: Record<string, string> = {
-  tiang_licin: 'Tiang Licin',
-  kulit_pisang: 'Kulit Pisang',
-  pegangan_kuat: 'Pegangan Kuat',
-  hadiah_kejutan: 'Hadiah Kejutan',
-};
-
 export default function LayarHostPanjatPinang() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -163,9 +151,9 @@ export default function LayarHostPanjatPinang() {
   const [templateJudul, setTemplateJudul] = useState('');
   const [token, setToken] = useState('');
   const [qrDataUrl, setQrDataUrl] = useState('');
-  const [joinUrl, setJoinUrl] = useState('');
+  const [, setJoinUrl] = useState('');
   const [status, setStatus] = useState<'lobi' | 'jalan' | 'selesai'>('lobi');
-  const [totalSoal, setTotalSoal] = useState(0);
+  const [, setTotalSoal] = useState(0);
   const [config, setConfig] = useState<KonfigurasiPanjatHost | null>(null);
 
   const [leaderboard, setLeaderboard] = useState<LeaderboardItemHost[]>([]);
@@ -186,7 +174,6 @@ export default function LayarHostPanjatPinang() {
   const [isEnding, setIsEnding] = useState(false);
   const [isMainLagi, setIsMainLagi] = useState(false);
   const { isMuted, toggleMute } = useGameSoundLifecycle(status === 'jalan', id);
-  const [copied, setCopied] = useState(false);
   const [crowdCheer, setCrowdCheer] = useState(false);
 
   const fetchSesi = useCallback(async () => {
@@ -431,27 +418,6 @@ export default function LayarHostPanjatPinang() {
     navigate(returnUrl);
   };
 
-  const handleAcakUrutan = () => {
-    if (!id || totalPeserta === 0) return;
-    const socket = getSocket();
-    socket.emit('sesi:acak_peserta', { sessionId: id }, (res: { success?: boolean; pesan?: string }) => {
-      if (res && !res.success) {
-        alert(res.pesan || 'Gagal mengacak urutan peserta.');
-      }
-    });
-  };
-
-  const handleKickPeserta = (pesertaId: string) => {
-    if (!id) return;
-    if (!window.confirm('Keluarkan siswa ini dari lobi lomba?')) return;
-    const socket = getSocket();
-    socket.emit('sesi:kick_peserta', { sessionId: id, pesertaId }, (res: { success?: boolean; pesan?: string }) => {
-      if (res && !res.success) {
-        alert(res.pesan || 'Gagal mengeluarkan siswa.');
-      }
-    });
-  };
-
   const handleMainLagi = async () => {
     if (!id || isMainLagi) return;
     setIsMainLagi(true);
@@ -465,13 +431,6 @@ export default function LayarHostPanjatPinang() {
     } finally {
       setIsMainLagi(false);
     }
-  };
-
-  const handleCopyLink = () => {
-    if (!joinUrl) return;
-    navigator.clipboard.writeText(joinUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
   };
 
   if (loading) {
@@ -533,171 +492,24 @@ export default function LayarHostPanjatPinang() {
   // -------------------------------------------------------------------------
   if (status === 'lobi') {
     return (
-      <div className="bk-festival">
-        {stadiumHeader}
-
-        <main className="bk-wrap">
-          <section className="bk-card mt-2">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Kolom Kiri: PIN, QR & Ringkasan Aturan */}
-              <div>
-                <h2 className="bk-h text-2xl font-extrabold text-[#2b2a4a]">
-                  Siswa gabung lewat HP
-                </h2>
-                <p className="text-sm text-[#6b6a85] mt-1 mb-3">
-                  Masukkan PIN atau pindai QR, lalu tulis nama untuk memanjat tiang pinang masing-masing.
-                </p>
-
-                <div className="flex flex-wrap items-center gap-4 mb-3">
-                  <div className="bk-pin-row">
-                    {(token || '------').split('').map((digit, idx) => (
-                      <div key={idx} className="bk-pin-tile">
-                        {digit}
-                      </div>
-                    ))}
-                  </div>
-
-                  {qrDataUrl && (
-                    <div className="p-1.5 bg-white border-[3px] border-[#2b2a4a] rounded-xl shrink-0">
-                      <img
-                        src={qrDataUrl}
-                        alt="QR Code Panjat Pinang"
-                        className="w-[104px] h-[104px] block"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {joinUrl && (
-                  <div className="flex items-center gap-2 bg-[#fff3d6] border-2 border-[#f0dfb4] rounded-xl px-3 py-2 mb-4">
-                    <span className="text-xs font-bold text-[#6b6a85] truncate flex-1 font-mono">
-                      {joinUrl}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleCopyLink}
-                      className="inline-flex items-center gap-1 text-xs font-extrabold px-2.5 py-1 rounded-lg bg-white border border-[#f0dfb4] text-[#2b2a4a] hover:bg-[#ffe9a8] cursor-pointer shrink-0"
-                    >
-                      {copied ? (
-                        <>
-                          <Check className="w-3.5 h-3.5 text-[#1f9d55]" /> Disalin
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5" /> Salin
-                        </>
-                      )}
-                    </button>
-                  </div>
-                )}
-
-                {/* Ringkasan Aturan Sesi */}
-                {config && (
-                  <div className="bg-[#fff3d6] border-2 border-[#f0dfb4] rounded-2xl p-3.5 space-y-2 text-xs">
-                    <div className="flex flex-wrap gap-1.5">
-                      <span className="bk-chip uppercase">Mode: {config.kesulitan}</span>
-                      <span className="bk-chip live">Benar +{config.naikBenar}%</span>
-                      <span className="bk-chip red">Salah -{config.turunSalah}%</span>
-                      <span className="bk-chip blue">
-                        Streak: {config.bonusStreakAktif ? `+${config.bonusStreak3}% / +${config.bonusStreak5}%` : 'Nonaktif'}
-                      </span>
-                    </div>
-                    <div className="text-[11px] font-bold text-[#6b6a85]">
-                      <span className="text-[#2b2a4a]">Rintangan: </span>
-                      {config.rintanganAktif && config.rintanganDipilih.length > 0
-                        ? config.rintanganDipilih.map((r) => LABEL_RINTANGAN[r] || r).join(', ')
-                        : 'Nonaktif'}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Kolom Kanan: Daftar Pemanjat + Tombol Mulai */}
-              <div className="flex flex-col justify-between gap-4">
-                <div>
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                    <h2 className="bk-h text-2xl font-extrabold text-[#2b2a4a] flex items-center gap-2">
-                      <Users className="w-5 h-5 text-[#1d8fe0]" />
-                      Pemain di Lobi ({totalPeserta}/{config?.maxPeserta || 100})
-                    </h2>
-                    <span className="bk-chip">{totalSoal} soal acak</span>
-                  </div>
-
-                  {leaderboard.length === 0 ? (
-                    <div className="h-52 flex flex-col items-center justify-center text-[#6b6a85] bg-[#fff3d6] border-2 border-dashed border-[#e6cfa0] rounded-2xl p-6 text-center">
-                      <Loader2 className="w-7 h-7 animate-spin text-[#e2312d] mb-2.5" />
-                      <p className="font-extrabold text-[#2b2a4a]">Menunggu siswa bergabung...</p>
-                      <p className="text-xs font-bold text-[#6b6a85] mt-1">
-                        Siswa masuk dengan PIN atau QR lalu memanjat tiang pinang masing-masing.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[260px] overflow-y-auto pr-1">
-                      {leaderboard.map((p, idx) => (
-                        <div
-                          key={p.id}
-                          className="flex items-center justify-between gap-2 bg-[#fff3d6] border-2 border-[#f0dfb4] rounded-xl px-2.5 py-2"
-                        >
-                          <div className="flex items-center gap-2 truncate">
-                            <span className="w-6 h-6 rounded-full bg-[#e2312d] text-white text-xs font-black flex items-center justify-center shrink-0">
-                              {idx + 1}
-                            </span>
-                            <span className="font-extrabold text-sm text-[#2b2a4a] truncate">
-                              {p.nama}
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleKickPeserta(p.id)}
-                            title="Keluarkan dari lobi"
-                            className="text-[#d63b3b] hover:opacity-75 cursor-pointer p-0.5 rounded hover:bg-rose-50 shrink-0"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-3 border-t-2 border-dashed border-[#f0dfb4] flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-xs font-bold text-[#6b6a85] max-w-sm">
-                    Tanpa batas waktu global. Sesi berakhir saat semua mencapai 100% atau guru menekan Akhiri.
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={totalPeserta === 0}
-                      onClick={handleAcakUrutan}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border-2 border-[#f0dfb4] text-[#2b2a4a] font-extrabold text-xs hover:bg-[#fff3d6] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Acak urutan tiang / pemain"
-                    >
-                      <Shuffle className="w-3.5 h-3.5 text-[#1d8fe0]" />
-                      Acak Urutan
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleMulai}
-                      disabled={totalPeserta === 0 || isStarting}
-                      className="bk-btn"
-                    >
-                      {isStarting ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" /> Memulai...
-                        </>
-                      ) : (
-                        <>
-                          <Play className="w-4 h-4 fill-current" /> Mulai lomba
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-        </main>
-      </div>
+      <RuangTungguGuru
+        sessionId={id || ''}
+        token={token || ''}
+        qrDataUrl={qrDataUrl}
+        gameType="panjat_pinang"
+        gameTitle="Panjat Pinang"
+        templateJudul={templateJudul}
+        metaDetail="Panjat Pinang, Lomba"
+        daftarPeserta={leaderboard.map((p) => ({ id: p.id, nama: p.nama }))}
+        minPeserta={1}
+        maxPeserta={config?.maxPeserta || 100}
+        isStarting={isStarting}
+        onMulai={handleMulai}
+        onKembali={handleKembaliClick}
+        onKickPeserta={(pid) => {
+          getSocket().emit('sesi:kick_peserta', { sessionId: id, pesertaId: pid });
+        }}
+      />
     );
   }
 

@@ -25,6 +25,7 @@ import {
   Shuffle,
   X,
 } from 'lucide-react';
+import RuangTungguGuru from '../guru/RuangTungguGuru';
 
 type KodeTim = 'merah' | 'biru' | 'hijau' | 'kuning';
 
@@ -636,18 +637,39 @@ export default function LayarHostBalapKarung() {
   const winnerTeamName =
     hasilAkhir?.namaTimPemenang || finalLaporanTim[0]?.nama || 'Tim Juara';
 
+  const daftarPeserta = useMemo(() => {
+    return teams.flatMap((t) => t.anggota.map((a) => ({ id: a.id, nama: a.nama, tim: t.id })));
+  }, [teams]);
+
+  if (status === 'lobi') {
+    return (
+      <RuangTungguGuru
+        sessionId={id || ''}
+        token={token || ''}
+        qrDataUrl={qrDataUrl}
+        gameType="balap_karung"
+        gameTitle="Balap Karung"
+        templateJudul={templateJudul}
+        metaDetail={`Balap Karung, ${jumlahTim} tim`}
+        daftarPeserta={daftarPeserta}
+        minPeserta={1}
+        maxPeserta={config?.maxPeserta || 40}
+        isStarting={isStarting}
+        onMulai={handleMulai}
+        onKembali={handleKembaliClick}
+        onKickPeserta={(pid) => {
+          getSocket().emit('sesi:kick_peserta', { sessionId: id, pesertaId: pid });
+        }}
+      />
+    );
+  }
+
   return (
     <div className="bk-festival">
       <BalapKarungStadium
         title="Balap Karung Kuis"
         subtitle={`Multiplayer Tim (${templateJudul})`}
-        statusLabel={
-          status === 'lobi'
-            ? 'Menunggu siswa'
-            : status === 'jalan'
-            ? 'Berlangsung'
-            : 'Selesai'
-        }
+        statusLabel={status === 'jalan' ? 'Berlangsung' : 'Selesai'}
         statusTone={status === 'jalan' ? 'live' : status === 'selesai' ? 'done' : 'idle'}
         targetJarak={targetJarak}
         ruleSummary={`Benar +${config.lompatBenar ?? 10}m · ${
@@ -664,7 +686,7 @@ export default function LayarHostBalapKarung() {
 
       <main className="bk-wrap">
         {/* 1. LOBI PESERTA & PEMBAGIAN TIM */}
-        {status === 'lobi' && (
+        {false && (
           <section className="bk-card mt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Kiri: PIN, QR & Pemilih Jumlah Tim */}

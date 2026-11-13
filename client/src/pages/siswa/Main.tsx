@@ -157,6 +157,18 @@ export default function MainSiswa() {
     }
   }, [terapkanHasilGabung]);
 
+  // Dengarkan event kick dari guru secara global
+  useEffect(() => {
+    const socket = getSocket();
+    const handleDikick = (data?: { pesan?: string }) => {
+      handleKeluar(data?.pesan || 'Anda telah dikeluarkan dari lobi oleh guru.');
+    };
+    socket.on('sesi:dikick', handleDikick);
+    return () => {
+      socket.off('sesi:dikick', handleDikick);
+    };
+  }, []);
+
   // Handler: Siswa Submit PIN (Langkah 1)
   const handleNextToName = (e: React.FormEvent) => {
     e.preventDefault();

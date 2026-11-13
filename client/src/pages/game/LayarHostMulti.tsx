@@ -28,6 +28,7 @@ import {
   X,
 } from 'lucide-react';
 import ModalKonfirmasiKeluar from '../../components/ModalKonfirmasiKeluar';
+import RuangTungguGuru from '../guru/RuangTungguGuru';
 
 interface PesertaTarikMulti {
   id: string;
@@ -387,7 +388,6 @@ export default function LayarHostMulti() {
 
   const handleKickPeserta = (pesertaId: string) => {
     if (!id || busyAction) return;
-    if (!window.confirm('Keluarkan siswa ini dari lobi lomba?')) return;
     getSocket().emit('sesi:kick_peserta', { sessionId: id, pesertaId }, (res: any) => {
       if (res && !res.success) {
         setErrorPesan(res.pesan || 'Gagal mengeluarkan siswa.');
@@ -476,12 +476,34 @@ export default function LayarHostMulti() {
     );
   }
 
-  const namaTim1 = sesi.config?.namaTim1 || 'Tim Merah';
-  const namaTim2 = sesi.config?.namaTim2 || 'Tim Biru';
-  const isPlaying = sesi.status === 'jalan';
-  const isFinished = sesi.status === 'selesai';
-  const winnerSide = isFinished ? sesi.hasil?.timMenang || 'seri' : null;
-  const pinDigits = (sesi.token || '').split('');
+  if (sesi.status === 'lobi') {
+    return (
+      <RuangTungguGuru
+        sessionId={sesi.sessionId}
+        token={sesi.token}
+        qrDataUrl={sesi.qrDataUrl}
+        gameType="tarik_tambang"
+        gameTitle="Tarik Tambang"
+        templateJudul={sesi.templateJudul}
+        metaDetail="Tarik Tambang, 2 tim"
+        daftarPeserta={sesi.daftarPeserta}
+        minPeserta={1}
+        maxPeserta={sesi.config?.maxPeserta || 40}
+        isStarting={busyAction}
+        onMulai={handleMulaiLomba}
+        onKembali={handleKembaliClick}
+        onKickPeserta={handleKickPeserta}
+      />
+    );
+  }
+
+  const currentSesi = sesi;
+  const namaTim1 = currentSesi.config?.namaTim1 || 'Tim Merah';
+  const namaTim2 = currentSesi.config?.namaTim2 || 'Tim Biru';
+  const isPlaying = currentSesi.status === 'jalan';
+  const isFinished = currentSesi.status === 'selesai';
+  const winnerSide = isFinished ? currentSesi.hasil?.timMenang || 'seri' : null;
+  const pinDigits = (currentSesi.token || '').split('');
 
   return (
     <div className="tt-festival">
@@ -489,13 +511,7 @@ export default function LayarHostMulti() {
         title={sesi.templateJudul || 'Tarik Tambang Kuis'}
         subtitle="MULTIPLAYER TIM • LIVE"
         modeChip={`${sesi.daftarPeserta.length}/${sesi.config?.maxPeserta || 40} Siswa`}
-        statusLabel={
-          sesi.status === 'lobi'
-            ? 'LOBI PIN'
-            : sesi.status === 'jalan'
-              ? 'BERLANGSUNG'
-              : 'SELESAI'
-        }
+        statusLabel={sesi.status === 'jalan' ? 'BERLANGSUNG' : 'SELESAI'}
         timeText={formatClock(sisaDetik)}
         timeWarning={isPlaying && sisaDetik <= 15}
         taliPosition={sesi.taliPosition}
@@ -529,14 +545,14 @@ export default function LayarHostMulti() {
         )}
 
         {/* LOBI PIN & QR + PEMBAGIAN TIM */}
-        {sesi.status === 'lobi' && (
+        {sesi && false && (
           <div className="tt-panel space-y-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
               <div>
                 <span className="tt-chip inline-flex items-center gap-1.5 mb-2">
                   <Users className="w-3.5 h-3.5" /> Buka /main di HP Siswa &amp; Masukkan PIN
                 </span>
-                <div className="tt-pin" aria-label={`PIN ${sesi.token}`}>
+                <div className="tt-pin" aria-label={`PIN ${currentSesi.token}`}>
                   {pinDigits.map((d, idx) => (
                     <b key={idx}>{d}</b>
                   ))}
@@ -548,7 +564,7 @@ export default function LayarHostMulti() {
                   </button>
                   <button
                     type="button"
-                    disabled={sesi.daftarPeserta.length < 2 || busyAction}
+                    disabled={currentSesi.daftarPeserta.length < 2 || busyAction}
                     onClick={handleAcakTim}
                     className="tt-btn b sm"
                   >
@@ -558,16 +574,16 @@ export default function LayarHostMulti() {
               </div>
 
               <div className="flex items-center gap-4 justify-start md:justify-end">
-                {sesi.qrDataUrl && (
+                {currentSesi.qrDataUrl && (
                   <img
-                    src={sesi.qrDataUrl}
-                    alt={`QR Gabung ${sesi.token}`}
+                    src={currentSesi.qrDataUrl}
+                    alt={`QR Gabung ${currentSesi.token}`}
                     className="w-28 h-28 bg-white border-4 border-[#2b2a4a] rounded-2xl p-1"
                   />
                 )}
                 <div className="space-y-2">
                   <div className="text-xs font-extrabold text-[#6b6a85]">
-                    {sesi.daftarPeserta.length} siswa bergabung •{' '}
+                    {currentSesi.daftarPeserta.length} siswa bergabung •{' '}
                     {canStart ? 'Siap dimulai!' : 'Butuh min. 1 siswa per tim'}
                   </div>
                   <button
