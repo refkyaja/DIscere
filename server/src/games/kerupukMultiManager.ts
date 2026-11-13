@@ -391,6 +391,47 @@ export const kerupukMultiManager = {
     return p;
   },
 
+  /**
+   * Mengubah jumlah tim (3 atau 4 tim) di lobi permainan Makan Kerupuk Multiplayer.
+   */
+  async ubahJumlahTim(
+    sessionId: string,
+    hostId: string,
+    jumlahTim: 3 | 4
+  ): Promise<{
+    sesi: SesiKerupukMultiActive;
+    leaderboard: PesertaKerupukMultiView[];
+  }> {
+    const sesi = sesiMultiMap.get(sessionId);
+    if (!sesi) {
+      throw new Error('Sesi Makan Kerupuk tidak ditemukan.');
+    }
+    if (sesi.hostId !== hostId) {
+      throw new Error('Hanya guru pemilik sesi yang berhak mengubah jumlah tim.');
+    }
+    if (sesi.status !== 'lobi') {
+      throw new Error('Jumlah tim hanya dapat diubah sebelum lomba dimulai.');
+    }
+
+    const nextCount: 3 | 4 = jumlahTim === 4 ? 4 : 3;
+    sesi.config = Object.freeze({ ...sesi.config, jumlahTim: nextCount });
+
+    await prisma.session.update({
+      where: { id: sesi.sessionId },
+      data: {
+        konfigurasi: JSON.stringify({
+          playMode: 'MULTIPLAYER',
+          config: sesi.config,
+        }),
+      },
+    }).catch(() => {});
+
+    return {
+      sesi,
+      leaderboard: this.dapatkanLeaderboard(sessionId),
+    };
+  },
+
   mulaiPermainan(sessionId: string, hostId: string): SesiKerupukMultiActive {
     const sesi = sesiMultiMap.get(sessionId);
     if (!sesi || sesi.hostId !== hostId) {

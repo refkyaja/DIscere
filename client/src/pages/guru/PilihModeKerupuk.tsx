@@ -86,6 +86,7 @@ export default function PilihModeKerupuk() {
   // Pengaturan Khusus Multiplayer
   const [maxPeserta, setMaxPeserta] = useState<number>(40);
   const [allowLateJoin, setAllowLateJoin] = useState<boolean>(true);
+  const [jumlahTim, setJumlahTim] = useState<3 | 4>(3);
 
   useEffect(() => {
     let active = true;
@@ -222,6 +223,7 @@ export default function PilihModeKerupuk() {
                   ...baseKerupuk,
                   maxPeserta,
                   allowLateJoin,
+                  jumlahTim,
                 },
               }),
         }),
@@ -396,9 +398,43 @@ export default function PilihModeKerupuk() {
                   <GameConfigCardHeader
                     icon={<UserCheck className="w-4 h-4 text-[#1d3b2e]" />}
                     title="Pengaturan Peserta & Lobi"
-                    tagLabel={`${maxPeserta} Siswa`}
+                    tagLabel={`${jumlahTim} Tim • ${maxPeserta} Siswa`}
                     tagColor="green"
                   />
+
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-[#6b7d6c] block mb-1.5">
+                      Jumlah Tim Lomba (Bisa Diubah Lagi di Lobi)
+                    </label>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {([3, 4] as const).map((n) => {
+                        const active = jumlahTim === n;
+                        return (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => setJumlahTim(n)}
+                            className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+                              active
+                                ? 'bg-[#1d3b2e] text-[#f4ecd8] border-[#1d3b2e] shadow-xs'
+                                : 'bg-[#fffdf6] text-[#1d3b2e] border-[#e0d5b8] hover:border-[#1d3b2e]/50'
+                            }`}
+                          >
+                            <div className="font-extrabold text-xs">{n} Tim Seimbang</div>
+                            <div
+                              className={`text-[10px] mt-0.5 ${
+                                active ? 'text-[#cfd9c3]' : 'text-[#6b7d6c]'
+                              }`}
+                            >
+                              {n === 3
+                                ? 'Merah · Biru · Hijau'
+                                : 'Merah · Biru · Hijau · Kuning'}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
 
                   <div>
                     <label className="text-xs font-bold uppercase tracking-wider text-[#6b7d6c] block mb-1.5">

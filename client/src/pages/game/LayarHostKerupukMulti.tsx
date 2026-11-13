@@ -16,7 +16,7 @@ import {
 import '../../components/kerupukFestival.css';
 import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import { HasilGachaGigitanProps } from '../siswa/KerupukVirtual';
-import { Copy, Check, RotateCcw, Shuffle, X, Users, Trophy } from 'lucide-react';
+import { Copy, Check, RotateCcw, Shuffle, X, Users, Trophy, ArrowLeft } from 'lucide-react';
 
 export interface PesertaMultiHost {
   peringkat?: number;
@@ -60,6 +60,7 @@ export interface SesiKerupukMultiClient {
     kesulitan: string;
     maxPeserta: number;
     allowLateJoin: boolean;
+    jumlahTim?: 3 | 4;
   };
   leaderboard?: PesertaMultiHost[];
   daftarPeserta?: PesertaMultiHost[];
@@ -100,6 +101,11 @@ export default function LayarHostKerupukMulti({
   const [liveFeed, setLiveFeed] = useState<Array<{ id: string; teks: string; tipe: string }>>([]);
   const [hasilAkhir, setHasilAkhir] = useState<any>(initialSession.hasil || null);
 
+  const [jumlahTim, setJumlahTim] = useState<3 | 4>(
+    initialSession.config?.jumlahTim === 4 ? 4 : 3
+  );
+  const [isChangingTeamCount, setIsChangingTeamCount] = useState(false);
+
   // Waktu & aksi host
   const [timeRemaining, setTimeRemaining] = useState<number>(180); // 3 menit default
   const [actionPulse, setActionPulse] = useState<KerupukActionPulse | null>(null);
@@ -120,7 +126,7 @@ export default function LayarHostKerupukMulti({
   const timerRef = useRef<number | null>(null);
 
   // Bagikan siswa ke 3 atau 4 tim secara adil
-  const numTeams = totalPeserta >= 10 ? 4 : 3;
+  const numTeams = jumlahTim;
   const activeTeamDefs = useMemo(() => TEAM_DEFS.slice(0, numTeams), [numTeams]);
 
   // Kelompokkan siswa ke dalam tim
@@ -157,11 +163,15 @@ export default function LayarHostKerupukMulti({
       totalPeserta: number;
       leaderboard?: PesertaMultiHost[];
       daftarPeserta?: PesertaMultiHost[];
+      config?: any;
     }) => {
       if (data.game && data.game !== 'makan_kerupuk') return;
       setTotalPeserta(data.totalPeserta);
       const list = data.leaderboard || data.daftarPeserta;
       if (list) setLeaderboard(list);
+      if (data.config?.jumlahTim) {
+        setJumlahTim(data.config.jumlahTim === 4 ? 4 : 3);
+      }
     };
 
     const handleGameMulai = (data: { game?: string }) => {
@@ -300,18 +310,52 @@ export default function LayarHostKerupukMulti({
     });
   };
 
+  const handleUbahJumlahTim = (nextJumlah: 3 | 4) => {
+    if (!id || status !== 'lobi' || isChangingTeamCount) return;
+    setIsChangingTeamCount(true);
+    const socket = getSocket();
+    socket.emit(
+      'kerupuk:ubah_jumlah_tim',
+      { sessionId: id, jumlahTim: nextJumlah },
+      (res: {
+        success?: boolean;
+        pesan?: string;
+        config?: any;
+        leaderboard?: PesertaMultiHost[];
+      }) => {
+        setIsChangingTeamCount(false);
+        if (res?.success) {
+          setJumlahTim(nextJumlah);
+          if (res.leaderboard) {
+            setLeaderboard(res.leaderboard);
+          }
+        } else if (res?.pesan) {
+          alert(res.pesan);
+        }
+      }
+    );
+  };
+
+  const getSafeReturnUrl = () => {
+    const raw = returnUrl || effectiveReturnUrl;
+    if (raw && raw !== window.location.pathname && !raw.startsWith('/guru/sesi/')) {
+      return raw;
+    }
+    return modeSelectUrl;
+  };
+
   const handleKembaliClick = () => {
     if (status === 'jalan') {
       setModalKeluarOpen(true);
     } else {
-      navigate(effectiveReturnUrl);
+      navigate(getSafeReturnUrl());
     }
   };
 
   const handleKonfirmasiKeluar = () => {
     setModalKeluarOpen(false);
     handleKonfirmasiAkhiri();
-    navigate(effectiveReturnUrl);
+    navigate(getSafeReturnUrl());
   };
 
   const handleAcakUrutan = () => {
@@ -350,7 +394,10 @@ export default function LayarHostKerupukMulti({
       const res = await apiRequest<{ sessionId: string }>(`/sesi/${id}/main-lagi`, {
         method: 'POST',
       });
-      navigate(`/guru/sesi/${res.sessionId}`, { replace: true });
+      const safeBack = getSafeReturnUrl();
+      navigate(`/guru/sesi/${res.sessionId}?kembali=${encodeURIComponent(safeBack)}`, {
+        replace: true,
+      });
       window.location.reload();
     } catch (err: any) {
       alert(err.pesan || 'Gagal membuat sesi baru.');
@@ -534,13 +581,20 @@ export default function LayarHostKerupukMulti({
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
               {/* Kolom Kiri: PIN & QR Code */}
               <div className="md:col-span-5 space-y-4">
-                <div>
+                <div className="flex items-center justify-between gap-2">
                   <h2 className="text-2xl font-extrabold text-[#0f3d2e]">Siswa gabung lewat HP</h2>
-                  <p className="text-xs text-[#6d7a6f] mt-1 leading-relaxed">
-                    Masukkan PIN atau pindai QR, lalu tulis nama. Siswa dibagi ke {numTeams} tim: satu
-                    tim satu avatar dan satu kerupuk bersama.
-                  </p>
+                  <button
+                    type="button"
+                    onClick={handleKembaliClick}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-xl border border-red-300 text-red-600 hover:bg-red-50 bg-white transition-colors cursor-pointer"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" /> Kembali
+                  </button>
                 </div>
+                <p className="text-xs text-[#6d7a6f] leading-relaxed">
+                  Masukkan PIN atau pindai QR, lalu tulis nama. Siswa dibagi ke {numTeams} tim: satu
+                  tim satu avatar dan satu kerupuk bersama.
+                </p>
 
                 <div className="space-y-3">
                   <div className="text-xs font-bold text-[#6d7a6f] uppercase tracking-wider">
@@ -583,19 +637,43 @@ export default function LayarHostKerupukMulti({
 
               {/* Kolom Kanan: Tim & Siswa Bergabung */}
               <div className="md:col-span-7 space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <h3 className="text-lg font-extrabold text-[#0f3d2e] flex items-center gap-2">
                     <Users className="w-5 h-5 text-[#1d8fe0]" />
                     <span>Daftar Tim ({totalPeserta} siswa)</span>
                   </h3>
-                  <button
-                    type="button"
-                    onClick={handleAcakUrutan}
-                    disabled={totalPeserta === 0}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#e6d3ae] bg-white hover:bg-[#f6ead4] text-xs font-extrabold text-[#0f3d2e] cursor-pointer disabled:opacity-50"
-                  >
-                    <Shuffle className="w-3.5 h-3.5" /> Acak Tim
-                  </button>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1 bg-[#f6ead4] p-1 rounded-xl border border-[#e6d3ae]">
+                      {([3, 4] as const).map((n) => {
+                        const active = jumlahTim === n;
+                        return (
+                          <button
+                            key={n}
+                            type="button"
+                            disabled={isChangingTeamCount}
+                            onClick={() => handleUbahJumlahTim(n)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                              active
+                                ? 'bg-[#0f3d2e] text-[#fffaf0] shadow-xs'
+                                : 'text-[#0f3d2e] hover:bg-white/60'
+                            }`}
+                          >
+                            {n} Tim
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleAcakUrutan}
+                      disabled={totalPeserta === 0}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#e6d3ae] bg-white hover:bg-[#f6ead4] text-xs font-extrabold text-[#0f3d2e] cursor-pointer disabled:opacity-50"
+                    >
+                      <Shuffle className="w-3.5 h-3.5" /> Acak Tim
+                    </button>
+                  </div>
                 </div>
 
                 {/* Kartu Pembagian Tim */}

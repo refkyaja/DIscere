@@ -614,6 +614,7 @@ const buatSesiSchema = z.object({
   maxPeserta: z.number().int().min(1).max(200).optional(),
   durasiSoalDetik: z.number().int().min(5).max(120).optional(),
   allowLateJoin: z.boolean().optional(),
+  jumlahTim: z.union([z.literal(3), z.literal(4)]).optional(),
 });
 
 sesiRouter.post('/', async (req: AuthRequest, res: Response) => {
@@ -886,6 +887,7 @@ sesiRouter.post('/', async (req: AuthRequest, res: Response) => {
           ...(parsed.probabilitas ? { probabilitas: parsed.probabilitas } : {}),
           ...(parsed.maxPeserta ? { maxPeserta: parsed.maxPeserta } : {}),
           ...(parsed.allowLateJoin !== undefined ? { allowLateJoin: parsed.allowLateJoin } : {}),
+          jumlahTim: parsed.kerupukMultiConfig?.jumlahTim || parsed.jumlahTim || 3,
         });
 
         const token = await generateTokenUnikSemuaGame();
@@ -1442,6 +1444,20 @@ sesiRouter.patch('/:id/pengaturan', async (req: AuthRequest, res: Response) => {
         config: updatedMulti.sesi.config,
         teams: updatedMulti.teams,
         leaderboard: updatedMulti.leaderboard,
+      });
+    }
+
+    const activeKerupukMulti = kerupukMultiManager.dapatkanSesi(id);
+    if (activeKerupukMulti && (jumlahTim === 3 || jumlahTim === 4)) {
+      const updatedKerupuk = await kerupukMultiManager.ubahJumlahTim(
+        id,
+        req.user!.id,
+        jumlahTim
+      );
+      return res.json({
+        pesan: `Jumlah tim diperbarui menjadi ${jumlahTim} tim.`,
+        config: updatedKerupuk.sesi.config,
+        leaderboard: updatedKerupuk.leaderboard,
       });
     }
 

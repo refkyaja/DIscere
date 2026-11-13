@@ -1197,6 +1197,61 @@ export function setupMultiplayerSocket(io: Server) {
       }
     );
 
+    // 2c. Host mengubah jumlah tim (3 atau 4 tim) di Lobi Makan Kerupuk Multiplayer
+    socket.on(
+      'kerupuk:ubah_jumlah_tim',
+      async (
+        data: { sessionId: string; hostId?: string; jumlahTim: 3 | 4 },
+        callback?: (res: any) => void
+      ) => {
+        try {
+          const parsed = ubahJumlahTimPayloadSchema.safeParse(data || {});
+          if (!parsed.success) {
+            callback?.({
+              success: false,
+              pesan: parsed.error.issues[0]?.message || 'Data perubahan jumlah tim tidak valid.',
+            });
+            return;
+          }
+          const { sessionId, jumlahTim } = parsed.data;
+          let sesiKerupuk = kerupukMultiManager.dapatkanSesi(sessionId);
+          if (!sesiKerupuk) {
+            sesiKerupuk = (await kerupukMultiManager.pulihkanSesiDariDb(sessionId)) || undefined;
+          }
+          if (!sesiKerupuk) {
+            callback?.({ success: false, pesan: 'Sesi Makan Kerupuk tidak ditemukan.' });
+            return;
+          }
+          const auth = pastikanHostSesi(socket, sesiKerupuk.hostId);
+          if (!auth.ok) {
+            callback?.({ success: false, pesan: auth.pesan });
+            return;
+          }
+
+          const updated = await kerupukMultiManager.ubahJumlahTim(
+            sessionId,
+            auth.userId,
+            jumlahTim
+          );
+          const roomName = `session:${sesiKerupuk.sessionId}`;
+          io.to(roomName).emit('lobi:update', {
+            game: 'makan_kerupuk',
+            totalPeserta: updated.sesi.peserta.size,
+            config: updated.sesi.config,
+            leaderboard: updated.leaderboard,
+            daftarPeserta: updated.leaderboard,
+          });
+          callback?.({
+            success: true,
+            config: updated.sesi.config,
+            leaderboard: updated.leaderboard,
+          });
+        } catch (err: any) {
+          callback?.({ success: false, pesan: err.message || 'Gagal mengubah jumlah tim.' });
+        }
+      }
+    );
+
     // 3. Guru menekan tombol "Mulai Permainan"
     socket.on(
       'sesi:mulai',

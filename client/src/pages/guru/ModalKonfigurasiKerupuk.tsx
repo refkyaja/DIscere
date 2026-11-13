@@ -32,6 +32,7 @@ export interface KonfigurasiKerupukPayload {
   probabilitas: ProbabilitasConfig;
   maxPeserta?: number;
   allowLateJoin?: boolean;
+  jumlahTim?: 3 | 4;
 }
 
 interface ModalKonfigurasiKerupukProps {
@@ -103,6 +104,7 @@ export default function ModalKonfigurasiKerupuk({
   // Pengaturan khusus Multiplayer
   const [maxPeserta, setMaxPeserta] = useState<number>(40);
   const [allowLateJoin, setAllowLateJoin] = useState<boolean>(true);
+  const [jumlahTim, setJumlahTim] = useState<3 | 4>(3);
 
   useEffect(() => {
     if (isOpen) {
@@ -113,6 +115,7 @@ export default function ModalKonfigurasiKerupuk({
       setProbabilitas({ ...PRESET_DATA.normal.probabilitas });
       setMaxPeserta(40);
       setAllowLateJoin(true);
+      setJumlahTim(3);
     }
   }, [isOpen, defaultPlayMode]);
 
@@ -163,7 +166,7 @@ export default function ModalKonfigurasiKerupuk({
       targetPreset,
       kesulitan,
       probabilitas,
-      ...(playMode === 'MULTIPLAYER' ? { maxPeserta, allowLateJoin } : {}),
+      ...(playMode === 'MULTIPLAYER' ? { maxPeserta, allowLateJoin, jumlahTim } : {}),
     });
   };
 
@@ -447,36 +450,70 @@ export default function ModalKonfigurasiKerupuk({
 
         {/* 4. Pengaturan Tambahan Khusus Multiplayer */}
         {playMode === 'MULTIPLAYER' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          <div className="space-y-3 pt-1">
             <div className="bg-[#fcf8ed] border border-[#e0d5b8] p-3 rounded-xl">
-              <label className="text-xs font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-[#1d3b2e]" /> Kapasitas Siswa
+              <label className="text-xs font-bold uppercase tracking-wider mb-1.5 block">
+                Jumlah Tim Lomba (3 atau 4 Tim)
               </label>
-              <select
-                value={maxPeserta}
-                onChange={(e) => setMaxPeserta(parseInt(e.target.value, 10))}
-                className="w-full p-2 bg-white border border-[#e0d5b8] rounded-lg text-xs font-bold text-[#1d3b2e]"
-              >
-                <option value={20}>20 Siswa</option>
-                <option value={30}>30 Siswa</option>
-                <option value={40}>40 Siswa (Standar 1 Kelas)</option>
-              </select>
+              <div className="grid grid-cols-2 gap-2">
+                {([3, 4] as const).map((n) => {
+                  const active = jumlahTim === n;
+                  return (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setJumlahTim(n)}
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                        active
+                          ? 'bg-[#1d3b2e] text-white border-[#1d3b2e] shadow-xs'
+                          : 'bg-white text-[#1d3b2e] border-[#e0d5b8] hover:border-[#1d3b2e]/50'
+                      }`}
+                    >
+                      <div className="text-xs font-extrabold">{n} Tim Seimbang</div>
+                      <div
+                        className={`text-[10px] mt-0.5 ${
+                          active ? 'text-white/80' : 'text-[#6b7d6c]'
+                        }`}
+                      >
+                        {n === 3 ? 'Merah · Biru · Hijau' : 'Merah · Biru · Hijau · Kuning'}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            <div className="flex items-center justify-between bg-[#fcf8ed] border border-[#e0d5b8] p-3 rounded-xl">
-              <div className="flex items-center gap-2">
-                <UserCheck className="w-4 h-4 text-[#1d3b2e] shrink-0" />
-                <div>
-                  <p className="text-xs font-bold text-[#1d3b2e]">Siswa Susulan</p>
-                  <p className="text-[11px] text-[#6b7d6c]">Bisa gabung setelah dimulai</p>
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="bg-[#fcf8ed] border border-[#e0d5b8] p-3 rounded-xl">
+                <label className="text-xs font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-[#1d3b2e]" /> Kapasitas Siswa
+                </label>
+                <select
+                  value={maxPeserta}
+                  onChange={(e) => setMaxPeserta(parseInt(e.target.value, 10))}
+                  className="w-full p-2 bg-white border border-[#e0d5b8] rounded-lg text-xs font-bold text-[#1d3b2e]"
+                >
+                  <option value={20}>20 Siswa</option>
+                  <option value={30}>30 Siswa</option>
+                  <option value={40}>40 Siswa (Standar 1 Kelas)</option>
+                </select>
               </div>
-              <input
-                type="checkbox"
-                checked={allowLateJoin}
-                onChange={(e) => setAllowLateJoin(e.target.checked)}
-                className="w-4 h-4 accent-[#1d3b2e] cursor-pointer"
-              />
+
+              <div className="flex items-center justify-between bg-[#fcf8ed] border border-[#e0d5b8] p-3 rounded-xl">
+                <div className="flex items-center gap-2">
+                  <UserCheck className="w-4 h-4 text-[#1d3b2e] shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold text-[#1d3b2e]">Siswa Susulan</p>
+                    <p className="text-[11px] text-[#6b7d6c]">Bisa gabung setelah dimulai</p>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={allowLateJoin}
+                  onChange={(e) => setAllowLateJoin(e.target.checked)}
+                  className="w-4 h-4 accent-[#1d3b2e] cursor-pointer"
+                />
+              </div>
             </div>
           </div>
         )}

@@ -54,6 +54,7 @@ export interface KonfigurasiKerupukSolo {
 export interface KonfigurasiKerupukMulti extends KonfigurasiKerupukSolo {
   maxPeserta: number;
   allowLateJoin: boolean;
+  jumlahTim: 3 | 4;
 }
 
 export interface HasilGachaGigitan {
@@ -211,8 +212,11 @@ export const konfigurasiKerupukMultiSchema = konfigurasiKerupukSoloSchema.extend
     .int('Kapasitas peserta harus berupa bilangan bulat.')
     .min(5, 'Kapasitas peserta minimal 5 siswa.')
     .max(200, 'Kapasitas peserta maksimal 200 siswa.')
-    .default(45),
+    .default(40),
   allowLateJoin: z.boolean().default(true),
+  jumlahTim: z
+    .preprocess((v) => (v === 4 || v === '4' ? 4 : 3), z.union([z.literal(3), z.literal(4)]))
+    .default(3),
 });
 
 export function validasiProbabilitas(prob: ProbabilitasConfig): {
@@ -307,19 +311,22 @@ export function bangunKonfigurasiKerupukMulti(
     probabilitas: ProbabilitasConfig;
     maxPeserta: number;
     allowLateJoin: boolean;
+    jumlahTim: 3 | 4;
   }>
 ): KonfigurasiKerupukMulti {
   const base = bangunKonfigurasiKerupukSolo(input);
   const maxPeserta =
     typeof input?.maxPeserta === 'number' && Number.isInteger(input.maxPeserta)
       ? Math.max(5, Math.min(200, input.maxPeserta))
-      : 45;
+      : 40;
   const allowLateJoin = input?.allowLateJoin ?? true;
+  const jumlahTim: 3 | 4 = input?.jumlahTim === 4 ? 4 : 3;
 
   return Object.freeze({
     ...base,
     maxPeserta,
     allowLateJoin,
+    jumlahTim,
   });
 }
 
