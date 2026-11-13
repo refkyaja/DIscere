@@ -634,7 +634,8 @@ class MultiSessionManager {
       p.nomorSoalPemain = 0;
       p.antreanSoal = [];
       p.riwayatJawaban = [];
-      this.siapkanSoalUntukPesertaInternal(sesi, p);
+      p.presentasiAktif = null;
+      p.questionEndsAtMs = 0;
     }
 
     return sesi;
@@ -644,13 +645,18 @@ class MultiSessionManager {
     const sesi = this.sessions.get(sessionId);
     if (!sesi || sesi.status !== 'jalan') return null;
     const p = sesi.peserta.get(pesertaId);
-    if (!p || !p.presentasiAktif) return null;
+    if (!p) return null;
+    if (!p.presentasiAktif) {
+      this.siapkanSoalUntukPesertaInternal(sesi, p);
+    }
+    if (!p.presentasiAktif) return null;
     return {
       game: 'tarik_tambang' as const,
       ...serialisasiSoalUntukClient(p.presentasiAktif),
       endsAt: p.questionEndsAtMs || Date.now() + sesi.config.waktuPerSoalDetik * 1000,
       duration: sesi.config.waktuPerSoalDetik,
       matchEndsAt: sesi.matchEndsAtMs,
+      serverNowMs: Date.now(),
     };
   }
 
@@ -666,6 +672,7 @@ class MultiSessionManager {
       endsAt: p.questionEndsAtMs || Date.now() + sesi.config.waktuPerSoalDetik * 1000,
       duration: sesi.config.waktuPerSoalDetik,
       matchEndsAt: sesi.matchEndsAtMs,
+      serverNowMs: Date.now(),
     };
   }
 

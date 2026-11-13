@@ -46,6 +46,8 @@ export interface SoalBalapData {
   ditampilkanPadaMs?: number;
   waktuPerSoalDetik?: number;
   berakhirPadaMs?: number;
+  serverNowMs?: number;
+  serverOffsetMs?: number;
 }
 
 export interface PesertaBalapData {
@@ -135,7 +137,7 @@ export default function MainBalapKarung({
 }: MainBalapKarungProps) {
   const [activeConfig, setActiveConfig] = useState(config || {});
   const targetJarak = activeConfig?.targetJarak ?? initialPesertaState?.targetJarak ?? 100;
-  const defaultTimerDetik = Math.max(5, activeConfig?.waktuPerSoalDetik ?? 10);
+  const defaultTimerDetik = Math.max(5, activeConfig?.waktuPerSoalDetik ?? 15);
 
   const [stage, setStage] = useState<'LOBBY' | 'PLAYING' | 'SELESAI'>(
     initialStatus === 'jalan' ? 'PLAYING' : initialStatus === 'selesai' ? 'SELESAI' : 'LOBBY'
@@ -262,7 +264,11 @@ export default function MainBalapKarung({
 
     const handleSoalTampil = (data: SoalBalapData) => {
       watchdogsRef.current.clearAll();
-      setSoalAktif(data);
+      const serverOffsetMs = typeof data.serverNowMs === 'number' ? data.serverNowMs - Date.now() : 0;
+      setSoalAktif({
+        ...data,
+        serverOffsetMs,
+      });
       setChoiceDipilih(null);
       setSudahKirim(false);
       setFeedback(null);
@@ -538,8 +544,13 @@ export default function MainBalapKarung({
 
   const soalDurasiSec = Math.max(5, soalAktif?.waktuPerSoalDetik || defaultTimerDetik);
   const initialSoalRemainingMs = useMemo(
-    () => computeInitialRemainingMs(soalAktif?.berakhirPadaMs, soalDurasiSec),
-    [soalAktif?.presentationId, soalAktif?.berakhirPadaMs, soalDurasiSec]
+    () =>
+      computeInitialRemainingMs(
+        soalAktif?.berakhirPadaMs,
+        soalDurasiSec,
+        soalAktif?.serverOffsetMs || 0
+      ),
+    [soalAktif?.presentationId, soalAktif?.berakhirPadaMs, soalDurasiSec, soalAktif?.serverOffsetMs]
   );
 
   // =========================================================================
@@ -563,7 +574,14 @@ export default function MainBalapKarung({
         }))}
         myTeamId={myTeam?.id}
         onKeluar={onKeluar}
-        onMulaiPermainan={() => setStage('PLAYING')}
+        onMulaiPermainan={() => {
+          try {
+            getSocket().emit('siswa:siap_soal', { sessionId, pesertaId, token });
+          } catch (err) {
+            console.error('[siswa:siap_soal error]', err);
+          }
+          setStage('PLAYING');
+        }}
       />
     );
   }

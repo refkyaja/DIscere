@@ -34,6 +34,7 @@ export interface SoalPublikBalap {
   ditampilkanPadaMs: number;
   waktuPerSoalDetik?: number;
   berakhirPadaMs?: number;
+  serverNowMs?: number;
 }
 
 export interface TeamBalapState {
@@ -444,6 +445,7 @@ function formatPresentasiPublik(
     ditampilkanPadaMs: pres.ditampilkanPadaMs,
     waktuPerSoalDetik,
     berakhirPadaMs: pres.ditampilkanPadaMs + waktuPerSoalDetik * 1000,
+    serverNowMs: Date.now(),
   };
 }
 

@@ -50,6 +50,8 @@ export interface SoalTarikData {
   endsAt?: number;
   duration?: number;
   matchEndsAt?: number | null;
+  serverNowMs?: number;
+  serverOffsetMs?: number;
 }
 
 export interface PesertaStatTarik {
@@ -297,10 +299,12 @@ export default function MainTarikTambang({
     const handleSoalTampil = (data: SoalTarikData & { game?: string }) => {
       if (data.game && data.game !== 'tarik_tambang') return;
       watchdogsRef.current.clearAll();
+      const serverOffsetMs = typeof data.serverNowMs === 'number' ? data.serverNowMs - Date.now() : 0;
       setSoalAktif({
         ...data,
         id: data.id || data.questionId,
         questionId: data.questionId || data.id || '',
+        serverOffsetMs,
       });
       if (data.matchEndsAt) setMatchEndsAt(data.matchEndsAt);
       setPickedChoiceId(null);
@@ -655,9 +659,10 @@ export default function MainTarikTambang({
     () =>
       computeInitialRemainingMs(
         soalAktif?.endsAt,
-        Number(soalAktif?.duration || defaultQuestionSec)
+        Number(soalAktif?.duration || defaultQuestionSec),
+        soalAktif?.serverOffsetMs || 0
       ),
-    [soalAktif?.presentationId, soalAktif?.endsAt, soalAktif?.duration, defaultQuestionSec]
+    [soalAktif?.presentationId, soalAktif?.endsAt, soalAktif?.duration, soalAktif?.serverOffsetMs, defaultQuestionSec]
   );
 
   // =========================================================================
@@ -675,7 +680,14 @@ export default function MainTarikTambang({
         daftarPeserta={daftarPeserta.map((p) => ({ id: p.id, nama: p.nama, tim: p.tim }))}
         myTeamId={myTim}
         onKeluar={onKeluar}
-        onMulaiPermainan={() => setStage('PLAYING')}
+        onMulaiPermainan={() => {
+          try {
+            getSocket().emit('siswa:siap_soal', { sessionId, pesertaId, token });
+          } catch (err) {
+            console.error('[siswa:siap_soal error]', err);
+          }
+          setStage('PLAYING');
+        }}
       />
     );
   }

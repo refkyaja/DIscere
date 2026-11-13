@@ -521,10 +521,19 @@ export default function RuangTungguSiswa({
 
       await waitMs(1000);
 
-      // 3. BARU MASUK KE SOALNYA
+      // 3. BARU MASUK KE SOALNYA: Beri tahu server bahwa animasi selesai dan siswa siap menerima soal pertama
+      try {
+        const socket = getSocket();
+        socket.emit('siswa:siap_soal', {
+          token,
+          pesertaId,
+        });
+      } catch (err) {
+        console.error('[siswa:siap_soal error]', err);
+      }
       onMulaiPermainan();
     })();
-  }, [teamGroups, listPesertaTampil, detectedMyTeam, pesertaId, nama, onMulaiPermainan]);
+  }, [teamGroups, listPesertaTampil, detectedMyTeam, pesertaId, nama, token, onMulaiPermainan]);
 
   jalankanTransisiMulaiRef.current = jalankanTransisiMulai;
 

@@ -1,14 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { Clock } from 'lucide-react';
 
-/** Menghitung sisa waktu awal soal (ms) berdasar batas akhir server agar sinkron saat mount/reconnect. */
+/** Menghitung sisa waktu awal soal (ms) berdasar batas akhir server agar sinkron saat mount/reconnect dan terkoreksi dari clock skew. */
 export function computeInitialRemainingMs(
   deadlineMs: number | null | undefined,
-  durationSec: number
+  durationSec: number,
+  serverOffsetMs: number = 0
 ): number {
   const fullMs = Math.max(5, Number(durationSec) || 10) * 1000;
-  if (typeof deadlineMs === 'number' && deadlineMs > Date.now()) {
-    return Math.min(fullMs, Math.max(0, deadlineMs - Date.now()));
+  if (typeof deadlineMs === 'number') {
+    const correctedNow = Date.now() + (Number(serverOffsetMs) || 0);
+    if (deadlineMs > correctedNow) {
+      return Math.min(fullMs, Math.max(0, deadlineMs - correctedNow));
+    }
   }
   return fullMs;
 }

@@ -65,6 +65,7 @@ const pendingNextSoalKerupukTimers = new Map<string, NodeJS.Timeout>();
 const pendingNextSoalTarikTimers = new Map<string, NodeJS.Timeout>();
 const tarikQuestionTimeoutTimers = new Map<string, NodeJS.Timeout>();
 const tarikMatchTimers = new Map<string, NodeJS.Timeout>();
+const pendingFirstQuestionTimers = new Map<string, NodeJS.Timeout>();
 
 function clearPendingTimersForPeserta(
   timerMap: Map<string, NodeJS.Timeout>,
@@ -104,6 +105,12 @@ export function bersihkanTimerSesi(sessionId: string): void {
   if (sesiTarik) {
     clearPendingTimersForPeserta(pendingNextSoalTarikTimers, sesiTarik.peserta.keys());
     clearPendingTimersForPeserta(tarikQuestionTimeoutTimers, sesiTarik.peserta.keys());
+  }
+  for (const [key, timer] of pendingFirstQuestionTimers.entries()) {
+    if (key.startsWith(`${sessionId}:`)) {
+      clearTimeout(timer);
+      pendingFirstQuestionTimers.delete(key);
+    }
   }
 }
 
@@ -1403,18 +1410,32 @@ export function setupMultiplayerSocket(io: Server) {
               leaderboard: leaderboardAwal,
             });
 
+            // Jangan langsung menstempel deadline soal pertama saat game:mulai.
+            // Tunggu sinyal 'siswa:siap_soal' setelah animasi lobi murid selesai,
+            // dengan batas aman fallback 25 detik agar tidak macet bila murid offline.
             for (const p of sesi.peserta.values()) {
               if (p.connected && p.socketId) {
-                const soalData = balapKarungManager.ambilSoalBerikutnyaUntukPeserta(
-                  sesi.sessionId,
-                  p.id
-                );
-                if (soalData) {
-                  io.to(p.socketId).emit('soal:tampil', {
-                    game: 'balap_karung',
-                    ...soalData,
-                  });
-                }
+                const timerKey = `${sesi.sessionId}:${p.id}`;
+                const existing = pendingFirstQuestionTimers.get(timerKey);
+                if (existing) clearTimeout(existing);
+
+                const fallbackTimer = setTimeout(() => {
+                  pendingFirstQuestionTimers.delete(timerKey);
+                  const sesiNow = balapKarungManager.dapatkanSesi(sesi.sessionId);
+                  if (!sesiNow || sesiNow.status !== 'jalan') return;
+                  const pNow = sesiNow.peserta.get(p.id);
+                  if (!pNow || !pNow.connected || !pNow.socketId) return;
+                  const soalData =
+                    balapKarungManager.dapatkanSoalAktifPeserta(sesi.sessionId, pNow.id) ||
+                    balapKarungManager.ambilSoalBerikutnyaUntukPeserta(sesi.sessionId, pNow.id);
+                  if (soalData) {
+                    io.to(pNow.socketId).emit('soal:tampil', {
+                      game: 'balap_karung',
+                      ...soalData,
+                    });
+                  }
+                }, 25000);
+                pendingFirstQuestionTimers.set(timerKey, fallbackTimer);
               }
             }
 
@@ -1572,6 +1593,66 @@ export function setupMultiplayerSocket(io: Server) {
           callback?.({ success: true, status: 'jalan', pesan: 'Permainan dimulai!' });
         } catch (err: any) {
           callback?.({ success: false, pesan: err.message || 'Gagal memulai permainan.' });
+        }
+      }
+    );
+
+    // 3b. Sinyal siswa siap menerima soal pertama (setelah animasi countdown/acak nama selesai)
+    socket.on(
+      'siswa:siap_soal',
+      (data: { sessionId?: string; pesertaId?: string; token?: string }) => {
+        try {
+          let sessionId = data?.sessionId;
+          const pesertaId = data?.pesertaId;
+          if (!sessionId && data?.token) {
+            const sesiB = balapKarungManager.dapatkanSesiDariToken(data.token);
+            const sesiT = multiManager.dapatkanSesiDariToken(data.token);
+            sessionId = sesiB?.sessionId || sesiT?.sessionId;
+          }
+          if (!sessionId || !pesertaId) return;
+
+          const timerKey = `${sessionId}:${pesertaId}`;
+          const pendingTimer = pendingFirstQuestionTimers.get(timerKey);
+          if (pendingTimer) {
+            clearTimeout(pendingTimer);
+            pendingFirstQuestionTimers.delete(timerKey);
+          }
+
+          // A. Sesi Balap Karung
+          const sesiBalap = balapKarungManager.dapatkanSesi(sessionId);
+          if (sesiBalap && sesiBalap.status === 'jalan') {
+            const p = sesiBalap.peserta.get(pesertaId);
+            if (p && p.connected) {
+              const targetSocketId = p.socketId || socket.id;
+              const soalData =
+                balapKarungManager.dapatkanSoalAktifPeserta(sessionId, pesertaId) ||
+                balapKarungManager.ambilSoalBerikutnyaUntukPeserta(sessionId, pesertaId);
+              if (soalData && targetSocketId) {
+                io.to(targetSocketId).emit('soal:tampil', {
+                  game: 'balap_karung',
+                  ...soalData,
+                });
+              }
+            }
+            return;
+          }
+
+          // B. Sesi Tarik Tambang
+          const sesiTarik = multiManager.dapatkanSesi(sessionId);
+          if (sesiTarik && sesiTarik.status === 'jalan') {
+            const p = sesiTarik.peserta.get(pesertaId);
+            if (p && p.connected) {
+              const targetSocketId = p.socketId || socket.id;
+              const soalData = multiManager.dapatkanSoalAktifPeserta(sessionId, pesertaId);
+              if (soalData && targetSocketId) {
+                io.to(targetSocketId).emit('soal:tampil', soalData);
+                armTarikQuestionTimeout(io, sesiTarik, p.id, soalData.presentationId, soalData.endsAt);
+              }
+            }
+            return;
+          }
+        } catch (err) {
+          console.error('[siswa:siap_soal error]:', err);
         }
       }
     );
@@ -2817,14 +2898,28 @@ async function mulaiMatchTarikTambang(io: Server, sesi: SesiMultiplayerActive): 
   await sinkronkanRoomTimTarikTambang(io, sesi);
   armTarikMatchTimer(io, sesi);
 
+  // Jangan langsung stempel deadline soal pertama saat guru klik Mulai.
+  // Tunggu siswa:siap_soal setelah animasi lobi selesai (dengan fallback aman 25 detik).
   for (const p of sesi.peserta.values()) {
-    const soalData =
-      multiManager.dapatkanSoalAktifPeserta(sesi.sessionId, p.id) ||
-      multiManager.siapkanSoalBerikutnyaPeserta(sesi.sessionId, p.id);
-    if (!soalData) continue;
-    if (p.socketId) {
-      io.to(p.socketId).emit('soal:tampil', soalData);
+    if (p.connected && p.socketId) {
+      const timerKey = `${sesi.sessionId}:${p.id}`;
+      const existing = pendingFirstQuestionTimers.get(timerKey);
+      if (existing) clearTimeout(existing);
+
+      const fallbackTimer = setTimeout(() => {
+        pendingFirstQuestionTimers.delete(timerKey);
+        const sesiNow = multiManager.dapatkanSesi(sesi.sessionId);
+        if (!sesiNow || sesiNow.status !== 'jalan') return;
+        const pNow = sesiNow.peserta.get(p.id);
+        if (!pNow || !pNow.connected || !pNow.socketId) return;
+
+        const soalData = multiManager.dapatkanSoalAktifPeserta(sesi.sessionId, pNow.id);
+        if (soalData) {
+          io.to(pNow.socketId).emit('soal:tampil', soalData);
+          armTarikQuestionTimeout(io, sesiNow, pNow.id, soalData.presentationId, soalData.endsAt);
+        }
+      }, 25000);
+      pendingFirstQuestionTimers.set(timerKey, fallbackTimer);
     }
-    armTarikQuestionTimeout(io, sesi, p.id, soalData.presentationId, soalData.endsAt);
   }
 }
