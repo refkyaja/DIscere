@@ -7,6 +7,7 @@ import {
   resolveConfigBackUrl,
   resolveGuruReturnUrl,
 } from '../../components';
+import { ModalKonfirmasiKeluar } from '../../components/ModalKonfirmasiKeluar';
 import {
   isStaleQuestionErrorMessage,
   mergeMonotonicSoloSession,
@@ -164,6 +165,7 @@ export default function LayarHostSolo() {
   const [loading, setLoading] = useState(true);
   const [errorPesan, setErrorPesan] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState(false);
+  const [modalKeluarOpen, setModalKeluarOpen] = useState(false);
 
   const [sisaDetik, setSisaDetik] = useState<number>(180);
   const prevStateRef = useRef<SesiSoloPayload['state'] | null>(null);
@@ -482,6 +484,20 @@ export default function LayarHostSolo() {
     }
   };
 
+  const handleKembaliClick = () => {
+    if (isPlaying || isPaused) {
+      setModalKeluarOpen(true);
+    } else {
+      navigate(returnUrl);
+    }
+  };
+
+  const handleKonfirmasiKeluar = () => {
+    setModalKeluarOpen(false);
+    handleAkhiriManual();
+    navigate(returnUrl);
+  };
+
   const handleUlang = async () => {
     if (!id || busyAction) return;
     try {
@@ -746,7 +762,7 @@ export default function LayarHostSolo() {
         onToggleMute={isPlaying || isPaused ? toggleMute : undefined}
         onTogglePause={isPlaying || isPaused ? handleTogglePause : undefined}
         onStop={isPlaying || isPaused ? handleAkhiriManual : undefined}
-        onBack={() => navigate(returnUrl)}
+        onBack={handleKembaliClick}
       />
 
       <main className="tt-wrap">
@@ -951,6 +967,13 @@ export default function LayarHostSolo() {
           </div>
         )}
       </main>
+
+      <ModalKonfirmasiKeluar
+        isOpen={modalKeluarOpen}
+        onClose={() => setModalKeluarOpen(false)}
+        onKonfirmasiKeluar={handleKonfirmasiKeluar}
+        judulGame="Tarik Tambang"
+      />
     </div>
   );
 }

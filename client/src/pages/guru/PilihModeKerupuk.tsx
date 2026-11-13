@@ -477,8 +477,8 @@ export default function PilihModeKerupuk() {
               {/* Ringkasan Peluang Aktif */}
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-extrabold flex items-center gap-1.5 text-[#1d3b2e]">
-                    <Sparkles className="w-4 h-4 text-[#c8362f]" /> Distribusi Gigitan Saat Ini
+                  <span className="text-xs font-extrabold text-[#1d3b2e]">
+                    Distribusi Gigitan Saat Ini
                   </span>
                   <span
                     className={`inline-flex items-center gap-1 text-[11px] font-extrabold ${
@@ -498,21 +498,40 @@ export default function PilihModeKerupuk() {
                 </div>
 
                 <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
-                  <span className="px-2.5 py-1 rounded-lg bg-[#fcf8ed] border border-[#e0d5b8] text-[#1d3b2e]">
-                    Besar (-40%): <strong className="font-mono">{probabilitas.besar}%</strong>
-                  </span>
-                  <span className="px-2.5 py-1 rounded-lg bg-[#fcf8ed] border border-[#e0d5b8] text-[#1d3b2e]">
-                    Sedang (-25%): <strong className="font-mono">{probabilitas.sedang}%</strong>
-                  </span>
-                  <span className="px-2.5 py-1 rounded-lg bg-[#fcf8ed] border border-[#e0d5b8] text-[#1d3b2e]">
-                    Kecil (-10%): <strong className="font-mono">{probabilitas.kecil}%</strong>
-                  </span>
-                  <span className="px-2.5 py-1 rounded-lg bg-[#fcf8ed] border border-[#e0d5b8] text-[#1d3b2e]">
-                    Mini (-5%): <strong className="font-mono">{probabilitas.sangat_kecil}%</strong>
-                  </span>
-                  <span className="px-2.5 py-1 rounded-lg bg-red-50 border border-red-200 text-[#c8362f]">
-                    Zonk (0%): <strong className="font-mono">{probabilitas.zonk}%</strong>
-                  </span>
+                  {[
+                    { key: 'besar' as const, label: 'Besar (-40%)', val: probabilitas.besar, isZonk: false },
+                    { key: 'sedang' as const, label: 'Sedang (-25%)', val: probabilitas.sedang, isZonk: false },
+                    { key: 'kecil' as const, label: 'Kecil (-10%)', val: probabilitas.kecil, isZonk: false },
+                    { key: 'sangat_kecil' as const, label: 'Mini (-5%)', val: probabilitas.sangat_kecil, isZonk: false },
+                    { key: 'zonk' as const, label: 'Zonk (0%)', val: probabilitas.zonk, isZonk: true },
+                  ].map((p) => {
+                    return (
+                      <button
+                        key={p.key}
+                        type="button"
+                        onClick={() => {
+                          setShowAdvancedRules(true);
+                          setKesulitan('custom');
+                          setTimeout(() => {
+                            const el = document.getElementById(`slider-gigitan-${p.key}`);
+                            if (el) {
+                              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              el.focus();
+                            }
+                          }, 50);
+                        }}
+                        title={`Klik untuk mengatur persentase ${p.label}`}
+                        className={`group inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                          p.isZonk
+                            ? 'bg-red-50 hover:bg-red-100 border-red-200 text-[#c8362f]'
+                            : 'bg-[#fcf8ed] hover:bg-[#f6ebd4] border-[#e0d5b8] text-[#1d3b2e] hover:border-[#1d3b2e]'
+                        } active:scale-95 shadow-2xs`}
+                      >
+                        <span>{p.label}:</span>
+                        <strong className="font-mono">{p.val}%</strong>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -622,7 +641,12 @@ export default function PilihModeKerupuk() {
                       cls: 'accent-[#c8362f]',
                     },
                   ].map((item) => (
-                    <div key={item.key}>
+                    <div
+                      key={item.key}
+                      id={`slider-gigitan-${item.key}`}
+                      tabIndex={-1}
+                      className="p-2 rounded-xl transition-colors focus:bg-[#f6ebd4] focus:outline-none"
+                    >
                       <div className="flex items-center justify-between text-xs font-bold text-[#1d3b2e] mb-1">
                         <span>{item.label}</span>
                         <div className="flex items-center gap-1">

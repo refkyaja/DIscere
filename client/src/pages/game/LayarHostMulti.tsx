@@ -25,7 +25,9 @@ import {
   StopCircle,
   Trophy,
   Users,
+  X,
 } from 'lucide-react';
+import ModalKonfirmasiKeluar from '../../components/ModalKonfirmasiKeluar';
 
 interface PesertaTarikMulti {
   id: string;
@@ -129,6 +131,7 @@ export default function LayarHostMulti() {
 
   const [sisaDetik, setSisaDetik] = useState<number>(180);
   const [copiedPin, setCopiedPin] = useState(false);
+  const [modalKeluarOpen, setModalKeluarOpen] = useState(false);
   const { isMuted: muted, toggleMute } = useGameSoundLifecycle(
     Boolean(sesi && sesi.status === 'jalan'),
     id
@@ -382,6 +385,30 @@ export default function LayarHostMulti() {
     getSocket().emit('sesi:pindah_tim', { sessionId: id, pesertaId, timTujuan });
   };
 
+  const handleKickPeserta = (pesertaId: string) => {
+    if (!id || busyAction) return;
+    if (!window.confirm('Keluarkan siswa ini dari lobi lomba?')) return;
+    getSocket().emit('sesi:kick_peserta', { sessionId: id, pesertaId }, (res: any) => {
+      if (res && !res.success) {
+        setErrorPesan(res.pesan || 'Gagal mengeluarkan siswa.');
+      }
+    });
+  };
+
+  const handleKembaliClick = () => {
+    if (sesi?.status === 'jalan') {
+      setModalKeluarOpen(true);
+    } else {
+      navigate(returnUrl);
+    }
+  };
+
+  const handleKonfirmasiKeluar = () => {
+    setModalKeluarOpen(false);
+    handleAkhiriManual();
+    navigate(returnUrl);
+  };
+
   const handleMulaiLomba = () => {
     if (!id || !canStart || busyAction) return;
     setBusyAction(true);
@@ -488,7 +515,7 @@ export default function LayarHostMulti() {
         isMuted={muted}
         onToggleMute={isPlaying ? toggleMute : undefined}
         onStop={isPlaying ? handleAkhiriManual : undefined}
-        onBack={() => navigate(returnUrl)}
+        onBack={handleKembaliClick}
       />
 
       <main className="tt-wrap">
@@ -586,6 +613,14 @@ export default function LayarHostMulti() {
                         >
                           <ArrowLeftRight className="w-3.5 h-3.5" />
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => handleKickPeserta(p.id)}
+                          title="Keluarkan dari lobi"
+                          className="text-[#d63b3b] hover:opacity-75 cursor-pointer p-0.5 rounded hover:bg-rose-50"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -619,6 +654,14 @@ export default function LayarHostMulti() {
                           className="text-[#e2312d] hover:opacity-75 cursor-pointer"
                         >
                           <ArrowLeftRight className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleKickPeserta(p.id)}
+                          title="Keluarkan dari lobi"
+                          className="text-[#d63b3b] hover:opacity-75 cursor-pointer p-0.5 rounded hover:bg-rose-50"
+                        >
+                          <X className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     ))}
@@ -803,6 +846,13 @@ export default function LayarHostMulti() {
           </div>
         )}
       </main>
+
+      <ModalKonfirmasiKeluar
+        isOpen={modalKeluarOpen}
+        onClose={() => setModalKeluarOpen(false)}
+        onKonfirmasiKeluar={handleKonfirmasiKeluar}
+        judulGame="Tarik Tambang"
+      />
     </div>
   );
 }

@@ -1098,6 +1098,74 @@ export const balapKarungManager = {
     };
   },
 
+  /**
+   * Mengacak pembagian tim siswa di ruang tunggu lobi.
+   */
+  async acakUlangTim(
+    sessionId: string,
+    hostId: string
+  ): Promise<{
+    sesi: SesiBalapKarungActive;
+    teams: RingkasanTimBalap[];
+    leaderboard: LeaderboardItemBalap[];
+  }> {
+    const sesi = this.dapatkanSesi(sessionId);
+    if (!sesi) throw new Error('Sesi Balap Karung tidak ditemukan.');
+    if (sesi.hostId !== hostId) throw new Error('Tidak memiliki otoritas atas sesi ini.');
+    if (sesi.status !== 'lobi') throw new Error('Acak tim hanya dapat dilakukan saat masih di lobi.');
+
+    const nextCount = sesi.config.jumlahTim || 3;
+    const defs = dapatkanDefinisiTimAktif(nextCount);
+    const list = Array.from(sesi.peserta.values());
+    for (let i = list.length - 1; i > 0; i--) {
+      const j = crypto.randomInt(0, i + 1);
+      [list[i], list[j]] = [list[j], list[i]];
+    }
+    list.forEach((p, idx) => {
+      p.tim = defs[idx % nextCount].id;
+    });
+
+    await antrekanPenulisanDb(sessionId, async () => {
+      for (const p of list) {
+        await prisma.sessionPlayer.updateMany({
+          where: { id: p.id, sessionId: sesi.sessionId },
+          data: { tim: p.tim || 'merah' },
+        });
+      }
+    });
+
+    return {
+      sesi,
+      teams: bangunRingkasanTim(sesi),
+      leaderboard: this.dapatkanLeaderboard(sesi.sessionId),
+    };
+  },
+
+  /**
+   * Mengeluarkan (kick) siswa dari lobi permainan sebelum lomba dimulai.
+   */
+  async keluarkanPeserta(
+    sessionId: string,
+    hostId: string,
+    pesertaId: string
+  ): Promise<PesertaBalapKarungState> {
+    const sesi = this.dapatkanSesi(sessionId);
+    if (!sesi) throw new Error('Sesi Balap Karung tidak ditemukan.');
+    if (sesi.hostId !== hostId) throw new Error('Tidak memiliki otoritas.');
+    if (sesi.status !== 'lobi') throw new Error('Hanya dapat mengeluarkan siswa saat masih di lobi.');
+    const p = sesi.peserta.get(pesertaId);
+    if (!p) throw new Error('Peserta tidak ditemukan.');
+    sesi.peserta.delete(pesertaId);
+
+    await antrekanPenulisanDb(sessionId, async () => {
+      await prisma.sessionPlayer.deleteMany({
+        where: { id: pesertaId, sessionId: sesi.sessionId },
+      });
+    });
+
+    return p;
+  },
+
   dapatkanRingkasanTim(sessionId: string, sortByRank: boolean = false): RingkasanTimBalap[] {
     const sesi = this.dapatkanSesi(sessionId);
     if (!sesi) return [];

@@ -69,7 +69,7 @@ interface MainKerupukProps {
   initialPesertaState?: PesertaKerupukMultiData;
   initialLeaderboard?: PesertaKerupukMultiData[];
   initialSoalAktif?: SoalKerupukMulti | null;
-  onKeluar: () => void;
+  onKeluar: (pesan?: string) => void;
 }
 
 export default function MainKerupuk({
@@ -268,6 +268,10 @@ export default function MainKerupuk({
       }
     };
 
+    const handleDiKick = (data: { pesan?: string }) => {
+      onKeluar(data?.pesan || 'Anda telah dikeluarkan dari lobi oleh guru.');
+    };
+
     socket.on('lobi:update', handleLobiUpdate);
     socket.on('game:mulai', handleGameMulai);
     socket.on('soal:tampil', handleSoalTampil);
@@ -275,6 +279,7 @@ export default function MainKerupuk({
     socket.on('jawab:hasil', handleJawabHasil);
     socket.on('pemain:selesai', handlePemainSelesai);
     socket.on('sesi:selesai', handleSesiSelesai);
+    socket.on('sesi:dikick', handleDiKick);
 
     return () => {
       socket.off('lobi:update', handleLobiUpdate);
@@ -284,6 +289,7 @@ export default function MainKerupuk({
       socket.off('jawab:hasil', handleJawabHasil);
       socket.off('pemain:selesai', handlePemainSelesai);
       socket.off('sesi:selesai', handleSesiSelesai);
+      socket.off('sesi:dikick', handleDiKick);
     };
   }, [pesertaId, startStopwatch, stopStopwatch]);
 
@@ -355,7 +361,7 @@ export default function MainKerupuk({
           </div>
           <button
             type="button"
-            onClick={onKeluar}
+            onClick={() => onKeluar?.()}
             className="p-2 text-[#6b7d6c] hover:text-[#c8362f] rounded-xl cursor-pointer"
             title="Keluar"
           >
@@ -702,7 +708,7 @@ export default function MainKerupuk({
       <div className="pt-3">
         <button
           type="button"
-          onClick={onKeluar}
+          onClick={() => onKeluar?.()}
           className="w-full py-3 rounded-xl bg-[#c8362f] hover:bg-[#b02d27] text-white font-black text-sm cursor-pointer"
         >
           Selesai &amp; Keluar

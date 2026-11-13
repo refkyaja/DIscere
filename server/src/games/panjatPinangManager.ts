@@ -581,6 +581,55 @@ export const panjatPinangManager = {
   },
 
   /**
+   * Mengacak urutan peserta di lobi Panjat Pinang.
+   */
+  acakUrutanPeserta(sessionId: string, hostId: string): LeaderboardItemPanjat[] {
+    const sesi = this.dapatkanSesi(sessionId);
+    if (!sesi || sesi.hostId !== hostId) {
+      throw new Error('Sesi tidak ditemukan atau Anda bukan pemilik sesi.');
+    }
+    if (sesi.status !== 'lobi') {
+      throw new Error('Acak urutan hanya dapat dilakukan saat masih di lobi.');
+    }
+
+    const list = Array.from(sesi.peserta.entries());
+    for (let i = list.length - 1; i > 0; i--) {
+      const j = crypto.randomInt(0, i + 1);
+      [list[i], list[j]] = [list[j], list[i]];
+    }
+    sesi.peserta = new Map(list);
+    return this.dapatkanLeaderboard(sessionId);
+  },
+
+  /**
+   * Mengeluarkan (kick) siswa dari lobi permainan Panjat Pinang.
+   */
+  async keluarkanPeserta(
+    sessionId: string,
+    hostId: string,
+    pesertaId: string
+  ): Promise<PesertaPanjatState> {
+    const sesi = this.dapatkanSesi(sessionId);
+    if (!sesi || sesi.hostId !== hostId) {
+      throw new Error('Sesi tidak ditemukan atau Anda bukan pemilik sesi.');
+    }
+    if (sesi.status !== 'lobi') {
+      throw new Error('Hanya dapat mengeluarkan siswa saat masih di lobi.');
+    }
+    const p = sesi.peserta.get(pesertaId);
+    if (!p) {
+      throw new Error('Peserta tidak ditemukan.');
+    }
+    sesi.peserta.delete(pesertaId);
+
+    await prisma.sessionPlayer.deleteMany({
+      where: { id: pesertaId, sessionId: sesi.sessionId },
+    }).catch(() => {});
+
+    return p;
+  },
+
+  /**
    * Memulai permainan Panjat Pinang oleh guru.
    * Konfigurasi tidak dapat diubah lagi setelah titik ini.
    */

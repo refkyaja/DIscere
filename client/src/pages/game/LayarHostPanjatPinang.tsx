@@ -4,6 +4,7 @@ import { apiRequest } from '../../lib/api';
 import { getSocket } from '../../lib/socket';
 import { bindHostReconnect } from '../../lib/socketReconnect';
 import { Modal } from '../../components';
+import { ModalKonfirmasiKeluar } from '../../components/ModalKonfirmasiKeluar';
 import { FestivalStadiumShell } from '../../components/FestivalStadiumShell';
 import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import TiangPinangVisual, { EfekAktifVisual } from '../siswa/TiangPinangVisual';
@@ -25,6 +26,8 @@ import {
   Flag,
   RefreshCw,
   CheckCircle2,
+  Shuffle,
+  X,
 } from 'lucide-react';
 
 interface KonfigurasiPanjatHost {
@@ -177,6 +180,7 @@ export default function LayarHostPanjatPinang() {
 
   const [hasilAkhir, setHasilAkhir] = useState<LaporanAkhirHost | null>(null);
   const [modalAkhiriOpen, setModalAkhiriOpen] = useState(false);
+  const [modalKeluarOpen, setModalKeluarOpen] = useState(false);
   const [detailPemain, setDetailPemain] = useState<LaporanPemainHost | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
@@ -413,6 +417,41 @@ export default function LayarHostPanjatPinang() {
     });
   };
 
+  const handleKembaliClick = () => {
+    if (status === 'jalan') {
+      setModalKeluarOpen(true);
+    } else {
+      navigate(returnUrl);
+    }
+  };
+
+  const handleKonfirmasiKeluar = () => {
+    setModalKeluarOpen(false);
+    handleAkhiriManual();
+    navigate(returnUrl);
+  };
+
+  const handleAcakUrutan = () => {
+    if (!id || totalPeserta === 0) return;
+    const socket = getSocket();
+    socket.emit('sesi:acak_peserta', { sessionId: id }, (res: { success?: boolean; pesan?: string }) => {
+      if (res && !res.success) {
+        alert(res.pesan || 'Gagal mengacak urutan peserta.');
+      }
+    });
+  };
+
+  const handleKickPeserta = (pesertaId: string) => {
+    if (!id) return;
+    if (!window.confirm('Keluarkan siswa ini dari lobi lomba?')) return;
+    const socket = getSocket();
+    socket.emit('sesi:kick_peserta', { sessionId: id, pesertaId }, (res: { success?: boolean; pesan?: string }) => {
+      if (res && !res.success) {
+        alert(res.pesan || 'Gagal mengeluarkan siswa.');
+      }
+    });
+  };
+
   const handleMainLagi = async () => {
     if (!id || isMainLagi) return;
     setIsMainLagi(true);
@@ -483,7 +522,7 @@ export default function LayarHostPanjatPinang() {
       crowdCheer={crowdCheer || status === 'selesai'}
       isMuted={isMuted}
       onToggleMute={status === 'jalan' ? toggleMute : undefined}
-      onBack={() => navigate(returnUrl)}
+      onBack={handleKembaliClick}
       backLabel={returnUrl.includes('panjat-pinang') ? 'Pengaturan' : 'Dashboard'}
       onStop={status === 'jalan' ? () => setModalAkhiriOpen(true) : undefined}
     />
@@ -597,14 +636,24 @@ export default function LayarHostPanjatPinang() {
                       {leaderboard.map((p, idx) => (
                         <div
                           key={p.id}
-                          className="flex items-center gap-2 bg-[#fff3d6] border-2 border-[#f0dfb4] rounded-xl px-2.5 py-2"
+                          className="flex items-center justify-between gap-2 bg-[#fff3d6] border-2 border-[#f0dfb4] rounded-xl px-2.5 py-2"
                         >
-                          <span className="w-6 h-6 rounded-full bg-[#e2312d] text-white text-xs font-black flex items-center justify-center shrink-0">
-                            {idx + 1}
-                          </span>
-                          <span className="font-extrabold text-sm text-[#2b2a4a] truncate">
-                            {p.nama}
-                          </span>
+                          <div className="flex items-center gap-2 truncate">
+                            <span className="w-6 h-6 rounded-full bg-[#e2312d] text-white text-xs font-black flex items-center justify-center shrink-0">
+                              {idx + 1}
+                            </span>
+                            <span className="font-extrabold text-sm text-[#2b2a4a] truncate">
+                              {p.nama}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleKickPeserta(p.id)}
+                            title="Keluarkan dari lobi"
+                            className="text-[#d63b3b] hover:opacity-75 cursor-pointer p-0.5 rounded hover:bg-rose-50 shrink-0"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -615,22 +664,34 @@ export default function LayarHostPanjatPinang() {
                   <p className="text-xs font-bold text-[#6b6a85] max-w-sm">
                     Tanpa batas waktu global. Sesi berakhir saat semua mencapai 100% atau guru menekan Akhiri.
                   </p>
-                  <button
-                    type="button"
-                    onClick={handleMulai}
-                    disabled={totalPeserta === 0 || isStarting}
-                    className="bk-btn"
-                  >
-                    {isStarting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" /> Memulai...
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-4 h-4 fill-current" /> Mulai lomba
-                      </>
-                    )}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={totalPeserta === 0}
+                      onClick={handleAcakUrutan}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border-2 border-[#f0dfb4] text-[#2b2a4a] font-extrabold text-xs hover:bg-[#fff3d6] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Acak urutan tiang / pemain"
+                    >
+                      <Shuffle className="w-3.5 h-3.5 text-[#1d8fe0]" />
+                      Acak Urutan
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleMulai}
+                      disabled={totalPeserta === 0 || isStarting}
+                      className="bk-btn"
+                    >
+                      {isStarting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" /> Memulai...
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-4 h-4 fill-current" /> Mulai lomba
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1231,6 +1292,14 @@ export default function LayarHostPanjatPinang() {
           </div>
         </div>
       </Modal>
+
+      {/* Modal Konfirmasi Keluar Game Sedang Berjalan */}
+      <ModalKonfirmasiKeluar
+        isOpen={modalKeluarOpen}
+        onClose={() => setModalKeluarOpen(false)}
+        onKonfirmasiKeluar={handleKonfirmasiKeluar}
+        judulGame="Panjat Pinang"
+      />
     </div>
   );
 }

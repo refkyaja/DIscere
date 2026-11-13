@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { apiRequest } from '../../lib/api';
 import { Modal } from '../../components';
+import { ModalKonfirmasiKeluar } from '../../components/ModalKonfirmasiKeluar';
 import KerupukVirtual, {
   HasilGachaGigitanProps,
   MoodKarakterKerupuk,
@@ -153,6 +154,7 @@ export default function LayarHostKerupuk() {
   const [reactionNonce, setReactionNonce] = useState(0);
 
   const [modalHentikanOpen, setModalHentikanOpen] = useState(false);
+  const [modalKeluarOpen, setModalKeluarOpen] = useState(false);
   const [modalUlangOpen, setModalUlangOpen] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const isSoundActive = Boolean(
@@ -319,6 +321,20 @@ export default function LayarHostKerupuk() {
     }
   };
 
+  const handleKembaliClick = () => {
+    if (isPlayOrPause) {
+      setModalKeluarOpen(true);
+    } else {
+      navigate(returnUrl);
+    }
+  };
+
+  const handleKonfirmasiKeluar = () => {
+    setModalKeluarOpen(false);
+    handleKonfirmasiHentikan();
+    navigate(returnUrl);
+  };
+
   const handleKonfirmasiUlang = async () => {
     if (!id || !sesi || isActionLoading) return;
     try {
@@ -420,7 +436,7 @@ export default function LayarHostKerupuk() {
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
-              onClick={() => navigate(returnUrl)}
+              onClick={handleKembaliClick}
               className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-[#f4ecd8] transition-colors cursor-pointer shrink-0"
               title={returnUrl.includes('makan-kerupuk') ? 'Kembali ke Pemilihan Mode' : 'Kembali ke Dashboard'}
             >
@@ -1104,6 +1120,14 @@ export default function LayarHostKerupuk() {
           </div>
         </div>
       </Modal>
+
+      {/* Modal Konfirmasi Keluar Game Sedang Berjalan */}
+      <ModalKonfirmasiKeluar
+        isOpen={modalKeluarOpen}
+        onClose={() => setModalKeluarOpen(false)}
+        onKonfirmasiKeluar={handleKonfirmasiKeluar}
+        judulGame="Makan Kerupuk"
+      />
     </div>
   );
 }

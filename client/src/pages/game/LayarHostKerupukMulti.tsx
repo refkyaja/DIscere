@@ -4,6 +4,7 @@ import { apiRequest } from '../../lib/api';
 import { getSocket } from '../../lib/socket';
 import { bindHostReconnect } from '../../lib/socketReconnect';
 import { Modal } from '../../components';
+import { ModalKonfirmasiKeluar } from '../../components/ModalKonfirmasiKeluar';
 import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import { HasilGachaGigitanProps } from '../siswa/KerupukVirtual';
 import {
@@ -21,6 +22,8 @@ import {
   RotateCcw,
   ArrowLeft,
   Target,
+  Shuffle,
+  X,
 } from 'lucide-react';
 
 export interface PesertaMultiHost {
@@ -93,6 +96,7 @@ export default function LayarHostKerupukMulti({
   const [hasilAkhir, setHasilAkhir] = useState<any>(initialSession.hasil || null);
 
   const [modalAkhiriOpen, setModalAkhiriOpen] = useState(false);
+  const [modalKeluarOpen, setModalKeluarOpen] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isRematching, setIsRematching] = useState(false);
@@ -204,6 +208,41 @@ export default function LayarHostKerupukMulti({
         soundEffects.stopAll();
       } else {
         alert(res?.pesan || 'Gagal mengakhiri sesi.');
+      }
+    });
+  };
+
+  const handleKembaliClick = () => {
+    if (status === 'jalan') {
+      setModalKeluarOpen(true);
+    } else {
+      navigate(returnUrl);
+    }
+  };
+
+  const handleKonfirmasiKeluar = () => {
+    setModalKeluarOpen(false);
+    handleKonfirmasiAkhiri();
+    navigate(returnUrl);
+  };
+
+  const handleAcakUrutan = () => {
+    if (!id || totalPeserta === 0) return;
+    const socket = getSocket();
+    socket.emit('sesi:acak_peserta', { sessionId: id }, (res: { success?: boolean; pesan?: string }) => {
+      if (res && !res.success) {
+        alert(res.pesan || 'Gagal mengacak urutan peserta.');
+      }
+    });
+  };
+
+  const handleKickPeserta = (pesertaId: string) => {
+    if (!id) return;
+    if (!window.confirm('Keluarkan siswa ini dari lobi lomba?')) return;
+    const socket = getSocket();
+    socket.emit('sesi:kick_peserta', { sessionId: id, pesertaId }, (res: { success?: boolean; pesan?: string }) => {
+      if (res && !res.success) {
+        alert(res.pesan || 'Gagal mengeluarkan siswa.');
       }
     });
   };
@@ -348,26 +387,46 @@ export default function LayarHostKerupukMulti({
                   {leaderboard.map((p) => (
                     <div
                       key={p.id}
-                      className="bg-white border border-[#e0d5b8] rounded-xl p-2.5 flex items-center gap-2"
+                      className="bg-white border border-[#e0d5b8] rounded-xl p-2.5 flex items-center justify-between gap-2"
                     >
-                      <span
-                        className={`w-2 h-2 rounded-full shrink-0 ${
-                          p.connected === false ? 'bg-slate-400' : 'bg-emerald-500'
-                        }`}
-                      />
-                      <span className="text-xs font-bold truncate">{p.nama}</span>
+                      <div className="flex items-center gap-2 truncate">
+                        <span
+                          className={`w-2 h-2 rounded-full shrink-0 ${
+                            p.connected === false ? 'bg-slate-400' : 'bg-emerald-500'
+                          }`}
+                        />
+                        <span className="text-xs font-bold truncate">{p.nama}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleKickPeserta(p.id)}
+                        title="Keluarkan dari lobi"
+                        className="text-[#c8362f] hover:opacity-75 cursor-pointer p-0.5 rounded hover:bg-rose-50 shrink-0"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            <div className="pt-4 border-t border-[#e0d5b8]">
+            <div className="pt-4 border-t border-[#e0d5b8] flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={totalPeserta === 0}
+                onClick={handleAcakUrutan}
+                className="py-4 px-5 rounded-2xl bg-white border-2 border-[#e0d5b8] hover:bg-[#f4ecd8] text-[#1d3b2e] font-black text-sm flex items-center justify-center gap-2 shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Acak urutan giliran / meja peserta"
+              >
+                <Shuffle className="w-4 h-4 text-[#c8362f]" />
+                Acak Urutan
+              </button>
               <button
                 type="button"
                 disabled={totalPeserta === 0 || isStarting}
                 onClick={handleMulaiLomba}
-                className="w-full py-4 rounded-2xl bg-[#c8362f] hover:bg-[#b02d27] disabled:bg-slate-400 text-white font-black text-base flex items-center justify-center gap-2.5 shadow-md cursor-pointer disabled:cursor-not-allowed transition-colors"
+                className="flex-1 py-4 rounded-2xl bg-[#c8362f] hover:bg-[#b02d27] disabled:bg-slate-400 text-white font-black text-base flex items-center justify-center gap-2.5 shadow-md cursor-pointer disabled:cursor-not-allowed transition-colors"
               >
                 <Play className="w-5 h-5 fill-current" />
                 {isStarting
@@ -392,6 +451,15 @@ export default function LayarHostKerupukMulti({
         <header className="bg-[#1d3b2e] text-[#f4ecd8] border-b-4 border-[#c8362f] px-4 sm:px-6 py-3 shadow-md">
           <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleKembaliClick}
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+                title="Kembali"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">Kembali</span>
+              </button>
               <span className="px-3 py-1 rounded-full bg-[#f2c230] text-[#1d3b2e] text-xs font-black uppercase">
                 Lomba Berlangsung
               </span>
@@ -606,6 +674,13 @@ export default function LayarHostKerupukMulti({
             </div>
           </div>
         </Modal>
+
+        <ModalKonfirmasiKeluar
+          isOpen={modalKeluarOpen}
+          onClose={() => setModalKeluarOpen(false)}
+          onKonfirmasiKeluar={handleKonfirmasiKeluar}
+          judulGame="Makan Kerupuk"
+        />
       </div>
     );
   }

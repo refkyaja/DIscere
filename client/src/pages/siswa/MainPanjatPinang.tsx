@@ -118,7 +118,7 @@ interface MainPanjatPinangProps {
   initialPesertaState?: PesertaPanjatData;
   initialLeaderboard?: PesertaPanjatData[];
   initialSoalAktif?: SoalPanjatData | null;
-  onKeluar: () => void;
+  onKeluar: (pesan?: string) => void;
 }
 
 export default function MainPanjatPinang({
@@ -362,6 +362,10 @@ export default function MainPanjatPinang({
       },
     });
 
+    const handleDiKick = (data: { pesan?: string }) => {
+      onKeluar(data?.pesan || 'Anda telah dikeluarkan dari lobi oleh guru.');
+    };
+
     socket.on('lobi:update', handleLobiUpdate);
     socket.on('game:mulai', handleGameMulai);
     socket.on('soal:tampil', handleSoalTampil);
@@ -370,6 +374,7 @@ export default function MainPanjatPinang({
     socket.on('pemain:selesai', handlePemainSelesai);
     socket.on('sesi:selesai', handleSesiSelesai);
     socket.on('sesi:error', handleSesiError);
+    socket.on('sesi:dikick', handleDiKick);
 
     return () => {
       unbindReconnect();
@@ -381,6 +386,7 @@ export default function MainPanjatPinang({
       socket.off('pemain:selesai', handlePemainSelesai);
       socket.off('sesi:selesai', handleSesiSelesai);
       socket.off('sesi:error', handleSesiError);
+      socket.off('sesi:dikick', handleDiKick);
     };
   }, [token, nama, pesertaId, pesertaSecret, startStopwatch, stopStopwatch]);
 
@@ -486,7 +492,7 @@ export default function MainPanjatPinang({
             <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
-                onClick={onKeluar}
+                onClick={() => onKeluar?.()}
                 aria-label="Keluar dari sesi"
                 className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-[#fde0e0] hover:bg-[#fccbcb] border border-[#f4b6b6] text-[#8a1f1f] transition-colors cursor-pointer"
               >
@@ -1293,7 +1299,7 @@ export default function MainPanjatPinang({
 
             <button
               type="button"
-              onClick={onKeluar}
+              onClick={() => onKeluar?.()}
               className="bk-btn w-full justify-center"
             >
               Selesai &amp; Keluar

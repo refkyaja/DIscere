@@ -585,6 +585,19 @@ class MultiSessionManager {
     return p;
   }
 
+  keluarkanPeserta(sessionId: string, hostId: string, pesertaId: string): PesertaMulti {
+    const sesi = this.sessions.get(sessionId);
+    if (!sesi) throw new Error('Sesi tidak ditemukan.');
+    if (sesi.hostId !== hostId) throw new Error('Tidak memiliki otoritas atas sesi ini.');
+    if (sesi.status !== 'lobi') {
+      throw new Error('Hanya dapat mengeluarkan siswa saat masih di lobi.');
+    }
+    const p = sesi.peserta.get(pesertaId);
+    if (!p) throw new Error('Peserta tidak ditemukan.');
+    sesi.peserta.delete(pesertaId);
+    return p;
+  }
+
   mulaiPermainan(sessionId: string, hostId: string): SesiMultiplayerActive {
     const sesi = this.sessions.get(sessionId);
     if (!sesi) throw new Error('Sesi tidak ditemukan.');

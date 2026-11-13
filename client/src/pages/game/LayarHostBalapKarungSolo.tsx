@@ -7,6 +7,7 @@ import {
   resolveConfigBackUrl,
   resolveGuruReturnUrl,
 } from '../../components';
+import { ModalKonfirmasiKeluar } from '../../components/ModalKonfirmasiKeluar';
 import {
   isStaleQuestionErrorMessage,
   mergeMonotonicSoloSession,
@@ -195,6 +196,7 @@ export default function LayarHostBalapKarungSolo() {
   const [isMainLagi, setIsMainLagi] = useState(false);
 
   const [modalHentikanOpen, setModalHentikanOpen] = useState(false);
+  const [modalKeluarOpen, setModalKeluarOpen] = useState(false);
   const [modalUlangOpen, setModalUlangOpen] = useState(false);
   const [showEndCard, setShowEndCard] = useState(false);
 
@@ -606,6 +608,20 @@ export default function LayarHostBalapKarungSolo() {
     }
   };
 
+  const handleKembaliClick = () => {
+    if (isPlaying || sesi?.state === 'PAUSED') {
+      setModalKeluarOpen(true);
+    } else {
+      navigate(returnUrl);
+    }
+  };
+
+  const handleKonfirmasiKeluar = () => {
+    setModalKeluarOpen(false);
+    handleHentikan();
+    navigate(returnUrl);
+  };
+
   const handleMainLagi = async (autoStart = true) => {
     if (!id || isMainLagi) return;
     try {
@@ -768,7 +784,7 @@ export default function LayarHostBalapKarungSolo() {
         crowdCheer={crowdCheer || isFinished}
         isMuted={isMuted}
         onToggleMute={isSoundActive ? toggleMute : undefined}
-        onBack={() => navigate(returnUrl)}
+        onBack={handleKembaliClick}
         isPaused={sesi.state === 'PAUSED'}
         onTogglePause={
           sesi.state === 'PLAYING' || sesi.state === 'PAUSED' ? handleTogglePause : undefined
@@ -1277,6 +1293,14 @@ export default function LayarHostBalapKarungSolo() {
           </div>
         </div>
       </Modal>
+
+      {/* Modal Konfirmasi Keluar Game Sedang Berjalan */}
+      <ModalKonfirmasiKeluar
+        isOpen={modalKeluarOpen}
+        onClose={() => setModalKeluarOpen(false)}
+        onKonfirmasiKeluar={handleKonfirmasiKeluar}
+        judulGame="Balap Karung"
+      />
     </div>
   );
 }

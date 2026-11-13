@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 
 export default function MainSiswa() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Form states
   const [tokenInput, setTokenInput] = useState(searchParams.get('token') || '');
@@ -212,12 +212,17 @@ export default function MainSiswa() {
   };
 
   // Handler: Siswa Keluar dari Sesi
-  const handleKeluar = () => {
+  const handleKeluar = (pesanError?: string) => {
     sessionStorage.removeItem('discere_multi_token');
     sessionStorage.removeItem('discere_multi_peserta_id');
     sessionStorage.removeItem('discere_multi_nama');
     sessionStorage.removeItem('discere_multi_peserta_secret');
     setStage('GABUNG');
+    setJoinStep('PIN');
+    setTokenInput('');
+    setNamaPeserta('');
+    setFormError(pesanError || null);
+    setSearchParams({});
     setSessionId(null);
     setPesertaId(null);
     setPanjatSecret('');
@@ -399,16 +404,32 @@ export default function MainSiswa() {
         `}</style>
 
         {/* ============================================================ */}
-        {/* TOMBOL KEMBALI KE HOME (KIRI ATAS)                           */}
+        {/* TOMBOL KEMBALI (KIRI ATAS)                                   */}
         {/* ============================================================ */}
-        <Link
-          to="/"
-          className="join-back-btn absolute top-5 left-5 sm:top-8 sm:left-8 z-40 flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-[#f6efe2]/90 hover:bg-[#f6efe2] text-[#163a2b] shadow-[0_4px_12px_rgba(0,0,0,0.3)] border-2 border-[#e4d7c3] transition-all hover:scale-105 active:scale-95 cursor-pointer group"
-          title="Kembali ke Beranda"
-          aria-label="Kembali ke Beranda"
-        >
-          <ArrowLeft className="w-6 h-6 text-[#163a2b] transition-transform group-hover:-translate-x-0.5" />
-        </Link>
+        {joinStep === 'NAMA' ? (
+          <button
+            type="button"
+            onClick={() => {
+              setJoinStep('PIN');
+              setFormError(null);
+              setSearchParams({});
+            }}
+            className="join-back-btn absolute top-5 left-5 sm:top-8 sm:left-8 z-40 flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-[#f6efe2]/90 hover:bg-[#f6efe2] text-[#163a2b] shadow-[0_4px_12px_rgba(0,0,0,0.3)] border-2 border-[#e4d7c3] transition-all hover:scale-105 active:scale-95 cursor-pointer group"
+            title="Kembali ke Masukkan PIN"
+            aria-label="Kembali ke Masukkan PIN"
+          >
+            <ArrowLeft className="w-6 h-6 text-[#163a2b] transition-transform group-hover:-translate-x-0.5" />
+          </button>
+        ) : (
+          <Link
+            to="/"
+            className="join-back-btn absolute top-5 left-5 sm:top-8 sm:left-8 z-40 flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-[#f6efe2]/90 hover:bg-[#f6efe2] text-[#163a2b] shadow-[0_4px_12px_rgba(0,0,0,0.3)] border-2 border-[#e4d7c3] transition-all hover:scale-105 active:scale-95 cursor-pointer group"
+            title="Kembali ke Beranda"
+            aria-label="Kembali ke Beranda"
+          >
+            <ArrowLeft className="w-6 h-6 text-[#163a2b] transition-transform group-hover:-translate-x-0.5" />
+          </Link>
+        )}
 
         {/* ============================================================ */}
         {/* DOODLE 1: PESAWAT KERTAS KAPUR (Kiri Atas)                   */}

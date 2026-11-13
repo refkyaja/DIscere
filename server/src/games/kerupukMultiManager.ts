@@ -326,6 +326,55 @@ export const kerupukMultiManager = {
     return {};
   },
 
+  /**
+   * Mengacak urutan peserta di lobi Makan Kerupuk.
+   */
+  acakUrutanPeserta(sessionId: string, hostId: string): PesertaKerupukMultiView[] {
+    const sesi = sesiMultiMap.get(sessionId);
+    if (!sesi || sesi.hostId !== hostId) {
+      throw new Error('Sesi Makan Kerupuk tidak ditemukan atau Anda bukan pemilik sesi.');
+    }
+    if (sesi.status !== 'lobi') {
+      throw new Error('Acak urutan hanya dapat dilakukan saat masih di lobi.');
+    }
+
+    const list = Array.from(sesi.peserta.entries());
+    for (let i = list.length - 1; i > 0; i--) {
+      const j = crypto.randomInt(0, i + 1);
+      [list[i], list[j]] = [list[j], list[i]];
+    }
+    sesi.peserta = new Map(list);
+    return this.dapatkanLeaderboard(sessionId);
+  },
+
+  /**
+   * Mengeluarkan (kick) siswa dari lobi permainan Makan Kerupuk.
+   */
+  async keluarkanPeserta(
+    sessionId: string,
+    hostId: string,
+    pesertaId: string
+  ): Promise<PesertaKerupukMultiInternal> {
+    const sesi = sesiMultiMap.get(sessionId);
+    if (!sesi || sesi.hostId !== hostId) {
+      throw new Error('Sesi Makan Kerupuk tidak ditemukan atau Anda bukan pemilik sesi.');
+    }
+    if (sesi.status !== 'lobi') {
+      throw new Error('Hanya dapat mengeluarkan siswa saat masih di lobi.');
+    }
+    const p = sesi.peserta.get(pesertaId);
+    if (!p) {
+      throw new Error('Peserta tidak ditemukan.');
+    }
+    sesi.peserta.delete(pesertaId);
+
+    await prisma.sessionPlayer.deleteMany({
+      where: { id: pesertaId, sessionId: sesi.sessionId },
+    }).catch(() => {});
+
+    return p;
+  },
+
   mulaiPermainan(sessionId: string, hostId: string): SesiKerupukMultiActive {
     const sesi = sesiMultiMap.get(sessionId);
     if (!sesi || sesi.hostId !== hostId) {

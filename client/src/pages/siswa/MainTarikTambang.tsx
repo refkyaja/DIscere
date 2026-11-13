@@ -106,7 +106,7 @@ interface MainTarikTambangProps {
   initialPowerUpTim?: PowerUpTimState;
   initialPesertaStat?: PesertaStatTarik;
   initialHasil?: any;
-  onKeluar: () => void;
+  onKeluar: (pesan?: string) => void;
 }
 
 const POWER_UP_LABELS: Record<string, string> = {
@@ -430,6 +430,10 @@ export default function MainTarikTambang({
       sessionStorage.removeItem('discere_multi_peserta_secret');
     };
 
+    const handleDiKick = (data: { pesan?: string }) => {
+      onKeluar(data?.pesan || 'Anda telah dikeluarkan dari lobi oleh guru.');
+    };
+
     socket.on('lobi:update', handleLobiUpdate);
     socket.on('teams_assigned', handleTeamsAssigned);
     socket.on('game:mulai', handleGameMulai);
@@ -438,6 +442,7 @@ export default function MainTarikTambang({
     socket.on('powerup:update', handlePowerUpUpdate);
     socket.on('jawab:hasil', handleJawabHasil);
     socket.on('sesi:selesai', handleSesiSelesai);
+    socket.on('sesi:dikick', handleDiKick);
 
     return () => {
       watchdogsRef.current.clearAll();
@@ -449,6 +454,7 @@ export default function MainTarikTambang({
       socket.off('powerup:update', handlePowerUpUpdate);
       socket.off('jawab:hasil', handleJawabHasil);
       socket.off('sesi:selesai', handleSesiSelesai);
+      socket.off('sesi:dikick', handleDiKick);
     };
   }, [pesertaId, isMerah, defaultQuestionSec, namaTim1, namaTim2]);
 
@@ -634,7 +640,7 @@ export default function MainTarikTambang({
         )}
         <button
           type="button"
-          onClick={onKeluar}
+          onClick={() => onKeluar?.()}
           className="tt-ib danger"
           aria-label="Keluar sesi"
         >
@@ -835,7 +841,7 @@ export default function MainTarikTambang({
 
             <button
               type="button"
-              onClick={onKeluar}
+              onClick={() => onKeluar?.()}
               className="tt-btn w-full"
             >
               Kembali ke Halaman Awal

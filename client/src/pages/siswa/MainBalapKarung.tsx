@@ -92,7 +92,7 @@ interface MainBalapKarungProps {
   initialLeaderboard?: PesertaBalapData[];
   initialTeams?: RingkasanTimSiswa[];
   initialSoalAktif?: SoalBalapData | null;
-  onKeluar: () => void;
+  onKeluar: (pesan?: string) => void;
 }
 
 interface FeedbackSiswaState {
@@ -333,12 +333,17 @@ export default function MainBalapKarung({
       }
     };
 
+    const handleDiKick = (data: { pesan?: string }) => {
+      onKeluar(data?.pesan || 'Anda telah dikeluarkan dari lobi oleh guru.');
+    };
+
     socket.on('lobi:update', handleLobiUpdate);
     socket.on('game:mulai', handleGameMulai);
     socket.on('soal:tampil', handleSoalTampil);
     socket.on('balap:update', handleBalapUpdate);
     socket.on('jawab:hasil', handleJawabHasil);
     socket.on('sesi:selesai', handleSesiSelesai);
+    socket.on('sesi:dikick', handleDiKick);
 
     return () => {
       watchdogsRef.current.clearAll();
@@ -348,6 +353,7 @@ export default function MainBalapKarung({
       socket.off('balap:update', handleBalapUpdate);
       socket.off('jawab:hasil', handleJawabHasil);
       socket.off('sesi:selesai', handleSesiSelesai);
+      socket.off('sesi:dikick', handleDiKick);
     };
   }, [pesertaId, defaultTimerDetik]);
 
@@ -508,7 +514,7 @@ export default function MainBalapKarung({
         )}
         <button
           type="button"
-          onClick={onKeluar}
+          onClick={() => onKeluar?.()}
           className="p-2 rounded-xl bg-[#fde0e0] border border-[#f4b6b6] text-[#8a1f1f] cursor-pointer"
           aria-label="Keluar sesi"
         >
@@ -680,7 +686,7 @@ export default function MainBalapKarung({
 
             <button
               type="button"
-              onClick={onKeluar}
+              onClick={() => onKeluar?.()}
               className="bk-btn w-full justify-center mt-2"
             >
               Keluar dari Permainan

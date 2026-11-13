@@ -4,6 +4,7 @@ import { apiRequest } from '../../lib/api';
 import { getSocket } from '../../lib/socket';
 import { bindHostReconnect } from '../../lib/socketReconnect';
 import { Modal, resolveGuruReturnUrl } from '../../components';
+import { ModalKonfirmasiKeluar } from '../../components/ModalKonfirmasiKeluar';
 import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import {
   BalapKarungStadium,
@@ -21,6 +22,8 @@ import {
   Check,
   RefreshCw,
   Users,
+  Shuffle,
+  X,
 } from 'lucide-react';
 
 type KodeTim = 'merah' | 'biru' | 'hijau' | 'kuning';
@@ -131,6 +134,7 @@ export default function LayarHostBalapKarung() {
 
   // Aksi UI
   const [modalAkhiriOpen, setModalAkhiriOpen] = useState(false);
+  const [modalKeluarOpen, setModalKeluarOpen] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
   const [isMainLagi, setIsMainLagi] = useState(false);
@@ -453,6 +457,41 @@ export default function LayarHostBalapKarung() {
     );
   };
 
+  const handleKembaliClick = () => {
+    if (status === 'jalan') {
+      setModalKeluarOpen(true);
+    } else {
+      navigate(returnUrl);
+    }
+  };
+
+  const handleKonfirmasiKeluar = () => {
+    setModalKeluarOpen(false);
+    handleAkhiriManual();
+    navigate(returnUrl);
+  };
+
+  const handleAcakTim = () => {
+    if (!id || totalPeserta === 0) return;
+    const socket = getSocket();
+    socket.emit('sesi:acak_tim', { sessionId: id }, (res: { success?: boolean; pesan?: string }) => {
+      if (res && !res.success) {
+        alert(res.pesan || 'Gagal mengacak tim.');
+      }
+    });
+  };
+
+  const handleKickPeserta = (pesertaId: string) => {
+    if (!id) return;
+    if (!window.confirm('Keluarkan siswa ini dari lobi lomba?')) return;
+    const socket = getSocket();
+    socket.emit('sesi:kick_peserta', { sessionId: id, pesertaId }, (res: { success?: boolean; pesan?: string }) => {
+      if (res && !res.success) {
+        alert(res.pesan || 'Gagal mengeluarkan siswa.');
+      }
+    });
+  };
+
   const handleMainLagi = async (nextJumlahTim?: 3 | 4) => {
     if (!id || isMainLagi) return;
     setIsMainLagi(true);
@@ -619,7 +658,7 @@ export default function LayarHostBalapKarung() {
         compactLanes={activeTeams.length >= 4}
         isMuted={isMuted}
         onToggleMute={status === 'jalan' ? toggleMute : undefined}
-        onBack={() => navigate(returnUrl)}
+        onBack={handleKembaliClick}
         onStop={status === 'jalan' ? () => setModalAkhiriOpen(true) : undefined}
       />
 
@@ -742,13 +781,21 @@ export default function LayarHostBalapKarung() {
                             {t.anggota.map((m) => (
                               <span
                                 key={m.id}
-                                className="inline-flex items-center gap-1.5 bg-white border border-[#f0dfb4] rounded-full py-0.5 pl-1 pr-2.5 text-xs font-extrabold text-[#2b2a4a]"
+                                className="inline-flex items-center gap-1.5 bg-white border border-[#f0dfb4] rounded-full py-0.5 pl-1.5 pr-1.5 text-xs font-extrabold text-[#2b2a4a]"
                               >
                                 <span
                                   className="w-3.5 h-3.5 rounded-full shrink-0"
                                   style={{ background: t.warna }}
                                 />
-                                {m.nama}
+                                <span>{m.nama}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleKickPeserta(m.id)}
+                                  title="Keluarkan dari lobi"
+                                  className="text-[#d63b3b] hover:opacity-75 cursor-pointer p-0.5 rounded hover:bg-rose-50"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
                               </span>
                             ))}
                           </div>
@@ -767,6 +814,16 @@ export default function LayarHostBalapKarung() {
                   )}
 
                   <div className="flex flex-wrap items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      disabled={totalPeserta === 0}
+                      onClick={handleAcakTim}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border-2 border-[#f0dfb4] text-[#2b2a4a] font-extrabold text-xs hover:bg-[#fff3d6] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Acak ulang pembagian siswa ke setiap tim"
+                    >
+                      <Shuffle className="w-3.5 h-3.5 text-[#1d8fe0]" />
+                      Acak Tim
+                    </button>
                     <button
                       type="button"
                       disabled={totalPeserta === 0 || isStarting}
@@ -1037,6 +1094,14 @@ export default function LayarHostBalapKarung() {
           </div>
         </div>
       </Modal>
+
+      {/* Modal Konfirmasi Keluar Game Sedang Berjalan */}
+      <ModalKonfirmasiKeluar
+        isOpen={modalKeluarOpen}
+        onClose={() => setModalKeluarOpen(false)}
+        onKonfirmasiKeluar={handleKonfirmasiKeluar}
+        judulGame="Balap Karung"
+      />
     </div>
   );
 }

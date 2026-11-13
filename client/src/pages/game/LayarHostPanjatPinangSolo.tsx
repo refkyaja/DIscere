@@ -6,6 +6,7 @@ import {
   extractApiErrorMessage,
   resolveGuruReturnUrl,
 } from '../../components';
+import { ModalKonfirmasiKeluar } from '../../components/ModalKonfirmasiKeluar';
 import { FestivalStadiumShell } from '../../components/FestivalStadiumShell';
 import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import TiangPinangVisual, { EfekAktifVisual } from '../siswa/TiangPinangVisual';
@@ -268,6 +269,7 @@ export default function LayarHostPanjatPinangSolo() {
 
   const [modalUlangOpen, setModalUlangOpen] = useState(false);
   const [modalHentikanOpen, setModalHentikanOpen] = useState(false);
+  const [modalKeluarOpen, setModalKeluarOpen] = useState(false);
   const [detailPemain, setDetailPemain] = useState<PesertaPanjatSoloClient | null>(null);
   const [showEndCard, setShowEndCard] = useState(false);
 
@@ -559,6 +561,20 @@ export default function LayarHostPanjatPinangSolo() {
     } finally {
       setIsActionLoading(false);
     }
+  };
+
+  const handleKembaliClick = () => {
+    if (sesi && !sesi.isFinished && (sesi.state === 'PLAYING' || sesi.state === 'PAUSED')) {
+      setModalKeluarOpen(true);
+    } else {
+      navigate(returnUrl);
+    }
+  };
+
+  const handleKonfirmasiKeluar = () => {
+    setModalKeluarOpen(false);
+    handleHentikan();
+    navigate(returnUrl);
   };
 
   const handleMainLagi = async () => {
@@ -928,7 +944,7 @@ export default function LayarHostPanjatPinangSolo() {
         crowdCheer={crowdCheer || sesi.isFinished}
         isMuted={isMuted}
         onToggleMute={isSoundActive ? toggleMute : undefined}
-        onBack={() => navigate(returnUrl)}
+        onBack={handleKembaliClick}
         backLabel={returnUrl.includes('panjat-pinang') ? 'Pengaturan' : 'Dashboard'}
         isPaused={sesi.state === 'PAUSED'}
         onTogglePause={
@@ -1576,6 +1592,14 @@ export default function LayarHostPanjatPinangSolo() {
           </div>
         )}
       </Modal>
+
+      {/* Modal Konfirmasi Keluar Game Sedang Berjalan */}
+      <ModalKonfirmasiKeluar
+        isOpen={modalKeluarOpen}
+        onClose={() => setModalKeluarOpen(false)}
+        onKonfirmasiKeluar={handleKonfirmasiKeluar}
+        judulGame="Panjat Pinang"
+      />
     </div>
   );
 }
