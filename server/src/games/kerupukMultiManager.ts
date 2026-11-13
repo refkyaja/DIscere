@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { prisma } from '../db.js';
 import type { KunciPilihan } from '../utils/questionOptions.js';
-import { mapDbQuestionForGame } from '../utils/questionOptions.js';
+import { mapDbQuestionForGame, extractActiveOptions } from '../utils/questionOptions.js';
 import {
   ActivePresentationKerupuk,
   HasilGachaGigitan,
@@ -84,6 +84,20 @@ export interface HasilAkhirKerupukMulti {
   totalJawabanBenar: number;
   totalJawabanSalah: number;
   totalKerupukHabis: number;
+  questions?: Array<{
+    id: string;
+    urutan: number;
+    teks: string;
+    opsiList: Array<{ key: string; teks: string }>;
+    jawabanBenarKode: string;
+    jawabanBenarTeks: string;
+    penjelasan: string | null;
+  }>;
+  daftarPesertaLog?: Array<{
+    id: string;
+    nama: string;
+    riwayatGigitan: RiwayatGigitanItem[];
+  }>;
 }
 
 export interface SesiKerupukMultiActive {
@@ -95,6 +109,7 @@ export interface SesiKerupukMultiActive {
   hostId: string;
   hostSocketId?: string;
   status: 'lobi' | 'jalan' | 'selesai';
+  mulaiPadaMs?: number | null;
   config: KonfigurasiKerupukMulti;
   questions: SoalKerupuk[];
   peserta: Map<string, PesertaKerupukMultiInternal>;
@@ -208,6 +223,7 @@ export const kerupukMultiManager = {
       templateJudul: template.judul,
       hostId,
       status: 'lobi',
+      mulaiPadaMs: null,
       config: configSnapshot,
       questions: [...questions],
       peserta: new Map(),
@@ -389,6 +405,7 @@ export const kerupukMultiManager = {
 
     const now = Date.now();
     sesi.status = 'jalan';
+    sesi.mulaiPadaMs = now;
     for (const p of sesi.peserta.values()) {
       p.antreanSoalIds = siapkanAntreanSoalKerupuk(sesi.questions);
       p.nomorSoalPemain = 0;
@@ -609,6 +626,27 @@ export const kerupukMultiManager = {
       }
     }
 
+    const questions = sesi.questions.map((q, idx) => {
+      const activeOpsi = extractActiveOptions(q);
+      const kunciKode = normalisasiKodeJawaban(q.jawabanBenar);
+      const kunciOpsi = activeOpsi.find((o) => o.key === kunciKode) || activeOpsi[0];
+      return {
+        id: q.id,
+        urutan: q.urutan || idx + 1,
+        teks: q.teks,
+        opsiList: activeOpsi.map((o) => ({ key: o.key, teks: o.teks })),
+        jawabanBenarKode: kunciKode,
+        jawabanBenarTeks: kunciOpsi?.teks || '',
+        penjelasan: q.penjelasan || null,
+      };
+    });
+
+    const daftarPesertaLog = Array.from(sesi.peserta.values()).map((p) => ({
+      id: p.id,
+      nama: p.nama,
+      riwayatGigitan: [...p.state.riwayatGigitan],
+    }));
+
     const hasil: HasilAkhirKerupukMulti = {
       sessionId: sesi.sessionId,
       playMode: 'MULTIPLAYER',
@@ -627,6 +665,8 @@ export const kerupukMultiManager = {
       totalJawabanBenar,
       totalJawabanSalah,
       totalKerupukHabis,
+      questions,
+      daftarPesertaLog,
     };
 
     sesi.hasil = hasil;
@@ -640,46 +680,46 @@ export const kerupukMultiManager = {
     const hasil = sesi.hasil;
     const juara1 = hasil.podium.juara1;
 
-    await prisma.$transaction(async (tx) => {
-      await tx.session.update({
-        where: { id: sesi.sessionId },
-        data: {
-          status: 'selesai',
-          mode: 'multi',
-          selesaiPada: new Date(),
-          konfigurasi: JSON.stringify({
-            playMode: 'MULTIPLAYER',
-            config: sesi.config,
-            laporanKerupukMulti: hasil,
-          }),
-        },
-      });
-
-      await tx.sessionResult.upsert({
-        where: { sessionId: sesi.sessionId },
-        update: {
-          timMenang: juara1?.nama || 'Selesai',
-          posisiAkhir: juara1?.progresPersen ?? 0,
-          skorMerah: juara1?.skorTotal ?? 0,
-          skorPutih: hasil.totalKerupukHabis,
-        },
-        create: {
-          sessionId: sesi.sessionId,
-          timMenang: juara1?.nama || 'Selesai',
-          posisiAkhir: juara1?.progresPersen ?? 0,
-          skorMerah: juara1?.skorTotal ?? 0,
-          skorPutih: hasil.totalKerupukHabis,
-        },
-      });
-
-      await tx.sessionPlayer.deleteMany({
-        where: { sessionId: sesi.sessionId },
-      });
-
-      for (const p of sesi.peserta.values()) {
-        const st = p.state;
-        await tx.sessionPlayer.create({
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.session.update({
+          where: { id: sesi.sessionId },
           data: {
+            status: 'selesai',
+            mode: 'multi',
+            selesaiPada: new Date(),
+            konfigurasi: JSON.stringify({
+              playMode: 'MULTIPLAYER',
+              config: sesi.config,
+              laporanKerupukMulti: hasil,
+            }),
+          },
+        });
+
+        await tx.sessionResult.upsert({
+          where: { sessionId: sesi.sessionId },
+          update: {
+            timMenang: juara1?.nama || 'Selesai',
+            posisiAkhir: juara1?.progresPersen ?? 0,
+            skorMerah: juara1?.skorTotal ?? 0,
+            skorPutih: hasil.totalKerupukHabis,
+          },
+          create: {
+            sessionId: sesi.sessionId,
+            timMenang: juara1?.nama || 'Selesai',
+            posisiAkhir: juara1?.progresPersen ?? 0,
+            skorMerah: juara1?.skorTotal ?? 0,
+            skorPutih: hasil.totalKerupukHabis,
+          },
+        });
+
+        await tx.sessionPlayer.deleteMany({
+          where: { sessionId: sesi.sessionId },
+        });
+
+        const playersData = Array.from(sesi.peserta.values()).map((p) => {
+          const st = p.state;
+          return {
             id: p.id,
             sessionId: sesi.sessionId,
             nama: p.nama,
@@ -705,28 +745,44 @@ export const kerupukMultiManager = {
             totalWaktuJawabMs: st.totalWaktuJawabMs,
             jumlahJawab: st.jumlahJawab,
             status: st.selesaiKerupuk ? 'selesai' : 'bermain',
-            waktuSelesaiMs: st.waktuSelesaiMs,
+            waktuSelesaiMs: st.waktuSelesaiMs
+              ? (sesi.mulaiPadaMs
+                  ? Math.max(1, Math.min(2147483647, st.waktuSelesaiMs - sesi.mulaiPadaMs))
+                  : Math.min(st.waktuSelesaiMs, 2147483647))
+              : null,
             selesaiPada: st.waktuSelesaiMs ? new Date(st.waktuSelesaiMs) : null,
             riwayatJawaban: JSON.stringify(st.riwayatGigitan),
-          },
+          };
         });
-      }
 
-      await tx.questionStat.deleteMany({
-        where: { sessionId: sesi.sessionId },
-      });
+        if (playersData.length > 0) {
+          await tx.sessionPlayer.createMany({
+            data: playersData,
+          });
+        }
 
-      for (const [questionId, stat] of sesi.questionStatsMap.entries()) {
-        await tx.questionStat.create({
-          data: {
-            sessionId: sesi.sessionId,
-            questionId,
-            jumlahBenar: stat.jumlahBenar,
-            jumlahSalah: stat.jumlahSalah,
-          },
+        await tx.questionStat.deleteMany({
+          where: { sessionId: sesi.sessionId },
         });
+
+        const statsData = Array.from(sesi.questionStatsMap.entries()).map(([questionId, stat]) => ({
+          sessionId: sesi.sessionId,
+          questionId,
+          jumlahBenar: stat.jumlahBenar,
+          jumlahSalah: stat.jumlahSalah,
+        }));
+
+        if (statsData.length > 0) {
+          await tx.questionStat.createMany({
+            data: statsData,
+          });
+        }
+      },
+      {
+        timeout: 30000,
+        maxWait: 10000,
       }
-    });
+    );
   },
 
   async muatLaporanDariDatabase(sessionId: string): Promise<HasilAkhirKerupukMulti | null> {

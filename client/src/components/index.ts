@@ -8,4 +8,5 @@ export * from './TemplateEditor';
 export * from './PortalLedge';
 export * from './GameConfigShell';
 export * from './QuestionTimerBar';
+export * from './KerupukStadium';
 
