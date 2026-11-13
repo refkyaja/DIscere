@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { getSocket } from '../../lib/socket';
 
 interface PesertaItem {
@@ -40,6 +40,14 @@ function hashName(str: string): number {
     hash |= 0;
   }
   return Math.abs(hash);
+}
+
+function getAvatarSvgString(name: string, size = 40): string {
+  const h = hashName(name || 'peserta');
+  const bg = AV_BG[h % AV_BG.length];
+  const sk = AV_SKIN[(h >> 2) % AV_SKIN.length];
+  const hr = AV_HAIR[(h >> 4) % AV_HAIR.length];
+  return `<svg width="${size}" height="${size}" viewBox="0 0 40 40" aria-hidden="true" style="border-radius:50%;display:block;flex-shrink:0;"><circle cx="20" cy="20" r="20" fill="${bg}" /><circle cx="20" cy="22" r="11" fill="${sk}" /><path d="M8.5 20Q9 8 20 8Q31 8 31.5 20Q27 14 20 15Q13 14 8.5 20Z" fill="${hr}" /><circle cx="16" cy="23" r="1.6" fill="#222" /><circle cx="24" cy="23" r="1.6" fill="#222" /><path d="M16.5 27.5Q20 30 23.5 27.5" stroke="#7a2a24" fill="none" stroke-width="1.4" stroke-linecap="round" /></svg>`;
 }
 
 function AvatarSvg({ name, size = 40 }: { name: string; size?: number }) {
@@ -85,6 +93,7 @@ export default function RuangTungguSiswa({
   const [isStarting, setIsStarting] = useState(false);
   const [statusText, setStatusText] = useState('Game akan dimulai segera…');
   const startTimerRef = useRef<any[]>([]);
+  const jalankanTransisiMulaiRef = useRef<() => void>(() => {});
 
   // Sinkronkan daftar peserta & tim jika props berubah
   useEffect(() => {
@@ -151,7 +160,7 @@ export default function RuangTungguSiswa({
       }
 
       // Mulai alur pembagian tim & countdown
-      jalankanTransisiMulai();
+      jalankanTransisiMulaiRef.current();
     };
 
     socket.on('lobi:update', handleLobiUpdate);
@@ -165,34 +174,6 @@ export default function RuangTungguSiswa({
       startTimerRef.current.forEach(clearTimeout);
     };
   }, [gameType, pesertaId]);
-
-  // Fungsi countdown saat guru klik mulai
-  const jalankanTransisiMulai = () => {
-    if (isStarting) return;
-    setIsStarting(true);
-    setStatusText('Guru menekan Mulai! Membagi kelompok…');
-
-    const t1 = setTimeout(() => {
-      setStatusText('Game dimulai dalam 3…');
-    }, 1200);
-
-    const t2 = setTimeout(() => {
-      setStatusText('Game dimulai dalam 2…');
-    }, 2100);
-
-    const t3 = setTimeout(() => {
-      setStatusText('Game dimulai dalam 1…');
-    }, 3000);
-
-    const t4 = setTimeout(() => {
-      setStatusText('Mulai! Bersiaplah…');
-      setTimeout(() => {
-        onMulaiPermainan();
-      }, 500);
-    }, 3800);
-
-    startTimerRef.current = [t1, t2, t3, t4];
-  };
 
   // Nama label mode game
   const labelModeGame = useMemo(() => {
@@ -210,6 +191,18 @@ export default function RuangTungguSiswa({
     }
   }, [gameType]);
 
+  // Pastikan user ada di list peserta tampilan
+  const listPesertaTampil = useMemo(() => {
+    const list = [...livePeserta];
+    const exists = list.some((p) => p.id === pesertaId || p.nama === nama);
+    if (!exists) {
+      list.unshift({ id: pesertaId, nama, tim: detectedMyTeam });
+    }
+    return list;
+  }, [livePeserta, pesertaId, nama, detectedMyTeam]);
+
+  const jumlahPeserta = listPesertaTampil.length;
+
   // Pengelompokan Tim
   const teamGroups = useMemo(() => {
     // 1. Jika game Tarik Tambang: selalu 2 kelompok
@@ -219,7 +212,7 @@ export default function RuangTungguSiswa({
       const anggotaMerah: PesertaItem[] = [];
       const anggotaPutih: PesertaItem[] = [];
 
-      livePeserta.forEach((p, idx) => {
+      listPesertaTampil.forEach((p, idx) => {
         if (p.tim === 'merah') anggotaMerah.push(p);
         else if (p.tim === 'putih') anggotaPutih.push(p);
         else {
@@ -266,7 +259,7 @@ export default function RuangTungguSiswa({
 
         // Fallback jika liveTeams belum sinkron
         if (anggota.length === 0) {
-          anggota = livePeserta.filter((p, idx) => {
+          anggota = listPesertaTampil.filter((p, idx) => {
             if (p.tim) return p.tim === d.id;
             return idx % defs.length === k;
           });
@@ -284,7 +277,7 @@ export default function RuangTungguSiswa({
 
     // 3. Game Individu (Makan Kerupuk / Panjat Pinang)
     return [];
-  }, [gameType, config, livePeserta, liveTeams]);
+  }, [gameType, config, listPesertaTampil, liveTeams]);
 
   // Cek tim milik user
   const timUserAktif = useMemo(() => {
@@ -297,17 +290,237 @@ export default function RuangTungguSiswa({
     return teamGroups.find((tg) => tg.anggota.some((a) => a.id === pesertaId || a.nama === nama)) || teamGroups[0];
   }, [teamGroups, detectedMyTeam, pesertaId, nama]);
 
-  // Pastikan user ada di list peserta tampilan
-  const listPesertaTampil = useMemo(() => {
-    const list = [...livePeserta];
-    const exists = list.some((p) => p.id === pesertaId || p.nama === nama);
-    if (!exists) {
-      list.unshift({ id: pesertaId, nama, tim: detectedMyTeam });
-    }
-    return list;
-  }, [livePeserta, pesertaId, nama, detectedMyTeam]);
+  // --- STATE ANIMASI PEMBAGIAN TIM & SHUFFLE POOL ---
+  const [animStage, setAnimStage] = useState<'IDLE' | 'SHUFFLING' | 'FLYING' | 'DONE'>('IDLE');
+  const [headingText, setHeadingText] = useState('Mengacak nama…');
+  const [subText, setSubText] = useState('Nama peserta dikocok, lalu dibagi ke kelompok.');
+  const [landedIds, setLandedIds] = useState<string[]>([]);
+  const [bumpingTeamId, setBumpingTeamId] = useState<string | null>(null);
 
-  const jumlahPeserta = listPesertaTampil.length;
+  const poolRef = useRef<HTMLDivElement>(null);
+  const slotRefs = useRef<{ [pid: string]: HTMLElement | null }>({});
+  const isAnimatingRef = useRef(false);
+
+  // Fungsi countdown & animasi saat guru klik mulai
+  const jalankanTransisiMulai = useCallback(() => {
+    if (isAnimatingRef.current) return;
+    isAnimatingRef.current = true;
+    setIsStarting(true);
+
+    if (teamGroups.length === 0) {
+      // Solo games (Makan Kerupuk / Panjat Pinang)
+      setStatusText('Guru menekan Mulai! Bersiaplah…');
+      const t1 = setTimeout(() => setStatusText('Game dimulai dalam 3…'), 900);
+      const t2 = setTimeout(() => setStatusText('Game dimulai dalam 2…'), 1800);
+      const t3 = setTimeout(() => setStatusText('Game dimulai dalam 1…'), 2700);
+      const t4 = setTimeout(() => {
+        setStatusText('Mulai! Bersiaplah…');
+        setTimeout(() => onMulaiPermainan(), 400);
+      }, 3500);
+      startTimerRef.current = [t1, t2, t3, t4];
+      return;
+    }
+
+    // Team Games (Tarik Tambang, Balap Karung, dll.)
+    setAnimStage('SHUFFLING');
+    setHeadingText('Mengacak nama…');
+    setSubText('Nama peserta dikocok, lalu dibagi ke kelompok.');
+    setStatusText('Guru menekan Mulai! Mengacak nama…');
+    setLandedIds([]);
+
+    const waitMs = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    const rm = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    (async () => {
+      // Tunggu mounting board
+      await waitMs(450);
+
+      // Kocok pool 3 kali (Animasi Shuffle FLIP)
+      if (!rm && poolRef.current) {
+        const pool = poolRef.current;
+        for (let round = 0; round < 3; round++) {
+          const children = Array.from(pool.children) as HTMLElement[];
+          if (children.length > 1) {
+            const oldRects = new Map(children.map((c) => [c, c.getBoundingClientRect()]));
+            // Acak urutan elemen DOM
+            children.sort(() => Math.random() - 0.5).forEach((c) => pool.appendChild(c));
+            // Animasikan perpindahan posisi
+            await Promise.all(
+              children.map((c) => {
+                const oldR = oldRects.get(c)!;
+                const newR = c.getBoundingClientRect();
+                const dx = oldR.left - newR.left;
+                const dy = oldR.top - newR.top;
+                const rot = (Math.random() - 0.5) * 14;
+                return c.animate(
+                  [
+                    { transform: `translate(${dx}px, ${dy}px)` },
+                    {
+                      transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 14}px) rotate(${rot}deg) scale(1.08)`,
+                      offset: 0.5,
+                    },
+                    { transform: 'none' },
+                  ],
+                  { duration: 400, easing: 'ease-in-out' }
+                ).finished;
+              })
+            );
+          }
+          await waitMs(100);
+        }
+      }
+
+      // Masuk ke tahap Membagi Kelompok (Flying Token)
+      setAnimStage('FLYING');
+      setHeadingText('Membagi kelompok…');
+      setSubText('Nama peserta sedang dibagi ke kelompok.');
+      setStatusText('Membagi kelompok…');
+
+      // Tentukan urutan terbang: nama user (isSelf) TERAKHIR!
+      const allParticipants = [...listPesertaTampil];
+      const sequence = allParticipants.sort((a, b) => {
+        const aIsSelf = a.id === pesertaId || a.nama === nama;
+        const bIsSelf = b.id === pesertaId || b.nama === nama;
+        return (aIsSelf ? 1 : 0) - (bIsSelf ? 1 : 0);
+      });
+
+      // Terbang satu per satu
+      for (let i = 0; i < sequence.length; i++) {
+        const p = sequence[i];
+        const isSelf = p.id === pesertaId || p.nama === nama;
+        const targetTeam = teamGroups.find((tg) => tg.anggota.some((a) => a.id === p.id || a.nama === p.nama)) || teamGroups[i % teamGroups.length];
+        const pTeam = targetTeam?.id;
+
+        const sourceEl = poolRef.current?.querySelector(`[data-pid="${p.id}"]`) as HTMLElement | null;
+        const destEl = slotRefs.current[p.id];
+
+        if (!rm && sourceEl && destEl) {
+          const s = sourceEl.getBoundingClientRect();
+          const d = destEl.getBoundingClientRect();
+
+          const tok = document.createElement('div');
+          tok.className = 'tok';
+          tok.style.cssText = `
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 9999;
+            pointer-events: none;
+            will-change: transform;
+            filter: drop-shadow(0 6px 12px rgba(0,0,0,0.45));
+          `;
+
+          const chipEl = document.createElement('span');
+          chipEl.className = `pc ${isSelf ? 'me' : ''}`;
+          chipEl.style.cssText = `
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 12px 3px 4px;
+            border-radius: 999px;
+            background: ${isSelf ? 'linear-gradient(135deg, #ffe88a, #f2c230)' : '#fffdf6'};
+            border: 2px solid ${isSelf ? '#c79a14' : '#e8dfc8'};
+            font-weight: 800;
+            font-size: 13px;
+            color: #163a2b;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+          `;
+          chipEl.innerHTML = `
+            <span style="width:24px;height:24px;border-radius:50%;overflow:hidden;flex-shrink:0;display:inline-block;">
+              ${getAvatarSvgString(p.nama, 24)}
+            </span>
+            <span style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.nama}</span>
+            ${isSelf ? '<b style="background:#c8362f;color:#fff;font-size:9px;padding:1px 6px;border-radius:999px;font-weight:900;">Kamu</b>' : ''}
+          `;
+          tok.appendChild(chipEl);
+          document.body.appendChild(tok);
+
+          sourceEl.style.visibility = 'hidden';
+
+          const up = Math.min(s.top, d.top) - (isSelf ? 85 : 45);
+          const sx = d.left > s.left ? 1 : -1;
+
+          await tok.animate(
+            [
+              { transform: `translate(${s.left}px, ${s.top}px)` },
+              {
+                transform: `translate(${(s.left + d.left) / 2}px, ${up}px) scale(${
+                  isSelf ? 1.4 : 1.15
+                }) rotate(${sx * 6}deg)`,
+                offset: 0.5,
+              },
+              { transform: `translate(${d.left}px, ${d.top}px)` },
+            ],
+            {
+              duration: isSelf ? 850 : 520,
+              easing: 'cubic-bezier(.4,0,.2,1)',
+              fill: 'both',
+            }
+          ).finished;
+
+          tok.remove();
+        } else if (sourceEl) {
+          sourceEl.style.visibility = 'hidden';
+        }
+
+        // Tandai sudah mendarat di kartu tim
+        setLandedIds((prev) => [...prev, p.id]);
+        if (pTeam) {
+          setBumpingTeamId(pTeam);
+          setTimeout(() => setBumpingTeamId(null), 240);
+        }
+
+        await waitMs(rm ? 0 : 250);
+      }
+
+      // Semua mendarat!
+      setAnimStage('DONE');
+      const myTeam = teamGroups.find((tg) => tg.id === detectedMyTeam) ||
+                     teamGroups.find((tg) => tg.anggota.some((a) => a.id === pesertaId || a.nama === nama)) ||
+                     teamGroups[0];
+
+      if (myTeam) {
+        setHeadingText(`Kamu di ${myTeam.nama}!`);
+        setSubText(`Namamu sudah masuk ke ${myTeam.nama}. Siap-siap, game segera dimulai!`);
+      }
+
+      await waitMs(800);
+
+      // Countdown akhir
+      setStatusText('Game dimulai dalam 3…');
+      await waitMs(900);
+      setStatusText('Game dimulai dalam 2…');
+      await waitMs(900);
+      setStatusText('Game dimulai dalam 1…');
+      await waitMs(900);
+      setStatusText('Mulai! Bersiaplah…');
+      await waitMs(500);
+
+      onMulaiPermainan();
+    })();
+  }, [teamGroups, listPesertaTampil, detectedMyTeam, pesertaId, nama, onMulaiPermainan]);
+
+  jalankanTransisiMulaiRef.current = jalankanTransisiMulai;
+
+  const handleDemoClick = () => {
+    if (livePeserta.length < 4) {
+      const demoNames = ['Dika Pratama', 'Fajar Gaming', 'Siti Nurma', 'Budi Santoso', 'Ayu Lestari'];
+      const dummyList: PesertaItem[] = [
+        ...listPesertaTampil,
+        ...demoNames.slice(0, 6 - listPesertaTampil.length).map((nm, idx) => ({
+          id: `demo-${idx}`,
+          nama: nm,
+          tim: null,
+        })),
+      ];
+      setLivePeserta(dummyList);
+      setTimeout(() => {
+        jalankanTransisiMulai();
+      }, 100);
+    } else {
+      jalankanTransisiMulai();
+    }
+  };
 
   return (
     <div
@@ -397,6 +610,104 @@ export default function RuangTungguSiswa({
         .anim-stm {
           opacity: 0;
           animation: sandStream 9s linear infinite;
+        }
+        /* REDESAIN ANIMASI PENGACAKAN & PEMBAGIAN TIM */
+        .pool {
+          width: 100%;
+          max-width: 620px;
+          margin: 4px auto 8px;
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 6px;
+          padding: 8px 12px;
+          border: 2px dashed rgba(244, 236, 216, 0.35);
+          border-radius: 20px;
+          background: rgba(10, 32, 22, 0.35);
+          box-shadow: inset 0 4px 18px rgba(0, 0, 0, 0.3);
+          max-height: 120px;
+          overflow: hidden;
+          transition: max-height 0.5s ease, opacity 0.4s ease, margin 0.5s ease, padding 0.5s ease;
+        }
+        .pool.done {
+          max-height: 0;
+          opacity: 0;
+          margin: 0;
+          padding: 0;
+          border-width: 0;
+          overflow: hidden;
+        }
+        .pl {
+          display: inline-flex;
+          max-width: 100%;
+          border-radius: 999px;
+          border: 2px dashed transparent;
+          will-change: transform;
+        }
+        .pl.gone {
+          border-color: rgba(244, 236, 216, 0.28);
+        }
+        .pl.gone .pc {
+          visibility: hidden;
+        }
+        .tok {
+          position: fixed;
+          left: 0;
+          top: 0;
+          z-index: 9999;
+          pointer-events: none;
+          will-change: transform;
+          filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.45));
+        }
+        .tok .pc.me {
+          transform: none;
+        }
+        .pc {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 2px 10px 2px 3px;
+          border-radius: 999px;
+          background: #fffdf6;
+          border: 2px solid #e8dfc8;
+          font-weight: 800;
+          font-size: 12px;
+          color: #163a2b;
+        }
+        .pc.me {
+          background: linear-gradient(135deg, #ffe88a, #f2c230);
+          border-color: #c79a14;
+          box-shadow: 0 0 0 2px rgba(242, 194, 48, 0.4), 0 0 16px rgba(242, 194, 48, 0.75);
+        }
+        .pc.me::after {
+          content: "";
+          position: absolute;
+          inset: -4px;
+          border-radius: 999px;
+          border: 2px solid #f2c230;
+          animation: ringPulse 1.5s ease-out infinite;
+          pointer-events: none;
+        }
+        @keyframes popLand {
+          from { transform: scale(0.65); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
+        }
+        .land {
+          animation: popLand 0.45s cubic-bezier(0.3, 1.6, 0.5, 1);
+        }
+        .tm-bump {
+          transform: scale(1.04) !important;
+          transition: transform 0.2s ease;
+        }
+        .tm-mine {
+          box-shadow: 0 0 0 4px #f2c230, 0 0 25px rgba(242, 194, 48, 0.55), 0 6px 0 rgba(0, 0, 0, 0.22) !important;
+          transform: translateY(-2px) !important;
+          opacity: 1 !important;
+        }
+        .tm-dim {
+          opacity: 0.65 !important;
+          filter: saturate(0.7) !important;
         }
       `}</style>
 
@@ -578,6 +889,16 @@ export default function RuangTungguSiswa({
                   </b>
                 </div>
               </div>
+
+              {/* Tombol Demo Simulasi untuk Siswa */}
+              <button
+                type="button"
+                onClick={handleDemoClick}
+                className="mt-2 sm:mt-3 flex items-center gap-1.5 bg-[#f2c230] hover:bg-[#ffd555] active:scale-95 text-[#163a2b] font-black text-xs sm:text-sm py-1.5 px-4 rounded-full shadow-[0_3px_0_#c79a14] transition-all cursor-pointer"
+              >
+                <span>▶</span>
+                <span>Demo: Guru Klik Mulai</span>
+              </button>
             </div>
           ) : (
             /* ---------------------------------------------------- */
@@ -587,9 +908,13 @@ export default function RuangTungguSiswa({
               {teamGroups.length > 0 ? (
                 <>
                   <h2 className="font-['Caveat',sans-serif] text-2xl sm:text-4xl lg:text-5xl font-bold text-[#f4ecd8] drop-shadow-md leading-tight shrink-0">
-                    {timUserAktif ? (
+                    {headingText.includes('Kamu di') ? (
                       <>
-                        Kamu di <span className="text-[#f2c230]">{timUserAktif.nama}!</span>
+                        Kamu di <span className="text-[#f2c230]">{headingText.replace('Kamu di ', '')}</span>
+                      </>
+                    ) : headingText.includes('Mengacak') ? (
+                      <>
+                        Mengacak <span className="text-[#f2c230]">nama…</span>
                       </>
                     ) : (
                       <>
@@ -597,11 +922,39 @@ export default function RuangTungguSiswa({
                       </>
                     )}
                   </h2>
-                  <p className="text-xs sm:text-sm text-[#f4ecd8]/90 font-semibold mt-0.5 mb-1.5 sm:mb-2.5 max-w-lg shrink-0">
-                    {timUserAktif
-                      ? `Namamu sudah masuk ke ${timUserAktif.nama}. Siap-siap, game segera dimulai!`
-                      : `Nama peserta sedang dibagi rata ke ${teamGroups.length} kelompok.`}
+                  <p className="text-xs sm:text-sm text-[#f4ecd8]/90 font-semibold mt-0.5 mb-1.5 sm:mb-2 max-w-lg shrink-0">
+                    {subText}
                   </p>
+
+                  {/* POOL PESERTA SEMENTARA (UNTUK ANIMASI KOCOK & TERBANG) */}
+                  <div
+                    ref={poolRef}
+                    className={`pool ${animStage === 'DONE' ? 'done' : ''}`}
+                    aria-hidden={animStage === 'DONE'}
+                  >
+                    {listPesertaTampil.map((p) => {
+                      const isSelf = p.id === pesertaId || p.nama === nama;
+                      return (
+                        <span
+                          key={p.id}
+                          data-pid={p.id}
+                          className={`pl ${landedIds.includes(p.id) ? 'gone' : ''}`}
+                        >
+                          <span className={`pc ${isSelf ? 'me' : ''}`}>
+                            <span className="w-5 h-5 rounded-full overflow-hidden shrink-0 inline-block">
+                              <AvatarSvg name={p.nama} size={20} />
+                            </span>
+                            <span className="max-w-[80px] sm:max-w-[100px] truncate">{p.nama}</span>
+                            {isSelf && (
+                              <b className="bg-[#c8362f] text-white text-[8px] sm:text-[9px] px-1.5 py-0.2 rounded-full font-black">
+                                Kamu
+                              </b>
+                            )}
+                          </span>
+                        </span>
+                      );
+                    })}
+                  </div>
 
                   {/* GRID KARTU KELOMPOK (SESUAI JUMLAH KELOMPOK: 2, 3, ATAU 4 TIM) */}
                   <div className="w-full flex-1 min-h-0 max-h-[56vh] overflow-y-auto custom-scrollbar p-1">
@@ -615,15 +968,24 @@ export default function RuangTungguSiswa({
                       }`}
                     >
                       {teamGroups.map((team) => {
-                        const isMyTeam = timUserAktif?.id === team.id;
+                        const isMyTeam = animStage === 'DONE' && timUserAktif?.id === team.id;
+                        const isDimmed = animStage === 'DONE' && !isMyTeam;
+                        const isBumping = bumpingTeamId === team.id;
+                        const landedInTeam = team.anggota.filter((m) =>
+                          animStage === 'IDLE' ? true : landedIds.includes(m.id)
+                        );
 
                         return (
                           <article
                             key={team.id}
-                            className={`relative bg-[#fbf6e9] border-2 sm:border-[3px] border-[#e8dfc8] rounded-2xl overflow-hidden text-[#163a2b] shadow-sm transition-all flex flex-col ${
+                            className={`relative bg-[#fbf6e9] border-2 sm:border-[3px] border-[#e8dfc8] rounded-2xl overflow-hidden text-[#163a2b] shadow-sm transition-all duration-300 flex flex-col ${
+                              isBumping ? 'tm-bump' : ''
+                            } ${
                               isMyTeam
-                                ? 'ring-3 ring-[#f2c230] shadow-[0_0_20px_rgba(242,194,48,0.5)] -translate-y-0.5'
-                                : 'opacity-85'
+                                ? 'tm-mine'
+                                : isDimmed
+                                  ? 'tm-dim'
+                                  : 'opacity-90'
                             }`}
                           >
                             {/* Header Kartu Tim */}
@@ -641,7 +1003,9 @@ export default function RuangTungguSiswa({
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
                                 <span className="text-[10px] sm:text-[11px] bg-black/20 px-1.5 py-0.2 rounded-full font-extrabold">
-                                  {team.anggota.length}
+                                  {animStage === 'IDLE'
+                                    ? `${team.anggota.length}`
+                                    : `${landedInTeam.length}/${team.anggota.length}`}
                                 </span>
                                 {isMyTeam && (
                                   <span className="bg-[#f2c230] text-[#163a2b] text-[9px] sm:text-[10px] font-black px-1.5 py-0.2 rounded-full shadow-sm">
@@ -656,22 +1020,39 @@ export default function RuangTungguSiswa({
                               {team.anggota.length > 0 ? (
                                 team.anggota.map((member, mIdx) => {
                                   const isSelf = member.id === pesertaId || member.nama === nama;
+                                  const hasLanded = animStage === 'IDLE' || landedIds.includes(member.id);
+
                                   return (
                                     <span
                                       key={member.id || mIdx}
-                                      className={`relative inline-flex items-center gap-1 bg-[#fffdf6] border rounded-full py-0.5 px-1.5 sm:px-2 text-[10px] sm:text-[11px] font-black text-[#163a2b] shadow-xs ${
-                                        isSelf
-                                          ? 'bg-gradient-to-r from-[#ffe88a] to-[#f2c230] border-[#c79a14] ring-1 ring-[#f2c230]'
-                                          : 'border-[#e8dfc8]'
+                                      ref={(el) => {
+                                        if (el) slotRefs.current[member.id] = el;
+                                      }}
+                                      className={`inline-flex rounded-full transition-all ${
+                                        hasLanded ? '' : 'border border-dashed border-[#1f4a37]/30'
                                       }`}
                                     >
-                                      <AvatarSvg name={member.nama} size={18} />
-                                      <span className="truncate max-w-[70px] sm:max-w-[85px]">{member.nama}</span>
-                                      {isSelf && (
-                                        <b className="bg-[#c8362f] text-white text-[8px] px-1 py-0.2 rounded-full font-black">
-                                          Kamu
-                                        </b>
-                                      )}
+                                      <span
+                                        className={`inline-flex items-center gap-1 rounded-full py-0.5 px-1.5 sm:px-2 text-[10px] sm:text-[11px] font-black text-[#163a2b] shadow-xs transition-opacity ${
+                                          hasLanded
+                                            ? animStage === 'FLYING'
+                                              ? 'land opacity-100'
+                                              : 'opacity-100'
+                                            : 'invisible opacity-0'
+                                        } ${
+                                          isSelf
+                                            ? 'bg-gradient-to-r from-[#ffe88a] to-[#f2c230] border border-[#c79a14] ring-1 ring-[#f2c230]'
+                                            : 'bg-[#fffdf6] border border-[#e8dfc8]'
+                                        }`}
+                                      >
+                                        <AvatarSvg name={member.nama} size={18} />
+                                        <span className="truncate max-w-[70px] sm:max-w-[85px]">{member.nama}</span>
+                                        {isSelf && (
+                                          <b className="bg-[#c8362f] text-white text-[8px] px-1 py-0.2 rounded-full font-black">
+                                            Kamu
+                                          </b>
+                                        )}
+                                      </span>
                                     </span>
                                   );
                                 })
