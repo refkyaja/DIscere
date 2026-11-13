@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { apiRequest } from '../../lib/api';
 import { getSocket } from '../../lib/socket';
 import { bindHostReconnect } from '../../lib/socketReconnect';
-import { Modal } from '../../components';
+import { Modal, resolveGuruReturnUrl } from '../../components';
 import { ModalKonfirmasiKeluar } from '../../components/ModalKonfirmasiKeluar';
 import {
   KerupukStadium,
@@ -89,6 +89,7 @@ export default function LayarHostKerupukMulti({
   returnUrl,
 }: LayarHostKerupukMultiProps) {
   const navigate = useNavigate();
+  const effectiveReturnUrl = resolveGuruReturnUrl(returnUrl);
   const id = initialSession.sessionId;
 
   const [status, setStatus] = useState<'lobi' | 'jalan' | 'selesai'>(initialSession.status);
@@ -303,14 +304,14 @@ export default function LayarHostKerupukMulti({
     if (status === 'jalan') {
       setModalKeluarOpen(true);
     } else {
-      navigate(returnUrl);
+      navigate(effectiveReturnUrl);
     }
   };
 
   const handleKonfirmasiKeluar = () => {
     setModalKeluarOpen(false);
     handleKonfirmasiAkhiri();
-    navigate(returnUrl);
+    navigate(effectiveReturnUrl);
   };
 
   const handleAcakUrutan = () => {
@@ -783,7 +784,7 @@ export default function LayarHostKerupukMulti({
                 </button>
                 <button
                   type="button"
-                  onClick={() => navigate(returnUrl)}
+                  onClick={() => navigate(effectiveReturnUrl)}
                   className="px-6 py-2.5 rounded-xl bg-[#ffb81c] text-[#4a3000] font-extrabold text-sm shadow-[0_4px_0_#c98a00] cursor-pointer"
                 >
                   Dashboard Guru

@@ -127,8 +127,7 @@
 
 .kp-crowd {
   position: absolute;
-  display: flex;
-  align-items: flex-end;
+  pointer-events: none;
 }
 
 .kp-crowd.back {
@@ -136,9 +135,12 @@
   right: 0;
   top: calc(var(--hz) - 100px);
   height: 104px;
+  display: flex;
+  align-items: flex-end;
   justify-content: space-around;
   padding: 0 4px;
   z-index: 2;
+  pointer-events: none;
 }
 
 .kp-crowd.side-l,
@@ -147,6 +149,7 @@
   bottom: 0;
   z-index: 4;
   display: block;
+  pointer-events: none;
 }
 
 .kp-crowd.side-l {
@@ -821,7 +824,7 @@
 
 .kp-top {
   position: absolute;
-  z-index: 9;
+  z-index: 50;
   top: 12px;
   left: 12px;
   right: 12px;
@@ -836,6 +839,7 @@
   border-radius: 18px;
   padding: 8px 14px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  pointer-events: auto;
 }
 
 .kp-top small {

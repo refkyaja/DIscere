@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { apiRequest } from '../../lib/api';
-import { Modal } from '../../components';
+import { Modal, resolveGuruReturnUrl } from '../../components';
 import { ModalKonfirmasiKeluar } from '../../components/ModalKonfirmasiKeluar';
 import {
   KerupukStadium,
@@ -90,7 +90,7 @@ export default function LayarHostKerupuk() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const returnUrl = searchParams.get('kembali') || '/guru';
+  const returnUrl = resolveGuruReturnUrl(searchParams.get('kembali'));
 
   const [sesi, setSesi] = useState<SesiKerupukClient | null>(null);
   const [sesiMulti, setSesiMulti] = useState<SesiKerupukMultiClient | null>(null);

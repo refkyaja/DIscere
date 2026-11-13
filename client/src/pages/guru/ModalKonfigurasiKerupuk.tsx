@@ -101,7 +101,7 @@ export default function ModalKonfigurasiKerupuk({
   );
 
   // Pengaturan khusus Multiplayer
-  const [maxPeserta, setMaxPeserta] = useState<number>(45);
+  const [maxPeserta, setMaxPeserta] = useState<number>(40);
   const [allowLateJoin, setAllowLateJoin] = useState<boolean>(true);
 
   useEffect(() => {
@@ -111,7 +111,7 @@ export default function ModalKonfigurasiKerupuk({
       setCustomTargetInput('120');
       setKesulitan('normal');
       setProbabilitas({ ...PRESET_DATA.normal.probabilitas });
-      setMaxPeserta(45);
+      setMaxPeserta(40);
       setAllowLateJoin(true);
     }
   }, [isOpen, defaultPlayMode]);
@@ -459,9 +459,7 @@ export default function ModalKonfigurasiKerupuk({
               >
                 <option value={20}>20 Siswa</option>
                 <option value={30}>30 Siswa</option>
-                <option value={45}>45 Siswa (Standar 1 Kelas)</option>
-                <option value={60}>60 Siswa</option>
-                <option value={100}>100 Siswa</option>
+                <option value={40}>40 Siswa (Standar 1 Kelas)</option>
               </select>
             </div>
 

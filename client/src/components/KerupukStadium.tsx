@@ -497,6 +497,63 @@ export interface KerupukStadiumProps {
 
 const SAY_NYAM = ['Nyam!', 'Krauk!', 'Renyah!', 'Hap!', 'Krenyes!'];
 
+function seededRandom(seed: number) {
+  let s = seed % 2147483647;
+  if (s <= 0) s += 2147483646;
+  return () => {
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+interface SideCrowdMember {
+  x: number;
+  y: number;
+  w: number;
+  shirt: string;
+  skin: string;
+  hair: string;
+  hasFlag: boolean;
+  idx: number;
+}
+
+function generateSideCrowd(f: number, seed: number): SideCrowdMember[] {
+  if (f < 46) return [];
+  const R = seededRandom(seed);
+  const rows = [
+    [322, 30],
+    [385, 36],
+    [450, 43],
+    [512, 50],
+  ];
+  const P: Array<{ x: number; y: number; w: number }> = [];
+  const N = Math.min(36, Math.floor(f * 0.07));
+
+  for (let a = 0; a < 300 && P.length < N; a++) {
+    const ri = Math.floor(R() * 4);
+    const w = rows[ri][1] + Math.round(R() * 6);
+    const x = R() * (f - w);
+    const y = rows[ri][0] + (R() * 28 - 14);
+    if (P.some((p) => Math.abs(p.x - x) < (p.w + w) * 0.42 && Math.abs(p.y - y) < 26)) {
+      continue;
+    }
+    P.push({ x, y, w });
+  }
+
+  P.sort((a, b) => a.y - b.y);
+
+  return P.map((p, i) => ({
+    x: Math.round(p.x),
+    y: Math.round(p.y),
+    w: p.w,
+    shirt: CROWD_SHIRTS[Math.floor(R() * CROWD_SHIRTS.length)],
+    skin: CROWD_SKINS[Math.floor(R() * CROWD_SKINS.length)],
+    hair: CROWD_HAIRS[Math.floor(R() * CROWD_HAIRS.length)],
+    hasFlag: R() < 0.28,
+    idx: i,
+  }));
+}
+
 /* ============================================================================
    KOMPONEN PANGGUNG LOMBA MAKAN KERUPUK (FESTIVAL STADIUM)
    ============================================================================ */
@@ -524,6 +581,39 @@ export function KerupukStadium({
   const reactId = useId().replace(/:/g, '');
   const townPatternId = `kp-town-pat-${reactId}`;
   const stageRef = useRef<HTMLDivElement | null>(null);
+  const rwRef = useRef<HTMLDivElement | null>(null);
+
+  const [stageWidth, setStageWidth] = useState<number>(1000);
+  const [rwWidth, setRwWidth] = useState<number>(360);
+
+  useEffect(() => {
+    if (!stageRef.current) return;
+    const updateSizes = () => {
+      if (stageRef.current) {
+        setStageWidth(stageRef.current.clientWidth);
+      }
+      if (rwRef.current) {
+        setRwWidth(rwRef.current.offsetWidth);
+      }
+    };
+    updateSizes();
+    const obs = new ResizeObserver(() => {
+      updateSizes();
+    });
+    obs.observe(stageRef.current);
+    if (rwRef.current) obs.observe(rwRef.current);
+    return () => obs.disconnect();
+  }, []);
+
+  const sideWidth = Math.max(0, Math.floor((stageWidth - (rwWidth || 360)) / 2 - 16));
+
+  const leftCrowd = useMemo(() => {
+    return generateSideCrowd(sideWidth, 12345);
+  }, [sideWidth]);
+
+  const rightCrowd = useMemo(() => {
+    return generateSideCrowd(sideWidth, 67890);
+  }, [sideWidth]);
 
   // Status visual per lane: class states, crumbs, speech bubble, wind/leaves
   const [laneClasses, setLaneClasses] = useState<Record<number, { ch: string; pend: string }>>({});
@@ -550,33 +640,6 @@ export function KerupukStadium({
         skin: CROWD_SKINS[(i * 3) % CROWD_SKINS.length],
         hair: CROWD_HAIRS[(i * 5) % CROWD_HAIRS.length],
         hasFlag: i % 4 === 0,
-      })),
-    []
-  );
-
-  // Penonton Samping Kiri & Kanan
-  const leftSpectators = useMemo(
-    () =>
-      Array.from({ length: 4 }, (_, i) => ({
-        idx: i,
-        width: 44 + i * 4,
-        shirt: CROWD_SHIRTS[(i * 2) % CROWD_SHIRTS.length],
-        skin: CROWD_SKINS[i % CROWD_SKINS.length],
-        hair: CROWD_HAIRS[i % CROWD_HAIRS.length],
-        hasFlag: i % 2 === 0,
-      })),
-    []
-  );
-
-  const rightSpectators = useMemo(
-    () =>
-      Array.from({ length: 4 }, (_, i) => ({
-        idx: i,
-        width: 44 + i * 4,
-        shirt: CROWD_SHIRTS[(i * 3 + 1) % CROWD_SHIRTS.length],
-        skin: CROWD_SKINS[(i + 1) % CROWD_SKINS.length],
-        hair: CROWD_HAIRS[(i + 2) % CROWD_HAIRS.length],
-        hasFlag: i % 2 === 1,
       })),
     []
   );
@@ -744,66 +807,6 @@ export function KerupukStadium({
         } as React.CSSProperties
       }
     >
-      {/* Top Floating HUD */}
-      <header className="kp-top">
-        {onBack && (
-          <button type="button" onClick={onBack} className="kp-ib" title={backLabel}>
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">{backLabel}</span>
-          </button>
-        )}
-
-        <div>
-          <small>{subtitle || 'MAKAN KERUPUK • FESTIVAL 17 AGUSTUS'}</small>
-          <h1>{title}</h1>
-        </div>
-
-        {targetText && <span className="kp-chip gold">{targetText}</span>}
-
-        <span
-          className={`kp-chip ${
-            statusTone === 'live' ? 'live' : statusTone === 'done' ? 'gold' : ''
-          }`}
-        >
-          {statusLabel}
-        </span>
-
-        {timerText && (
-          <div className="kp-tmr" title="Waktu Lomba">
-            {timerText}
-          </div>
-        )}
-
-        <div className="kp-sp" />
-
-        {onTogglePause && (
-          <button type="button" onClick={onTogglePause} className="kp-ib">
-            {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-            <span className="hidden sm:inline">{isPaused ? 'Lanjut' : 'Jeda'}</span>
-          </button>
-        )}
-
-        {onStop && (
-          <button type="button" onClick={onStop} className="kp-ib danger">
-            <StopCircle className="w-4 h-4" />
-            <span className="hidden sm:inline">{stopLabel}</span>
-          </button>
-        )}
-
-        {onToggleMute && (
-          <button
-            type="button"
-            onClick={onToggleMute}
-            className="kp-ib"
-            title={isMuted ? 'Nyalakan Suara' : 'Bisukan Suara'}
-            aria-label={isMuted ? 'Nyalakan Suara' : 'Bisukan Suara'}
-          >
-            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-            <span className="hidden sm:inline">{isMuted ? 'Mati' : 'Nyala'}</span>
-          </button>
-        )}
-      </header>
-
       {/* Matahari & Awan Bergerak */}
       <div className="kp-sun" />
       <div className="kp-cloud" style={{ width: 110, top: 150, left: '30%' }} />
@@ -845,7 +848,7 @@ export function KerupukStadium({
         <rect width="100%" height="150" fill={`url(#${townPatternId})`} />
       </svg>
 
-      {/* Penonton Belakang & Samping */}
+      {/* Penonton Belakang */}
       <div className={`kp-crowds ${crowdCheer ? 'cheer' : ''}`} aria-hidden="true">
         <div className="kp-crowd back">
           {backSpectators.map((sp) => (
@@ -858,34 +861,6 @@ export function KerupukStadium({
               hasFlag={sp.hasFlag}
               idx={sp.idx}
             />
-          ))}
-        </div>
-        <div className="kp-crowd side-l">
-          {leftSpectators.map((sp) => (
-            <div key={`l-${sp.idx}`} style={{ marginBottom: 4 }}>
-              <SpectatorPerson
-                width={sp.width}
-                shirt={sp.shirt}
-                skin={sp.skin}
-                hair={sp.hair}
-                hasFlag={sp.hasFlag}
-                idx={sp.idx}
-              />
-            </div>
-          ))}
-        </div>
-        <div className="kp-crowd side-r">
-          {rightSpectators.map((sp) => (
-            <div key={`r-${sp.idx}`} style={{ marginBottom: 4 }}>
-              <SpectatorPerson
-                width={sp.width}
-                shirt={sp.shirt}
-                skin={sp.skin}
-                hair={sp.hair}
-                hasFlag={sp.hasFlag}
-                idx={sp.idx}
-              />
-            </div>
           ))}
         </div>
       </div>
@@ -918,7 +893,7 @@ export function KerupukStadium({
       <div className="kp-gnd" />
 
       {/* Palang Kayu Gantungan Kerupuk */}
-      <div className="kp-rw">
+      <div ref={rwRef} className="kp-rw">
         <div className="kp-post" style={{ left: 0 }} />
         <div className="kp-post" style={{ right: 0 }} />
         <div className="kp-bar">
@@ -1012,13 +987,162 @@ export function KerupukStadium({
                 {/* Label Nama Peserta / Tim */}
                 <div className="kp-nm">
                   <b>{lane.nama}</b>
-                  {lane.subText && <small>{lane.subText}</small>}
                 </div>
               </div>
             );
           })}
         </div>
       </div>
+
+      {/* Penonton Samping Kiri & Kanan di Tanah Lapangan (disebar alami sesuai referensi) */}
+      <div className={`kp-crowds ${crowdCheer ? 'cheer' : ''}`} id="crowds2" aria-hidden="true">
+        <div
+          className="kp-crowd side-l"
+          id="cl"
+          style={{
+            width: sideWidth ? `${sideWidth}px` : undefined,
+            display: sideWidth < 46 ? 'none' : 'block',
+          }}
+        >
+          {leftCrowd.map((p) => (
+            <div
+              key={`cl-${p.idx}`}
+              style={{
+                position: 'absolute',
+                left: `${p.x}px`,
+                top: `${p.y - p.w * 2.3}px`,
+              }}
+            >
+              <SpectatorPerson
+                width={p.w}
+                shirt={p.shirt}
+                skin={p.skin}
+                hair={p.hair}
+                hasFlag={p.hasFlag}
+                idx={p.idx}
+              />
+            </div>
+          ))}
+        </div>
+        <div
+          className="kp-crowd side-r"
+          id="cr"
+          style={{
+            width: sideWidth ? `${sideWidth}px` : undefined,
+            display: sideWidth < 46 ? 'none' : 'block',
+          }}
+        >
+          {rightCrowd.map((p) => (
+            <div
+              key={`cr-${p.idx}`}
+              style={{
+                position: 'absolute',
+                left: `${p.x}px`,
+                top: `${p.y - p.w * 2.3}px`,
+              }}
+            >
+              <SpectatorPerson
+                width={p.w}
+                shirt={p.shirt}
+                skin={p.skin}
+                hair={p.hair}
+                hasFlag={p.hasFlag}
+                idx={p.idx}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Top Floating HUD */}
+      <header className="kp-top" style={{ zIndex: 50 }}>
+        {onBack && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onBack();
+            }}
+            className="kp-ib cursor-pointer"
+            title={backLabel}
+            aria-label={backLabel}
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="hidden sm:inline">{backLabel}</span>
+          </button>
+        )}
+
+        <div>
+          <small>{subtitle || 'MAKAN KERUPUK • FESTIVAL 17 AGUSTUS'}</small>
+          <h1>{title}</h1>
+        </div>
+
+        {targetText && <span className="kp-chip gold">{targetText}</span>}
+
+        <span
+          className={`kp-chip ${
+            statusTone === 'live' ? 'live' : statusTone === 'done' ? 'gold' : ''
+          }`}
+        >
+          {statusLabel}
+        </span>
+
+        {timerText && (
+          <div className="kp-tmr" title="Waktu Lomba">
+            {timerText}
+          </div>
+        )}
+
+        <div className="kp-sp" />
+
+        {onTogglePause && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onTogglePause();
+            }}
+            className="kp-ib cursor-pointer"
+          >
+            {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+            <span className="hidden sm:inline">{isPaused ? 'Lanjut' : 'Jeda'}</span>
+          </button>
+        )}
+
+        {onStop && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onStop();
+            }}
+            className="kp-ib danger cursor-pointer"
+          >
+            <StopCircle className="w-4 h-4" />
+            <span className="hidden sm:inline">{stopLabel}</span>
+          </button>
+        )}
+
+        {onToggleMute && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleMute();
+            }}
+            className="kp-ib cursor-pointer"
+            title={isMuted ? 'Nyalakan Suara' : 'Bisukan Suara'}
+            aria-label={isMuted ? 'Nyalakan Suara' : 'Bisukan Suara'}
+          >
+            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            <span className="hidden sm:inline">{isMuted ? 'Mati' : 'Nyala'}</span>
+          </button>
+        )}
+      </header>
 
       {/* Konfeti Kemenangan */}
       {confettiList.map((cf) => (

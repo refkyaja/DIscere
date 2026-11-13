@@ -84,7 +84,7 @@ export default function PilihModeKerupuk() {
   const [showAdvancedRules, setShowAdvancedRules] = useState<boolean>(false);
 
   // Pengaturan Khusus Multiplayer
-  const [maxPeserta, setMaxPeserta] = useState<number>(45);
+  const [maxPeserta, setMaxPeserta] = useState<number>(40);
   const [allowLateJoin, setAllowLateJoin] = useState<boolean>(true);
 
   useEffect(() => {
@@ -215,7 +215,6 @@ export default function PilihModeKerupuk() {
           playMode,
           ...(isSolo
             ? {
-                autoStart: true,
                 kerupukConfig: baseKerupuk,
               }
             : {
@@ -403,7 +402,7 @@ export default function PilihModeKerupuk() {
 
                   <div>
                     <label className="text-xs font-bold uppercase tracking-wider text-[#6b7d6c] block mb-1.5">
-                      Maksimal Peserta (5–200 siswa)
+                      Maksimal Peserta (5–40 siswa)
                     </label>
                     <select
                       value={maxPeserta}
@@ -412,10 +411,7 @@ export default function PilihModeKerupuk() {
                     >
                       <option value={20}>Maksimal 20 Siswa</option>
                       <option value={30}>Maksimal 30 Siswa</option>
-                      <option value={45}>Maksimal 45 Siswa (Rekomendasi Kelas)</option>
-                      <option value={60}>Maksimal 60 Siswa</option>
-                      <option value={100}>Maksimal 100 Siswa</option>
-                      <option value={200}>Maksimal 200 Siswa</option>
+                      <option value={40}>Maksimal 40 Siswa (Rekomendasi Kelas)</option>
                     </select>
                   </div>
 
