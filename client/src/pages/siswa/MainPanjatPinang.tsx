@@ -4,14 +4,13 @@ import { bindStudentReconnect } from '../../lib/socketReconnect';
 import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import TiangPinangVisual, { EfekAktifVisual } from './TiangPinangVisual';
 import KarakterPanjatPinang from './KarakterPanjatPinang';
+import RuangTungguSiswa from './RuangTungguSiswa';
 import '../../components/balapKarungFestival.css';
 import {
-  Users,
   Trophy,
   Clock,
   CheckCircle2,
   XCircle,
-  LogOut,
   Flame,
   Shield,
   Droplets,
@@ -24,7 +23,6 @@ import {
   Volume2,
   VolumeX,
   ChevronRight,
-  Sparkles,
   Flag,
 } from 'lucide-react';
 
@@ -138,6 +136,8 @@ export default function MainPanjatPinang({
   const [stage, setStage] = useState<'LOBBY' | 'PLAYING' | 'SELESAI'>(
     initialStatus === 'jalan' ? 'PLAYING' : initialStatus === 'selesai' ? 'SELESAI' : 'LOBBY'
   );
+  const stageRef = useRef(stage);
+  stageRef.current = stage;
 
   const [myState, setMyState] = useState<PesertaPanjatData>(
     initialPesertaState || {
@@ -220,7 +220,6 @@ export default function MainPanjatPinang({
     };
 
     const handleGameMulai = (data: { leaderboard?: PesertaPanjatData[] }) => {
-      setStage('PLAYING');
       setSubmitError(null);
       if (data?.leaderboard) {
         setLeaderboard(data.leaderboard);
@@ -228,11 +227,13 @@ export default function MainPanjatPinang({
         if (me) setMyState(me);
       }
       soundEffects.startGame('whistle');
+      if (stageRef.current !== 'LOBBY') {
+        setStage('PLAYING');
+      }
     };
 
     const handleSoalTampil = (data: SoalPanjatData & { game?: string }) => {
       if (data.game && data.game !== 'panjat_pinang') return;
-      setStage('PLAYING');
       setSoalAktif(data);
       setChoiceDipilih(null);
       setSudahKirim(false);
@@ -240,6 +241,9 @@ export default function MainPanjatPinang({
       setLastDelta(null);
       setSubmitError(null);
       startStopwatch(true);
+      if (stageRef.current !== 'LOBBY') {
+        setStage('PLAYING');
+      }
     };
 
     const handlePanjatUpdate = (data: {
@@ -472,100 +476,17 @@ export default function MainPanjatPinang({
   // =========================================================================
   if (stage === 'LOBBY') {
     return (
-      <div className="bk-festival p-3 sm:p-6 flex flex-col justify-between select-none">
-        <div className="max-w-4xl mx-auto w-full flex-1 flex flex-col justify-between gap-4 sm:gap-6">
-          <header className="flex items-center justify-between gap-3 bg-[#fffdf6] border-2 border-[#f0dfb4] rounded-2xl p-3.5 sm:px-5 shadow-sm">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                <span className="px-2.5 py-0.5 rounded-full bg-[#e2312d] text-white text-[10px] font-black uppercase tracking-wider">
-                  Panjat Pinang
-                </span>
-                <span className="px-2.5 py-0.5 rounded-full bg-[#fff3c4] border border-[#ffb81c] text-[#7a5200] text-[10px] font-mono font-black tracking-wider">
-                  PIN {token}
-                </span>
-              </div>
-              <h2 className="bk-h text-base sm:text-lg font-extrabold text-[#2b2a4a] truncate">
-                {templateJudul}
-              </h2>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => onKeluar?.()}
-                aria-label="Keluar dari sesi"
-                className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-[#fde0e0] hover:bg-[#fccbcb] border border-[#f4b6b6] text-[#8a1f1f] transition-colors cursor-pointer"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
-          </header>
-
-          <main className="my-auto grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-center">
-            <div className="md:col-span-5 bk-card !p-4 sm:!p-5 flex flex-col items-center">
-              <TiangPinangVisual
-                posisi={0}
-                namaPemain={nama}
-                showProgressFooter={false}
-              />
-            </div>
-
-            <div className="md:col-span-7 bk-card !p-5 sm:!p-7 space-y-5">
-              <div className="space-y-2">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#ffe9a8] border border-[#ffb81c] text-[#7a5200] text-xs font-extrabold rounded-full uppercase tracking-wider">
-                  <Sparkles className="w-3.5 h-3.5" /> Siap Memanjat!
-                </span>
-                <h1 className="bk-h text-2xl sm:text-3xl font-extrabold text-[#2b2a4a] break-words">
-                  Halo, {nama}!
-                </h1>
-                <p className="text-sm text-[#6b6a85] font-semibold leading-relaxed">
-                  Jawab pertanyaan dengan tepat dan cepat untuk memanjat tiang pinang hingga mencapai{' '}
-                  <strong className="text-[#b81f1c]">Puncak 100%</strong>.
-                </p>
-              </div>
-
-              {config && (
-                <div className="grid grid-cols-2 gap-3 text-xs bg-[#fff3d6] p-4 rounded-2xl border-2 border-[#f0dfb4]">
-                  <div>
-                    <span className="text-[#6b6a85] font-bold block mb-0.5">Tingkat & Langkah</span>
-                    <strong className="text-[#2b2a4a] uppercase">
-                      {config.kesulitan || 'normal'} (+{config.naikBenar ?? 10}% / -{config.turunSalah ?? 5}%)
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="text-[#6b6a85] font-bold block mb-0.5">Fitur Aktif</span>
-                    <strong className="text-[#1f9d55]">
-                      {config.bonusStreakAktif ? 'Streak Aktif' : 'Tanpa Streak'}
-                      {config.rintanganAktif ? ' • Rintangan' : ''}
-                    </strong>
-                  </div>
-                </div>
-              )}
-
-              <div className="bg-[#fff3c4] border-2 border-[#ffb81c] rounded-2xl p-4 flex items-center gap-3">
-                <span className="w-3 h-3 bg-[#e2312d] rounded-full motion-safe:animate-ping shrink-0" />
-                <span className="text-xs sm:text-sm font-extrabold text-[#7a5200]">
-                  Menunggu guru memulai perlombaan Panjat Pinang...
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between text-xs font-extrabold text-[#2b2a4a] bg-[#fff3d6] px-4 py-3 rounded-2xl border border-[#f0dfb4]">
-                <span className="flex items-center gap-2 text-[#6b6a85]">
-                  <Users className="w-4 h-4 text-[#1d8fe0]" />
-                  Peserta siap di lobi
-                </span>
-                <span className="font-mono text-sm font-black text-[#2b2a4a]">
-                  {totalPeserta} Siswa
-                </span>
-              </div>
-            </div>
-          </main>
-
-          <footer className="text-center text-xs font-bold text-[#6b6a85] py-1">
-            DISCERE • Lomba Panjat Pinang 17 Agustus
-          </footer>
-        </div>
-      </div>
+      <RuangTungguSiswa
+        token={token}
+        nama={nama}
+        pesertaId={pesertaId}
+        gameType="panjat_pinang"
+        templateJudul={templateJudul}
+        config={config}
+        daftarPeserta={leaderboard.map((p) => ({ id: p.id, nama: p.nama }))}
+        onKeluar={onKeluar}
+        onMulaiPermainan={() => setStage('PLAYING')}
+      />
     );
   }
 

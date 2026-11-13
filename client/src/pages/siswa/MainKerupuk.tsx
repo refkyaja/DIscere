@@ -2,17 +2,16 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { getSocket } from '../../lib/socket';
 import { bindStudentReconnect } from '../../lib/socketReconnect';
 import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
+import RuangTungguSiswa from './RuangTungguSiswa';
 import KerupukVirtual, {
   HasilGachaGigitanProps,
   MoodKarakterKerupuk,
 } from './KerupukVirtual';
 import {
-  Users,
   Trophy,
   Clock,
   CheckCircle2,
   XCircle,
-  LogOut,
   Flame,
   Crown,
   Medal,
@@ -88,6 +87,8 @@ export default function MainKerupuk({
   const [stage, setStage] = useState<'LOBBY' | 'PLAYING' | 'SELESAI'>(
     initialStatus === 'jalan' ? 'PLAYING' : initialStatus === 'selesai' ? 'SELESAI' : 'LOBBY'
   );
+  const stageRef = useRef(stage);
+  stageRef.current = stage;
   const { isMuted, toggleMute } = useGameSoundLifecycle(stage === 'PLAYING', sessionId);
 
   const [myState, setMyState] = useState<PesertaKerupukMultiData>(
@@ -107,7 +108,6 @@ export default function MainKerupuk({
     }
   );
 
-  const [totalPeserta, setTotalPeserta] = useState<number>(initialLeaderboard.length || 1);
   const [leaderboard, setLeaderboard] = useState<PesertaKerupukMultiData[]>(initialLeaderboard);
 
   const [soalAktif, setSoalAktif] = useState<SoalKerupukMulti | null>(initialSoalAktif);
@@ -165,21 +165,21 @@ export default function MainKerupuk({
       daftarPeserta?: PesertaKerupukMultiData[];
     }) => {
       if (data.game && data.game !== 'makan_kerupuk') return;
-      setTotalPeserta(data.totalPeserta);
       const list = data.leaderboard || data.daftarPeserta;
       if (list) setLeaderboard(list);
     };
 
     const handleGameMulai = (data: { game?: string }) => {
       if (data.game && data.game !== 'makan_kerupuk') return;
-      setStage('PLAYING');
       setMood('playing');
       soundEffects.startGame('whistle');
+      if (stageRef.current !== 'LOBBY') {
+        setStage('PLAYING');
+      }
     };
 
     const handleSoalTampil = (data: any) => {
       if (data.game && data.game !== 'makan_kerupuk') return;
-      setStage('PLAYING');
       setSoalAktif({
         presentationId: data.presentationId,
         questionId: data.questionId,
@@ -192,6 +192,9 @@ export default function MainKerupuk({
       setSudahKirim(false);
       setFeedback(null);
       startStopwatch();
+      if (stageRef.current !== 'LOBBY') {
+        setStage('PLAYING');
+      }
     };
 
     const handleKerupukUpdate = (data: { leaderboard: PesertaKerupukMultiData[] }) => {
@@ -305,7 +308,6 @@ export default function MainKerupuk({
         if (res.peserta) setMyState(res.peserta);
         if (res.leaderboard) {
           setLeaderboard(res.leaderboard);
-          setTotalPeserta(res.leaderboard.length);
         }
         if (res.status === 'jalan') {
           setStage('PLAYING');
@@ -351,55 +353,16 @@ export default function MainKerupuk({
   // 1. LOBI SISWA
   if (stage === 'LOBBY') {
     return (
-      <div className="min-h-screen bg-[#f4ecd8] text-[#1d3b2e] p-4 flex flex-col justify-between max-w-md mx-auto w-full">
-        <div className="flex items-center justify-between bg-[#fcf8ed] rounded-2xl p-4 shadow-xs border-2 border-[#e0d5b8]">
-          <div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-[#c8362f] block">
-              Makan Kerupuk • Multiplayer
-            </span>
-            <h2 className="text-sm font-black line-clamp-1">{templateJudul}</h2>
-          </div>
-          <button
-            type="button"
-            onClick={() => onKeluar?.()}
-            className="p-2 text-[#6b7d6c] hover:text-[#c8362f] rounded-xl cursor-pointer"
-            title="Keluar"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="my-auto text-center space-y-5 w-full">
-          <div className="bg-[#fcf8ed] p-6 rounded-3xl shadow-sm border-2 border-[#e0d5b8]">
-            <KerupukVirtual
-              size="md"
-              showCharacter
-              mood="ready"
-              sisaKerupuk={myState.sisaPersen ?? 100}
-              sisaPoin={myState.sisaKerupuk}
-              targetPoin={myState.targetKerupuk}
-            />
-            <div className="mt-4 space-y-1">
-              <span className="inline-block px-3 py-1 bg-[#f2c230] text-[#1d3b2e] text-xs font-black rounded-full uppercase">
-                Siap Menggigit!
-              </span>
-              <h1 className="text-2xl font-black mt-1">{nama}</h1>
-              <p className="text-xs text-[#6b7d6c]">
-                Target kerupuk kamu: <strong>{myState.targetKerupuk} poin</strong>. Menunggu guru memulai lomba...
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-white border border-[#e0d5b8] rounded-2xl p-3 flex items-center justify-center gap-2 text-xs font-bold">
-            <Users className="w-4 h-4 text-[#c8362f]" />
-            <span>{totalPeserta} siswa bergabung di lobi</span>
-          </div>
-        </div>
-
-        <div className="text-center text-xs font-bold text-[#6b7d6c] py-2">
-          PIN Sesi: <span className="font-mono text-[#1d3b2e]">{token}</span>
-        </div>
-      </div>
+      <RuangTungguSiswa
+        token={token}
+        nama={nama}
+        pesertaId={pesertaId}
+        gameType="makan_kerupuk"
+        templateJudul={templateJudul}
+        daftarPeserta={leaderboard.map((p) => ({ id: p.id, nama: p.nama }))}
+        onKeluar={onKeluar}
+        onMulaiPermainan={() => setStage('PLAYING')}
+      />
     );
   }
 

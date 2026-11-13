@@ -48,7 +48,9 @@ export default function App() {
               <Route path="/masuk" element={<Masuk />} />
               <Route path="/dokumentasi" element={<Dokumentasi />} />
               <Route path="/join" element={<MainSiswa />} />
+              <Route path="/join/:kode" element={<MainSiswa />} />
               <Route path="/main" element={<MainSiswa />} />
+              <Route path="/main/:kode" element={<MainSiswa />} />
               <Route path="/b/:token" element={<KolaborasiPublik />} />
 
               {/* Rute Terlindungi Guru */}

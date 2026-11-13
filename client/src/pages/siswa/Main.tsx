@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useSearchParams, Link } from 'react-router';
+import { useSearchParams, useParams, useNavigate, Link } from 'react-router';
 import { getSocket } from '../../lib/socket';
 import MainKerupuk from './MainKerupuk';
 import MainPanjatPinang from './MainPanjatPinang';
@@ -12,15 +12,19 @@ import {
 } from 'lucide-react';
 
 export default function MainSiswa() {
+  const { kode } = useParams<{ kode?: string }>();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const tokenAwal = (kode || searchParams.get('token') || '').trim();
+
   // Form states
-  const [tokenInput, setTokenInput] = useState(searchParams.get('token') || '');
+  const [tokenInput, setTokenInput] = useState(tokenAwal);
   const [namaInput, setNamaInput] = useState(searchParams.get('nama') || '');
   const [formError, setFormError] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
   const [joinStep, setJoinStep] = useState<'PIN' | 'NAMA'>(
-    searchParams.get('token') && searchParams.get('token')!.trim().length === 6 ? 'NAMA' : 'PIN'
+    tokenAwal.length === 6 ? 'NAMA' : 'PIN'
   );
 
   // Session states
@@ -76,6 +80,11 @@ export default function MainSiswa() {
       setNamaPeserta(namaDipakai);
       setTokenInput(tokenDipakai);
       setTemplateJudul(res.templateJudul || '');
+
+      // Perbarui URL browser ke /join/:token agar user melihat PIN di address bar
+      if (tokenDipakai) {
+        navigate(`/join/${tokenDipakai}`, { replace: true });
+      }
 
       if (res.game === 'makan_kerupuk') {
         setGameType('makan_kerupuk');
@@ -217,6 +226,7 @@ export default function MainSiswa() {
     sessionStorage.removeItem('discere_multi_peserta_id');
     sessionStorage.removeItem('discere_multi_nama');
     sessionStorage.removeItem('discere_multi_peserta_secret');
+    navigate('/join', { replace: true });
     setStage('GABUNG');
     setJoinStep('PIN');
     setTokenInput('');

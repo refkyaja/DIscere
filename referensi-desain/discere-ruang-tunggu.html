@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Menunggu Guru… – Discere</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+:root{color-scheme:light;--board:#1f4a37;--board-d:#163a2b;--card:#fbf6e9;--ink:#1d3b2e;--muted:#5a6f62;--chalk:#f4ecd8;--yellow:#f2c230;--red:#c8362f;--line:rgba(31,74,55,.2);
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box;margin:0;padding:0}
+html{height:100%}
+body{min-height:100%;font-family:'Nunito',system-ui,sans-serif;color:var(--ink);background:var(--board-d);overflow-x:hidden}
+.hand{font-family:'Caveat','Comic Sans MS',cursive;font-weight:700}
+svg{display:block}
+a:focus-visible{outline:3px solid var(--yellow);outline-offset:3px}
+.page{position:relative;min-height:100svh;display:flex;flex-direction:column;overflow:hidden;
+ background:radial-gradient(ellipse 40% 14% at 22% 30%,rgba(255,255,255,.07),transparent),repeating-linear-gradient(115deg,rgba(255,255,255,.03) 0 2px,transparent 2px 11px),radial-gradient(ellipse at 30% 8%,rgba(255,255,255,.11),transparent 55%),radial-gradient(ellipse at 85% 75%,rgba(0,0,0,.22),transparent 60%),linear-gradient(160deg,#2c5f47,var(--board) 55%,var(--board-d));box-shadow:inset 0 0 150px rgba(0,0,0,.35)}
+.deco{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:.3}
+
+header{position:relative;z-index:3;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;background:rgba(10,32,22,.55);border-bottom:2px solid rgba(255,255,255,.12);color:var(--chalk)}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:24px}
+.exit{display:flex;align-items:center;gap:8px;background:var(--chalk);color:var(--board-d);font-weight:800;font-size:14px;text-decoration:none;padding:9px 20px;border-radius:999px;box-shadow:0 3px 0 rgba(0,0,0,.25)}
+.bunting{position:absolute;left:0;right:0;top:64px;height:50px;z-index:2;pointer-events:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='50'%3E%3Cpath d='M0 6Q40 18 80 6' stroke='%236b4a2f' stroke-width='2' fill='none'/%3E%3Cpath d='M6 9l28 5-14 30z' fill='%23c8362f'/%3E%3Cpath d='M46 14l28-5-14 30z' fill='%23f6f1e6'/%3E%3C/svg%3E") repeat-x}
+
+main{position:relative;z-index:1;flex:1;display:flex;justify-content:center;align-items:center;min-height:680px;padding:96px 376px 40px 32px;transition:padding .6s ease}
+main.go{padding-right:32px}
+.center{width:100%;max-width:960px;text-align:center;color:var(--chalk);display:flex;flex-direction:column;align-items:center}
+.panel{position:absolute;right:32px;top:96px;width:320px;transition:opacity .4s,transform .4s,visibility 0s .4s}
+main.go .panel{opacity:0;visibility:hidden;transform:translateX(40px);pointer-events:none}
+.chip{display:flex;align-items:center;gap:8px;background:var(--card);border:2px solid #e8dfc8;border-radius:999px;padding:3px 16px 3px 3px;font-weight:800;font-size:15px;color:var(--board-d);box-shadow:0 3px 0 rgba(0,0,0,.2)}.chip .av{width:34px;height:34px}.hr{display:flex;align-items:center;gap:14px}
+.av{position:relative;width:44px;height:44px;flex:none}.av svg{width:100%;height:100%;border-radius:50%}
+.av i{position:absolute;right:-1px;bottom:-1px;width:13px;height:13px;border-radius:50%;background:#4cc36b;border:2px solid var(--card)}
+
+.hg{width:92px;height:122px;margin-bottom:6px;overflow:visible}
+.hg .fl{transform-box:view-box;transform-origin:60px 80px;animation:flip 9s linear infinite}
+.hg .s1{transform-box:fill-box;transform-origin:50% 100%;transform:translateY(24px);animation:kf1 9s linear infinite}
+.hg .s2{transform-box:fill-box;transform-origin:50% 100%;transform:scaleY(0);animation:kf2 9s linear infinite}
+.hg .stm{opacity:0;animation:kf3 9s linear infinite}
+.nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+h1{font-size:clamp(50px,6.4vw,84px);line-height:1;text-shadow:0 0 1px #fff}h1 span{color:var(--yellow)}
+.sub{margin:12px 0 22px;font-size:17px;max-width:46ch}
+.info{width:100%;max-width:560px;display:grid;grid-template-columns:1fr 1fr;background:var(--card);border:3px solid #e8dfc8;border-radius:28px 32px 26px 30px;padding:18px 10px;color:var(--board-d);box-shadow:0 6px 0 rgba(0,0,0,.2)}
+.info div{display:flex;flex-direction:column;align-items:center;gap:2px}.info div+div{border-left:2px solid var(--line)}
+.info svg{width:42px;height:42px;color:var(--board)}.info small{font-weight:700;color:var(--muted);font-size:15px}.info b{font-size:28px;line-height:1.2}
+
+.panel{background:var(--card);border:3px solid #e8dfc8;border-radius:26px 30px 24px 30px;padding:16px 14px;box-shadow:0 6px 0 rgba(0,0,0,.2);color:var(--board-d);max-height:min(560px,70vh);display:flex;flex-direction:column}
+.panel h2{display:flex;align-items:center;gap:10px;font-size:18px;padding:0 6px 12px}.panel h2 svg{width:30px;height:30px;color:var(--board)}
+.panel ul{list-style:none;overflow:auto;display:flex;flex-direction:column;gap:6px}
+.p{display:flex;align-items:center;gap:12px;padding:6px 10px;border-radius:16px;font-weight:800;font-size:16px}
+.p em{margin-left:auto;font:700 11px 'Nunito';font-style:normal;background:var(--board);color:var(--chalk);padding:2px 9px;border-radius:999px}
+.me{background:rgba(31,74,55,.12)}.new{animation:pop .5s cubic-bezier(.3,1.6,.5,1)}
+.ph{color:var(--muted);font-weight:600;font-size:14px;animation:pulse 1.6s ease-in-out infinite alternate}
+.ph .av{background:rgba(31,74,55,.14);border-radius:50%}
+
+.floor{position:relative;z-index:1;height:104px;display:grid;place-items:center;background:linear-gradient(#b99672 0 8px,transparent 8px),repeating-linear-gradient(90deg,#8b6a4a 0 118px,#7a5b3e 118px 120px);border-top:3px solid #6f5238}
+.pill{display:flex;align-items:center;gap:16px;background:var(--board-d);color:var(--chalk);font-weight:700;font-size:18px;padding:12px 38px 12px 20px;border-radius:999px;box-shadow:0 4px 0 rgba(0,0,0,.3)}
+.spin{width:30px;height:30px;border:4px solid rgba(244,236,216,.3);border-top-color:var(--yellow);border-radius:50%;animation:rot 1s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}@keyframes bob{to{transform:translateY(-8px)}}
+@keyframes pulse{from{opacity:.55}to{opacity:1}}@keyframes pop{from{transform:scale(.8);opacity:0}}
+@keyframes flip{0%,84%{transform:rotate(0);animation-timing-function:cubic-bezier(.6,0,.25,1)}96%,100%{transform:rotate(180deg)}}
+@keyframes kf1{0%{transform:translateY(0) scaleY(1);animation-timing-function:ease-in}5%{transform:translateY(24px) scaleY(1);animation-timing-function:linear}82%,100%{transform:translateY(24px) scaleY(0)}}
+@keyframes kf2{0%,5%{transform:scaleY(0)}82%,100%{transform:scaleY(1)}}
+@keyframes kf3{0%,6%{opacity:0}8%,80%{opacity:1}82%,100%{opacity:0}}
+
+.wait,.board{display:flex;flex-direction:column;align-items:center;width:100%}.wait[hidden],.board[hidden]{display:none}
+.demo{margin-top:18px;background:transparent;color:var(--chalk);border:2px dashed rgba(244,236,216,.55);border-radius:999px;padding:9px 20px;font:700 14px 'Nunito';cursor:pointer}
+.demo:hover{background:rgba(255,255,255,.08)}.demo:focus-visible,.again:focus-visible{outline:3px solid var(--yellow);outline-offset:3px}
+.board{animation:fadein .5s both}.board h2{font-size:clamp(40px,5.4vw,66px);line-height:1}.board h2 span{color:var(--yellow)}.board .sub{margin:10px 0 0}
+.teams{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;width:100%;margin-top:22px;text-align:left}
+.tm{background:var(--card);border:3px solid #e8dfc8;border-radius:24px 28px 22px 26px;overflow:hidden;color:var(--board-d);box-shadow:0 6px 0 rgba(0,0,0,.22);transition:transform .22s}
+.tm.bump{transform:scale(1.03)}
+.th{display:flex;align-items:center;gap:8px;background:var(--c);color:var(--t);padding:8px 14px}.th svg{width:22px;height:22px;flex:none}.th h3{font-size:30px;line-height:1;flex:1}
+.ct{font-weight:800;font-size:13px;background:rgba(0,0,0,.16);padding:2px 10px;border-radius:999px}
+.slots{padding:12px;display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-height:158px}
+.sl{display:inline-flex;max-width:100%;border-radius:999px;border:2px dashed rgba(31,74,55,.28)}.sl.on{border-color:transparent}
+.pc{display:inline-flex;align-items:center;gap:8px;max-width:100%;padding:3px 14px 3px 3px;border-radius:999px;background:#fffdf6;border:2px solid #e8dfc8;font-weight:800;font-size:15px;color:var(--board-d)}
+.pc .av{width:30px;height:30px}.pc.me{box-shadow:0 0 0 3px var(--yellow)}.tm .pc{border-color:var(--c)}
+.slots .pc{visibility:hidden}.slots .sl.on .pc{visibility:visible}.pc.land{animation:pop .45s cubic-bezier(.3,1.6,.5,1)}
+.tok{position:fixed;left:0;top:0;z-index:60;pointer-events:none;will-change:transform;filter:drop-shadow(0 6px 8px rgba(0,0,0,.35))}.tok .pc{border-color:#e8dfc8}
+.again{margin-top:22px;background:var(--chalk);color:var(--board-d);border:0;border-radius:999px;padding:11px 26px;font:800 15px 'Nunito';cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,.25)}
+@keyframes fadein{from{opacity:0;transform:translateY(10px)}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important}}
+@media(max-width:1180px){main{padding-right:336px}.panel{width:280px}}
+@media(max-width:1023px){
+ header{height:58px;padding:0 14px}.logo{font-size:21px}.exit{padding:8px 14px;font-size:13px}.hr{gap:8px}.chip{font-size:14px}
+ .bunting{top:58px;height:44px;background-size:68px 44px}
+ main{flex-direction:column;justify-content:flex-start;align-items:stretch;gap:16px;min-height:0;width:100%;max-width:640px;margin:0 auto;padding:62px 16px 20px;transition:none}
+ main.go{padding-right:16px}.center{max-width:none}
+ .panel{position:static;width:100%;max-height:none}main.go .panel{display:none}
+ .hg{width:68px;height:90px}h1{font-size:clamp(44px,13.5vw,66px)}.sub{font-size:15px;margin:8px 0 16px}
+ .info{padding:12px 4px;border-radius:22px}.info svg{width:32px;height:32px}.info b{font-size:20px}.info small{font-size:13px}
+ .panel{padding:12px 10px}.panel h2{font-size:17px;padding-bottom:8px}.panel ul{display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;overflow:visible}
+ .p{padding:5px 8px;gap:8px;font-size:14px;min-width:0}.p .av{width:34px;height:34px}.p em{display:none}.ph{font-size:12.5px}
+ .teams{grid-template-columns:1fr}.slots{flex-direction:row;flex-wrap:wrap;min-height:0}.th h3{font-size:26px}
+ .floor{height:84px}.pill{font-size:15px;padding:10px 22px 10px 14px;max-width:calc(100% - 28px)}.spin{width:24px;height:24px;border-width:3px;flex:none}
+}
+@media(max-width:560px){.logo span{display:none}}
+@media(max-width:380px){.panel ul{grid-template-columns:1fr}}
+
+/* === redesain pengacakan === */
+.pc{position:relative}
+.pc.me,.tm .pc.me{background:linear-gradient(#ffe88a,#f2c230);border-color:#c79a14;box-shadow:0 0 0 3px rgba(242,194,48,.4),0 0 20px rgba(242,194,48,.75)}
+.pc.me::after{content:"";position:absolute;inset:-5px;border-radius:999px;border:3px solid var(--yellow);animation:ring 1.5s ease-out infinite;pointer-events:none}
+.you{font:800 10px 'Nunito';background:var(--red);color:#fff;padding:2px 8px;border-radius:999px;flex:none}
+@keyframes ring{from{opacity:.95;transform:scale(1)}to{opacity:0;transform:scale(1.2)}}
+.pool{width:100%;max-width:780px;margin-top:20px;display:flex;flex-wrap:wrap;justify-content:center;gap:10px;padding:16px;border:2px dashed rgba(244,236,216,.35);border-radius:30px;background:rgba(10,32,22,.35);box-shadow:inset 0 4px 18px rgba(0,0,0,.3);max-height:420px;transition:max-height .5s,opacity .4s,margin .5s,padding .5s}
+.pool.done{max-height:0;opacity:0;margin:0;padding:0;border-width:0;overflow:hidden}
+.pl{display:inline-flex;max-width:100%;border:2px dashed transparent;border-radius:999px;will-change:transform}
+.pl.gone{border-color:rgba(244,236,216,.28)}.pl.gone .pc{visibility:hidden}
+.tok .pc.me{transform:none}
+.tm.mine{box-shadow:0 0 0 4px var(--yellow),0 0 30px rgba(242,194,48,.55),0 6px 0 rgba(0,0,0,.22);transform:translateY(-4px)}
+.tm.dim{opacity:.7;filter:saturate(.75)}.tm{transition:transform .22s,opacity .5s,box-shadow .5s,filter .5s}
+.tag{font:800 12px 'Nunito';background:#fffdf6;color:var(--board-d);padding:2px 10px;border-radius:999px}
+@media(max-width:1023px){.pool{margin-top:14px;padding:10px;gap:8px;border-radius:22px}.pc{font-size:14px}.tm.mine{transform:none}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+ <symbol id="ib" viewBox="0 0 48 48"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"><path d="M5 11c7-3 14-1 19 4v26c-5-5-12-7-19-4zM43 11c-7-3-14-1-19 4v26c5-5 12-7 19-4z"/><path d="M10 19h8M10 26h8M30 19h8M30 26h8"/></g></symbol>
+ <symbol id="ip" viewBox="0 0 48 48"><path fill="currentColor" d="M14 14h20c7 0 10 6 11 14 .6 5-2 8-6 6l-5-4H14l-5 4c-4 2-6.600-1-6-6 1-8 4-14 11-14z"/><g stroke="#fbf6e9" stroke-width="3" stroke-linecap="round"><path d="M13 21v6M10 24h6"/></g><circle cx="31" cy="22" r="2" fill="#fbf6e9"/><circle cx="36" cy="26" r="2" fill="#fbf6e9"/></symbol>
+ <symbol id="pe" viewBox="0 0 48 48"><g fill="currentColor"><circle cx="24" cy="15" r="7"/><path d="M11 40q0-13 13-13t13 13z"/><g opacity=".65"><circle cx="9" cy="19" r="5"/><circle cx="39" cy="19" r="5"/><path d="M0 38q0-10 8-10l3 12zM48 38q0-10-8-10l-3 12z"/></g></g></symbol>
+ <symbol id="ex" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4H5v16h5M15 8l4 4-4 4M19 12H9"/></g></symbol>
+</defs></svg>
+
+<div class="page">
+ <svg class="deco" viewBox="0 0 1000 560" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g fill="none" stroke="#f4ecd8" stroke-width="2.500" stroke-linecap="round" stroke-linejoin="round"><path d="M70 170l5 11 12 2-9 8 3 12-11-6-11 6 3-12-9-8 12-2zM930 140l5 11 12 2-9 8 3 12-11-6-11 6 3-12-9-8 12-2zM140 330l4 8 9 2-7 6 2 9-8-4-8 4 2-9-7-6 9-2z"/><circle cx="880" cy="440" r="22"/><path d="M873 464h14M875 472h10M880 412v-10M858 420l-8-6M902 420l8-6"/></g><text x="760" y="330" font-family="Caveat,cursive" font-size="34" fill="#f4ecd8" transform="rotate(5 760 330)">a² + b² = c²</text></svg>
+
+ <header>
+  <div class="logo"><svg width="36" height="36"><use href="#ib"/></svg><span>Discere</span></div>
+  <div class="hr"><div class="chip"><span class="av" id="meAv"><i></i></span>RefkyFM</div></div>
+ </header>
+ <div class="bunting" aria-hidden="true"></div>
+
+ <main>
+  
+
+  <section class="center"><div class="wait" id="wait">
+   <svg class="hg" viewBox="0 0 120 160" aria-hidden="true">
+    <defs><clipPath id="gl"><path d="M26 18H94C94 48 66 62 64 80C66 98 94 112 94 142H26C26 112 54 98 56 80C54 62 26 48 26 18Z"/></clipPath></defs>
+    <g class="fl">
+     <path d="M26 18H94C94 48 66 62 64 80C66 98 94 112 94 142H26C26 112 54 98 56 80C54 62 26 48 26 18Z" fill="rgba(255,255,255,.14)"/>
+     <g clip-path="url(#gl)"><rect class="stm" x="58.7" y="80" width="2.6" height="62" fill="#f2c230"/><rect class="s1" x="20" y="18" width="80" height="38" fill="#f2c230"/><rect class="s2" x="20" y="104" width="80" height="38" fill="#f2c230"/></g>
+     <path d="M35 28Q37 44 47 55M85 132Q83 116 73 105" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="3" stroke-linecap="round"/>
+     <path d="M26 18H94C94 48 66 62 64 80C66 98 94 112 94 142H26C26 112 54 98 56 80C54 62 26 48 26 18Z" fill="none" stroke="#f4ecd8" stroke-width="3.5" stroke-linejoin="round"/>
+     <rect x="14" y="6" width="92" height="13" rx="6" fill="#8b6a4a" stroke="#6f5238" stroke-width="2"/><rect x="14" y="141" width="92" height="13" rx="6" fill="#8b6a4a" stroke="#6f5238" stroke-width="2"/>
+    </g>
+   </svg>
+   <h1 class="hand">Menunggu <span>Guru…</span></h1>
+   <p class="sub" id="sub">Game akan dimulai setelah guru menekan tombol mulai.</p>
+   <div class="info">
+    <div><svg><use href="#pe"/></svg><small>Peserta</small><b id="cnt" aria-live="polite">3 / 8</b></div>
+    <div><svg><use href="#ip"/></svg><small>Mode Game</small><b>Tarik Tambang</b></div>
+   </div>
+  <button class="demo" id="demo" type="button">▶ Demo: guru menekan Mulai</button>
+   </div>
+   <div class="board" id="board" hidden>
+    <h2 class="hand" id="bt">Membagi <span>kelompok…</span></h2>
+    <p class="sub" id="bs">Nama-nama peserta sedang diacak ke tiga kelompok.</p>
+    <div class="pool" id="pool" aria-hidden="true"></div>
+    <div class="teams" id="teams"></div>
+    <button class="again" id="again" type="button" hidden>Ulangi demo</button>
+   </div>
+  </section>
+
+  <aside class="panel" aria-label="Daftar peserta">
+   <h2><svg><use href="#pe"/></svg>Daftar Peserta</h2>
+   <ul id="list"></ul>
+  </aside>
+ </main>
+
+ <div class="floor"><div class="pill" role="status"><span class="spin"></span><span id="ptxt">Game akan dimulai segera…</span></div></div>
+</div>
+
+<script>
+const names=['RefkyFM','DikaPratama','FajarGaming','SitiNurma','BudiSantoso','AyuLestari','RizkyAF','NadiaPutri'],MAX=8;
+const BG=['#7cc6a4','#f2c230','#e98a7a','#8fb8e8','#c4a2e0','#9ad06a','#f0a15a','#6fc3c9'],SK=['#f0b98d','#e9b08a','#f3c9a2'],HR=['#2b2019','#3b2a22','#1c1c24','#5a3a22'];
+const TEAMS=[{n:'Tim Merah',c:'#c8362f',t:'#fff'},{n:'Tim Kuning',c:'#f2c230',t:'#1d3b2e'},{n:'Tim Hijau',c:'#3f9e62',t:'#fff'}];
+const av=i=>`<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="20" fill="${BG[i%8]}"/><circle cx="20" cy="22" r="11" fill="${SK[i%3]}"/><path d="M8.5 20Q9 8 20 8Q31 8 31.5 20Q27 14 20 15Q13 14 8.5 20Z" fill="${HR[i%4]}"/><circle cx="16" cy="23" r="1.6" fill="#222"/><circle cx="24" cy="23" r="1.6" fill="#222"/><path d="M16.5 27.5Q20 30 23.5 27.5" stroke="#7a2a24" fill="none" stroke-width="1.4" stroke-linecap="round"/></svg>`;
+const chip=i=>`<span class="pc${i===0?' me':''}"><span class="av">${av(i)}</span><span class="nm">${names[i]}</span>${i===0?'<b class="you">Kamu</b>':''}</span>`;
+const $=id=>document.getElementById(id),wait=ms=>new Promise(r=>setTimeout(r,ms));
+const list=$('list'),main=document.querySelector('main'),rm=matchMedia('(prefers-reduced-motion:reduce)').matches;
+$('meAv').insertAdjacentHTML('afterbegin',av(0));
+let n=3,timer,auto,started=false;
+function render(newest){
+ list.innerHTML=names.map((nm,i)=>i<n?`<li class="p${i===0?' me':''}${i===newest?' new':''}"><span class="av">${av(i)}<i></i></span><span class="nm">${nm}</span>${i===0?'<em>Kamu</em>':''}</li>`:`<li class="p ph"><span class="av"></span><span class="nm">Menunggu pemain…</span></li>`).join('');
+ $('cnt').textContent=n+' / '+MAX;
+ $('sub').textContent=n===MAX?'Semua peserta sudah masuk. Menunggu guru menekan tombol mulai.':'Game akan dimulai setelah guru menekan tombol mulai.';
+}
+function tick(){if(n>=MAX)return;n++;render(n-1);if(n===MAX){clearInterval(timer);auto=setTimeout(start,3500)}}
+
+const shuffle=async pool=>{
+ const els=[...pool.children],f=new Map(els.map(e=>[e,e.getBoundingClientRect()]));
+ els.sort(()=>Math.random()-.5).forEach(e=>pool.appendChild(e));
+ await Promise.all(els.map(e=>{const a=f.get(e),b=e.getBoundingClientRect(),dx=a.left-b.left,dy=a.top-b.top,w=(Math.random()-.5)*14;
+  return e.animate([{transform:`translate(${dx}px,${dy}px)`},{transform:`translate(${dx*.5}px,${dy*.5-16}px) rotate(${w}deg) scale(1.06)`,offset:.5},{transform:'none'}],{duration:480,easing:'ease-in-out'}).finished}));
+};
+async function start(){
+ if(started)return;started=true;clearInterval(timer);clearTimeout(auto);$('demo').hidden=true;
+ if(n<MAX){n=MAX;render(-1)}
+ const order=[...Array(MAX).keys()].sort(()=>Math.random()-.5),teams=$('teams'),pool=$('pool'),mk=order.indexOf(0)%3;
+ pool.className='pool';pool.innerHTML=names.map((_,i)=>`<span class="pl" data-i="${i}">${chip(i)}</span>`).join('');
+ teams.innerHTML=TEAMS.map((t,k)=>`<article class="tm" style="--c:${t.c};--t:${t.t}"><div class="th"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v18M5 4h13l-3 4 3 4H5z" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><h3 class="hand">${t.n}</h3><span class="ct">0/${order.filter((_,j)=>j%3===k).length}</span></div><div class="slots"></div></article>`).join('');
+ const slots=[...teams.querySelectorAll('.slots')],cts=[...teams.querySelectorAll('.ct')],cards=[...teams.children];
+ const dst=order.map((p,k)=>{const sl=document.createElement('span');sl.className='sl';sl.innerHTML=chip(p);slots[k%3].appendChild(sl);return sl});
+ $('bt').innerHTML='Mengacak <span>nama…</span>';$('bs').textContent='Nama peserta dikocok, lalu dibagi ke tiga kelompok.';
+ $('ptxt').textContent='Guru menekan Mulai! Mengacak nama…';
+ main.classList.add('go');
+ await wait(450);$('wait').hidden=true;$('board').hidden=false;window.scrollTo(0,0);
+ await wait(rm?0:700);
+ if(!rm)for(let r=0;r<4;r++)await shuffle(pool);
+ $('bt').innerHTML='Membagi <span>kelompok…</span>';$('ptxt').textContent='Membagi kelompok…';
+ const fly=async k=>{
+  const p=order[k],g=k%3,me=p===0,li=pool.querySelector('[data-i="'+p+'"]');
+  if(!rm){
+   const s=li.firstElementChild.getBoundingClientRect(),d=dst[k].firstChild.getBoundingClientRect(),t=document.createElement('div');
+   t.className='tok';t.innerHTML=chip(p);document.body.appendChild(t);li.classList.add('gone');
+   const up=Math.min(s.top,d.top)-(me?90:50),sx=d.left>s.left?1:-1;
+   await t.animate([{transform:`translate(${s.left}px,${s.top}px)`},{transform:`translate(${(s.left+d.left)/2}px,${up}px) scale(${me?1.4:1.18}) rotate(${sx*4}deg)`,offset:.5},{transform:`translate(${d.left}px,${d.top}px)`}],{duration:me?1000:650,easing:'cubic-bezier(.4,0,.2,1)',fill:'both'}).finished;
+   t.remove();
+  }
+  li.classList.add('gone');dst[k].classList.add('on');dst[k].firstChild.classList.add('land');
+  const c=cts[g],[x,y]=c.textContent.split('/');c.textContent=(+x+1)+'/'+y;cards[g].classList.add('bump');setTimeout(()=>cards[g].classList.remove('bump'),220);
+ };
+ const seq=order.map((_,k)=>k).sort((a,b)=>(order[a]===0)-(order[b]===0));   // namamu dapat giliran terakhir
+ await Promise.all(seq.map((k,i)=>wait(rm?0:i*380).then(()=>fly(k))));
+ pool.classList.add('done');
+ cards.forEach((c,i)=>c.classList.add(i===mk?'mine':'dim'));
+ cards[mk].querySelector('.th').insertAdjacentHTML('beforeend','<span class="tag">Timmu</span>');
+ $('bt').innerHTML='Kamu di <span>'+TEAMS[mk].n+'!</span>';$('bs').textContent='Namamu sudah ditandai. Siap-siap, game Tarik Tambang segera dimulai.';
+ if(matchMedia('(max-width:1023px)').matches)setTimeout(()=>cards[mk].scrollIntoView({behavior:'smooth',block:'center'}),500);
+ await wait(700);
+ for(const t of ['Game dimulai dalam 3…','Game dimulai dalam 2…','Game dimulai dalam 1…']){$('ptxt').textContent=t;await wait(900)}
+ $('ptxt').textContent='Mulai! Tarik yang kuat!';$('again').hidden=false;
+}
+$('demo').onclick=start;
+$('again').onclick=()=>{started=false;n=3;main.classList.remove('go');$('wait').hidden=false;$('board').hidden=true;$('again').hidden=true;$('demo').hidden=false;
+ $('ptxt').textContent='Game akan dimulai segera…';$('bt').innerHTML='Membagi <span>kelompok…</span>';$('bs').textContent='Nama-nama peserta sedang diacak ke tiga kelompok.';render(-1);timer=setInterval(tick,4000)};
+render(-1);timer=setInterval(tick,4000);
+</script>
+</body>
+</html>

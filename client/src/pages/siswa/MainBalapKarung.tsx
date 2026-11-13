@@ -5,7 +5,8 @@ import { QuestionTimerBar, computeInitialRemainingMs } from '../../components';
 import { isStaleQuestionErrorMessage } from '../../lib/soloSessionSync';
 import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import { BalapSackSvg } from '../../components/BalapKarungStadium';
-import { LogOut, Trophy, Users, Volume2, VolumeX, Loader2 } from 'lucide-react';
+import RuangTungguSiswa from './RuangTungguSiswa';
+import { LogOut, Trophy, Volume2, VolumeX, Loader2 } from 'lucide-react';
 
 export type KodeTimBalapSiswa = 'merah' | 'biru' | 'hijau' | 'kuning';
 
@@ -139,7 +140,10 @@ export default function MainBalapKarung({
   const [stage, setStage] = useState<'LOBBY' | 'PLAYING' | 'SELESAI'>(
     initialStatus === 'jalan' ? 'PLAYING' : initialStatus === 'selesai' ? 'SELESAI' : 'LOBBY'
   );
+  const stageRef = useRef(stage);
+  stageRef.current = stage;
   const [teams, setTeams] = useState<RingkasanTimSiswa[]>(initialTeams);
+  const [leaderboard, setLeaderboard] = useState<PesertaBalapData[]>(initialLeaderboard);
   const [myState, setMyState] = useState<PesertaBalapData>(
     initialPesertaState || {
       id: pesertaId,
@@ -224,6 +228,7 @@ export default function MainBalapKarung({
         }
       }
       if (data.leaderboard) {
+        setLeaderboard(data.leaderboard);
         const self = data.leaderboard.find((p) => p.id === pesertaId);
         if (self) setMyState((prev) => ({ ...prev, ...self }));
       }
@@ -239,6 +244,7 @@ export default function MainBalapKarung({
       if (data.config) setActiveConfig((prev: any) => ({ ...prev, ...data.config }));
       if (data.teams) setTeams(data.teams);
       if (data.leaderboard) {
+        setLeaderboard(data.leaderboard);
         const self = data.leaderboard.find((p) => p.id === pesertaId);
         if (self) setMyState((prev) => ({ ...prev, ...self }));
       }
@@ -248,8 +254,10 @@ export default function MainBalapKarung({
       setSudahKirim(false);
       setErrorBanner(null);
       timeoutSentRef.current = null;
-      setStage('PLAYING');
       soundEffects.startGame('race');
+      if (stageRef.current !== 'LOBBY') {
+        setStage('PLAYING');
+      }
     };
 
     const handleSoalTampil = (data: SoalBalapData) => {
@@ -260,6 +268,9 @@ export default function MainBalapKarung({
       setFeedback(null);
       setErrorBanner(null);
       timeoutSentRef.current = null;
+      if (stageRef.current !== 'LOBBY') {
+        setStage('PLAYING');
+      }
     };
 
     const handleBalapUpdate = (data: {
@@ -268,6 +279,7 @@ export default function MainBalapKarung({
     }) => {
       if (data.teams) setTeams(data.teams);
       if (data.leaderboard) {
+        setLeaderboard(data.leaderboard);
         const self = data.leaderboard.find((p) => p.id === pesertaId);
         if (self) setMyState((prev) => ({ ...prev, ...self }));
       }
@@ -535,68 +547,24 @@ export default function MainBalapKarung({
   // =========================================================================
   if (stage === 'LOBBY') {
     return (
-      <div className="bk-festival p-4 flex flex-col justify-between gap-4 select-none">
-        {renderTopBar()}
-
-        <main className="w-full max-w-md mx-auto my-auto space-y-4">
-          <div
-            className="bk-card text-center space-y-3 border-[3px]"
-            style={{ borderColor: myTeam.warna }}
-          >
-            <div className="flex justify-center">
-              <BalapSackSvg shirtColor={myTeam.warna} up className="w-24 h-auto" />
-            </div>
-            <span
-              className="inline-block px-3.5 py-1 rounded-full text-xs font-extrabold text-white"
-              style={{ background: myTeam.warna }}
-            >
-              Kamu anggota {myTeam.nama}
-            </span>
-            <h1 className="bk-h text-2xl font-extrabold text-[#2b2a4a]">
-              Halo, {nama}!
-            </h1>
-            <p className="text-xs font-bold text-[#6b6a85]">
-              Jawab secepat dan setepat mungkin saat lomba dimulai agar {myTeam.nama} mencapai garis finis {targetJarak} m pertama kali.
-            </p>
-
-            {myTeam.anggota.length > 0 && (
-              <div className="bg-[#fff3d6] border-2 border-[#f0dfb4] rounded-2xl p-3 text-left space-y-1.5">
-                <div className="text-[11px] font-extrabold text-[#6b6a85] flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5" /> Rekan Satu Tim ({myTeam.anggota.length}):
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {myTeam.anggota.map((m) => (
-                    <span
-                      key={m.id}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-extrabold border ${
-                        m.id === pesertaId
-                          ? 'bg-[#2b2a4a] text-[#fff3d6] border-[#2b2a4a]'
-                          : 'bg-white text-[#2b2a4a] border-[#f0dfb4]'
-                      }`}
-                    >
-                      <span
-                        className="w-2.5 h-2.5 rounded-full"
-                        style={{ background: myTeam.warna }}
-                      />
-                      {m.nama}
-                      {m.id === pesertaId ? ' (Kamu)' : ''}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="pt-1 flex items-center justify-center gap-2 text-xs font-extrabold text-[#7a5200]">
-              <Loader2 className="w-4 h-4 animate-spin text-[#e2312d]" />
-              Menunggu guru menekan tombol Mulai lomba...
-            </div>
-          </div>
-        </main>
-
-        <footer className="text-center text-[11px] font-bold text-[#6b6a85]">
-          Target Garis Finis: {targetJarak} m • Batas Waktu: {defaultTimerDetik} detik / soal
-        </footer>
-      </div>
+      <RuangTungguSiswa
+        token={token}
+        nama={nama}
+        pesertaId={pesertaId}
+        gameType="balap_karung"
+        templateJudul={templateJudul}
+        config={activeConfig}
+        daftarPeserta={leaderboard.map((p) => ({ id: p.id, nama: p.nama, tim: p.tim }))}
+        teams={teams.map((t) => ({
+          id: t.id,
+          nama: t.nama,
+          warna: t.warna,
+          anggota: t.anggota.map((a) => ({ id: a.id, nama: a.nama })),
+        }))}
+        myTeamId={myTeam?.id}
+        onKeluar={onKeluar}
+        onMulaiPermainan={() => setStage('PLAYING')}
+      />
     );
   }
 

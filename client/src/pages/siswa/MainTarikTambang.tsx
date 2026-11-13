@@ -5,6 +5,7 @@ import { QuestionTimerBar, computeInitialRemainingMs } from '../../components';
 import { isStaleQuestionErrorMessage } from '../../lib/soloSessionSync';
 import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import { TarikAvatarSvg } from '../../components/TarikTambangStadium';
+import RuangTungguSiswa from './RuangTungguSiswa';
 import '../../components/tarikTambangFestival.css';
 import {
   CheckCircle2,
@@ -13,7 +14,6 @@ import {
   Loader2,
   LogOut,
   Trophy,
-  Users,
   Volume2,
   VolumeX,
   XCircle,
@@ -196,6 +196,8 @@ export default function MainTarikTambang({
   const { isMuted, toggleMute } = useGameSoundLifecycle(stage === 'PLAYING', sessionId);
 
   const defaultQuestionSec = Math.max(5, Number(activeConfig.waktuPerSoalDetik) || 10);
+  const stageRef = useRef(stage);
+  stageRef.current = stage;
   const timeoutSentRef = useRef<string | null>(null);
   const watchdogsRef = useRef(createAnswerWatchdogs());
 
@@ -206,11 +208,6 @@ export default function MainTarikTambang({
   const isMerah = myTim === 'merah';
   const myTeamName = isMerah ? namaTim1 : namaTim2;
   const myTeamColor = isMerah ? '#e2312d' : '#1d8fe0';
-
-  const teammates = useMemo(
-    () => daftarPeserta.filter((p) => (p.tim || 'merah') === myTim),
-    [daftarPeserta, myTim]
-  );
 
   // Sync match countdown clock smoothly (updates state only when integer second changes)
   useEffect(() => {
@@ -291,14 +288,15 @@ export default function MainTarikTambang({
       setSudahKirim(false);
       setErrorBanner(null);
       timeoutSentRef.current = null;
-      setStage('PLAYING');
       soundEffects.startGame('race');
+      if (stageRef.current !== 'LOBBY') {
+        setStage('PLAYING');
+      }
     };
 
     const handleSoalTampil = (data: SoalTarikData & { game?: string }) => {
       if (data.game && data.game !== 'tarik_tambang') return;
       watchdogsRef.current.clearAll();
-      setStage('PLAYING');
       setSoalAktif({
         ...data,
         id: data.id || data.questionId,
@@ -310,6 +308,9 @@ export default function MainTarikTambang({
       setFeedback(null);
       setErrorBanner(null);
       timeoutSentRef.current = null;
+      if (stageRef.current !== 'LOBBY') {
+        setStage('PLAYING');
+      }
     };
 
     const handleTaliUpdate = (data: {
@@ -664,73 +665,18 @@ export default function MainTarikTambang({
   // =========================================================================
   if (stage === 'LOBBY') {
     return (
-      <div className="tt-festival min-h-screen p-4 flex flex-col justify-between gap-4 select-none">
-        {renderTopBar()}
-
-        <main className="w-full max-w-md mx-auto my-auto">
-          <div className="tt-phone">
-            <div className="tt-scr flex flex-col items-center text-center justify-center gap-3">
-              <TarikAvatarSvg
-                color={myTeamColor}
-                side={isMerah ? 'l' : 'r'}
-                size={76}
-              />
-
-              <span
-                className="inline-block px-3.5 py-1 rounded-full text-xs font-extrabold text-white"
-                style={{ background: myTeamColor }}
-              >
-                Kamu anggota {myTeamName}
-              </span>
-
-              <h1 className="tt-disp text-2xl font-extrabold text-[#2b2a4a]">
-                Halo, {nama}!
-              </h1>
-
-              <p className="text-xs font-bold text-[#6b6a85] leading-relaxed">
-                Bersiap di area {myTeamName}! Jawab cepat dan tepat saat lomba dimulai agar timmu menang tarik tambang.
-              </p>
-
-              {teammates.length > 0 && (
-                <div className="w-full bg-[#fff3d6] border-2 border-[#f0dfb4] rounded-2xl p-3 text-left space-y-1.5">
-                  <div className="text-[11px] font-extrabold text-[#6b6a85] flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5" /> Rekan Satu Tim ({teammates.length}):
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {teammates.map((m) => (
-                      <span
-                        key={m.id}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-extrabold border ${
-                          m.id === pesertaId
-                            ? 'bg-[#2b2a4a] text-[#fff3d6] border-[#2b2a4a]'
-                            : 'bg-white text-[#2b2a4a] border-[#f0dfb4]'
-                        }`}
-                      >
-                        <span
-                          className="w-2 h-2 rounded-full"
-                          style={{ background: myTeamColor }}
-                        />
-                        {m.nama}
-                        {m.id === pesertaId ? ' (Kamu)' : ''}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="pt-1 flex items-center justify-center gap-2 text-xs font-extrabold text-[#7a5200]">
-                <Loader2 className="w-4 h-4 animate-spin text-[#e2312d]" />
-                Menunggu guru menekan tombol Mulai lomba...
-              </div>
-            </div>
-          </div>
-        </main>
-
-        <footer className="text-center text-[11px] font-bold text-[#6b6a85]">
-          Target Garis Menang: ±{batasMenang} • Durasi Lomba:{' '}
-          {Math.round((activeConfig.durasiLombaDetik || 180) / 60)} menit • {defaultQuestionSec} dtk/soal
-        </footer>
-      </div>
+      <RuangTungguSiswa
+        token={token}
+        nama={nama}
+        pesertaId={pesertaId}
+        gameType="tarik_tambang"
+        templateJudul={templateJudul}
+        config={activeConfig}
+        daftarPeserta={daftarPeserta.map((p) => ({ id: p.id, nama: p.nama, tim: p.tim }))}
+        myTeamId={myTim}
+        onKeluar={onKeluar}
+        onMulaiPermainan={() => setStage('PLAYING')}
+      />
     );
   }
 
