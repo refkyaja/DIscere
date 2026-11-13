@@ -245,32 +245,34 @@ export default function RuangTungguGuru({
         }
         .sheet {
           position: relative;
-          transform: rotate(-1deg);
-          padding: 16px 14px 12px;
+          transform: rotate(-0.8deg);
+          transform-origin: center center;
+          padding: 14px 14px 10px;
           text-align: center;
           color: #163a2b;
           background: #fbf6e9;
           border: 3px solid #e8dfc8;
           border-radius: 12px 14px 12px 16px;
-          box-shadow: 0 8px 0 rgba(0,0,0,0.22);
+          box-shadow: 0 6px 0 rgba(0,0,0,0.22);
           flex-shrink: 0;
+          margin: 10px 4px 6px 8px;
         }
         .sheet::before, .sheet::after {
           content: "";
           position: absolute;
-          top: -10px;
-          width: 64px;
-          height: 20px;
-          background: rgba(242, 194, 48, 0.82);
+          top: -9px;
+          width: 58px;
+          height: 18px;
+          background: rgba(242, 194, 48, 0.85);
           box-shadow: 0 2px 0 rgba(0,0,0,0.15);
         }
         .sheet::before {
-          left: 18px;
-          transform: rotate(-5deg);
+          left: 14px;
+          transform: rotate(-4deg);
         }
         .sheet::after {
-          right: 18px;
-          transform: rotate(4deg);
+          right: 14px;
+          transform: rotate(3deg);
         }
         .denah {
           flex: 1;
@@ -288,7 +290,7 @@ export default function RuangTungguGuru({
           min-height: 0;
           overflow-y: auto;
           overflow-x: hidden;
-          padding: 8px 12px 14px 8px;
+          padding: 10px 14px 16px 12px;
         }
         .desks {
           display: grid;
@@ -576,10 +578,10 @@ export default function RuangTungguGuru({
         </div>
 
         {/* 2 KOLOM UTAMA: LEMBAR UNDANGAN DI KIRI (STATIS) & DENAH KELAS DI KANAN */}
-        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[280px_1fr] xl:grid-cols-[300px_1fr] gap-3 sm:gap-5 items-stretch overflow-hidden">
+        <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[260px_1fr] lg:grid-cols-[280px_1fr] xl:grid-cols-[300px_1fr] gap-3 sm:gap-5 items-stretch">
           {/* KOLOM KIRI: LEMBAR UNDANGAN (SHEET DENGAN SOLASI KUNING - STATIS) */}
-          <section className="sheet shrink-0 flex flex-col justify-between self-start max-w-xs w-full mx-auto lg:mx-0" aria-label="Undangan masuk">
-            <small className="block font-extrabold text-[11px] sm:text-xs text-[#5a6f62] uppercase tracking-wider mb-1">
+          <section className="sheet shrink-0 flex flex-col justify-between self-start max-w-[270px] w-full mx-auto md:mx-0 select-none" aria-label="Undangan masuk">
+            <small className="block font-extrabold text-[10px] sm:text-xs text-[#5a6f62] uppercase tracking-wider mb-0.5">
               Scan untuk masuk ruangan
             </small>
 
@@ -587,7 +589,7 @@ export default function RuangTungguGuru({
             <button
               type="button"
               onClick={() => setZoomOpen(true)}
-              className="block w-32 h-32 sm:w-36 sm:h-36 mx-auto my-1 p-1.5 bg-white border-2 sm:border-3 border-[#163a2b] rounded-2xl cursor-zoom-in shadow-md hover:scale-102 transition-transform shrink-0"
+              className="block w-28 h-28 sm:w-32 sm:h-32 mx-auto my-1 p-1 bg-white border-2 sm:border-3 border-[#163a2b] rounded-2xl cursor-zoom-in shadow-md hover:scale-102 transition-transform shrink-0"
               title="Perbesar QR untuk proyektor kelas"
             >
               {qrDataUrl ? (
@@ -605,7 +607,7 @@ export default function RuangTungguGuru({
             </button>
 
             {/* Garis putus-putus pembatas kupon */}
-            <div className="border-t-2 border-dashed border-[#1f4a37]/30 my-1" />
+            <div className="border-t-2 border-dashed border-[#1f4a37]/30 my-0.5" />
 
             <small className="block font-extrabold text-[10px] sm:text-xs text-[#5a6f62]">atau ketik token</small>
 
@@ -615,7 +617,7 @@ export default function RuangTungguGuru({
             </span>
 
             {/* Tombol Salin Token & Tampilkan ke Kelas */}
-            <div className="flex flex-wrap justify-center gap-1.5 my-1.5">
+            <div className="flex flex-wrap justify-center gap-1.5 my-1">
               <button
                 type="button"
                 onClick={handleCopyToken}
