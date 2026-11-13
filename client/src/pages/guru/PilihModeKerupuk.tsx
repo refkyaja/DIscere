@@ -497,41 +497,35 @@ export default function PilihModeKerupuk() {
                   </span>
                 </div>
 
-                <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
+                <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 text-xs">
                   {[
                     { key: 'besar' as const, label: 'Besar (-40%)', val: probabilitas.besar, isZonk: false },
                     { key: 'sedang' as const, label: 'Sedang (-25%)', val: probabilitas.sedang, isZonk: false },
                     { key: 'kecil' as const, label: 'Kecil (-10%)', val: probabilitas.kecil, isZonk: false },
                     { key: 'sangat_kecil' as const, label: 'Mini (-5%)', val: probabilitas.sangat_kecil, isZonk: false },
                     { key: 'zonk' as const, label: 'Zonk (0%)', val: probabilitas.zonk, isZonk: true },
-                  ].map((p) => {
-                    return (
-                      <button
-                        key={p.key}
-                        type="button"
-                        onClick={() => {
-                          setShowAdvancedRules(true);
-                          setKesulitan('custom');
-                          setTimeout(() => {
-                            const el = document.getElementById(`slider-gigitan-${p.key}`);
-                            if (el) {
-                              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                              el.focus();
-                            }
-                          }, 50);
-                        }}
-                        title={`Klik untuk mengatur persentase ${p.label}`}
-                        className={`group inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
-                          p.isZonk
-                            ? 'bg-red-50 hover:bg-red-100 border-red-200 text-[#c8362f]'
-                            : 'bg-[#fcf8ed] hover:bg-[#f6ebd4] border-[#e0d5b8] text-[#1d3b2e] hover:border-[#1d3b2e]'
-                        } active:scale-95 shadow-2xs`}
-                      >
-                        <span>{p.label}:</span>
-                        <strong className="font-mono">{p.val}%</strong>
-                      </button>
-                    );
-                  })}
+                  ].map((p, idx, arr) => (
+                    <div key={p.key} className="inline-flex items-center gap-1.5">
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                          p.isZonk ? 'bg-[#c8362f]' : 'bg-[#1d3b2e]/50'
+                        }`}
+                      />
+                      <span className={p.isZonk ? 'text-[#c8362f] font-semibold' : 'text-[#3d4d42] font-medium'}>
+                        {p.label}:{' '}
+                        <strong
+                          className={`font-mono ${
+                            p.isZonk ? 'font-black text-[#c8362f]' : 'font-extrabold text-[#1d3b2e]'
+                          }`}
+                        >
+                          {p.val}%
+                        </strong>
+                      </span>
+                      {idx < arr.length - 1 && (
+                        <span className="text-[#d7caa7] ml-2 select-none font-normal">•</span>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
 
