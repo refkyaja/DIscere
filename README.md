@@ -203,15 +203,15 @@ Administrator tidak memiliki akses untuk melihat konten privat papan tulis dan t
 
 **Institusi: SMKN 13 Bandung**
 
-### Refky
+### Refky ([@refkyaja](https://github.com/refkyaja))
 
 Bertanggung jawab mengerjakan landing page dan fitur papan tulis digital (Canvas), serta membantu desain antarmuka dashboard admin dan guru.
 
-### Kaka
+### Kaka ([@Kalzz76](https://github.com/Kalzz76))
 
 Bertanggung jawab mengerjakan tampilan dashboard admin dan guru, mengembangkan logika serta alur sistem pada kedua dashboard, dan mendesain halaman game.
 
-### Alip
+### Alip ([@lemonade199](https://github.com/lemonade199))
 
 Bertanggung jawab mengerjakan desain dan logika permainan, serta mengurus kebutuhan administrasi tim.
 
@@ -230,13 +230,13 @@ Pastikan perangkat sudah memiliki:
 ### 2. Clone Repository
 
 ```bash
-git clone https://github.com/USERNAME/REPOSITORY.git
+git clone https://github.com/refkyaja/DIscere.git
 ```
 
 Masuk ke direktori proyek:
 
 ```bash
-cd REPOSITORY
+cd DIscere
 ```
 
 ### 3. Instalasi Dependensi
