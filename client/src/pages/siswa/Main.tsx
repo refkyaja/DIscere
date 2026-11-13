@@ -265,7 +265,7 @@ export default function MainSiswa() {
   if (stage === 'GABUNG') {
     return (
       <div
-        className="relative min-h-screen w-full flex flex-col justify-between items-center overflow-hidden select-none"
+        className="relative h-screen h-dvh max-h-screen w-full flex flex-col justify-between items-center overflow-hidden select-none"
         style={{
           backgroundColor: '#163a2b',
           backgroundImage: `
@@ -435,20 +435,20 @@ export default function MainSiswa() {
               setFormError(null);
               setSearchParams({});
             }}
-            className="join-back-btn absolute top-5 left-5 sm:top-8 sm:left-8 z-40 flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-[#f6efe2]/90 hover:bg-[#f6efe2] text-[#163a2b] shadow-[0_4px_12px_rgba(0,0,0,0.3)] border-2 border-[#e4d7c3] transition-all hover:scale-105 active:scale-95 cursor-pointer group"
+            className="join-back-btn absolute top-3 left-3 sm:top-5 sm:left-6 z-40 flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-[#f6efe2]/90 hover:bg-[#f6efe2] text-[#163a2b] shadow-[0_4px_12px_rgba(0,0,0,0.3)] border-2 border-[#e4d7c3] transition-all hover:scale-105 active:scale-95 cursor-pointer group"
             title="Kembali ke Masukkan PIN"
             aria-label="Kembali ke Masukkan PIN"
           >
-            <ArrowLeft className="w-6 h-6 text-[#163a2b] transition-transform group-hover:-translate-x-0.5" />
+            <ArrowLeft className="w-5 h-5 text-[#163a2b] transition-transform group-hover:-translate-x-0.5" />
           </button>
         ) : (
           <Link
             to="/"
-            className="join-back-btn absolute top-5 left-5 sm:top-8 sm:left-8 z-40 flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-[#f6efe2]/90 hover:bg-[#f6efe2] text-[#163a2b] shadow-[0_4px_12px_rgba(0,0,0,0.3)] border-2 border-[#e4d7c3] transition-all hover:scale-105 active:scale-95 cursor-pointer group"
+            className="join-back-btn absolute top-3 left-3 sm:top-5 sm:left-6 z-40 flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-[#f6efe2]/90 hover:bg-[#f6efe2] text-[#163a2b] shadow-[0_4px_12px_rgba(0,0,0,0.3)] border-2 border-[#e4d7c3] transition-all hover:scale-105 active:scale-95 cursor-pointer group"
             title="Kembali ke Beranda"
             aria-label="Kembali ke Beranda"
           >
-            <ArrowLeft className="w-6 h-6 text-[#163a2b] transition-transform group-hover:-translate-x-0.5" />
+            <ArrowLeft className="w-5 h-5 text-[#163a2b] transition-transform group-hover:-translate-x-0.5" />
           </Link>
         )}
 
@@ -542,12 +542,12 @@ export default function MainSiswa() {
         {/* ============================================================ */}
         {/* KONTEN UTAMA: LOGO, KARTU FORM, & TEKS MOTTO                 */}
         {/* ============================================================ */}
-        <div className="relative z-30 w-full max-w-[430px] px-4 flex flex-col items-center my-auto pt-6 pb-28">
+        <div className="relative z-30 w-full max-w-[390px] px-4 flex flex-col items-center my-auto py-2">
           {/* LOGO DISCERE DENGAN PERCIKAN KAPUR KUNING */}
-          <div className="join-logo relative flex items-center justify-center gap-2.5 mb-6 select-none">
+          <div className="join-logo relative flex items-center justify-center gap-2 mb-2 sm:mb-3 select-none">
             {/* Ikon Buku Terbuka */}
             <svg
-              className="w-10 h-10 text-[#f4ecd8] drop-shadow-md"
+              className="w-8 h-8 sm:w-9 sm:h-9 text-[#f4ecd8] drop-shadow-md"
               viewBox="0 0 48 48"
               fill="none"
               stroke="currentColor"
@@ -560,14 +560,14 @@ export default function MainSiswa() {
             </svg>
             {/* Tulisan Discere */}
             <span
-              className="text-4xl sm:text-5xl font-black text-[#f4ecd8] tracking-wide font-['Caveat',sans-serif]"
+              className="text-3xl sm:text-4xl font-black text-[#f4ecd8] tracking-wide font-['Caveat',sans-serif]"
               style={{ textShadow: '0 2px 8px rgba(0,0,0,0.45)' }}
             >
               Discere
             </span>
             {/* 3 Percikan Kapur Kuning di Atas-Kanan Teks */}
             <svg
-              className="w-8 h-8 text-[#f2c230] -mt-5 -ml-1 pointer-events-none"
+              className="w-6 h-6 sm:w-7 sm:h-7 text-[#f2c230] -mt-4 -ml-1 pointer-events-none"
               viewBox="0 0 30 30"
               fill="none"
               stroke="currentColor"
@@ -579,7 +579,7 @@ export default function MainSiswa() {
             </svg>
             {/* Coretan Lengkung Kuning di Bawah Logo */}
             <svg
-              className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 w-44 h-3.5 text-[#f2c230] pointer-events-none"
+              className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-36 sm:w-40 h-2.5 sm:h-3 text-[#f2c230] pointer-events-none"
               viewBox="0 0 120 12"
               fill="none"
               stroke="currentColor"
@@ -592,26 +592,26 @@ export default function MainSiswa() {
           </div>
 
           {/* KARTU FORMULIR KERTAS PARCHMENT (Paper Card) */}
-          <div className="join-card relative w-full bg-[#f6efe2] rounded-[30px] p-6 sm:p-8 shadow-[0_12px_0_rgba(0,0,0,0.18),0_25px_50px_rgba(0,0,0,0.45)] border-2 border-[#e4d7c3] text-center">
+          <div className="join-card relative w-full bg-[#f6efe2] rounded-2xl sm:rounded-[26px] p-4 sm:p-6 shadow-[0_8px_0_rgba(0,0,0,0.18),0_18px_40px_rgba(0,0,0,0.4)] border-2 border-[#e4d7c3] text-center">
             {/* Pesan Error */}
             {formError && (
-              <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-xs font-bold flex items-center justify-center gap-2 animate-bounce">
+              <div className="mb-3 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-xs font-bold flex items-center justify-center gap-2 animate-bounce">
                 <ShieldAlert className="w-4 h-4 shrink-0" />
                 <span>{formError}</span>
               </div>
             )}
 
             {/* Pembatas Garis dengan Teks PIN / NICKNAME di Tengah */}
-            <div className="flex items-center gap-3 mb-5 px-1 select-none">
+            <div className="flex items-center gap-3 mb-3.5 px-1 select-none">
               <div className="flex-1 h-[1.5px] bg-[#beb4a0]" />
-              <span className="text-sm font-black uppercase tracking-widest text-[#2c3d31]">
+              <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-[#2c3d31]">
                 {joinStep === 'PIN' ? 'PIN' : 'NICKNAME'}
               </span>
               <div className="flex-1 h-[1.5px] bg-[#beb4a0]" />
             </div>
 
             {joinStep === 'PIN' ? (
-              <form onSubmit={handleNextToName} className="space-y-4">
+              <form onSubmit={handleNextToName} className="space-y-3">
                 <input
                   type="text"
                   inputMode="numeric"
@@ -624,19 +624,19 @@ export default function MainSiswa() {
                     if (formError) setFormError(null);
                   }}
                   autoFocus
-                  className="w-full py-3.5 px-4 text-center text-2xl font-black tracking-widest text-[#163a2b] bg-[#ece4d5] border-2 border-[#243e2f] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#163a2b]/30 transition-all placeholder:text-[#9e9688] placeholder:font-bold placeholder:text-lg placeholder:tracking-normal"
+                  className="w-full py-2.5 sm:py-3 px-4 text-center text-xl sm:text-2xl font-black tracking-widest text-[#163a2b] bg-[#ece4d5] border-2 border-[#243e2f] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#163a2b]/30 transition-all placeholder:text-[#9e9688] placeholder:font-bold placeholder:text-base placeholder:tracking-normal"
                   required
                 />
                 <button
                   type="submit"
                   disabled={!tokenInput.trim() || tokenInput.trim().length !== 6}
-                  className="w-full py-3.5 px-4 text-xl font-bold text-white bg-[#173b2b] hover:bg-[#102c20] active:scale-[0.99] rounded-2xl shadow-md transition-all cursor-pointer font-['Caveat',sans-serif] tracking-wider disabled:opacity-50"
+                  className="w-full py-2.5 sm:py-3 px-4 text-lg sm:text-xl font-bold text-white bg-[#173b2b] hover:bg-[#102c20] active:scale-[0.99] rounded-2xl shadow-md transition-all cursor-pointer font-['Caveat',sans-serif] tracking-wider disabled:opacity-50"
                 >
                   Join
                 </button>
               </form>
             ) : (
-              <form onSubmit={handleGabung} className="space-y-4">
+              <form onSubmit={handleGabung} className="space-y-3">
                 <input
                   type="text"
                   maxLength={20}
@@ -647,13 +647,13 @@ export default function MainSiswa() {
                     if (formError) setFormError(null);
                   }}
                   autoFocus
-                  className="w-full py-3.5 px-4 text-center text-xl font-bold text-[#163a2b] bg-[#ece4d5] border-2 border-[#243e2f] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#163a2b]/30 transition-all placeholder:text-[#9e9688] placeholder:font-bold"
+                  className="w-full py-2.5 sm:py-3 px-4 text-center text-lg sm:text-xl font-bold text-[#163a2b] bg-[#ece4d5] border-2 border-[#243e2f] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#163a2b]/30 transition-all placeholder:text-[#9e9688] placeholder:font-bold"
                   required
                 />
                 <button
                   type="submit"
                   disabled={isJoining || !namaInput.trim()}
-                  className="w-full py-3.5 px-4 text-xl font-bold text-white bg-[#173b2b] hover:bg-[#102c20] disabled:opacity-60 active:scale-[0.99] rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer font-['Caveat',sans-serif] tracking-wider"
+                  className="w-full py-2.5 sm:py-3 px-4 text-lg sm:text-xl font-bold text-white bg-[#173b2b] hover:bg-[#102c20] disabled:opacity-60 active:scale-[0.99] rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer font-['Caveat',sans-serif] tracking-wider"
                 >
                   {isJoining ? (
                     <>
@@ -664,7 +664,7 @@ export default function MainSiswa() {
                     'Mulai!'
                   )}
                 </button>
-                <div className="pt-1">
+                <div className="pt-0.5">
                   <button
                     type="button"
                     onClick={() => {
@@ -681,15 +681,15 @@ export default function MainSiswa() {
           </div>
 
           {/* TEKS MOTTO DI BAWAH KARTU DENGAN CORETAN KAPUR KUNING */}
-          <div className="join-motto mt-6 flex flex-col items-center select-none text-center">
+          <div className="join-motto mt-2.5 sm:mt-3 flex flex-col items-center select-none text-center">
             <span
-              className="text-lg sm:text-xl font-bold text-[#f4ecd9] tracking-wide font-['Caveat',sans-serif]"
+              className="text-base sm:text-lg font-bold text-[#f4ecd9] tracking-wide font-['Caveat',sans-serif]"
               style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}
             >
               Discere • Belajar Lebih Menyenangkan
             </span>
             <svg
-              className="w-48 h-3.5 text-[#f2c230] mt-1 pointer-events-none"
+              className="w-40 sm:w-44 h-2.5 sm:h-3 text-[#f2c230] mt-0.5 pointer-events-none"
               viewBox="0 0 140 10"
               fill="none"
               stroke="currentColor"
@@ -705,7 +705,7 @@ export default function MainSiswa() {
         {/* ============================================================ */}
         {/* TUMPUKAN 3 BUKU CAT AIR KLASIK (Kiri Bawah di Atas Meja Kayu) */}
         {/* ============================================================ */}
-        <div className="join-books absolute bottom-12 sm:bottom-16 left-3 sm:left-12 w-32 sm:w-48 h-24 sm:h-36 pointer-events-none z-20">
+        <div className="join-books absolute bottom-8 sm:bottom-12 left-2 sm:left-8 w-24 sm:w-36 h-20 sm:h-28 pointer-events-none z-20 hidden md:block">
           <svg viewBox="0 0 150 110" fill="none" className="w-full h-full drop-shadow-[0_8px_12px_rgba(0,0,0,0.5)]" aria-hidden="true">
             {/* Bayangan di atas dudukan kayu */}
             <ellipse cx="75" cy="98" rx="65" ry="6" fill="rgba(0,0,0,0.4)" />
@@ -742,7 +742,7 @@ export default function MainSiswa() {
         {/* ============================================================ */}
         {/* AKSESORIS RAK KAYU: BATANG KAPUR & PENGHAPUS PAPAN TULIS     */}
         {/* ============================================================ */}
-        <div className="join-ledge absolute bottom-16 sm:bottom-20 left-0 right-0 w-full pointer-events-none z-20 px-6 sm:px-16 flex justify-end items-end">
+        <div className="join-ledge absolute bottom-10 sm:bottom-14 left-0 right-0 w-full pointer-events-none z-20 px-4 sm:px-12 flex justify-end items-end">
           <div className="hidden sm:flex items-end gap-3.5 mb-0.5 opacity-95 drop-shadow-[0_4px_6px_rgba(0,0,0,0.45)]">
             {/* Batang Kapur Putih */}
             <div className="w-11 h-2.5 rounded-full bg-[#f8fafc] shadow-sm transform -rotate-3 border border-slate-300/40 relative">
@@ -765,17 +765,17 @@ export default function MainSiswa() {
         {/* ============================================================ */}
         <div className="join-ledge absolute bottom-0 left-0 right-0 w-full pointer-events-none z-10">
           {/* LIS ATAS RAK KAYU / BEVEL KILAU EMAS */}
-          <div className="w-full h-1.5 bg-gradient-to-r from-[#b07f4a] via-[#e2b07a] to-[#b07f4a] shadow-sm" />
+          <div className="w-full h-1 bg-gradient-to-r from-[#b07f4a] via-[#e2b07a] to-[#b07f4a] shadow-sm" />
 
           {/* ALUR TEMPAT KAPUR (CHALK TRAY GROOVE) */}
-          <div className="w-full h-3.5 bg-gradient-to-b from-[#2e1708] via-[#45230c] to-[#321808] relative overflow-hidden border-b border-[#241005]">
+          <div className="w-full h-2.5 sm:h-3 bg-gradient-to-b from-[#2e1708] via-[#45230c] to-[#321808] relative overflow-hidden border-b border-[#241005]">
             {/* Debu kapur halus yang mengendap di alur */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
           </div>
 
           {/* PAPAN MEJA KAYU JATI/MAHONI BERTEKSTUR */}
           <div
-            className="w-full h-16 sm:h-20 relative overflow-hidden"
+            className="w-full h-8 sm:h-12 relative overflow-hidden"
             style={{
               background: 'linear-gradient(180deg, #784821 0%, #633816 25%, #502b0f 60%, #3a1c07 100%)',
               boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.18), 0 -6px 16px rgba(0,0,0,0.5)',
@@ -795,7 +795,7 @@ export default function MainSiswa() {
         {/* PITA SATIN INDONESIA BERGELOMBANG (MERAH PUTIH MURNI SVG)    */}
         {/* ============================================================ */}
         <svg
-          className="absolute bottom-0 left-0 w-full h-24 sm:h-32 pointer-events-none z-25 overflow-visible"
+          className="absolute bottom-0 left-0 w-full h-14 sm:h-20 pointer-events-none z-25 overflow-visible"
           viewBox="0 0 1440 120"
           preserveAspectRatio="none"
           fill="none"
