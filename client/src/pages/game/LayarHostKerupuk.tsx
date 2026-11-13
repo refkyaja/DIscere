@@ -8,6 +8,7 @@ import {
   KerupukLaneItem,
   KerupukActionPulse,
 } from '../../components/KerupukStadium';
+import '../../components/kerupukFestival.css';
 import LayarHostKerupukMulti, { SesiKerupukMultiClient } from './LayarHostKerupukMulti';
 import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 

@@ -13,6 +13,7 @@ import {
   AnalisisHeatmapKerupukData,
   ContestantCharSvg,
 } from '../../components/KerupukStadium';
+import '../../components/kerupukFestival.css';
 import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import { HasilGachaGigitanProps } from '../siswa/KerupukVirtual';
 import { Copy, Check, RotateCcw, Shuffle, X, Users, Trophy } from 'lucide-react';
