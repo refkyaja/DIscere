@@ -144,9 +144,18 @@ export default function RuangTungguGuru({
   const metaText = metaDetail || gameTitle;
 
   return (
-    <div className="rt-guru relative min-h-screen flex flex-col justify-between select-none text-[#f4ecd8] overflow-x-hidden">
+    <div className="rt-guru fixed inset-0 w-full h-[100dvh] max-h-[100dvh] flex flex-col justify-between select-none text-[#f4ecd8] overflow-hidden">
       <style>{`
         .rt-guru {
+          position: fixed;
+          inset: 0;
+          width: 100%;
+          height: 100dvh;
+          max-height: 100dvh;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          overflow: hidden;
           --board: #1f4a37;
           --board-d: #163a2b;
           --card: #fbf6e9;
@@ -167,6 +176,25 @@ export default function RuangTungguGuru({
         .rt-guru .hand {
           font-family: 'Caveat', 'Comic Sans MS', cursive;
           font-weight: 700;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+          height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(10, 32, 22, 0.25);
+          border-radius: 999px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(244, 236, 216, 0.4);
+          border-radius: 999px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(244, 236, 216, 0.65);
+        }
+        .custom-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(244, 236, 216, 0.4) rgba(10, 32, 22, 0.25);
         }
         @keyframes flipSand {
           0%, 84% { transform: rotate(0); animation-timing-function: cubic-bezier(.6,0,.25,1); }
@@ -217,62 +245,80 @@ export default function RuangTungguGuru({
         }
         .sheet {
           position: relative;
-          transform: rotate(-1.3deg);
-          padding: 24px 18px 16px;
+          transform: rotate(-1deg);
+          padding: 16px 14px 12px;
           text-align: center;
           color: #163a2b;
           background: #fbf6e9;
           border: 3px solid #e8dfc8;
-          border-radius: 8px 12px 10px 14px;
-          box-shadow: 0 10px 0 rgba(0,0,0,0.22);
+          border-radius: 12px 14px 12px 16px;
+          box-shadow: 0 8px 0 rgba(0,0,0,0.22);
+          flex-shrink: 0;
         }
         .sheet::before, .sheet::after {
           content: "";
           position: absolute;
-          top: -12px;
-          width: 76px;
-          height: 24px;
+          top: -10px;
+          width: 64px;
+          height: 20px;
           background: rgba(242, 194, 48, 0.82);
           box-shadow: 0 2px 0 rgba(0,0,0,0.15);
         }
         .sheet::before {
-          left: 20px;
-          transform: rotate(-6deg);
+          left: 18px;
+          transform: rotate(-5deg);
         }
         .sheet::after {
-          right: 20px;
-          transform: rotate(5deg);
+          right: 18px;
+          transform: rotate(4deg);
         }
         .denah {
-          padding: 18px 18px 22px;
+          flex: 1;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          padding: 12px 14px 12px;
           border: 3px dashed rgba(244, 236, 216, 0.4);
-          border-radius: 28px;
+          border-radius: 24px;
           background: rgba(10, 32, 22, 0.28);
+          overflow: hidden;
+        }
+        .desks-wrap {
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          overflow-x: hidden;
+          padding: 8px 12px 14px 8px;
         }
         .desks {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 16px 12px;
         }
-        @media (max-width: 1023px) {
+        @media (max-width: 1200px) {
+          .desks {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
+        }
+        @media (max-width: 800px) {
           .desks {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
         }
         .dk {
           position: relative;
-          min-height: 136px;
+          min-height: 114px;
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 6px;
-          padding: 12px 8px 10px;
+          gap: 4px;
+          padding: 10px 8px 8px;
           color: #163a2b;
           background: #fbf6e9;
           border: 3px solid #e8dfc8;
-          border-radius: 18px 18px 8px 8px;
-          box-shadow: 0 7px 0 #b99672, 0 9px 0 rgba(0,0,0,0.25);
+          border-radius: 16px 16px 8px 8px;
+          box-shadow: 0 6px 0 #b99672, 0 8px 0 rgba(0,0,0,0.22);
           animation: popCard 0.45s cubic-bezier(0.3, 1.6, 0.5, 1);
         }
         .dk.ph {
@@ -286,44 +332,46 @@ export default function RuangTungguGuru({
         }
         .kick {
           position: absolute;
-          top: -10px;
-          right: -8px;
-          width: 30px;
-          height: 30px;
+          top: 4px;
+          right: 4px;
+          width: 24px;
+          height: 24px;
           border-radius: 50%;
-          border: 3px solid #fbf6e9;
+          border: 2px solid #fbf6e9;
           background: #c8362f;
           color: #fff;
           font-weight: 900;
-          font-size: 16px;
+          font-size: 14px;
           line-height: 1;
           display: grid;
           place-items: center;
           cursor: pointer;
-          box-shadow: 0 3px 0 rgba(0,0,0,0.3);
-          transition: transform 0.15s ease;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+          transition: transform 0.15s ease, background-color 0.15s ease;
+          z-index: 20;
         }
         .kick:hover {
           transform: scale(1.15);
+          background: #a6251f;
         }
         .dk.ask {
           background: #fff1ef;
           border-color: #c8362f;
-          gap: 5px;
+          gap: 4px;
         }
         .floor {
-          position: sticky;
-          bottom: 0;
+          position: relative;
           z-index: 20;
-          min-height: 84px;
+          min-height: 64px;
           display: flex;
           flex-wrap: wrap;
           align-items: center;
           justify-content: center;
-          gap: 14px;
-          padding: 12px 24px;
-          background: linear-gradient(#b99672 0 6px, transparent 6px), repeating-linear-gradient(90deg, #8b6a4a 0 118px, #7a5b3e 118px 120px);
+          gap: 12px;
+          padding: 8px 20px;
+          background: linear-gradient(#b99672 0 5px, transparent 5px), repeating-linear-gradient(90deg, #8b6a4a 0 118px, #7a5b3e 118px 120px);
           border-top: 3px solid #6f5238;
+          flex-shrink: 0;
         }
         .pill {
           display: flex;
@@ -462,11 +510,11 @@ export default function RuangTungguGuru({
       {/* ============================================================ */}
       {/* 2. KONTEN UTAMA: RUANG TUNGGU GURU (HALL & DENAH KELAS)       */}
       {/* ============================================================ */}
-      <main className="relative z-10 flex-1 w-full max-w-6xl mx-auto px-4 sm:px-8 py-4 sm:py-6 flex flex-col justify-center">
+      <main className="relative z-10 flex-1 min-h-0 w-full max-w-7xl mx-auto px-3 sm:px-6 py-2 sm:py-3 flex flex-col overflow-hidden">
         {/* HERO: JAM PASIR & JUDUL RUANG TUNGGU & COUNTER SISWA */}
-        <div className="flex items-center gap-4 mb-4 sm:mb-6">
+        <div className="shrink-0 flex items-center gap-3 sm:gap-4 mb-2 sm:mb-3">
           {/* Jam Pasir Animasi */}
-          <svg className="w-12 h-16 sm:w-14 sm:h-18 overflow-visible select-none shrink-0" viewBox="0 0 120 160" aria-hidden="true">
+          <svg className="w-10 h-14 sm:w-12 sm:h-16 overflow-visible select-none shrink-0" viewBox="0 0 120 160" aria-hidden="true">
             <defs>
               <clipPath id="sandClipGuru">
                 <path d="M26 18H94C94 48 66 62 64 80C66 98 94 112 94 142H26C26 112 54 98 56 80C54 62 26 48 26 18Z" />
@@ -504,34 +552,34 @@ export default function RuangTungguGuru({
 
           {/* Teks Judul & Subtitle */}
           <div className="flex-1 min-w-0">
-            <h1 className="hand text-3xl sm:text-5xl lg:text-6xl text-[#f4ecd8] drop-shadow-md leading-none">
+            <h1 className="hand text-2xl sm:text-4xl lg:text-5xl text-[#f4ecd8] drop-shadow-md leading-none">
               Ruang <span className="text-[#f2c230]">Tunggu</span>
             </h1>
-            <p className="text-xs sm:text-sm text-[#f4ecd8]/90 font-semibold mt-1">
+            <p className="text-xs sm:text-sm text-[#f4ecd8]/90 font-semibold mt-0.5 truncate">
               Siswa masuk lewat QR atau token PIN, lalu guru menekan Mulai.
             </p>
           </div>
 
           {/* Badge Lingkaran Jumlah Siswa */}
           <div
-            className="shrink-0 w-18 h-18 sm:w-22 sm:h-22 rounded-full border-2 sm:border-3 border-dashed border-[#f4ecd8]/60 grid place-items-center text-center p-1"
+            className="shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-dashed border-[#f4ecd8]/60 grid place-items-center text-center p-1"
             aria-live="polite"
           >
-            <b className="hand text-2xl sm:text-3xl font-bold leading-none text-[#f4ecd8]">
+            <b className="hand text-xl sm:text-2xl font-bold leading-none text-[#f4ecd8]">
               {daftarPeserta.length}
               {maxPeserta ? `/${maxPeserta}` : ''}
             </b>
-            <small className="text-[10px] sm:text-xs font-extrabold text-[#f4ecd8]/80 leading-none">
+            <small className="text-[9px] sm:text-[10px] font-extrabold text-[#f4ecd8]/80 leading-none">
               siswa
             </small>
           </div>
         </div>
 
-        {/* 2 KOLOM UTAMA: LEMBAR UNDANGAN DI KIRI & DENAH KELAS DI KANAN */}
-        <div className="grid grid-cols-1 lg:grid-cols-[330px_1fr] gap-6 lg:gap-8 items-start">
-          {/* KOLOM KIRI: LEMBAR UNDANGAN (SHEET DENGAN SOLASI KUNING) */}
-          <section className="sheet" aria-label="Undangan masuk">
-            <small className="block font-extrabold text-xs text-[#5a6f62] uppercase tracking-wider mb-2">
+        {/* 2 KOLOM UTAMA: LEMBAR UNDANGAN DI KIRI (STATIS) & DENAH KELAS DI KANAN */}
+        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[280px_1fr] xl:grid-cols-[300px_1fr] gap-3 sm:gap-5 items-stretch overflow-hidden">
+          {/* KOLOM KIRI: LEMBAR UNDANGAN (SHEET DENGAN SOLASI KUNING - STATIS) */}
+          <section className="sheet shrink-0 flex flex-col justify-between self-start max-w-xs w-full mx-auto lg:mx-0" aria-label="Undangan masuk">
+            <small className="block font-extrabold text-[11px] sm:text-xs text-[#5a6f62] uppercase tracking-wider mb-1">
               Scan untuk masuk ruangan
             </small>
 
@@ -539,7 +587,7 @@ export default function RuangTungguGuru({
             <button
               type="button"
               onClick={() => setZoomOpen(true)}
-              className="block w-44 h-44 sm:w-48 sm:h-48 mx-auto my-2 p-2 bg-white border-3 border-[#163a2b] rounded-2xl cursor-zoom-in shadow-md hover:scale-102 transition-transform"
+              className="block w-32 h-32 sm:w-36 sm:h-36 mx-auto my-1 p-1.5 bg-white border-2 sm:border-3 border-[#163a2b] rounded-2xl cursor-zoom-in shadow-md hover:scale-102 transition-transform shrink-0"
               title="Perbesar QR untuk proyektor kelas"
             >
               {qrDataUrl ? (
@@ -551,34 +599,34 @@ export default function RuangTungguGuru({
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center text-xs font-bold text-[#5a6f62]">
                   <span>Pindai QR</span>
-                  <span className="font-mono text-sm mt-1">PIN {token}</span>
+                  <span className="font-mono text-xs mt-1">PIN {token}</span>
                 </div>
               )}
             </button>
 
             {/* Garis putus-putus pembatas kupon */}
-            <div className="border-t-2 border-dashed border-[#1f4a37]/30 my-2" />
+            <div className="border-t-2 border-dashed border-[#1f4a37]/30 my-1" />
 
-            <small className="block font-extrabold text-xs text-[#5a6f62]">atau ketik token</small>
+            <small className="block font-extrabold text-[10px] sm:text-xs text-[#5a6f62]">atau ketik token</small>
 
             {/* Token PIN Besar Caveat */}
-            <span className="hand block text-5xl sm:text-6xl font-bold tracking-widest text-[#163a2b] my-1 leading-none">
+            <span className="hand block text-4xl sm:text-5xl font-bold tracking-widest text-[#163a2b] my-0.5 leading-none">
               {token}
             </span>
 
             {/* Tombol Salin Token & Tampilkan ke Kelas */}
-            <div className="flex flex-wrap justify-center gap-2 my-2.5">
+            <div className="flex flex-wrap justify-center gap-1.5 my-1.5">
               <button
                 type="button"
                 onClick={handleCopyToken}
-                className="bg-[#163a2b] hover:bg-[#1f4a37] text-[#f4ecd8] font-black text-xs py-1.5 px-3.5 rounded-full shadow-sm cursor-pointer active:scale-95 transition-all"
+                className="bg-[#163a2b] hover:bg-[#1f4a37] text-[#f4ecd8] font-black text-xs py-1 px-3 rounded-full shadow-sm cursor-pointer active:scale-95 transition-all"
               >
                 Salin token
               </button>
               <button
                 type="button"
                 onClick={() => setZoomOpen(true)}
-                className="bg-transparent hover:bg-[#163a2b]/10 text-[#163a2b] border-2 border-[#163a2b] font-black text-xs py-1 px-3 rounded-full cursor-pointer active:scale-95 transition-all"
+                className="bg-transparent hover:bg-[#163a2b]/10 text-[#163a2b] border-2 border-[#163a2b] font-black text-xs py-0.5 px-2.5 rounded-full cursor-pointer active:scale-95 transition-all"
               >
                 Tampilkan ke kelas
               </button>
@@ -594,103 +642,108 @@ export default function RuangTungguGuru({
                 <circle cx="31" cy="22" r="2" fill="#fbf6e9" />
                 <circle cx="36" cy="26" r="2" fill="#fbf6e9" />
               </svg>
-              <span>{metaText}</span>
+              <span className="truncate max-w-[200px]">{metaText}</span>
             </div>
           </section>
 
-          {/* KOLOM KANAN: DENAH KELAS & DAFTAR SISWA */}
-          <section className="denah" aria-label="Denah kelas">
-            <h2 className="hand text-2xl sm:text-3xl text-[#f4ecd8] flex items-baseline justify-between gap-2 mb-3">
-              <span>Denah Kelas</span>
+          {/* KOLOM KANAN: DENAH KELAS & DAFTAR SISWA (HANYA BAGIAN INI YANG BISA DI-SCROLL) */}
+          <section className="denah flex-1 min-h-0 flex flex-col overflow-hidden" aria-label="Denah kelas">
+            <div className="shrink-0 flex items-baseline justify-between gap-2 mb-2 pb-1 border-b border-white/10">
+              <h2 className="hand text-2xl sm:text-3xl text-[#f4ecd8] flex items-baseline gap-2">
+                <span>Denah Kelas</span>
+                <span className="font-['Nunito'] text-xs font-bold text-[#f4ecd8]/70">({daftarPeserta.length} siswa)</span>
+              </h2>
               <small className="font-['Nunito'] text-xs font-bold text-[#f4ecd8]/75">
                 Klik tanda × untuk mengeluarkan siswa
               </small>
-            </h2>
+            </div>
 
-            {/* Grid Bangku Kelas (4 Kolom di Desktop, 2 Kolom di Mobile) */}
-            <div className="desks max-h-[52vh] overflow-y-auto pr-1">
-              {daftarPeserta.map((p) => {
-                const isAsking = askingId === p.id;
+            {/* Grid Bangku Kelas (Dibungkus desks-wrap custom-scrollbar agar scroll mandiri) */}
+            <div className="desks-wrap custom-scrollbar">
+              <div className="desks">
+                {daftarPeserta.map((p) => {
+                  const isAsking = askingId === p.id;
 
-                if (isAsking) {
+                  if (isAsking) {
+                    return (
+                      <div key={p.id} className="dk ask">
+                        <span className="relative w-9 h-9 rounded-full overflow-hidden shrink-0">
+                          <AvatarSvg name={p.nama} size={36} />
+                        </span>
+                        <b className="text-xs truncate max-w-full">{p.nama}</b>
+                        <span className="text-[11px] font-extrabold text-[#c8362f] text-center leading-tight">
+                          Keluarkan dari ruangan?
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleKickConfirm(p.id, p.nama)}
+                          className="w-full bg-[#c8362f] hover:bg-[#a6251f] text-white font-extrabold text-xs py-1 px-2 rounded-full shadow-sm cursor-pointer"
+                        >
+                          Keluarkan
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAskingId(null)}
+                          className="w-full bg-white hover:bg-gray-100 text-[#163a2b] border border-[#e8dfc8] font-extrabold text-[11px] py-0.5 px-2 rounded-full cursor-pointer"
+                        >
+                          Batal
+                        </button>
+                      </div>
+                    );
+                  }
+
                   return (
-                    <div key={p.id} className="dk ask">
-                      <span className="relative w-10 h-10 rounded-full overflow-hidden shrink-0">
-                        <AvatarSvg name={p.nama} size={40} />
-                      </span>
-                      <b className="text-xs truncate max-w-full">{p.nama}</b>
-                      <span className="text-[11px] font-extrabold text-[#c8362f] text-center leading-tight">
-                        Keluarkan dari ruangan?
-                      </span>
+                    <div key={p.id} className="dk">
                       <button
                         type="button"
-                        onClick={() => handleKickConfirm(p.id, p.nama)}
-                        className="w-full bg-[#c8362f] hover:bg-[#a6251f] text-white font-extrabold text-xs py-1 px-2 rounded-full shadow-sm cursor-pointer"
+                        onClick={() => setAskingId(p.id)}
+                        className="kick"
+                        aria-label={`Keluarkan ${p.nama}`}
+                        title="Keluarkan"
                       >
-                        Keluarkan
+                        ×
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setAskingId(null)}
-                        className="w-full bg-white hover:bg-gray-100 text-[#163a2b] border border-[#e8dfc8] font-extrabold text-[11px] py-0.5 px-2 rounded-full cursor-pointer"
-                      >
-                        Batal
-                      </button>
+                      <span className="relative w-11 h-11 rounded-full overflow-hidden shrink-0">
+                        <AvatarSvg name={p.nama} size={44} />
+                        <i className="absolute right-0 bottom-0 w-2.5 h-2.5 rounded-full bg-[#4cc36b] border-2 border-[#fbf6e9]" />
+                      </span>
+                      <b className="text-xs sm:text-sm font-extrabold truncate max-w-[90%] text-center">
+                        {p.nama}
+                      </b>
+                      {/* Catatan: Sesuai instruksi, label 'Masuk 13:32' ditiadakan */}
                     </div>
                   );
-                }
+                })}
 
-                return (
-                  <div key={p.id} className="dk">
-                    <button
-                      type="button"
-                      onClick={() => setAskingId(p.id)}
-                      className="kick"
-                      aria-label={`Keluarkan ${p.nama}`}
-                      title="Keluarkan"
-                    >
-                      ×
-                    </button>
-                    <span className="relative w-12 h-12 rounded-full overflow-hidden shrink-0">
-                      <AvatarSvg name={p.nama} size={48} />
-                      <i className="absolute right-0 bottom-0 w-2.5 h-2.5 rounded-full bg-[#4cc36b] border-2 border-[#fbf6e9]" />
-                    </span>
-                    <b className="text-xs sm:text-sm font-extrabold truncate max-w-[90%] text-center">
-                      {p.nama}
-                    </b>
-                    {/* Catatan: Sesuai instruksi, label 'Masuk 13:32' ditiadakan */}
+                {/* Bangku Kosong Placeholder */}
+                {Array.from({ length: emptyDesksCount }).map((_, idx) => (
+                  <div key={`empty-${idx}`} className="dk ph">
+                    <span>Bangku kosong</span>
                   </div>
-                );
-              })}
-
-              {/* Bangku Kosong Placeholder */}
-              {Array.from({ length: emptyDesksCount }).map((_, idx) => (
-                <div key={`empty-${idx}`} className="dk ph">
-                  <span>Bangku kosong</span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
             {/* Bagian Siswa yang Dikeluarkan (Bisa Diizinkan Kembali) */}
             {kickedList.length > 0 && (
-              <div className="mt-4 pt-3 border-t-2 border-dashed border-[#f4ecd8]/30">
-                <h3 className="text-xs font-black uppercase tracking-wider text-[#f4ecd8]/80 mb-2">
+              <div className="shrink-0 mt-2 pt-2 border-t border-dashed border-[#f4ecd8]/30">
+                <h3 className="text-xs font-black uppercase tracking-wider text-[#f4ecd8]/80 mb-1">
                   Dikeluarkan ({kickedList.length})
                 </h3>
-                <ul className="flex flex-wrap gap-2">
+                <ul className="flex flex-wrap gap-1.5 max-h-16 overflow-y-auto custom-scrollbar">
                   {kickedList.map((k) => (
                     <li
                       key={k.id}
-                      className="flex items-center gap-2 bg-[#f4ecd8]/15 border border-[#f4ecd8]/25 rounded-full py-0.5 px-2.5 text-xs font-bold text-[#f4ecd8]"
+                      className="flex items-center gap-1.5 bg-[#f4ecd8]/15 border border-[#f4ecd8]/25 rounded-full py-0.5 px-2 text-xs font-bold text-[#f4ecd8]"
                     >
-                      <span className="w-5 h-5 rounded-full overflow-hidden shrink-0">
-                        <AvatarSvg name={k.nama} size={20} />
+                      <span className="w-4 h-4 rounded-full overflow-hidden shrink-0">
+                        <AvatarSvg name={k.nama} size={16} />
                       </span>
-                      <span>{k.nama}</span>
+                      <span className="truncate max-w-[100px]">{k.nama}</span>
                       <button
                         type="button"
                         onClick={() => handleIzinkanKembali(k.id, k.nama)}
-                        className="text-[#f2c230] hover:underline font-black cursor-pointer text-[11px] ml-1"
+                        className="text-[#f2c230] hover:underline font-black cursor-pointer text-[11px] ml-0.5"
                       >
                         Izinkan lagi
                       </button>
