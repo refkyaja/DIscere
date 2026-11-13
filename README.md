@@ -343,131 +343,149 @@ npm --prefix server test
 
 ## Diagram Arsitektur Sistem dan Alur Data
 
-### 1. Diagram Alur Game Solo (Layar Bersama)
+### 1. Diagram Arsitektur Sistem Global
 
 ```mermaid
 flowchart TD
-    subgraph Klien_Guru [Layar Guru / Proyektor Kelas]
-        DASH[Dashboard /guru] -->|Pilih Template & Klik Mulai| HOST[Layar Host /guru/sesi/:id]
-        HOST -->|Sentuh Jawaban Tim| ANS[Kirim Jawaban]
-        HOST -->|Akhiri / Soal Habis| RESULT[Layar Hasil /guru/sesi/:id/hasil]
-        RESULT -->|Main Lagi| HOST
-        RESULT -->|Selesai| DASH
+    subgraph Klien_Frontend [Frontend - React 18, Vite & Tailwind CSS]
+        UI_PUBLIC["Halaman Publik (Beranda, /main, /masuk)"]
+        UI_DASH["Dashboard Guru & Admin (/guru, /admin)"]
+        UI_CANVAS["Papan Tulis (Native HTML5 Canvas 2D)"]
+        UI_GAME["Arena Game (Host Proyektor & Siswa Mobile)"]
+        AUDIO_SYNTH["Web Audio API (Procedural Sound Engine)"]
     end
 
-    subgraph Server_Backend [Server Node.js & Express]
-        API_SESI[Endpoint /api/sesi]
-        MANAGER[soloManager: In-Memory State]
-        LOGIC[tarikTambang: Pure Rule Logic]
-        API_SESI --> MANAGER
-        MANAGER --> LOGIC
+    subgraph Server_Backend [Backend - Node.js v22 & Express 5]
+        REST_API["REST API Router (/api/auth, /api/sesi, /api/papan, /api/admin)"]
+        AI_GATEWAY["AI Gateway & Caching (/api/ai/soal, /api/ai/jawab, /api/ai/obrol)"]
+        SOCKET_GATEWAY["Socket.IO Gateway (Real-Time Bi-Directional)"]
+        
+        subgraph Realtime_Managers [In-Memory State Managers]
+            SESI_ROUTER["Realtime Session Router (sesi.ts)"]
+            BOARD_ROOMS["Realtime Collaborative Rooms (papan.ts)"]
+            GAME_ENGINES["Game Engines: Balap Karung, Tarik Tambang, Makan Kerupuk, Panjat Pinang"]
+        end
     end
 
-    subgraph Database_Prisma [Database SQLite via Prisma]
-        TBL_SESS[(sessions)]
-        TBL_RES[(session_results)]
-        TBL_STAT[(question_stats)]
-        TBL_TMPL[(templates & questions)]
+    subgraph Database_External [Basis Data & Layanan Eksternal]
+        PRISMA_ORM["Prisma ORM (Schema & Client)"]
+        SQLITE_DB[(Basis Data SQLite: users, boards, templates, sessions)]
+        GEMINI_API["Google Gemini API (gemini-1.5-flash)"]
     end
 
-    ANS -->|POST /api/sesi/:id/jawab| API_SESI
-    API_SESI -->|Validasi Giliran & Hitung Tali| MANAGER
-    MANAGER -->|Selesai Permainan| TBL_RES
-    MANAGER -->|Rekap Soal| TBL_STAT
-    TBL_TMPL -->|Inisialisasi Sesi| MANAGER
+    UI_DASH -->|HTTP / JSON via fetch| REST_API
+    UI_CANVAS -->|REST Autosave & Share| REST_API
+    UI_CANVAS <-->|papan:ubah, papan:geser_live, kursor| BOARD_ROOMS
+    UI_GAME <-->|Socket.IO events: sesi, soal, jawaban, tali, kerupuk| SESI_ROUTER
+    UI_CANVAS -->|Tanya AI / Obrol AI| AI_GATEWAY
+
+    REST_API --> PRISMA_ORM
+    BOARD_ROOMS --> PRISMA_ORM
+    SESI_ROUTER --> GAME_ENGINES
+    GAME_ENGINES -->|Simpan Hasil & Statistik| PRISMA_ORM
+    PRISMA_ORM --> SQLITE_DB
+    AI_GATEWAY <-->|SHA-256 Cache Check & Usage| PRISMA_ORM
+    AI_GATEWAY -->|HTTPS Prompting| GEMINI_API
 ```
 
-### 2. Diagram Alur Game Multiplayer (Socket.IO Real-Time)
+### 2. Diagram Alur Game Edukasi (Solo & Multiplayer)
 
 ```mermaid
 flowchart TD
-    subgraph Host_Guru [Layar Host Guru / Proyektor Kelas]
-        HOST_LOBBY["Layar Lobi PIN & QR Code"]
-        HOST_GAME["Layar Arena Proyektor"]
+    subgraph Layar_Guru [Layar Host / Proyektor Kelas]
+        HOST_LOBBY["Lobi Game (PIN & QR Code)"]
+        HOST_ARENA["Arena Pertandingan (Visualisasi Game Live)"]
+        HOST_RESULT["Layar Hasil & Evaluasi"]
     end
 
-    subgraph Klien_Siswa [HP Siswa Masing-Masing /main]
-        SISWA_JOIN["Form PIN & Nama"]
-        SISWA_GAME["Layar Soal & Tombol A/B/C"]
-        SISWA_RESULT["Layar Hasil Tim"]
+    subgraph Layar_Siswa [Perangkat Siswa / Ponsel Pintar]
+        SISWA_JOIN["Bergabung (/main via PIN & Nama)"]
+        SISWA_GAME["Layar Soal Interaktif (Tombol Jawaban A/B/C)"]
+        SISWA_FEEDBACK["Umpan Balik Live & Skor Personal"]
     end
 
-    subgraph Backend_Socket [Server Real-Time Socket.IO]
-        SVR_SOCKET((Socket.IO Gateway))
-        MULTI_MGR["multiManager: In-Memory Game State"]
-        TIMER_SRV["Timer Otoritatif 15 Detik"]
-        LOGIC_TARIK["tarikTambang: Pure Rule Logic"]
-        SVR_SOCKET --- MULTI_MGR
-        MULTI_MGR --> TIMER_SRV
-        MULTI_MGR --> LOGIC_TARIK
+    subgraph Backend_Game [Server Real-Time Game Engine]
+        SOCKET_IO((Socket.IO Gateway))
+        ROUTER_SESI["Session State Controller"]
+        TIMER_AUTH["Timer Otoritatif Server"]
+        
+        subgraph Engine_Lomba [Mesin Logika 4 Game]
+            ENG_BALAP["Balap Karung (Sprint Acak & Multi-Lompatan)"]
+            ENG_TARIK["Tarik Tambang (Pergeseran Vektor Tali)"]
+            ENG_KERUPUK["Makan Kerupuk (Gacha Crypto-Safe & Chomp SVG)"]
+            ENG_PINANG["Panjat Pinang (Tingkat Ketinggian & Rintangan)"]
+        end
     end
 
-    subgraph Penyimpanan_Data [Database SQLite Prisma]
+    subgraph Database_Penyimpanan [Database SQLite via Prisma]
         DB_SESS[(sessions)]
         DB_RES[(session_results)]
         DB_STAT[(question_stats)]
-        MULTI_MGR -->|Selesai: Transaksi DB| DB_SESS
-        MULTI_MGR -->|Skor & Pemenang| DB_RES
-        MULTI_MGR -->|Statistik Agregat Per Soal| DB_STAT
     end
 
-    HOST_LOBBY -->|sesi:mulai| SVR_SOCKET
-    SVR_SOCKET -->|tali:update & soal:tampil| HOST_GAME
-    HOST_GAME -->|sesi:akhiri_manual| SVR_SOCKET
+    HOST_LOBBY -->|sesi:mulai| SOCKET_IO
+    SISWA_JOIN -->|sesi:gabung| SOCKET_IO
+    SOCKET_IO --> ROUTER_SESI
+    ROUTER_SESI --> TIMER_AUTH
+    ROUTER_SESI --> Engine_Lomba
 
-    SISWA_JOIN -->|sesi:gabung| SVR_SOCKET
-    SVR_SOCKET -->|teams_assigned & soal:tampil| SISWA_GAME
-    SISWA_GAME -->|jawab:kirim| SVR_SOCKET
-    SVR_SOCKET -->|sesi:selesai| SISWA_RESULT
+    SISWA_GAME -->|jawab:kirim| SOCKET_IO
+    Engine_Lomba -->|Kalkulasi Jawaban & Update Skor| ROUTER_SESI
+    ROUTER_SESI -->|Broadcast State Game & Animasi| HOST_ARENA
+    ROUTER_SESI -->|Kirim Status Jawaban & Soal Baru| SISWA_FEEDBACK
+
+    ROUTER_SESI -->|Permainan Berakhir: Simpan Data| DB_SESS
+    ROUTER_SESI -->|Rekapitulasi Pemenang & Skor| DB_RES
+    ROUTER_SESI -->|Statistik Jawaban Benar / Salah Per Soal| DB_STAT
 ```
 
-### 3. Diagram Alur Papan Tulis Kolaboratif
+### 3. Diagram Alur Papan Tulis Kolaboratif & Sinkronisasi Real-Time
 
 ```mermaid
 flowchart TD
-    subgraph Pengguna_Papan [Ruang Kolaborasi Kelas]
+    subgraph Kolaborator [Pengguna Papan Tulis]
         GURU["Guru (Pemilik Papan) /papan/:id"]
-        EDITOR["Rekan / Siswa Editor /b/:token"]
-        VIEWER["Siswa Penonton /b/:token (Read-Only)"]
+        EDITOR["Kolaborator Editor /b/:token"]
+        VIEWER["Penonton / Siswa /b/:token (Read-Only)"]
     end
 
-    subgraph Fabric_Kanvas [Fabric.js Engine di Peramban]
-        CANVAS["Canvas: Pan, Zoom, Gambar, Bentuk, Teks, Gambar Upload"]
-        AUTOSAVE["Debounced Autosave (1.5 Detik)"]
-        SIDEBAR["Drawer Template Game (Solo & Multi)"]
-        UNDO_REDO["Undo / Redo Stack (40 Aksi)"]
+    subgraph Native_Kanvas [Native HTML5 Canvas 2D Engine di Klien]
+        CANVAS["Canvas: Vektor, Pen, Bentuk Geometris, Teks, Tabel, Gambar"]
+        LIVE_SYNC["Live Interaction Tracker (Drag, Resize, Erase)"]
+        AUTOSAVE["Debounced Autosave (1.5 Detik ke REST API)"]
+        SIDEBAR["Drawer Template Game & Soal"]
+        UNDO_REDO["Undo / Redo History Stack"]
         CANVAS --- UNDO_REDO
         CANVAS --> AUTOSAVE
+        CANVAS --- LIVE_SYNC
         CANVAS --- SIDEBAR
     end
 
-    subgraph Server_Kolaborasi [Server Node.js & Socket.IO Gateway]
+    subgraph Server_Papan [Server Kolaborasi Socket.IO & REST]
         BOARD_GATEWAY((Socket.IO: boardRooms))
         PERM_CHECK{"Validasi Hak Akses (Owner / Editor / Viewer)"}
         REST_PAPAN["REST API /api/papan & /api/papan/share"]
+        
         BOARD_GATEWAY --> PERM_CHECK
-        PERM_CHECK -->|Izin Sah| BROADCAST["Siarkan Objek ke Rekan (papan:ubah)"]
-        PERM_CHECK -->|Viewer Kirim Objek| REJECT["Tolak Transaksi (403 / Error Socket)"]
+        PERM_CHECK -->|Izin Sah| BROADCAST["Siarkan Pembaruan Objek & Kursor ke Room"]
+        PERM_CHECK -->|Viewer Mengubah Objek| REJECT["Tolak Aksi (403 Forbidden)"]
     end
 
     subgraph Database_Papan [Database SQLite Prisma]
-        TBL_BOARD[(boards: Data Kanvas JSON)]
-        TBL_SHARE[(board_shares: Token & Peran)]
+        TBL_BOARD[(boards: Data Vektor Kanvas JSON)]
+        TBL_SHARE[(board_shares: Token & Role Hak Akses)]
     end
 
-    GURU -->|Interaksi Penuh & Kontrol Bagikan| CANVAS
-    EDITOR -->|Menggambar Bersama| CANVAS
-    CANVAS -->|Menyimak Live Tanpa Alat Modifikasi| VIEWER
+    GURU -->|Akses Penuh & Bagikan Tautan| CANVAS
+    EDITOR -->|Gambar Bersama & Manipulasi Objek| CANVAS
+    CANVAS -->|Tontonan Real-Time Tanpa Tool Bar| VIEWER
 
-    AUTOSAVE -->|PUT /api/papan/:id atau /api/papan/share/:token| REST_PAPAN
-    REST_PAPAN -->|Penyimpanan Terjadwal| TBL_BOARD
-    REST_PAPAN -->|Pembuatan & Pencabutan Token| TBL_SHARE
+    CANVAS <-->|papan:ubah, papan:geser_live, papan:hapus_live| BOARD_GATEWAY
+    CANVAS <-->|papan:kursor, nama kolaborator aktif| BOARD_GATEWAY
 
-    GURU -->|papan:gabung & papan:ubah| BOARD_GATEWAY
-    EDITOR -->|papan:gabung & papan:ubah| BOARD_GATEWAY
-    BOARD_GATEWAY -->|papan:gabung & pembaruan live| VIEWER
-
-    SIDEBAR -->|Luncurkan Sesi Tanpa Hilang Kanvas| GAME_MODAL["Game Solo / Multiplayer Sesi"]
+    AUTOSAVE -->|PUT /api/papan/:id| REST_PAPAN
+    REST_PAPAN -->|Persistensi Kanvas Berkala| TBL_BOARD
+    REST_PAPAN -->|Manajemen Token Berbagi| TBL_SHARE
 ```
 
 ---
