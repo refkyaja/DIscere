@@ -199,12 +199,10 @@ async function sinkronkanRoomTimTarikTambang(io: Server, sesi: SesiMultiplayerAc
 export function setupMultiplayerSocket(io: Server) {
   io.on('connection', (socket: Socket) => {
     // 1. Siswa atau Peserta bergabung ke room sesi (Tarik Tambang, Makan Kerupuk, atau Panjat Pinang)
-    socket.on(
-      'sesi:gabung',
-      async (
-        data: { token: string; nama: string; pesertaId?: string; pesertaSecret?: string },
-        callback?: (res: any) => void
-      ) => {
+    const handleSesiGabung = async (
+      data: { token: string; nama: string; pesertaId?: string; pesertaSecret?: string },
+      callback?: (res: any) => void
+    ) => {
         try {
           const parsedGabung = gabungSchema.safeParse(data || {});
           if (!parsedGabung.success) {
@@ -538,8 +536,10 @@ export function setupMultiplayerSocket(io: Server) {
         } catch (err: any) {
           callback?.({ success: false, pesan: err.message || 'Gagal bergabung ke sesi.' });
         }
-      }
-    );
+      };
+
+    socket.on('sesi:gabung', handleSesiGabung);
+    socket.on('sesi:reconnect', handleSesiGabung);
 
     // 2. Host (Guru) bergabung dan mengikat socket ke room sesi
     socket.on(
@@ -926,6 +926,96 @@ export function setupMultiplayerSocket(io: Server) {
           return callback?.({ success: false, pesan: 'Sesi multiplayer tidak ditemukan.' });
         } catch (err: any) {
           callback?.({ success: false, pesan: err.message || 'Gagal mengeluarkan siswa.' });
+        }
+      }
+    );
+
+    // 2b-bis. Siswa keluar dari sesi secara sukarela (misal klik tombol keluar di ruang tunggu)
+    socket.on(
+      'sesi:peserta_keluar',
+      async (
+        data: { sessionId: string; pesertaId: string; pesertaSecret?: string },
+        callback?: (res: any) => void
+      ) => {
+        try {
+          const { sessionId, pesertaId } = data || {};
+          if (!sessionId || !pesertaId) return callback?.({ success: false });
+
+          // 1. Tarik Tambang
+          const sesiTarik = multiManager.dapatkanSesi(sessionId);
+          if (sesiTarik && sesiTarik.peserta.has(pesertaId)) {
+            sesiTarik.peserta.delete(pesertaId);
+            const daftarPeserta = formatDaftarPesertaTarik(sesiTarik);
+            const roomName = `session:${sesiTarik.sessionId}`;
+            io.to(roomName).emit('lobi:update', {
+              game: 'tarik_tambang',
+              playMode: 'MULTIPLAYER',
+              status: sesiTarik.status,
+              totalPeserta: sesiTarik.peserta.size,
+              daftarPeserta,
+              config: sesiTarik.config,
+            });
+            io.to(roomName).emit('teams_assigned', { daftarPeserta });
+            socket.leave(roomName);
+            return callback?.({ success: true });
+          }
+
+          // 2. Balap Karung
+          const sesiBalap = balapKarungManager.dapatkanSesi(sessionId);
+          if (sesiBalap && sesiBalap.peserta.has(pesertaId)) {
+            sesiBalap.peserta.delete(pesertaId);
+            const roomName = `session:${sesiBalap.sessionId}`;
+            const teams = balapKarungManager.dapatkanRingkasanTim(sesiBalap.sessionId);
+            const leaderboard = balapKarungManager.dapatkanLeaderboard(sesiBalap.sessionId);
+            io.to(roomName).emit('lobi:update', {
+              game: 'balap_karung',
+              status: sesiBalap.status,
+              totalPeserta: sesiBalap.peserta.size,
+              teams,
+              leaderboard,
+              daftarPeserta: leaderboard,
+            });
+            socket.leave(roomName);
+            return callback?.({ success: true });
+          }
+
+          // 3. Panjat Pinang
+          const sesiPanjat = panjatPinangManager.dapatkanSesi(sessionId);
+          if (sesiPanjat && sesiPanjat.peserta.has(pesertaId)) {
+            sesiPanjat.peserta.delete(pesertaId);
+            const roomName = `session:${sesiPanjat.sessionId}`;
+            const leaderboard = panjatPinangManager.dapatkanLeaderboard(sesiPanjat.sessionId);
+            io.to(roomName).emit('lobi:update', {
+              game: 'panjat_pinang',
+              status: sesiPanjat.status,
+              totalPeserta: sesiPanjat.peserta.size,
+              leaderboard,
+              daftarPeserta: leaderboard,
+            });
+            socket.leave(roomName);
+            return callback?.({ success: true });
+          }
+
+          // 4. Makan Kerupuk
+          const sesiKerupuk = kerupukMultiManager.dapatkanSesi(sessionId);
+          if (sesiKerupuk && sesiKerupuk.peserta.has(pesertaId)) {
+            sesiKerupuk.peserta.delete(pesertaId);
+            const roomName = `session:${sesiKerupuk.sessionId}`;
+            const leaderboard = kerupukMultiManager.dapatkanLeaderboard(sesiKerupuk.sessionId);
+            io.to(roomName).emit('lobi:update', {
+              game: 'makan_kerupuk',
+              status: sesiKerupuk.status,
+              totalPeserta: sesiKerupuk.peserta.size,
+              leaderboard,
+              daftarPeserta: leaderboard,
+            });
+            socket.leave(roomName);
+            return callback?.({ success: true });
+          }
+
+          return callback?.({ success: true });
+        } catch (err: any) {
+          callback?.({ success: false, pesan: err?.message || 'Gagal memproses keluar.' });
         }
       }
     );

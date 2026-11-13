@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useSearchParams, useParams, useNavigate, Link } from 'react-router';
+import { useSearchParams, useParams, Link } from 'react-router';
 import { getSocket } from '../../lib/socket';
 import MainKerupuk from './MainKerupuk';
 import MainPanjatPinang from './MainPanjatPinang';
@@ -13,7 +13,6 @@ import {
 
 export default function MainSiswa() {
   const { kode } = useParams<{ kode?: string }>();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const tokenAwal = (kode || searchParams.get('token') || '').trim();
@@ -81,9 +80,9 @@ export default function MainSiswa() {
       setTokenInput(tokenDipakai);
       setTemplateJudul(res.templateJudul || '');
 
-      // Perbarui URL browser ke /join/:token agar user melihat PIN di address bar
-      if (tokenDipakai) {
-        navigate(`/join/${tokenDipakai}`, { replace: true });
+      // Perbarui URL browser ke /join/:token agar user melihat PIN di address bar tanpa unmount
+      if (tokenDipakai && typeof window !== 'undefined' && window.location.pathname !== `/join/${tokenDipakai}`) {
+        window.history.replaceState(null, '', `/join/${tokenDipakai}`);
       }
 
       if (res.game === 'makan_kerupuk') {
@@ -222,11 +221,23 @@ export default function MainSiswa() {
 
   // Handler: Siswa Keluar dari Sesi
   const handleKeluar = (pesanError?: string) => {
+    // Beritahu server bahwa siswa keluar sukarela agar host dan lobi langsung mengupdate daftar
+    if (sessionId && pesertaId) {
+      try {
+        const socket = getSocket();
+        socket.emit('sesi:peserta_keluar', { sessionId, pesertaId, pesertaSecret: panjatSecret });
+      } catch {
+        // abaikan error socket disconnect
+      }
+    }
+
     sessionStorage.removeItem('discere_multi_token');
     sessionStorage.removeItem('discere_multi_peserta_id');
     sessionStorage.removeItem('discere_multi_nama');
     sessionStorage.removeItem('discere_multi_peserta_secret');
-    navigate('/join', { replace: true });
+    if (typeof window !== 'undefined' && window.location.pathname !== '/join') {
+      window.history.replaceState(null, '', '/join');
+    }
     setStage('GABUNG');
     setJoinStep('PIN');
     setTokenInput('');
