@@ -481,7 +481,7 @@ export default function RuangTungguSiswa({
       {/* ============================================================ */}
       {/* 2. KONTEN UTAMA: 2 LOGIKA (MENUNGGU GURU vs MEMBAGI TIM)     */}
       {/* ============================================================ */}
-      <main className="relative z-10 flex-1 min-h-0 flex flex-col lg:flex-row items-center justify-center gap-2 sm:gap-4 lg:gap-8 px-3 sm:px-6 py-1 max-w-6xl w-full mx-auto overflow-hidden">
+      <main className="relative z-10 flex-1 min-h-0 flex flex-col lg:flex-row items-center justify-center gap-3 sm:gap-4 lg:gap-8 px-3 sm:px-6 py-2 max-w-5xl w-full mx-auto overflow-hidden">
         {/* BAGIAN KIRI / TENGAH: RUANG TUNGGU / PEMBAGIAN KELOMPOK */}
         <div
           className={`w-full flex flex-col items-center text-center ${
@@ -496,7 +496,7 @@ export default function RuangTungguSiswa({
             /* ---------------------------------------------------- */
             <div className="flex flex-col items-center w-full max-w-md animate-[popIn_0.4s_ease-out]">
               {/* ANIMASI JAM PASIR KAPUR BERPUTAR */}
-              <svg className="w-11 sm:w-16 h-14 sm:h-20 mb-0.5 sm:mb-1 overflow-visible select-none shrink-0" viewBox="0 0 120 160" aria-hidden="true">
+              <svg className="w-13 sm:w-16 h-16 sm:h-20 mb-0.5 sm:mb-1 overflow-visible select-none shrink-0" viewBox="0 0 120 160" aria-hidden="true">
                 <defs>
                   <clipPath id="sandClip">
                     <path d="M26 18H94C94 48 66 62 64 80C66 98 94 112 94 142H26C26 112 54 98 56 80C54 62 26 48 26 18Z" />
@@ -538,7 +538,7 @@ export default function RuangTungguSiswa({
               </svg>
 
               {/* Judul Font Tangan */}
-              <h1 className="font-['Caveat',sans-serif] text-2xl sm:text-4xl lg:text-5xl font-bold text-[#f4ecd8] drop-shadow-md leading-tight">
+              <h1 className="font-['Caveat',sans-serif] text-3xl sm:text-5xl font-bold text-[#f4ecd8] drop-shadow-md leading-tight">
                 Menunggu <span className="text-[#f2c230]">Guru…</span>
               </h1>
               <p className="text-xs sm:text-sm text-[#f4ecd8]/90 font-semibold mt-0.5 mb-2 sm:mb-2.5 max-w-md">
@@ -546,7 +546,7 @@ export default function RuangTungguSiswa({
               </p>
 
               {/* Kotak Info: Peserta & Mode Game */}
-              <div className="w-full max-w-xs sm:max-w-sm grid grid-cols-2 bg-[#fbf6e9] border-2 sm:border-[3px] border-[#e8dfc8] rounded-2xl p-1.5 sm:p-2.5 text-[#163a2b] shadow-[0_4px_0_rgba(0,0,0,0.2)]">
+              <div className="w-full max-w-xs sm:max-w-sm grid grid-cols-2 bg-[#fbf6e9] border-2 sm:border-[3px] border-[#e8dfc8] rounded-2xl p-2 sm:p-2.5 text-[#163a2b] shadow-[0_4px_0_rgba(0,0,0,0.2)]">
                 {/* Kolom Peserta */}
                 <div className="flex flex-col items-center gap-0.5 border-r-2 border-[#1f4a37]/20 pr-1.5">
                   <svg className="w-4 h-4 sm:w-6 sm:h-6 text-[#1f4a37]" viewBox="0 0 48 48" fill="currentColor">
@@ -704,9 +704,9 @@ export default function RuangTungguSiswa({
         {/* PANEL SAMPING: DAFTAR PESERTA YANG SUDAH BERGABUNG           */}
         {/* ============================================================ */}
         {!isStarting && (
-          <aside className="w-full max-w-md lg:max-w-none lg:w-64 xl:w-72 bg-[#fbf6e9] border-2 sm:border-[3px] border-[#e8dfc8] rounded-2xl p-2 sm:p-2.5 text-[#163a2b] shadow-[0_4px_0_rgba(0,0,0,0.2)] flex flex-col flex-1 lg:flex-initial min-h-[110px] max-h-[38vh] sm:max-h-[220px] lg:max-h-[320px] shrink-0 lg:shrink-0 animate-[popIn_0.4s_ease-out]">
+          <aside className="w-full max-w-sm lg:max-w-none lg:w-64 xl:w-72 bg-[#fbf6e9] border-2 sm:border-[3px] border-[#e8dfc8] rounded-2xl p-2 sm:p-2.5 text-[#163a2b] shadow-[0_4px_0_rgba(0,0,0,0.2)] flex flex-col h-auto shrink-0 animate-[popIn_0.4s_ease-out]">
             {/* Header Panel */}
-            <div className="flex items-center justify-between border-b border-[#1f4a37]/15 pb-1 px-1 mb-1 shrink-0">
+            <div className="flex items-center justify-between border-b border-[#1f4a37]/15 pb-1 px-1 mb-1.5 shrink-0">
               <div className="flex items-center gap-1.5">
                 <svg className="w-4 h-4 text-[#1f4a37]" viewBox="0 0 48 48" fill="currentColor">
                   <circle cx="24" cy="15" r="7" />
@@ -717,28 +717,30 @@ export default function RuangTungguSiswa({
                 </h2>
               </div>
               <span className="text-[10px] font-bold text-[#5a6f62]">
-                {jumlahPeserta > 2 ? 'Bisa di-scroll' : ''}
+                {jumlahPeserta > 4 ? 'Scroll untuk melihat' : ''}
               </span>
             </div>
 
-            {/* List Peserta */}
-            <ul className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-1 pr-1 custom-scrollbar">
+            {/* List Peserta: 2 Kolom di Mobile agar padat & proporsional, 1 Kolom di Desktop */}
+            <ul className="grid grid-cols-2 lg:grid-cols-1 gap-1.5 max-h-[100px] sm:max-h-[140px] lg:max-h-[280px] overflow-y-auto overscroll-contain pr-1 custom-scrollbar">
               {listPesertaTampil.map((p, idx) => {
                 const isMe = p.id === pesertaId || p.nama === nama;
                 return (
                   <li
                     key={p.id || idx}
-                    className={`flex items-center gap-2 p-1 rounded-lg font-bold text-xs transition-all ${
-                      isMe ? 'bg-[#1f4a37]/15 font-black text-[#163a2b]' : 'hover:bg-[#1f4a37]/5'
+                    className={`flex items-center gap-1.5 p-1 rounded-xl text-xs transition-all border ${
+                      isMe
+                        ? 'bg-[#1f4a37]/15 font-black text-[#163a2b] border-[#1f4a37]/30'
+                        : 'bg-[#fffdf6] border-[#e8dfc8] font-bold text-[#163a2b]'
                     }`}
                   >
-                    <div className="relative w-6 h-6 shrink-0 rounded-full overflow-hidden">
-                      <AvatarSvg name={p.nama} size={24} />
+                    <div className="relative w-5 h-5 sm:w-6 sm:h-6 shrink-0 rounded-full overflow-hidden">
+                      <AvatarSvg name={p.nama} size={22} />
                       <i className="absolute right-0 bottom-0 w-1.5 h-1.5 rounded-full bg-[#4cc36b] border border-[#fbf6e9]" />
                     </div>
-                    <span className="truncate flex-1">{p.nama}</span>
+                    <span className="truncate flex-1 text-[11px] sm:text-xs">{p.nama}</span>
                     {isMe && (
-                      <span className="text-[9px] font-black bg-[#1f4a37] text-[#f4ecd8] px-1.5 py-0.2 rounded-full">
+                      <span className="text-[8px] font-black bg-[#1f4a37] text-[#f4ecd8] px-1 py-0.2 rounded-full shrink-0">
                         Kamu
                       </span>
                     )}
