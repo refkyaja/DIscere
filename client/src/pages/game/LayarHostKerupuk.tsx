@@ -147,9 +147,12 @@ export default function LayarHostKerupuk() {
   const targetKerupuk = sesi?.targetKerupuk || sesi?.config?.targetKerupuk || 100;
 
   // Nama peserta
-  const p1Name = modeTanding === 'bot' ? 'Kamu' : 'Pemain 1';
+  const cfgP1 = (sesi as any)?.config?.namaPemain1 || (sesi as any)?.kerupukConfig?.namaPemain1;
+  const cfgP2 = (sesi as any)?.config?.namaPemain2 || (sesi as any)?.kerupukConfig?.namaPemain2;
+  const p1Name = cfgP1 || (modeTanding === 'bot' ? 'Kamu' : 'Pemain 1');
   const p2Name =
-    modeTanding === 'bot' ? `Bot AI (${BOT_DIFFICULTIES[botLevel].name})` : 'Pemain 2';
+    cfgP2 ||
+    (modeTanding === 'bot' ? `Bot AI (${BOT_DIFFICULTIES[botLevel].name})` : 'Pemain 2');
 
   // 1. Muat data sesi dari server
   const fetchSesi = useCallback(async () => {
@@ -164,6 +167,16 @@ export default function LayarHostKerupuk() {
       } else {
         setSesiMulti(null);
         setSesi(s as SesiKerupukClient);
+
+        const cfg = (s as any).config || (s as any).kerupukConfig;
+        if (cfg?.tipeLawanSolo === 'lokal') {
+          setModeTanding('pvp');
+        } else if (cfg?.tipeLawanSolo === 'bot') {
+          setModeTanding('bot');
+        }
+        if (cfg?.kesulitanBot === 'mudah') setBotLevel(0);
+        else if (cfg?.kesulitanBot === 'sedang') setBotLevel(1);
+        else if (cfg?.kesulitanBot === 'sulit') setBotLevel(2);
         setP1((prev) => ({
           ...prev,
           eaten: s.progresPersen ? (s.progresPersen / 100) * (s.targetKerupuk || 100) : 0,
@@ -526,11 +539,24 @@ export default function LayarHostKerupuk() {
   }, [sesi?.state, sesi?.soalSaatIni, isSubmitting, modeTanding, handleJawabP1, handleJawabP2]);
 
   // Handler Navigasi & Konfirmasi Keluar
+  const getGameConfigUrl = () => {
+    if (returnUrl && returnUrl.startsWith('/guru/makan-kerupuk')) {
+      return returnUrl;
+    }
+    const templateId = sesi?.templateId || sesiMulti?.templateId;
+    if (templateId) {
+      return `/guru/makan-kerupuk?templateId=${encodeURIComponent(
+        templateId
+      )}&kembali=${encodeURIComponent('/guru?tab=template')}`;
+    }
+    return returnUrl || '/guru?tab=template';
+  };
+
   const handleKembaliClick = () => {
     if (isPlayOrPause) {
       setModalKeluarOpen(true);
     } else {
-      navigate(returnUrl);
+      navigate(getGameConfigUrl());
     }
   };
 
@@ -543,7 +569,7 @@ export default function LayarHostKerupuk() {
       } catch {}
     }
     soundEffects.stopAll();
-    navigate(returnUrl);
+    navigate(getGameConfigUrl());
   };
 
   const handleKonfirmasiHentikan = async () => {

@@ -16,7 +16,7 @@ import {
 import '../../components/kerupukFestival.css';
 import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import { HasilGachaGigitanProps } from '../siswa/KerupukVirtual';
-import { Copy, Check, RotateCcw, Shuffle, X, Users, Trophy, ArrowLeft } from 'lucide-react';
+import { Copy, Check, RotateCcw, Shuffle, X, Users, Trophy } from 'lucide-react';
 
 export interface PesertaMultiHost {
   peringkat?: number;
@@ -336,10 +336,16 @@ export default function LayarHostKerupukMulti({
     );
   };
 
-  const getSafeReturnUrl = () => {
-    const raw = returnUrl || effectiveReturnUrl;
-    if (raw && raw !== window.location.pathname && !raw.startsWith('/guru/sesi/')) {
-      return raw;
+  const getGameConfigUrl = () => {
+    // 1. Jika returnUrl sudah mengarah ke halaman pengaturan makan-kerupuk, gunakan itu
+    if (returnUrl && returnUrl.startsWith('/guru/makan-kerupuk')) {
+      return returnUrl;
+    }
+    // 2. Selalu arahkan balik ke pengaturan game Makan Kerupuk sesuai template kuis
+    if (initialSession.templateId) {
+      return `/guru/makan-kerupuk?templateId=${encodeURIComponent(
+        initialSession.templateId
+      )}&kembali=${encodeURIComponent('/guru?tab=template')}`;
     }
     return modeSelectUrl;
   };
@@ -348,14 +354,14 @@ export default function LayarHostKerupukMulti({
     if (status === 'jalan') {
       setModalKeluarOpen(true);
     } else {
-      navigate(getSafeReturnUrl());
+      navigate(getGameConfigUrl());
     }
   };
 
   const handleKonfirmasiKeluar = () => {
     setModalKeluarOpen(false);
     handleKonfirmasiAkhiri();
-    navigate(getSafeReturnUrl());
+    navigate(getGameConfigUrl());
   };
 
   const handleAcakUrutan = () => {
@@ -394,7 +400,7 @@ export default function LayarHostKerupukMulti({
       const res = await apiRequest<{ sessionId: string }>(`/sesi/${id}/main-lagi`, {
         method: 'POST',
       });
-      const safeBack = getSafeReturnUrl();
+      const safeBack = getGameConfigUrl();
       navigate(`/guru/sesi/${res.sessionId}?kembali=${encodeURIComponent(safeBack)}`, {
         replace: true,
       });
@@ -581,15 +587,8 @@ export default function LayarHostKerupukMulti({
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
               {/* Kolom Kiri: PIN & QR Code */}
               <div className="md:col-span-5 space-y-4">
-                <div className="flex items-center justify-between gap-2">
+                <div>
                   <h2 className="text-2xl font-extrabold text-[#0f3d2e]">Siswa gabung lewat HP</h2>
-                  <button
-                    type="button"
-                    onClick={handleKembaliClick}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-xl border border-red-300 text-red-600 hover:bg-red-50 bg-white transition-colors cursor-pointer"
-                  >
-                    <ArrowLeft className="w-3.5 h-3.5" /> Kembali
-                  </button>
                 </div>
                 <p className="text-xs text-[#6d7a6f] leading-relaxed">
                   Masukkan PIN atau pindai QR, lalu tulis nama. Siswa dibagi ke {numTeams} tim: satu

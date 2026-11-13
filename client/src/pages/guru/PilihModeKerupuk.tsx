@@ -21,16 +21,16 @@ import {
 } from './ModalKonfigurasiKerupuk';
 import {
   AlertTriangle,
+  Bot,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   ExternalLink,
   Keyboard,
   Monitor,
-  Play,
   QrCode,
   Sliders,
-  Sparkles,
+  Swords,
   Target,
   Trophy,
   UserCheck,
@@ -87,6 +87,21 @@ export default function PilihModeKerupuk() {
   const [maxPeserta, setMaxPeserta] = useState<number>(40);
   const [allowLateJoin, setAllowLateJoin] = useState<boolean>(true);
   const [jumlahTim, setJumlahTim] = useState<3 | 4>(3);
+
+  // Pengaturan Khusus Solo 1 vs 1
+  const [tipeLawanSolo, setTipeLawanSolo] = useState<'bot' | 'lokal'>('bot');
+  const [kesulitanBot, setKesulitanBot] = useState<'mudah' | 'sedang' | 'sulit'>('sedang');
+  const [namaPemain1, setNamaPemain1] = useState<string>('Pemain 1');
+  const [namaPemain2, setNamaPemain2] = useState<string>('Lawan Bot');
+
+  const handleUbahLawanSolo = (tipe: 'bot' | 'lokal') => {
+    setTipeLawanSolo(tipe);
+    if (tipe === 'bot') {
+      if (!namaPemain2 || namaPemain2 === 'Pemain 2') setNamaPemain2('Lawan Bot');
+    } else {
+      if (!namaPemain2 || namaPemain2 === 'Lawan Bot') setNamaPemain2('Pemain 2');
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -204,6 +219,11 @@ export default function PilihModeKerupuk() {
         targetPreset,
         kesulitan,
         probabilitas,
+        tipeLawanSolo,
+        kesulitanBot,
+        namaPemain1: namaPemain1.trim() || 'Pemain 1',
+        namaPemain2:
+          namaPemain2.trim() || (tipeLawanSolo === 'bot' ? 'Lawan Bot' : 'Pemain 2'),
       };
       const isSolo = playMode === 'SOLO';
 
@@ -256,53 +276,254 @@ export default function PilihModeKerupuk() {
       missingTemplateMessage="Tidak dapat memuat pengaturan karena materi kuis Makan Kerupuk belum tersedia."
     >
       <form onSubmit={handleMulaiPermainan} className="space-y-6">
-        {/* 1. Pilih Mode Permainan */}
+        {/* 1. Pengaturan Umum */}
         <GameConfigSection
-          title="1. Pilih Mode Permainan"
-          description="Multiplayer mempertandingkan seluruh siswa lewat HP masing-masing; Solo Mode dimainkan langsung pada satu perangkat guru di proyektor."
+          title="1. Pengaturan Umum"
+          description="Pilih mode permainan (Multiplayer atau Solo), tentukan alokasi tim & kapasitas peserta untuk mode multi, atau tentukan lawan tanding (Bot AI vs Teman Asli) untuk mode solo."
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <GameModeCard
-              selected={playMode === 'MULTIPLAYER'}
-              variant="green"
-              onClick={() => setPlayMode('MULTIPLAYER')}
-              badgeIcon={<Users className="w-3.5 h-3.5" />}
-              badgeLabel="Multiplayer Siswa"
-              title="Siswa Bermain di HP • Lomba Kerupuk Individu"
-              description="Guru membuka PIN & QR Code untuk ruang lomba siswa. Siswa menjawab kuis dari perangkat pribadi untuk menggigit kerupuk dan bersaing di leaderboard real-time."
-              features={[
-                { icon: <QrCode className="w-3.5 h-3.5 text-[#f2c230]" />, label: 'PIN & QR Gabung' },
-                { icon: <Users className="w-3.5 h-3.5 text-[#f2c230]" />, label: 'Hingga 200 Siswa' },
-                { icon: <Trophy className="w-3.5 h-3.5 text-[#f2c230]" />, label: 'Leaderboard Real-Time' },
-                { icon: <Target className="w-3.5 h-3.5 text-[#f2c230]" />, label: 'Kerupuk Per Individu' },
-              ]}
-            />
+          <div className="space-y-5">
+            {/* 1A. Pilihan Mode Permainan */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <GameModeCard
+                selected={playMode === 'MULTIPLAYER'}
+                variant="green"
+                onClick={() => setPlayMode('MULTIPLAYER')}
+                badgeIcon={<Users className="w-3.5 h-3.5" />}
+                badgeLabel="Multiplayer Siswa"
+                title="Siswa Bermain di HP • Lomba Kerupuk Individu"
+                description="Guru membuka PIN & QR Code untuk ruang lomba siswa. Siswa menjawab kuis dari perangkat pribadi untuk menggigit kerupuk dan bersaing di leaderboard real-time."
+                features={[
+                  { icon: <QrCode className="w-3.5 h-3.5 text-[#f2c230]" />, label: 'PIN & QR Gabung' },
+                  { icon: <Users className="w-3.5 h-3.5 text-[#f2c230]" />, label: 'Hingga 40 Siswa' },
+                  { icon: <Trophy className="w-3.5 h-3.5 text-[#f2c230]" />, label: 'Leaderboard Real-Time' },
+                  { icon: <Target className="w-3.5 h-3.5 text-[#f2c230]" />, label: 'Kerupuk Per Individu' },
+                ]}
+              />
 
-            <GameModeCard
-              selected={playMode === 'SOLO'}
-              variant="red"
-              onClick={() => setPlayMode('SOLO')}
-              badgeIcon={<Monitor className="w-3.5 h-3.5" />}
-              badgeLabel="Solo Mode (Proyektor)"
-              title="Satu Perangkat Guru • Langsung di Layar Kelas"
-              description="Tanpa HP siswa, PIN, atau QR Code. Atur target kerupuk dan distribusi gigitan, lalu langsung jawab soal #1 di layar proyektor lewat mouse, keyboard, atau sentuh."
-              features={[
-                { icon: <Monitor className="w-3.5 h-3.5" />, label: 'Tanpa PIN / QR Code' },
-                { icon: <Play className="w-3.5 h-3.5" />, label: 'Langsung Soal #1' },
-                { icon: <Sparkles className="w-3.5 h-3.5" />, label: 'Karakter 2D Proyektor' },
-                { icon: <Keyboard className="w-3.5 h-3.5" />, label: 'Mouse / Keyboard / Sentuh' },
-              ]}
-            />
+              <GameModeCard
+                selected={playMode === 'SOLO'}
+                variant="red"
+                onClick={() => setPlayMode('SOLO')}
+                badgeIcon={<Monitor className="w-3.5 h-3.5" />}
+                badgeLabel="Solo Mode (1 vs 1)"
+                title="Satu Perangkat Guru • 1 vs 1 di Layar Proyektor"
+                description="Tanpa HP siswa, PIN, atau QR Code. Dua kontestan (1 vs 1) adu cepat menghabiskan kerupuk melawan Bot AI otomatis atau teman duel lokal di kelas."
+                features={[
+                  { icon: <Monitor className="w-3.5 h-3.5" />, label: 'Tanpa PIN / QR Code' },
+                  { icon: <Swords className="w-3.5 h-3.5" />, label: 'Tepat 2 Avatar (1 vs 1)' },
+                  { icon: <Bot className="w-3.5 h-3.5" />, label: 'Lawan Bot / Duel Lokal' },
+                  { icon: <Keyboard className="w-3.5 h-3.5" />, label: 'Mouse / Keyboard / Sentuh' },
+                ]}
+              />
+            </div>
+
+            {/* 1B. Rincian Konfigurasi Mode Terpilih */}
+            {playMode === 'MULTIPLAYER' ? (
+              <div className="portal-card p-5 space-y-4">
+                <GameConfigCardHeader
+                  icon={<UserCheck className="w-4 h-4 text-[#1d3b2e]" />}
+                  title="Pengaturan Tim & Peserta"
+                  tagLabel={`${jumlahTim} Tim • Maks ${maxPeserta} Siswa`}
+                  tagColor="green"
+                />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-[#6b7d6c] block mb-1.5">
+                      Jumlah Tim Lomba (Bisa Diubah Lagi di Lobi)
+                    </label>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {([3, 4] as const).map((n) => {
+                        const active = jumlahTim === n;
+                        return (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => setJumlahTim(n)}
+                            className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+                              active
+                                ? 'bg-[#1d3b2e] text-[#f4ecd8] border-[#1d3b2e] shadow-xs'
+                                : 'bg-[#fffdf6] text-[#1d3b2e] border-[#e0d5b8] hover:border-[#1d3b2e]/50'
+                            }`}
+                          >
+                            <div className="font-extrabold text-xs">{n} Tim Seimbang</div>
+                            <div
+                              className={`text-[10px] mt-0.5 ${
+                                active ? 'text-[#cfd9c3]' : 'text-[#6b7d6c]'
+                              }`}
+                            >
+                              {n === 3
+                                ? 'Merah · Biru · Hijau'
+                                : 'Merah · Biru · Hijau · Kuning'}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-[#6b7d6c] block mb-1.5">
+                      Maksimal Peserta (5–40 siswa)
+                    </label>
+                    <select
+                      value={maxPeserta}
+                      onChange={(e) => setMaxPeserta(Number(e.target.value))}
+                      className="portal-select font-bold"
+                    >
+                      <option value={20}>Maksimal 20 Siswa</option>
+                      <option value={30}>Maksimal 30 Siswa</option>
+                      <option value={40}>Maksimal 40 Siswa (Rekomendasi Kelas)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <label className="flex items-center justify-between gap-3 pt-3 border-t border-dashed border-[#e0d5b8] cursor-pointer">
+                  <div>
+                    <div className="text-xs font-extrabold text-[#1d3b2e]">
+                      Izinkan Gabung Susulan
+                    </div>
+                    <div className="text-[11px] text-[#6b7d6c]">
+                      Siswa yang terlambat tetap bisa masuk dan langsung menggigit kerupuk
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={allowLateJoin}
+                    onChange={(e) => setAllowLateJoin(e.target.checked)}
+                    className="w-5 h-5 accent-[#1d3b2e]"
+                  />
+                </label>
+              </div>
+            ) : (
+              <div className="portal-card p-5 space-y-4">
+                <GameConfigCardHeader
+                  icon={<Swords className="w-4 h-4 text-[#c8362f]" />}
+                  title="Pengaturan Duel 1 vs 1"
+                  tagLabel="Tepat 2 Avatar"
+                  tagColor="red"
+                />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => handleUbahLawanSolo('bot')}
+                    className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+                      tipeLawanSolo === 'bot'
+                        ? 'bg-[#c8362f] text-[#f4ecd8] border-[#c8362f]'
+                        : 'bg-[#fffdf6] text-[#1d3b2e] border-[#e0d5b8] hover:border-[#c8362f]/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 font-extrabold text-xs">
+                      <Bot className="w-4 h-4" /> Lawan Bot AI
+                    </div>
+                    <p
+                      className={`text-[11px] mt-1 leading-snug ${
+                        tipeLawanSolo === 'bot' ? 'text-[#f4ecd8]/85' : 'text-[#6b7d6c]'
+                      }`}
+                    >
+                      1 pemain menjawab soal langsung di proyektor melawan bot otomatis.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleUbahLawanSolo('lokal')}
+                    className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+                      tipeLawanSolo === 'lokal'
+                        ? 'bg-[#c8362f] text-[#f4ecd8] border-[#c8362f]'
+                        : 'bg-[#fffdf6] text-[#1d3b2e] border-[#e0d5b8] hover:border-[#c8362f]/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 font-extrabold text-xs">
+                      <Users className="w-4 h-4" /> Teman Asli / Duel Lokal
+                    </div>
+                    <p
+                      className={`text-[11px] mt-1 leading-snug ${
+                        tipeLawanSolo === 'lokal' ? 'text-[#f4ecd8]/85' : 'text-[#6b7d6c]'
+                      }`}
+                    >
+                      2 siswa adu cepat makan kerupuk kiri vs kanan pada 1 layar kelas.
+                    </p>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
+                  <div>
+                    <label className="font-bold text-[#c8362f] block mb-1">
+                      Nama Pemain 1 (Kiri)
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={24}
+                      value={namaPemain1}
+                      onChange={(e) => setNamaPemain1(e.target.value)}
+                      className="portal-input font-bold"
+                      placeholder="Pemain 1"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-[#1e40af] block mb-1">
+                      {tipeLawanSolo === 'bot' ? 'Nama Lawan (Bot)' : 'Nama Pemain 2 (Kanan)'}
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={24}
+                      value={namaPemain2}
+                      onChange={(e) => setNamaPemain2(e.target.value)}
+                      className="portal-input font-bold"
+                      placeholder={tipeLawanSolo === 'bot' ? 'Lawan Bot' : 'Pemain 2'}
+                    />
+                  </div>
+                </div>
+
+                {tipeLawanSolo === 'bot' && (
+                  <div className="pt-2 border-t border-dashed border-[#e0d5b8]">
+                    <label className="text-xs font-bold text-[#6b7d6c] block mb-1.5">
+                      Tingkat Kesulitan Bot AI
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(
+                        [
+                          { key: 'mudah', label: 'Mudah' },
+                          { key: 'sedang', label: 'Sedang' },
+                          { key: 'sulit', label: 'Sulit' },
+                        ] as const
+                      ).map((item) => (
+                        <button
+                          key={item.key}
+                          type="button"
+                          onClick={() => setKesulitanBot(item.key)}
+                          className={`py-2 px-2 rounded-xl border-2 text-xs font-extrabold capitalize transition-all cursor-pointer ${
+                            kesulitanBot === item.key
+                              ? 'bg-[#1d3b2e] text-[#f4ecd8] border-[#1d3b2e]'
+                              : 'bg-[#fffdf6] text-[#1d3b2e] border-[#e0d5b8] hover:border-[#1d3b2e]/50'
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="pt-2 border-t border-dashed border-[#e0d5b8] text-[11px] text-[#6b7d6c]">
+                  💡 <strong>Pintasan:</strong> Tekan pilihan di layar atau keyboard{' '}
+                  <strong className="font-mono text-[#1d3b2e]">A–E</strong> /{' '}
+                  <strong className="font-mono text-[#1d3b2e]">1–5</strong> untuk langsung menggigit kerupuk.
+                </div>
+              </div>
+            )}
           </div>
         </GameConfigSection>
 
-        {/* 2. Pengaturan Aturan & Kerupuk */}
+        {/* 2. Pengaturan Khusus Makan Kerupuk */}
         <GameConfigSection
-          title="2. Pengaturan Aturan & Kerupuk"
-          description="Sesuaikan target poin kerupuk, kapasitas peserta atau kontrol layar, serta tingkat kesulitan & peluang gigitan."
+          title="2. Pengaturan Khusus Makan Kerupuk"
+          description="Sesuaikan target poin kerupuk untuk dituntaskan, serta distribusi tingkat kesulitan dan probabilitas gigitan."
         >
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* Kolom Kiri: Target Poin Kerupuk & Pengaturan Mode */}
+            {/* Kolom Kiri: Target Poin Kerupuk */}
             <div className="lg:col-span-5 space-y-5">
               {/* Target Poin Kerupuk */}
               <div className="portal-card p-5 space-y-4">
@@ -391,110 +612,6 @@ export default function PilihModeKerupuk() {
                   )}
                 </div>
               </div>
-
-              {/* Pengaturan Khusus Multiplayer ATAU Solo */}
-              {playMode === 'MULTIPLAYER' ? (
-                <div className="portal-card p-5 space-y-4">
-                  <GameConfigCardHeader
-                    icon={<UserCheck className="w-4 h-4 text-[#1d3b2e]" />}
-                    title="Pengaturan Peserta & Lobi"
-                    tagLabel={`${jumlahTim} Tim • ${maxPeserta} Siswa`}
-                    tagColor="green"
-                  />
-
-                  <div>
-                    <label className="text-xs font-bold uppercase tracking-wider text-[#6b7d6c] block mb-1.5">
-                      Jumlah Tim Lomba (Bisa Diubah Lagi di Lobi)
-                    </label>
-                    <div className="grid grid-cols-2 gap-2.5">
-                      {([3, 4] as const).map((n) => {
-                        const active = jumlahTim === n;
-                        return (
-                          <button
-                            key={n}
-                            type="button"
-                            onClick={() => setJumlahTim(n)}
-                            className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer ${
-                              active
-                                ? 'bg-[#1d3b2e] text-[#f4ecd8] border-[#1d3b2e] shadow-xs'
-                                : 'bg-[#fffdf6] text-[#1d3b2e] border-[#e0d5b8] hover:border-[#1d3b2e]/50'
-                            }`}
-                          >
-                            <div className="font-extrabold text-xs">{n} Tim Seimbang</div>
-                            <div
-                              className={`text-[10px] mt-0.5 ${
-                                active ? 'text-[#cfd9c3]' : 'text-[#6b7d6c]'
-                              }`}
-                            >
-                              {n === 3
-                                ? 'Merah · Biru · Hijau'
-                                : 'Merah · Biru · Hijau · Kuning'}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold uppercase tracking-wider text-[#6b7d6c] block mb-1.5">
-                      Maksimal Peserta (5–40 siswa)
-                    </label>
-                    <select
-                      value={maxPeserta}
-                      onChange={(e) => setMaxPeserta(Number(e.target.value))}
-                      className="portal-select font-bold"
-                    >
-                      <option value={20}>Maksimal 20 Siswa</option>
-                      <option value={30}>Maksimal 30 Siswa</option>
-                      <option value={40}>Maksimal 40 Siswa (Rekomendasi Kelas)</option>
-                    </select>
-                  </div>
-
-                  <label className="flex items-center justify-between gap-3 pt-3 border-t border-dashed border-[#e0d5b8] cursor-pointer">
-                    <div>
-                      <div className="text-xs font-extrabold text-[#1d3b2e]">
-                        Izinkan Gabung Susulan
-                      </div>
-                      <div className="text-[11px] text-[#6b7d6c]">
-                        Siswa yang terlambat tetap bisa masuk dan langsung menggigit kerupuk
-                      </div>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={allowLateJoin}
-                      onChange={(e) => setAllowLateJoin(e.target.checked)}
-                      className="w-5 h-5 accent-[#1d3b2e]"
-                    />
-                  </label>
-                </div>
-              ) : (
-                <div className="portal-card p-5 space-y-4">
-                  <GameConfigCardHeader
-                    icon={<Monitor className="w-4 h-4 text-[#c8362f]" />}
-                    title="Kontrol Solo di Proyektor"
-                    tagLabel="1 Perangkat"
-                    tagColor="red"
-                  />
-
-                  <div className="divide-y divide-dashed divide-[#e0d5b8] text-xs text-[#1d3b2e]">
-                    <div className="pb-3">
-                      <div className="font-extrabold">Pintasan Mouse &amp; Keyboard</div>
-                      <p className="text-[11px] text-[#6b7d6c] mt-0.5">
-                        Tekan tombol pilihan di layar atau keyboard{' '}
-                        <strong className="font-mono text-[#1d3b2e]">A–E</strong> /{' '}
-                        <strong className="font-mono text-[#1d3b2e]">1–5</strong> untuk langsung menggigit kerupuk.
-                      </p>
-                    </div>
-                    <div className="pt-3">
-                      <div className="font-extrabold">Jeda &amp; Ulang Kapan Saja</div>
-                      <p className="text-[11px] text-[#6b7d6c] mt-0.5">
-                        Guru dapat menjeda permainan saat menjelaskan materi lalu melanjutkan atau mengulang dari nol.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Kolom Kanan: Kesulitan, Peluang Gigitan & Tombol Mulai */}

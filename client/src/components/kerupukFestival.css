@@ -898,6 +898,7 @@
   color: var(--ink);
   font: 800 0.9rem 'Nunito', sans-serif;
   cursor: pointer;
+  pointer-events: auto;
   transition: all 0.15s ease;
 }
 
