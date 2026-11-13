@@ -544,8 +544,12 @@ class MultiSessionManager {
     if (!sesi) return null;
     const p = sesi.peserta.get(info.pesertaId);
     if (!p) return null;
+    if (sesi.status === 'lobi') {
+      sesi.peserta.delete(info.pesertaId);
+      return { sesi, peserta: p, wasRemoved: true };
+    }
     p.connected = false;
-    return { sesi, peserta: p };
+    return { sesi, peserta: p, wasRemoved: false };
   }
 
   acakUlangTim(sessionId: string, hostId: string): PesertaMulti[] {
@@ -1120,6 +1124,17 @@ class MultiSessionManager {
       }
     }
     this.sessions.delete(sessionId);
+  }
+
+  batalkanSesi(sessionId: string): SesiMultiplayerActive | null {
+    const sesi = this.sessions.get(sessionId);
+    if (!sesi) return null;
+    this.hapusSesi(sessionId);
+    return sesi;
+  }
+
+  dapatkanSemuaSesi(): SesiMultiplayerActive[] {
+    return Array.from(this.sessions.values());
   }
 }
 

@@ -24,7 +24,7 @@ export interface RuangTungguSiswaProps {
   daftarPeserta?: PesertaItem[];
   teams?: TeamItem[];
   myTeamId?: string | null;
-  onKeluar: () => void;
+  onKeluar: (pesan?: string) => void;
   onMulaiPermainan: () => void;
 }
 
@@ -173,16 +173,28 @@ export default function RuangTungguSiswa({
       onKeluar();
     };
 
+    const handleSesiDibatalkan = (data?: { pesan?: string; alasan?: string }) => {
+      onKeluar(data?.pesan || 'Sesi telah diakhiri oleh guru.');
+    };
+
+    const handleSesiSelesai = (data?: { pesan?: string }) => {
+      onKeluar(data?.pesan || 'Sesi telah diakhiri oleh guru.');
+    };
+
     socket.on('lobi:update', handleLobiUpdate);
     socket.on('teams_assigned', handleTeamsAssigned);
     socket.on('game:mulai', handleGameMulai);
     socket.on('sesi:dikick', handleDikick);
+    socket.on('sesi:dibatalkan', handleSesiDibatalkan);
+    socket.on('sesi:selesai', handleSesiSelesai);
 
     return () => {
       socket.off('lobi:update', handleLobiUpdate);
       socket.off('teams_assigned', handleTeamsAssigned);
       socket.off('game:mulai', handleGameMulai);
       socket.off('sesi:dikick', handleDikick);
+      socket.off('sesi:dibatalkan', handleSesiDibatalkan);
+      socket.off('sesi:selesai', handleSesiSelesai);
       startTimerRef.current.forEach(clearTimeout);
     };
   }, [gameType, pesertaId, nama, onKeluar]);
@@ -303,6 +315,7 @@ export default function RuangTungguSiswa({
   }, [teamGroups, detectedMyTeam, pesertaId, nama]);
 
   // --- STATE ANIMASI PEMBAGIAN TIM & SHUFFLE POOL ---
+  const [countdownVal, setCountdownVal] = useState<number | null>(null);
   const [animStage, setAnimStage] = useState<'IDLE' | 'SHUFFLING' | 'FLYING' | 'DONE'>('IDLE');
   const [headingText, setHeadingText] = useState('Mengacak nama…');
   const [subText, setSubText] = useState('Nama peserta dikocok, lalu dibagi ke kelompok.');
@@ -319,31 +332,39 @@ export default function RuangTungguSiswa({
     isAnimatingRef.current = true;
     setIsStarting(true);
 
-    if (teamGroups.length === 0) {
-      // Solo games (Makan Kerupuk / Panjat Pinang)
-      setStatusText('Guru menekan Mulai! Bersiaplah…');
-      const t1 = setTimeout(() => setStatusText('Game dimulai dalam 3…'), 900);
-      const t2 = setTimeout(() => setStatusText('Game dimulai dalam 2…'), 1800);
-      const t3 = setTimeout(() => setStatusText('Game dimulai dalam 1…'), 2700);
-      const t4 = setTimeout(() => {
-        setStatusText('Mulai! Bersiaplah…');
-        setTimeout(() => onMulaiPermainan(), 400);
-      }, 3500);
-      startTimerRef.current = [t1, t2, t3, t4];
-      return;
-    }
-
-    // Team Games (Tarik Tambang, Balap Karung, dll.)
-    setAnimStage('SHUFFLING');
-    setHeadingText('Mengacak nama…');
-    setSubText('Nama peserta dikocok, lalu dibagi ke kelompok.');
-    setStatusText('Guru menekan Mulai! Mengacak nama…');
-    setLandedIds([]);
-
     const waitMs = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
     const rm = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     (async () => {
+      // 1. HITUNG MUNDUR 3 - 1 (Sebelum mengacak nama)
+      setStatusText('Guru menekan Mulai! Bersiaplah…');
+      setCountdownVal(3);
+      await waitMs(900);
+      setCountdownVal(2);
+      await waitMs(900);
+      setCountdownVal(1);
+      await waitMs(900);
+      setCountdownVal(null);
+
+      // Jika game individu tanpa tim
+      if (teamGroups.length === 0) {
+        setStatusText('Mulai! Bersiaplah…');
+        await waitMs(400);
+        onMulaiPermainan();
+        return;
+      }
+
+      // 2. ACAK NAMA (Pool nama-nama asli dikocok lalu dibagi ke kelompok)
+      setAnimStage('SHUFFLING');
+      setHeadingText('Mengacak nama…');
+      setSubText(
+        teamGroups.length > 1
+          ? `Nama peserta dikocok, lalu dibagi ke ${teamGroups.length} kelompok.`
+          : 'Nama peserta dikocok, bersiaplah!'
+      );
+      setStatusText('Guru menekan Mulai! Mengacak nama…');
+      setLandedIds([]);
+
       // Tunggu mounting board
       await waitMs(450);
 
@@ -496,43 +517,14 @@ export default function RuangTungguSiswa({
         setSubText(`Namamu sudah masuk ke ${myTeam.nama}. Siap-siap, game segera dimulai!`);
       }
 
-      await waitMs(800);
+      await waitMs(1000);
 
-      // Countdown akhir
-      setStatusText('Game dimulai dalam 3…');
-      await waitMs(900);
-      setStatusText('Game dimulai dalam 2…');
-      await waitMs(900);
-      setStatusText('Game dimulai dalam 1…');
-      await waitMs(900);
-      setStatusText('Mulai! Bersiaplah…');
-      await waitMs(500);
-
+      // 3. BARU MASUK KE SOALNYA
       onMulaiPermainan();
     })();
   }, [teamGroups, listPesertaTampil, detectedMyTeam, pesertaId, nama, onMulaiPermainan]);
 
   jalankanTransisiMulaiRef.current = jalankanTransisiMulai;
-
-  const handleDemoClick = () => {
-    if (livePeserta.length < 4) {
-      const demoNames = ['Dika Pratama', 'Fajar Gaming', 'Siti Nurma', 'Budi Santoso', 'Ayu Lestari'];
-      const dummyList: PesertaItem[] = [
-        ...listPesertaTampil,
-        ...demoNames.slice(0, 6 - listPesertaTampil.length).map((nm, idx) => ({
-          id: `demo-${idx}`,
-          nama: nm,
-          tim: null,
-        })),
-      ];
-      setLivePeserta(dummyList);
-      setTimeout(() => {
-        jalankanTransisiMulai();
-      }, 100);
-    } else {
-      jalankanTransisiMulai();
-    }
-  };
 
   return (
     <div
@@ -778,7 +770,7 @@ export default function RuangTungguSiswa({
 
           {/* Tombol Keluar */}
           <button
-            onClick={onKeluar}
+            onClick={() => onKeluar()}
             type="button"
             className="flex items-center gap-1.5 bg-[#f4ecd8] hover:bg-[#fff9eb] active:scale-95 text-[#163a2b] font-extrabold text-xs py-1.5 px-3 sm:px-3.5 rounded-full shadow-sm transition-all cursor-pointer"
             title="Keluar dari sesi"
@@ -950,16 +942,6 @@ export default function RuangTungguSiswa({
                   })}
                 </ul>
               </div>
-
-              {/* Tombol Demo Simulasi untuk Siswa */}
-              <button
-                type="button"
-                onClick={handleDemoClick}
-                className="mt-1.5 sm:mt-2.5 flex items-center gap-1 bg-transparent hover:bg-white/10 active:scale-95 text-[#f4ecd8] border border-dashed border-[#f4ecd8]/40 font-bold text-[10px] sm:text-xs py-1 px-3 rounded-full transition-all cursor-pointer"
-              >
-                <span>▶</span>
-                <span>Demo: Guru Klik Mulai</span>
-              </button>
             </div>
           ) : (
             /* ---------------------------------------------------- */
@@ -1206,6 +1188,28 @@ export default function RuangTungguSiswa({
           <span className="truncate">{statusText}</span>
         </div>
       </footer>
+
+      {/* ============================================================ */}
+      {/* OVERLAY HITUNG MUNDUR 3 - 1 SAAT GURU KLIK MULAI            */}
+      {/* ============================================================ */}
+      {countdownVal !== null && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#0a2016]/92 backdrop-blur-xs text-[#f4ecd8] animate-[fadeIn_0.15s_ease-out]">
+          <div className="flex flex-col items-center gap-3">
+            <span className="font-bold text-xs sm:text-sm uppercase tracking-widest text-[#f2c230] animate-pulse">
+              Game Dimulai Dalam
+            </span>
+            <div
+              key={countdownVal}
+              className="font-['Caveat',sans-serif] text-8xl sm:text-9xl font-black text-[#f2c230] animate-[popIn_0.35s_cubic-bezier(0.34,1.56,0.64,1)] drop-shadow-[0_4px_20px_rgba(242,194,48,0.65)] leading-none select-none"
+            >
+              {countdownVal}
+            </div>
+            <p className="text-xs sm:text-sm font-bold text-[#f4ecd8]/90 max-w-xs text-center">
+              Bersiaplah! Nama peserta akan segera diacak...
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

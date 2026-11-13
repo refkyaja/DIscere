@@ -28,6 +28,9 @@ import {
   Timer,
   Users,
   Zap,
+  Volume2,
+  Minus,
+  Plus,
 } from 'lucide-react';
 
 export type PlayModeTarik = 'MULTIPLAYER' | 'SOLO';
@@ -483,20 +486,50 @@ export default function PilihModeTarikTambang() {
               )}
 
               {playMode === 'MULTIPLAYER' && (
-                <div className="pt-2 border-t border-dashed border-[#e0d5b8]">
-                  <div className="flex items-center justify-between text-xs font-bold text-[#1d3b2e] mb-1.5">
-                    <span>Kapasitas Siswa per Ruang Kelas</span>
-                    <span className="font-mono">{maxPeserta} Siswa (Maks 40)</span>
+                <div className="pt-3 border-t border-dashed border-[#e0d5b8]">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-[#6b7d6c] flex items-center gap-1.5">
+                      <Volume2 className="w-3.5 h-3.5 text-[#1d3b2e]" />
+                      <span>Kapasitas Peserta (1–45 Siswa)</span>
+                    </label>
+                    <span className="font-extrabold text-xs px-2.5 py-0.5 bg-[#1d3b2e] text-[#f4ecd8] rounded-full font-mono shadow-xs">
+                      {maxPeserta} Siswa
+                    </span>
                   </div>
-                  <input
-                    type="range"
-                    min={4}
-                    max={40}
-                    step={2}
-                    value={maxPeserta}
-                    onChange={(e) => setMaxPeserta(Number(e.target.value))}
-                    className="w-full accent-[#1d3b2e] cursor-pointer"
-                  />
+
+                  <div className="flex items-center gap-2.5 p-2 bg-[#fffdf6] border-2 border-[#e0d5b8] rounded-2xl shadow-xs max-w-md">
+                    <button
+                      type="button"
+                      onClick={() => setMaxPeserta((prev) => Math.max(1, prev - 1))}
+                      className="w-8 h-8 rounded-xl bg-[#ece4d5] hover:bg-[#dfd5c2] active:scale-95 text-[#1d3b2e] flex items-center justify-center font-black cursor-pointer transition-all border border-[#d4c8b0]"
+                      title="Kurangi kapasitas"
+                      aria-label="Kurangi kapasitas"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </button>
+
+                    <div className="flex-1 relative flex items-center px-1">
+                      <input
+                        type="range"
+                        min={1}
+                        max={45}
+                        step={1}
+                        value={maxPeserta}
+                        onChange={(e) => setMaxPeserta(Number(e.target.value))}
+                        className="w-full accent-[#1d3b2e] cursor-pointer h-2 bg-[#ece4d5] rounded-lg appearance-none"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setMaxPeserta((prev) => Math.min(45, prev + 1))}
+                      className="w-8 h-8 rounded-xl bg-[#ece4d5] hover:bg-[#dfd5c2] active:scale-95 text-[#1d3b2e] flex items-center justify-center font-black cursor-pointer transition-all border border-[#d4c8b0]"
+                      title="Tambah kapasitas"
+                      aria-label="Tambah kapasitas"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

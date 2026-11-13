@@ -566,14 +566,18 @@ export const panjatPinangManager = {
   },
 
   /**
-   * Menandai peserta terputus saat koneksi socket terputus.
+   * Menandai peserta terputus saat koneksi socket terputus. Jika sesi masih di lobi, peserta dihapus dari sesi.
    */
-  putusKoneksiPeserta(socketId: string): { sessionId?: string; pesertaId?: string } {
+  putusKoneksiPeserta(socketId: string): { sessionId?: string; pesertaId?: string; wasRemoved?: boolean } {
     for (const sesi of sesiPanjatMap.values()) {
       for (const [id, p] of sesi.peserta.entries()) {
         if (p.socketId === socketId) {
+          if (sesi.status === 'lobi') {
+            sesi.peserta.delete(id);
+            return { sessionId: sesi.sessionId, pesertaId: id, wasRemoved: true };
+          }
           p.connected = false;
-          return { sessionId: sesi.sessionId, pesertaId: id };
+          return { sessionId: sesi.sessionId, pesertaId: id, wasRemoved: false };
         }
       }
     }
@@ -1180,5 +1184,16 @@ export const panjatPinangManager = {
       sesiPanjatMap.delete(sessionId);
     }
     dbWriteQueues.delete(sessionId);
+  },
+
+  batalkanSesi(sessionId: string): SesiPanjatActive | null {
+    const sesi = sesiPanjatMap.get(sessionId);
+    if (!sesi) return null;
+    this.hapusSesi(sessionId);
+    return sesi;
+  },
+
+  dapatkanSemuaSesi(): SesiPanjatActive[] {
+    return Array.from(sesiPanjatMap.values());
   },
 };

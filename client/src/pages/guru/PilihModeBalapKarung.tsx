@@ -31,6 +31,9 @@ import {
   Clock,
   ChevronDown,
   ChevronUp,
+  Volume2,
+  Minus,
+  Plus,
 } from 'lucide-react';
 
 export type PlayModeBalapKarung = 'MULTIPLAYER' | 'SOLO';
@@ -124,7 +127,7 @@ export default function PilihModeBalapKarung() {
   // Multiplayer Tim Settings
   const [jumlahTim, setJumlahTim] = useState<3 | 4>(3);
   const [maxPeserta, setMaxPeserta] = useState<number>(40);
-  const [allowLateJoin, setAllowLateJoin] = useState<boolean>(true);
+  const [allowLateJoin] = useState<boolean>(true);
   const [showAdvancedRules, setShowAdvancedRules] = useState<boolean>(false);
 
   // Kesulitan, Keseimbangan & Streak (default bersih sesuai mode festival: +10m / -3m)
@@ -593,7 +596,55 @@ export default function PilihModeBalapKarung() {
                   tagColor="green"
                 />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                  {/* Kolom Kiri: Kapasitas Peserta dengan kontrol gaya volume 1 - 45 */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-bold uppercase tracking-wider text-[#6b7d6c] flex items-center gap-1.5">
+                        <Volume2 className="w-3.5 h-3.5 text-[#1d3b2e]" />
+                        <span>Maksimal Peserta (1–45 Siswa)</span>
+                      </label>
+                      <span className="font-extrabold text-xs px-2.5 py-0.5 bg-[#1d3b2e] text-[#f4ecd8] rounded-full font-mono shadow-xs">
+                        {maxPeserta} Siswa
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 p-2 bg-[#fffdf6] border-2 border-[#e0d5b8] rounded-2xl shadow-xs">
+                      <button
+                        type="button"
+                        onClick={() => setMaxPeserta((prev) => Math.max(1, prev - 1))}
+                        className="w-8 h-8 rounded-xl bg-[#ece4d5] hover:bg-[#dfd5c2] active:scale-95 text-[#1d3b2e] flex items-center justify-center font-black cursor-pointer transition-all border border-[#d4c8b0]"
+                        title="Kurangi kapasitas"
+                        aria-label="Kurangi kapasitas"
+                      >
+                        <Minus className="w-4 h-4" />
+                      </button>
+
+                      <div className="flex-1 relative flex items-center px-1">
+                        <input
+                          type="range"
+                          min={1}
+                          max={45}
+                          step={1}
+                          value={maxPeserta}
+                          onChange={(e) => setMaxPeserta(Number(e.target.value))}
+                          className="w-full accent-[#1d3b2e] cursor-pointer h-2 bg-[#ece4d5] rounded-lg appearance-none"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setMaxPeserta((prev) => Math.min(45, prev + 1))}
+                        className="w-8 h-8 rounded-xl bg-[#ece4d5] hover:bg-[#dfd5c2] active:scale-95 text-[#1d3b2e] flex items-center justify-center font-black cursor-pointer transition-all border border-[#d4c8b0]"
+                        title="Tambah kapasitas"
+                        aria-label="Tambah kapasitas"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Kolom Kanan: Jumlah Tim Lomba */}
                   <div>
                     <label className="text-xs font-bold uppercase tracking-wider text-[#6b7d6c] block mb-1.5">
                       Jumlah Tim Lomba (Bisa Diubah Lagi di Lobi)
@@ -627,40 +678,7 @@ export default function PilihModeBalapKarung() {
                       })}
                     </div>
                   </div>
-
-                  <div>
-                    <label className="text-xs font-bold uppercase tracking-wider text-[#6b7d6c] block mb-1.5">
-                      Maksimal Peserta (1–40 siswa / 1 kelas)
-                    </label>
-                    <select
-                      value={maxPeserta}
-                      onChange={(e) => setMaxPeserta(Number(e.target.value))}
-                      className="portal-select font-bold"
-                    >
-                      <option value={12}>Maksimal 12 Siswa</option>
-                      <option value={24}>Maksimal 24 Siswa</option>
-                      <option value={30}>Maksimal 30 Siswa</option>
-                      <option value={40}>Maksimal 40 Siswa</option>
-                    </select>
-                  </div>
                 </div>
-
-                <label className="flex items-center justify-between gap-3 pt-3 border-t border-dashed border-[#e0d5b8] cursor-pointer">
-                  <div>
-                    <div className="text-xs font-extrabold text-[#1d3b2e]">
-                      Izinkan Gabung Susulan
-                    </div>
-                    <div className="text-[11px] text-[#6b7d6c]">
-                      Siswa yang terlambat tetap otomatis masuk tim paling kosong
-                    </div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={allowLateJoin}
-                    onChange={(e) => setAllowLateJoin(e.target.checked)}
-                    className="w-5 h-5 accent-[#1d3b2e]"
-                  />
-                </label>
               </div>
             )}
           </div>

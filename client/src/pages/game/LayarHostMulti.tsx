@@ -141,6 +141,7 @@ export default function LayarHostMulti() {
   const [feed, setFeed] = useState<FeedAksiItem[]>([]);
 
   const fanfarePlayedRef = useRef(false);
+  const gameMulaiPayloadRef = useRef<any>(null);
 
   const loadSesi = useCallback(async () => {
     if (!id) return;
@@ -200,22 +201,8 @@ export default function LayarHostMulti() {
 
     const onGameMulai = (payload: any) => {
       if (payload?.game && payload.game !== 'tarik_tambang') return;
-      soundEffects.startGame('race');
-      setFeed([]);
-      setSesi((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: 'jalan',
-              taliPosition: payload.taliPosition ?? 0,
-              skorMerah: payload.skorMerah ?? 0,
-              skorPutih: payload.skorPutih ?? 0,
-              matchEndsAt: payload.matchEndsAt ?? prev.matchEndsAt,
-              durasiLombaDetik: payload.durasiLombaDetik ?? prev.durasiLombaDetik,
-              daftarPeserta: payload.daftarPeserta || prev.daftarPeserta,
-            }
-          : prev
-      );
+      gameMulaiPayloadRef.current = payload;
+      setBusyAction(true);
     };
 
     const onTaliUpdate = (payload: any) => {
@@ -399,6 +386,9 @@ export default function LayarHostMulti() {
     if (sesi?.status === 'jalan') {
       setModalKeluarOpen(true);
     } else {
+      if (id) {
+        getSocket().emit('sesi:batalkan', { sessionId: id, game: 'tarik_tambang' });
+      }
       navigate(returnUrl);
     }
   };
@@ -413,11 +403,32 @@ export default function LayarHostMulti() {
     if (!id || !canStart || busyAction) return;
     setBusyAction(true);
     getSocket().emit('sesi:mulai', { sessionId: id }, (res: any) => {
-      setBusyAction(false);
       if (res && !res.success) {
+        setBusyAction(false);
         setErrorPesan(res.pesan || 'Gagal memulai lomba.');
       }
     });
+  };
+
+  const handleTransisiSelesai = () => {
+    soundEffects.startGame('race');
+    setFeed([]);
+    const payload = gameMulaiPayloadRef.current;
+    setSesi((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: 'jalan',
+            taliPosition: payload?.taliPosition ?? prev.taliPosition ?? 0,
+            skorMerah: payload?.skorMerah ?? prev.skorMerah ?? 0,
+            skorPutih: payload?.skorPutih ?? prev.skorPutih ?? 0,
+            matchEndsAt: payload?.matchEndsAt ?? prev.matchEndsAt,
+            durasiLombaDetik: payload?.durasiLombaDetik ?? prev.durasiLombaDetik,
+            daftarPeserta: payload?.daftarPeserta || prev.daftarPeserta,
+          }
+        : prev
+    );
+    setBusyAction(false);
   };
 
   const handleAkhiriManual = () => {
@@ -491,8 +502,10 @@ export default function LayarHostMulti() {
         maxPeserta={sesi.config?.maxPeserta || 40}
         isStarting={busyAction}
         onMulai={handleMulaiLomba}
+        onTransisiSelesai={handleTransisiSelesai}
         onKembali={handleKembaliClick}
         onKickPeserta={handleKickPeserta}
+        config={sesi.config}
       />
     );
   }

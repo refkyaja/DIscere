@@ -330,12 +330,19 @@ export const kerupukMultiManager = {
     return { sesi, peserta: pesertaBaru, isReconnect: false };
   },
 
-  putusKoneksiPeserta(socketId: string): { sessionId?: string; pesertaId?: string } {
+  /**
+   * Menandai peserta terputus saat koneksi socket terputus. Jika sesi masih di lobi, peserta dihapus dari sesi.
+   */
+  putusKoneksiPeserta(socketId: string): { sessionId?: string; pesertaId?: string; wasRemoved?: boolean } {
     for (const sesi of sesiMultiMap.values()) {
       for (const [id, p] of sesi.peserta.entries()) {
         if (p.socketId === socketId) {
+          if (sesi.status === 'lobi') {
+            sesi.peserta.delete(id);
+            return { sessionId: sesi.sessionId, pesertaId: id, wasRemoved: true };
+          }
           p.connected = false;
-          return { sessionId: sesi.sessionId, pesertaId: id };
+          return { sessionId: sesi.sessionId, pesertaId: id, wasRemoved: false };
         }
       }
     }
@@ -988,6 +995,17 @@ export const kerupukMultiManager = {
       tokenToMultiSessionIdMap.delete(sesi.token);
       sesiMultiMap.delete(sessionId);
     }
+  },
+
+  batalkanSesi(sessionId: string): SesiKerupukMultiActive | null {
+    const sesi = sesiMultiMap.get(sessionId);
+    if (!sesi) return null;
+    this.hapusSesi(sessionId);
+    return sesi;
+  },
+
+  dapatkanSemuaSesi(): SesiKerupukMultiActive[] {
+    return Array.from(sesiMultiMap.values());
   },
 };
 

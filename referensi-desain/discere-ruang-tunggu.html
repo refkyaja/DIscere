@@ -113,6 +113,36 @@ h1{font-size:clamp(50px,6.4vw,84px);line-height:1;text-shadow:0 0 1px #fff}h1 sp
 .tm.dim{opacity:.7;filter:saturate(.75)}.tm{transition:transform .22s,opacity .5s,box-shadow .5s,filter .5s}
 .tag{font:800 12px 'Nunito';background:#fffdf6;color:var(--board-d);padding:2px 10px;border-radius:999px}
 @media(max-width:1023px){.pool{margin-top:14px;padding:10px;gap:8px;border-radius:22px}.pc{font-size:14px}.tm.mine{transform:none}}
+
+/* === halaman soal & menang === */
+.play,.win{display:flex;flex-direction:column;align-items:center;width:100%;animation:fadein .5s both}.play[hidden],.win[hidden]{display:none}
+.lanes{width:100%;display:flex;flex-direction:column;gap:10px}
+.ln{display:grid;grid-template-columns:128px 1fr 46px;align-items:center;gap:12px;padding:8px 14px;border:2px solid rgba(244,236,216,.2);border-left:8px solid var(--c);border-radius:20px;background:rgba(10,32,22,.4);color:var(--chalk);text-align:left}
+.ln.mine{border-color:var(--yellow);border-left-color:var(--c);box-shadow:0 0 0 3px rgba(242,194,48,.35),0 0 20px rgba(242,194,48,.4)}
+.lt{display:flex;flex-direction:column;align-items:flex-start;gap:3px;font-size:24px;line-height:1}.ln b{font-size:16px;text-align:right}
+.trk{position:relative;margin:0 16px}.trk::after{content:"";position:absolute;right:-2px;top:-9px;bottom:-9px;width:8px;border-radius:2px;background:repeating-linear-gradient(#fff 0 6px,#222 6px 12px)}
+.rope{height:14px;border-radius:9px;background:repeating-linear-gradient(115deg,#c9a46a 0 6px,#a8824c 6px 12px);box-shadow:0 2px 0 rgba(0,0,0,.3)}
+.knot{position:absolute;top:50%;left:0;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:var(--c);border:4px solid var(--chalk);box-shadow:0 3px 0 rgba(0,0,0,.35);transition:left .9s cubic-bezier(.3,1.5,.5,1)}
+.qc{width:100%;margin-top:16px;padding:16px 20px 20px;text-align:left;color:var(--board-d);background:var(--card);border:3px solid #e8dfc8;border-radius:28px 32px 26px 30px;box-shadow:0 6px 0 rgba(0,0,0,.2)}
+.qh{display:flex;align-items:center;gap:14px;font-weight:800}.tmr{flex:1;height:10px;border-radius:9px;background:rgba(31,74,55,.15);overflow:hidden}.tmr i{display:block;height:100%;background:var(--board);transform-origin:left}
+.q{font-size:clamp(21px,2.8vw,30px);font-weight:800;line-height:1.25;margin:14px 0 16px}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.op{display:flex;align-items:center;gap:12px;padding:12px 14px;text-align:left;font:800 19px 'Nunito';color:var(--board-d);background:#fffdf6;border:3px solid #e8dfc8;border-radius:20px;box-shadow:0 4px 0 rgba(0,0,0,.15);cursor:pointer;transition:transform .15s,background .2s}
+.op:hover:not(:disabled){transform:translateY(-2px)}.op:active:not(:disabled){transform:translateY(2px)}.op:focus-visible{outline:3px solid var(--yellow);outline-offset:3px}
+.op i{flex:none;width:34px;height:34px;display:grid;place-items:center;border-radius:50%;background:var(--board);color:var(--chalk);font-style:normal}
+.op:disabled{cursor:default}.op.ok{background:#d6f0d9;border-color:#3f9e62}.op.no{background:#fadbd8;border-color:var(--red)}
+.fb{min-height:26px;margin-top:14px;font-weight:800}.fb.ok{color:#2c7a4b}.fb.no{color:var(--red)}
+.tr{width:104px;height:104px;animation:bob .9s ease-in-out infinite alternate}
+.win h2{font-size:clamp(42px,6vw,70px);line-height:1}.win h2 span{color:var(--yellow)}.win .sub{margin:10px 0 0}
+.pod{display:flex;align-items:flex-end;justify-content:center;gap:12px;width:100%;max-width:560px;margin-top:22px}
+.pd{flex:1;height:var(--h);display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;text-align:center;color:var(--t);background:var(--c);border:3px solid #e8dfc8;border-bottom:0;border-radius:22px 22px 0 0;font-weight:800}
+.pd .hand{font-size:26px;line-height:1}.pd small{font-size:13px;font-weight:700}.rk{font:700 38px 'Caveat';line-height:1}
+.pd.mine{box-shadow:0 0 0 4px var(--yellow),0 0 26px rgba(242,194,48,.6)}
+.wm{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:18px;max-width:640px}
+.cf{position:fixed;top:-16px;width:9px;height:15px;z-index:70;pointer-events:none;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(108vh) rotate(var(--r))}}
+@media(max-width:1023px){.ln{grid-template-columns:96px 1fr 38px;gap:8px;padding:8px 10px}.lt{font-size:21px}.qc{padding:14px 14px 16px}.pd .hand{font-size:21px}}
+@media(max-width:640px){.opts{grid-template-columns:1fr}.op{font-size:17px;padding:10px 12px}.pod{gap:8px}.tr{width:80px;height:80px}}
 </style>
 </head>
 <body>
@@ -160,6 +190,21 @@ h1{font-size:clamp(50px,6.4vw,84px);line-height:1;text-shadow:0 0 1px #fff}h1 sp
     <div class="pool" id="pool" aria-hidden="true"></div>
     <div class="teams" id="teams"></div>
     <button class="again" id="again" type="button" hidden>Ulangi demo</button>
+   </div>
+   <div class="play" id="play" hidden>
+    <div class="lanes" id="lanes"></div>
+    <div class="qc">
+     <div class="qh"><span id="qn">Soal 1</span><div class="tmr"><i id="bar"></i></div></div>
+     <p class="q" id="q"></p>
+     <div class="opts" id="opts"></div>
+     <p class="fb" id="fb" role="status"></p>
+    </div>
+   </div>
+   <div class="win" id="win" hidden>
+    <svg class="tr" viewBox="0 0 96 96" aria-hidden="true"><g stroke="#f4ecd8" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"><path d="M28 12h40v22c0 14-9 24-20 24S28 48 28 34z" fill="#f2c230"/><path d="M28 18H14c0 14 6 22 16 24M68 18h14c0 14-6 22-16 24" fill="none"/><path d="M48 58v14M38 72h20v10H38zM32 86h32" fill="#8b6a4a"/></g></svg>
+    <h2 class="hand" id="wt"></h2><p class="sub" id="ws"></p>
+    <div class="pod" id="pod"></div><div class="wm" id="wm"></div>
+    <button class="again" id="again2" type="button">Main lagi</button>
    </div>
   </section>
 
@@ -231,8 +276,50 @@ async function start(){
  if(matchMedia('(max-width:1023px)').matches)setTimeout(()=>cards[mk].scrollIntoView({behavior:'smooth',block:'center'}),500);
  await wait(700);
  for(const t of ['Game dimulai dalam 3…','Game dimulai dalam 2…','Game dimulai dalam 1…']){$('ptxt').textContent=t;await wait(900)}
- $('ptxt').textContent='Mulai! Tarik yang kuat!';$('again').hidden=false;
+ $('ptxt').textContent='Mulai! Tarik yang kuat!';await wait(900);return play(order,mk);
 }
+const QS=[
+ {q:'Sisi siku-siku sebuah segitiga 3 cm dan 4 cm. Berapa panjang sisi miringnya?',o:['5 cm','6 cm','7 cm','12 cm'],a:0},
+ {q:'12 × 8 = …',o:['86','96','108','88'],a:1},
+ {q:'Hasil dari 3² + 4² adalah …',o:['14','24','25','49'],a:2},
+ {q:'Keliling persegi dengan sisi 9 cm adalah …',o:['18 cm','27 cm','36 cm','81 cm'],a:2},
+ {q:'Hasil dari 1/2 + 1/4 adalah …',o:['2/6','3/4','1/6','2/4'],a:1},
+ {q:'Nilai x pada 2x + 5 = 17 adalah …',o:['5','6','7','11'],a:1},
+ {q:'Luas segitiga dengan alas 10 cm dan tinggi 6 cm adalah …',o:['16 cm²','30 cm²','60 cm²','32 cm²'],a:1}],TARGET=5,sc=[0,0,0];
+const upd=()=>sc.forEach((v,k)=>{$('kn'+k).style.left=Math.min(100,v/TARGET*100)+'%';$('sc'+k).textContent=v+'/'+TARGET});
+async function play(order,mk){
+ sc.fill(0);$('board').hidden=true;$('play').hidden=false;window.scrollTo(0,0);
+ $('lanes').innerHTML=TEAMS.map((t,k)=>`<div class="ln${k===mk?' mine':''}" style="--c:${t.c}"><div class="lt hand">${t.n}${k===mk?'<span class="tag">Timmu</span>':''}</div><div class="trk"><div class="rope"></div><span class="knot" id="kn${k}"></span></div><b id="sc${k}">0/${TARGET}</b></div>`).join('');
+ for(let r=0;r<QS.length;r++){
+  const q=QS[r],ops=$('opts'),bar=$('bar'),fb=$('fb');
+  $('qn').textContent='Soal '+(r+1)+'/'+QS.length;$('q').textContent=q.q;fb.textContent='';fb.className='fb';
+  $('ptxt').textContent='Jawab cepat, tarik talinya!';
+  ops.innerHTML=q.o.map((t,i)=>`<button class="op" type="button" data-i="${i}"><i>${'ABCD'[i]}</i>${t}</button>`).join('');
+  bar.style.transition='none';bar.style.transform='scaleX(1)';bar.offsetWidth;bar.style.transition='transform 15s linear';bar.style.transform='scaleX(0)';
+  const pick=await new Promise(res=>{const to=setTimeout(()=>res(-1),15000);ops.onclick=e=>{const b=e.target.closest('.op');if(b){clearTimeout(to);res(+b.dataset.i)}}});
+  const m=getComputedStyle(bar).transform;bar.style.transition='none';bar.style.transform=m;ops.onclick=null;
+  [...ops.children].forEach(b=>{b.disabled=true;const i=+b.dataset.i;if(i===q.a)b.classList.add('ok');else if(i===pick)b.classList.add('no')});
+  const good=pick===q.a;
+  fb.className='fb '+(good?'ok':'no');fb.textContent=pick<0?'Waktu habis! Timmu belum menarik tali.':good?'Benar! Timmu menarik tali.':'Kurang tepat. Timmu belum menarik tali.';
+  [0,1,2].forEach(k=>sc[k]+=k===mk?+good:+(Math.random()<.5));upd();
+  await wait(1800);
+  if(Math.max(...sc)>=TARGET)break;
+ }
+ win(order,mk);
+}
+function win(order,mk){
+ const tb=[Math.random(),Math.random(),Math.random()],rank=[0,1,2].sort((a,b)=>sc[b]-sc[a]||tb[b]-tb[a]),w=rank[0],mine=w===mk,pos=rank.indexOf(mk)+1;
+ $('play').hidden=true;$('win').hidden=false;window.scrollTo(0,0);
+ $('wt').innerHTML=mine?'Timmu <span>menang!</span>':TEAMS[w].n+' <span>menang!</span>';
+ $('ws').textContent=mine?'Selamat! Kerja sama timmu berhasil menarik tali sampai garis akhir.':'Timmu finis di posisi ke-'+pos+'. Tali masih bisa ditarik, coba lagi!';
+ $('pod').innerHTML=[1,0,2].map(i=>{const k=rank[i],t=TEAMS[k];return `<div class="pd${k===mk?' mine':''}" style="--c:${t.c};--t:${t.t};--h:${[190,150,120][i]}px"><span class="rk">${i+1}</span><span class="hand">${t.n}</span><small>${sc[k]} tarikan</small>${k===mk?'<span class="tag">Timmu</span>':''}</div>`}).join('');
+ $('wm').innerHTML=order.map((p,j)=>j%3===w?chip(p):'').join('');
+ $('ptxt').textContent='Game selesai! '+TEAMS[w].n+' juara.';
+ if(rm)return;
+ const C=['#f2c230','#c8362f','#3f9e62','#f4ecd8','#8fb8e8'];
+ for(let i=0;i<(mine?60:24);i++){const e=document.createElement('i');e.className='cf';e.style.cssText=`left:${Math.random()*100}vw;background:${C[i%5]};animation-duration:${2.4+Math.random()*2.2}s;animation-delay:${Math.random()*1.2}s;--r:${Math.random()*720-360}deg`;document.body.appendChild(e);setTimeout(()=>e.remove(),6500)}
+}
+$('again2').onclick=()=>{$('play').hidden=true;$('win').hidden=true;$('again').onclick()};
 $('demo').onclick=start;
 $('again').onclick=()=>{started=false;n=3;main.classList.remove('go');$('wait').hidden=false;$('board').hidden=true;$('again').hidden=true;$('demo').hidden=false;
  $('ptxt').textContent='Game akan dimulai segera…';$('bt').innerHTML='Membagi <span>kelompok…</span>';$('bs').textContent='Nama-nama peserta sedang diacak ke tiga kelompok.';render(-1);timer=setInterval(tick,4000)};

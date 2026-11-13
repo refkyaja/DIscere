@@ -541,6 +541,100 @@ export function setupMultiplayerSocket(io: Server) {
     socket.on('sesi:gabung', handleSesiGabung);
     socket.on('sesi:reconnect', handleSesiGabung);
 
+    // Event: Cek validitas token/PIN sebelum lanjut ke input nama
+    const handleSesiCekToken = async (
+      data: { token?: string },
+      callback?: (res: { success: boolean; pesan?: string; game?: string }) => void
+    ) => {
+      try {
+        const rawToken = typeof data?.token === 'string' ? data.token.trim().toUpperCase() : '';
+        if (!rawToken) {
+          callback?.({
+            success: false,
+            pesan: 'Kode PIN tidak ditemukan atau sesi telah berakhir.',
+          });
+          return;
+        }
+
+        // Tolak bila token merujuk ke sesi Solo
+        if (kerupukManager.dapatkanSesi(rawToken)) {
+          callback?.({
+            success: false,
+            pesan: 'Sesi Solo Makan Kerupuk tidak menggunakan ruang peserta maupun siswa.',
+          });
+          return;
+        }
+
+        let sesiBalap = balapKarungManager.dapatkanSesiDariToken(rawToken);
+        let sesiPanjat = !sesiBalap ? panjatPinangManager.dapatkanSesiDariToken(rawToken) : undefined;
+        let sesiKerupuk = !sesiBalap && !sesiPanjat ? kerupukMultiManager.dapatkanSesiDariToken(rawToken) : undefined;
+        let sesiTarik = !sesiBalap && !sesiPanjat && !sesiKerupuk ? multiManager.dapatkanSesiDariToken(rawToken) : undefined;
+
+        if (!sesiBalap && !sesiPanjat && !sesiKerupuk && !sesiTarik) {
+          const dbSesi = await prisma.session.findFirst({
+            where: { token: rawToken, status: { in: ['lobi', 'jalan'] } },
+            include: { template: { select: { game: true } } },
+          });
+          if (
+            dbSesi?.mode === 'solo' &&
+            (dbSesi.template.game === 'makan_kerupuk' || dbSesi.template.game === 'tarik_tambang')
+          ) {
+            callback?.({
+              success: false,
+              pesan: 'Mode Solo dimainkan langsung oleh guru di perangkat utama dan tidak menerima siswa.',
+            });
+            return;
+          }
+          if (dbSesi?.template.game === 'balap_karung') {
+            sesiBalap = (await balapKarungManager.pulihkanSesiDariDb(dbSesi.id)) || undefined;
+          } else if (dbSesi?.template.game === 'panjat_pinang') {
+            sesiPanjat = (await panjatPinangManager.pulihkanSesiDariDb(dbSesi.id)) || undefined;
+          } else if (dbSesi?.template.game === 'makan_kerupuk' && dbSesi.mode === 'multi') {
+            sesiKerupuk = (await kerupukMultiManager.pulihkanSesiDariDb(dbSesi.id)) || undefined;
+          } else if (dbSesi?.template.game === 'tarik_tambang' && dbSesi.mode === 'multi') {
+            sesiTarik = (await multiManager.pulihkanSesiDariDb(dbSesi.id)) || undefined;
+          }
+        }
+
+        const targetSesi = sesiBalap || sesiPanjat || sesiKerupuk || sesiTarik;
+        if (!targetSesi) {
+          callback?.({
+            success: false,
+            pesan: 'Kode PIN tidak ditemukan atau sesi telah berakhir.',
+          });
+          return;
+        }
+
+        if (targetSesi.status !== 'lobi') {
+          callback?.({
+            success: false,
+            pesan: 'Sesi ini sudah dimulai atau sudah berakhir.',
+          });
+          return;
+        }
+
+        const game = sesiBalap
+          ? 'balap_karung'
+          : sesiPanjat
+            ? 'panjat_pinang'
+            : sesiKerupuk
+              ? 'makan_kerupuk'
+              : 'tarik_tambang';
+
+        callback?.({
+          success: true,
+          game,
+        });
+      } catch (err: any) {
+        callback?.({
+          success: false,
+          pesan: err?.message || 'Kode PIN tidak ditemukan atau sesi telah berakhir.',
+        });
+      }
+    };
+
+    socket.on('sesi:cek_token', handleSesiCekToken);
+
     // 2. Host (Guru) bergabung dan mengikat socket ke room sesi
     socket.on(
       'sesi:host_join',
@@ -2198,8 +2292,219 @@ export function setupMultiplayerSocket(io: Server) {
       }
     );
 
+    // 5b. Guru membatalkan sesi saat masih di lobi
+    socket.on(
+      'sesi:batalkan',
+      async (data: { sessionId: string; game?: string; hostId?: string }, callback?: (res: any) => void) => {
+        try {
+          const parsed = hostSessionPayloadSchema.safeParse(data || {});
+          if (!parsed.success) {
+            callback?.({
+              success: false,
+              pesan: parsed.error.issues[0]?.message || 'ID sesi wajib diisi.',
+            });
+            return;
+          }
+          const { sessionId } = parsed.data;
+
+          // 0b. Sesi Balap Karung
+          const sesiBalap = balapKarungManager.dapatkanSesi(sessionId);
+          if (sesiBalap) {
+            const auth = pastikanHostSesi(socket, sesiBalap.hostId);
+            if (!auth.ok) {
+              callback?.({ success: false, pesan: auth.pesan });
+              return;
+            }
+            const roomName = `session:${sesiBalap.sessionId}`;
+            bersihkanTimerSesi(sesiBalap.sessionId);
+            balapKarungManager.batalkanSesi(sessionId);
+            void prisma.session.update({
+              where: { id: sessionId },
+              data: { status: 'selesai', selesaiPada: new Date() },
+            }).catch(() => {});
+            io.to(roomName).emit('sesi:dibatalkan', {
+              game: 'balap_karung',
+              alasan: 'guru_keluar',
+              pesan: 'Sesi telah dibatalkan oleh guru.',
+            });
+            callback?.({ success: true });
+            return;
+          }
+
+          // 0. Sesi Panjat Pinang
+          const sesiPanjat = panjatPinangManager.dapatkanSesi(sessionId);
+          if (sesiPanjat) {
+            const auth = pastikanHostSesi(socket, sesiPanjat.hostId);
+            if (!auth.ok) {
+              callback?.({ success: false, pesan: auth.pesan });
+              return;
+            }
+            const roomName = `session:${sesiPanjat.sessionId}`;
+            bersihkanTimerSesi(sesiPanjat.sessionId);
+            panjatPinangManager.batalkanSesi(sessionId);
+            void prisma.session.update({
+              where: { id: sessionId },
+              data: { status: 'selesai', selesaiPada: new Date() },
+            }).catch(() => {});
+            io.to(roomName).emit('sesi:dibatalkan', {
+              game: 'panjat_pinang',
+              alasan: 'guru_keluar',
+              pesan: 'Sesi telah dibatalkan oleh guru.',
+            });
+            callback?.({ success: true });
+            return;
+          }
+
+          // 0c. Sesi Makan Kerupuk Multiplayer
+          const sesiKerupuk = kerupukMultiManager.dapatkanSesi(sessionId);
+          if (sesiKerupuk) {
+            const auth = pastikanHostSesi(socket, sesiKerupuk.hostId);
+            if (!auth.ok) {
+              callback?.({ success: false, pesan: auth.pesan });
+              return;
+            }
+            const roomName = `session:${sesiKerupuk.sessionId}`;
+            bersihkanTimerSesi(sesiKerupuk.sessionId);
+            kerupukMultiManager.batalkanSesi(sessionId);
+            void prisma.session.update({
+              where: { id: sessionId },
+              data: { status: 'selesai', selesaiPada: new Date() },
+            }).catch(() => {});
+            io.to(roomName).emit('sesi:dibatalkan', {
+              game: 'makan_kerupuk',
+              alasan: 'guru_keluar',
+              pesan: 'Sesi telah dibatalkan oleh guru.',
+            });
+            callback?.({ success: true });
+            return;
+          }
+
+          // B. Sesi Tarik Tambang
+          const sesiTarik = multiManager.dapatkanSesi(sessionId);
+          if (sesiTarik) {
+            const auth = pastikanHostSesi(socket, sesiTarik.hostId);
+            if (!auth.ok) {
+              callback?.({ success: false, pesan: auth.pesan });
+              return;
+            }
+            const roomName = `session:${sesiTarik.sessionId}`;
+            bersihkanTimerSesi(sesiTarik.sessionId);
+            multiManager.batalkanSesi(sessionId);
+            void prisma.session.update({
+              where: { id: sessionId },
+              data: { status: 'selesai', selesaiPada: new Date() },
+            }).catch(() => {});
+            io.to(roomName).emit('sesi:dibatalkan', {
+              game: 'tarik_tambang',
+              alasan: 'guru_keluar',
+              pesan: 'Sesi telah dibatalkan oleh guru.',
+            });
+            callback?.({ success: true });
+            return;
+          }
+
+          // Fallback jika tidak ditemukan di memori tapi ada di database
+          const dbSesi = await prisma.session.findUnique({ where: { id: sessionId } });
+          if (dbSesi) {
+            const auth = pastikanHostSesi(socket, dbSesi.hostId);
+            if (!auth.ok) {
+              callback?.({ success: false, pesan: auth.pesan });
+              return;
+            }
+            await prisma.session.update({
+              where: { id: sessionId },
+              data: { status: 'selesai', selesaiPada: new Date() },
+            });
+            io.to(`session:${sessionId}`).emit('sesi:dibatalkan', {
+              game: dbSesi.mode,
+              alasan: 'guru_keluar',
+              pesan: 'Sesi telah dibatalkan oleh guru.',
+            });
+            callback?.({ success: true });
+            return;
+          }
+
+          callback?.({ success: false, pesan: 'Sesi tidak ditemukan.' });
+        } catch (err: any) {
+          callback?.({ success: false, pesan: err.message || 'Gagal membatalkan sesi.' });
+        }
+      }
+    );
+
     // 6. Penanganan siswa atau host disconnect
     socket.on('disconnect', () => {
+      // Pengecekan apakah socket yang disconnect adalah Host/Guru sesi yang masih berstatus 'lobi'
+      for (const sesi of balapKarungManager.dapatkanSemuaSesi()) {
+        if (sesi.hostSocketId === socket.id && sesi.status === 'lobi') {
+          const roomName = `session:${sesi.sessionId}`;
+          bersihkanTimerSesi(sesi.sessionId);
+          balapKarungManager.batalkanSesi(sesi.sessionId);
+          void prisma.session.update({
+            where: { id: sesi.sessionId },
+            data: { status: 'selesai', selesaiPada: new Date() },
+          }).catch(() => {});
+          io.to(roomName).emit('sesi:dibatalkan', {
+            game: 'balap_karung',
+            alasan: 'guru_keluar',
+            pesan: 'Guru telah keluar. Sesi dibatalkan.',
+          });
+          return;
+        }
+      }
+
+      for (const sesi of panjatPinangManager.dapatkanSemuaSesi()) {
+        if (sesi.hostSocketId === socket.id && sesi.status === 'lobi') {
+          const roomName = `session:${sesi.sessionId}`;
+          bersihkanTimerSesi(sesi.sessionId);
+          panjatPinangManager.batalkanSesi(sesi.sessionId);
+          void prisma.session.update({
+            where: { id: sesi.sessionId },
+            data: { status: 'selesai', selesaiPada: new Date() },
+          }).catch(() => {});
+          io.to(roomName).emit('sesi:dibatalkan', {
+            game: 'panjat_pinang',
+            alasan: 'guru_keluar',
+            pesan: 'Guru telah keluar. Sesi dibatalkan.',
+          });
+          return;
+        }
+      }
+
+      for (const sesi of kerupukMultiManager.dapatkanSemuaSesi()) {
+        if (sesi.hostSocketId === socket.id && sesi.status === 'lobi') {
+          const roomName = `session:${sesi.sessionId}`;
+          bersihkanTimerSesi(sesi.sessionId);
+          kerupukMultiManager.batalkanSesi(sesi.sessionId);
+          void prisma.session.update({
+            where: { id: sesi.sessionId },
+            data: { status: 'selesai', selesaiPada: new Date() },
+          }).catch(() => {});
+          io.to(roomName).emit('sesi:dibatalkan', {
+            game: 'makan_kerupuk',
+            alasan: 'guru_keluar',
+            pesan: 'Guru telah keluar. Sesi dibatalkan.',
+          });
+          return;
+        }
+      }
+
+      for (const sesi of multiManager.dapatkanSemuaSesi()) {
+        if (sesi.hostSocketId === socket.id && sesi.status === 'lobi') {
+          const roomName = `session:${sesi.sessionId}`;
+          bersihkanTimerSesi(sesi.sessionId);
+          multiManager.batalkanSesi(sesi.sessionId);
+          void prisma.session.update({
+            where: { id: sesi.sessionId },
+            data: { status: 'selesai', selesaiPada: new Date() },
+          }).catch(() => {});
+          io.to(roomName).emit('sesi:dibatalkan', {
+            game: 'tarik_tambang',
+            alasan: 'guru_keluar',
+            pesan: 'Guru telah keluar. Sesi dibatalkan.',
+          });
+          return;
+        }
+      }
       // 0c. Cek apakah socket berasal dari peserta Makan Kerupuk Multiplayer
       const { sessionId: kerupukSessionId, pesertaId: kerupukPesertaId } =
         kerupukMultiManager.putusKoneksiPeserta(socket.id);

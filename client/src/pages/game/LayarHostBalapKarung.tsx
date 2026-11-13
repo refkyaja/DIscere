@@ -233,14 +233,9 @@ export default function LayarHostBalapKarung() {
       teams?: RingkasanTimClient[];
     }) => {
       if (data.game && data.game !== 'balap_karung') return;
-      setStatus('jalan');
-      setShowEndSection(false);
-      setLiveFeed([]);
       if (data.config) setConfig(data.config);
       if (data.teams) setTeams(data.teams);
-      soundEffects.startGame('race');
-      setCrowdCheer(true);
-      scheduleTimer(() => setCrowdCheer(false), 1300);
+      setIsStarting(true);
     };
 
     const handleBalapUpdate = (data: {
@@ -432,11 +427,20 @@ export default function LayarHostBalapKarung() {
     setIsStarting(true);
     const socket = getSocket();
     socket.emit('sesi:mulai', { sessionId: id }, (res: { success?: boolean; pesan?: string }) => {
-      setIsStarting(false);
       if (!res?.success) {
+        setIsStarting(false);
         alert(res?.pesan || 'Gagal memulai lomba Balap Karung Tim.');
       }
     });
+  };
+
+  const handleTransisiSelesai = () => {
+    setStatus('jalan');
+    setShowEndSection(false);
+    setLiveFeed([]);
+    soundEffects.startGame('race');
+    setCrowdCheer(true);
+    scheduleTimer(() => setCrowdCheer(false), 1300);
   };
 
   const handleAkhiriManual = () => {
@@ -462,6 +466,9 @@ export default function LayarHostBalapKarung() {
     if (status === 'jalan') {
       setModalKeluarOpen(true);
     } else {
+      if (id) {
+        getSocket().emit('sesi:batalkan', { sessionId: id, game: 'balap_karung' });
+      }
       navigate(returnUrl);
     }
   };
@@ -644,7 +651,7 @@ export default function LayarHostBalapKarung() {
   if (status === 'lobi') {
     return (
       <RuangTungguGuru
-        sessionId={id || ''}
+        sessionId={id || ''} 
         token={token || ''}
         qrDataUrl={qrDataUrl}
         gameType="balap_karung"
@@ -656,7 +663,9 @@ export default function LayarHostBalapKarung() {
         maxPeserta={config?.maxPeserta || 40}
         isStarting={isStarting}
         onMulai={handleMulai}
+        onTransisiSelesai={handleTransisiSelesai}
         onKembali={handleKembaliClick}
+        config={config}
         onKickPeserta={(pid) => {
           getSocket().emit('sesi:kick_peserta', { sessionId: id, pesertaId: pid });
         }}

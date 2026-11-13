@@ -22,6 +22,7 @@ export default function MainSiswa() {
   const [namaInput, setNamaInput] = useState(searchParams.get('nama') || '');
   const [formError, setFormError] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
+  const [isCheckingToken, setIsCheckingToken] = useState(false);
   const [joinStep, setJoinStep] = useState<'PIN' | 'NAMA'>(
     tokenAwal.length === 6 ? 'NAMA' : 'PIN'
   );
@@ -178,8 +179,22 @@ export default function MainSiswa() {
       setFormError('Kode PIN harus terdiri dari 6 angka.');
       return;
     }
-    setTokenInput(clean);
-    setJoinStep('NAMA');
+
+    setIsCheckingToken(true);
+    const socket = getSocket();
+    socket.emit(
+      'sesi:cek_token',
+      { token: clean },
+      (res?: { success: boolean; pesan?: string; game?: string }) => {
+        setIsCheckingToken(false);
+        if (!res?.success) {
+          setFormError(res?.pesan || 'Kode PIN tidak ditemukan atau sesi telah berakhir.');
+          return;
+        }
+        setTokenInput(clean);
+        setJoinStep('NAMA');
+      }
+    );
   };
 
   // Handler: Siswa Submit Form Gabung (Langkah 2)
@@ -223,6 +238,7 @@ export default function MainSiswa() {
         setIsJoining(false);
         if (!res?.success) {
           setFormError(res?.pesan || 'Gagal bergabung ke sesi.');
+          setJoinStep('PIN');
           return;
         }
 
@@ -641,10 +657,10 @@ export default function MainSiswa() {
                 />
                 <button
                   type="submit"
-                  disabled={!tokenInput.trim() || tokenInput.trim().length !== 6}
+                  disabled={isCheckingToken || !tokenInput.trim() || tokenInput.trim().length !== 6}
                   className="w-full py-2.5 sm:py-3 px-4 text-lg sm:text-xl font-bold text-white bg-[#173b2b] hover:bg-[#102c20] active:scale-[0.99] rounded-2xl shadow-md transition-all cursor-pointer font-['Caveat',sans-serif] tracking-wider disabled:opacity-50"
                 >
-                  Join
+                  {isCheckingToken ? 'Memeriksa...' : 'Join'}
                 </button>
               </form>
             ) : (

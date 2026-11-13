@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
 export interface RuangTungguGuruProps {
   sessionId: string;
@@ -13,9 +13,12 @@ export interface RuangTungguGuruProps {
   maxPeserta?: number;
   isStarting?: boolean;
   onMulai: () => void;
+  onTransisiSelesai?: () => void;
   onKembali?: () => void;
   onKickPeserta?: (pesertaId: string) => void;
   onIzinkanKembali?: (pesertaId: string) => void;
+  teams?: Array<{ id: string; nama: string; c?: string; t?: string; anggota?: any[] }>;
+  config?: any;
 }
 
 const AVATAR_BG = ['#7cc6a4', '#f2c230', '#e98a7a', '#8fb8e8', '#c4a2e0', '#9ad06a', '#f0a15a', '#6fc3c9'];
@@ -52,6 +55,7 @@ function AvatarSvg({ name, size = 44 }: { name: string; size?: number }) {
 export default function RuangTungguGuru({
   token,
   qrDataUrl,
+  gameType,
   gameTitle,
   metaDetail,
   daftarPeserta,
@@ -59,9 +63,11 @@ export default function RuangTungguGuru({
   maxPeserta,
   isStarting = false,
   onMulai,
+  onTransisiSelesai,
   onKembali,
   onKickPeserta,
   onIzinkanKembali,
+  config,
 }: RuangTungguGuruProps) {
   const [askingId, setAskingId] = useState<string | null>(null);
   const [kickedList, setKickedList] = useState<Array<{ id: string; nama: string }>>([]);
@@ -69,6 +75,135 @@ export default function RuangTungguGuru({
   const [zoomOpen, setZoomOpen] = useState(false);
   const [toastText, setToastText] = useState<string | null>(null);
   const [toastUndoAction, setToastUndoAction] = useState<(() => void) | null>(null);
+
+  // State Countdown 3-1 & Acak Nama untuk Guru
+  const [countdownVal, setCountdownVal] = useState<number | null>(null);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const poolRef = useRef<HTMLDivElement>(null);
+
+  // Pengelompokan Tim untuk visualisasi Guru (HANYA MENGGUNAKAN PESERTA ASLI)
+  const teamGroups = useMemo(() => {
+    if (gameType === 'tarik_tambang') {
+      const namaT1 = config?.namaTim1 || 'Tim Merah';
+      const namaT2 = config?.namaTim2 || 'Tim Putih';
+      const merah: typeof daftarPeserta = [];
+      const putih: typeof daftarPeserta = [];
+      daftarPeserta.forEach((p, idx) => {
+        if (p.tim === 'merah') merah.push(p);
+        else if (p.tim === 'putih') putih.push(p);
+        else if (idx % 2 === 0) merah.push(p);
+        else putih.push(p);
+      });
+      return [
+        { id: 'merah', nama: namaT1, c: '#c8362f', t: '#ffffff', anggota: merah },
+        { id: 'putih', nama: namaT2, c: '#1d8fe0', t: '#ffffff', anggota: putih },
+      ];
+    }
+
+    if (gameType === 'balap_karung' || gameType === 'makan_kerupuk') {
+      const defWarna = [
+        { id: 'merah', nama: 'Tim Merah', c: '#c8362f', t: '#ffffff' },
+        { id: 'kuning', nama: 'Tim Kuning', c: '#f2c230', t: '#1d3b2e' },
+        { id: 'hijau', nama: 'Tim Hijau', c: '#3f9e62', t: '#ffffff' },
+        { id: 'biru', nama: 'Tim Biru', c: '#1d8fe0', t: '#ffffff' },
+      ];
+      const numTeams = metaDetail?.includes('4 tim') || config?.jumlahTim === 4 ? 4 : 3;
+      const defs = defWarna.slice(0, numTeams);
+      return defs.map((d, k) => {
+        const anggota = daftarPeserta.filter((p, idx) => {
+          if (p.tim) return p.tim === d.id;
+          return idx % defs.length === k;
+        });
+        return {
+          id: d.id,
+          nama: d.nama,
+          c: d.c,
+          t: d.t,
+          anggota,
+        };
+      });
+    }
+
+    // Default / Panjat Pinang
+    return [
+      { id: 'peserta', nama: 'Peserta Lomba', c: '#1f4a37', t: '#f4ecd8', anggota: daftarPeserta },
+    ];
+  }, [gameType, daftarPeserta, config, metaDetail]);
+
+  // Transisi Alur Mulai Guru: Hitung Mundur 3-1 -> Acak Nama -> Halaman Game
+  const jalankanTransisiGuru = useCallback(() => {
+    if (isTransitioning) return;
+    setIsTransitioning(true);
+
+    const waitMs = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    const rm = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    (async () => {
+      // 1. HITUNG MUNDUR 3 - 1
+      setCountdownVal(3);
+      await waitMs(900);
+      setCountdownVal(2);
+      await waitMs(900);
+      setCountdownVal(1);
+      await waitMs(900);
+      setCountdownVal(null);
+
+      // 2. ACAK NAMA (FLIP animation kocok pool nama peserta)
+      await waitMs(350);
+
+      if (!rm && poolRef.current) {
+        const pool = poolRef.current;
+        for (let round = 0; round < 3; round++) {
+          const children = Array.from(pool.children) as HTMLElement[];
+          if (children.length > 1) {
+            const oldRects = new Map(children.map((c) => [c, c.getBoundingClientRect()]));
+            children.sort(() => Math.random() - 0.5).forEach((c) => pool.appendChild(c));
+            await Promise.all(
+              children.map((c) => {
+                const oldR = oldRects.get(c)!;
+                const newR = c.getBoundingClientRect();
+                const dx = oldR.left - newR.left;
+                const dy = oldR.top - newR.top;
+                const rot = (Math.random() - 0.5) * 14;
+                return c.animate(
+                  [
+                    { transform: `translate(${dx}px, ${dy}px)` },
+                    {
+                      transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 14}px) rotate(${rot}deg) scale(1.08)`,
+                      offset: 0.5,
+                    },
+                    { transform: 'none' },
+                  ],
+                  { duration: 380, easing: 'ease-in-out' }
+                ).finished;
+              })
+            );
+          }
+          await waitMs(80);
+        }
+      }
+
+      await waitMs(1500);
+
+      // 3. SELESAI -> Masuk ke arena game
+      if (onTransisiSelesai) {
+        onTransisiSelesai();
+      } else {
+        onMulai();
+      }
+    })();
+  }, [isTransitioning, onTransisiSelesai, onMulai]);
+
+  const handleStartGameClick = () => {
+    onMulai();
+    jalankanTransisiGuru();
+  };
+
+  useEffect(() => {
+    if (isStarting && !isTransitioning) {
+      jalankanTransisiGuru();
+    }
+  }, [isStarting, isTransitioning, jalankanTransisiGuru]);
 
   // Auto-dismiss toast
   useEffect(() => {
@@ -577,7 +712,82 @@ export default function RuangTungguGuru({
           </div>
         </div>
 
-        {/* 2 KOLOM UTAMA: LEMBAR UNDANGAN DI KIRI (STATIS) & DENAH KELAS DI KANAN */}
+        {isTransitioning ? (
+          /* ============================================================ */
+          /* LOGIKA TRANSISI: ACAK NAMA (GURU MELIHAT PENGACAKAN TIM)     */
+          /* ============================================================ */
+          <div className="w-full flex-1 flex flex-col items-center justify-center animate-[popIn_0.35s_ease-out] my-auto py-2">
+            <h2 className="hand text-3xl sm:text-4xl lg:text-5xl text-[#f4ecd8] drop-shadow-md leading-tight text-center">
+              Mengacak <span className="text-[#f2c230]">nama…</span>
+            </h2>
+            <p className="text-xs sm:text-sm lg:text-base text-[#f4ecd8]/90 font-semibold mt-1 mb-3 text-center">
+              {teamGroups.length > 1
+                ? `Nama peserta dikocok, lalu dibagi ke ${teamGroups.length} kelompok.`
+                : 'Nama peserta dikocok, bersiaplah!'}
+            </p>
+
+            {/* POOL PESERTA SEMENTARA (UNTUK ANIMASI KOCOK) */}
+            <div
+              ref={poolRef}
+              className="flex flex-wrap items-center justify-center gap-2 max-w-2xl mx-auto my-2 p-3 bg-black/15 border-2 border-dashed border-[#f4ecd8]/40 rounded-2xl"
+            >
+              {daftarPeserta.map((p) => (
+                <span
+                  key={p.id}
+                  data-pid={p.id}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#fffdf6] border-2 border-[#e8dfc8] text-[#163a2b] font-extrabold text-xs sm:text-sm shadow-xs"
+                >
+                  <span className="w-5 h-5 rounded-full overflow-hidden shrink-0 inline-block">
+                    <AvatarSvg name={p.nama} size={20} />
+                  </span>
+                  <span className="truncate max-w-[120px]">{p.nama}</span>
+                </span>
+              ))}
+            </div>
+
+            {/* GRID KARTU KELOMPOK (SESUAI JUMLAH TIM) */}
+            <div
+              className={`grid gap-3 w-full max-w-4xl mx-auto mt-3 ${
+                teamGroups.length === 2
+                  ? 'grid-cols-2 max-w-xl'
+                  : teamGroups.length === 3
+                    ? 'grid-cols-1 sm:grid-cols-3 max-w-3xl'
+                    : 'grid-cols-2 sm:grid-cols-4 max-w-4xl'
+              }`}
+            >
+              {teamGroups.map((team) => (
+                <div
+                  key={team.id}
+                  className="bg-[#fffdf6] border-2 border-[#e8dfc8] rounded-2xl p-3 shadow-md text-left flex flex-col min-h-[140px]"
+                >
+                  <div
+                    className="flex items-center justify-between pb-1.5 border-b border-[#e8dfc8] mb-2"
+                    style={{ color: team.c }}
+                  >
+                    <span className="font-extrabold text-sm sm:text-base">{team.nama}</span>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-black/5 text-[#163a2b]">
+                      {team.anggota.length} siswa
+                    </span>
+                  </div>
+                  <ul className="space-y-1.5 overflow-y-auto max-h-[160px] custom-scrollbar flex-1">
+                    {team.anggota.map((m) => (
+                      <li
+                        key={m.id}
+                        className="flex items-center gap-1.5 text-xs font-bold text-[#163a2b] bg-[#fbf6e9] px-2 py-1 rounded-xl"
+                      >
+                        <span className="w-4 h-4 rounded-full overflow-hidden shrink-0 inline-block">
+                          <AvatarSvg name={m.nama} size={16} />
+                        </span>
+                        <span className="truncate">{m.nama}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+        /* 2 KOLOM UTAMA: LEMBAR UNDANGAN DI KIRI (STATIS) & DENAH KELAS DI KANAN */
         <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[260px_1fr] lg:grid-cols-[280px_1fr] xl:grid-cols-[300px_1fr] gap-3 sm:gap-5 items-stretch">
           {/* KOLOM KIRI: LEMBAR UNDANGAN (SHEET DENGAN SOLASI KUNING - STATIS) */}
           <section className="sheet shrink-0 flex flex-col justify-between self-start max-w-[270px] w-full mx-auto md:mx-0 select-none" aria-label="Undangan masuk">
@@ -707,7 +917,6 @@ export default function RuangTungguGuru({
                       </button>
                       <span className="relative w-11 h-11 rounded-full overflow-hidden shrink-0">
                         <AvatarSvg name={p.nama} size={44} />
-                        <i className="absolute right-0 bottom-0 w-2.5 h-2.5 rounded-full bg-[#4cc36b] border-2 border-[#fbf6e9]" />
                       </span>
                       <b className="text-xs sm:text-sm font-extrabold truncate max-w-[90%] text-center">
                         {p.nama}
@@ -756,6 +965,7 @@ export default function RuangTungguGuru({
             )}
           </section>
         </div>
+        )}
       </main>
 
       {/* ============================================================ */}
@@ -778,13 +988,35 @@ export default function RuangTungguGuru({
 
         <button
           type="button"
-          disabled={daftarPeserta.length < minPeserta || isStarting}
-          onClick={onMulai}
+          disabled={daftarPeserta.length < minPeserta || isStarting || isTransitioning}
+          onClick={handleStartGameClick}
           className="start"
         >
-          {isStarting ? 'Memulai Permainan…' : 'Mulai Game'}
+          {isTransitioning ? 'Membagi Kelompok…' : isStarting ? 'Memulai Permainan…' : 'Mulai Game'}
         </button>
       </footer>
+
+      {/* ============================================================ */}
+      {/* OVERLAY HITUNG MUNDUR 3 - 1 SAAT GURU KLIK MULAI            */}
+      {/* ============================================================ */}
+      {countdownVal !== null && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#0a2016]/92 backdrop-blur-xs text-[#f4ecd8] animate-[fadeIn_0.15s_ease-out]">
+          <div className="flex flex-col items-center gap-3">
+            <span className="font-bold text-xs sm:text-sm uppercase tracking-widest text-[#f2c230] animate-pulse">
+              Game Dimulai Dalam
+            </span>
+            <div
+              key={countdownVal}
+              className="hand text-8xl sm:text-9xl font-black text-[#f2c230] animate-[popIn_0.35s_cubic-bezier(0.34,1.56,0.64,1)] drop-shadow-[0_4px_20px_rgba(242,194,48,0.65)] leading-none select-none"
+            >
+              {countdownVal}
+            </div>
+            <p className="text-xs sm:text-sm font-bold text-[#f4ecd8]/90 max-w-xs text-center">
+              Bersiaplah! Nama peserta akan segera diacak...
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ============================================================ */}
       {/* 4. MODAL ZOOM QR & PIN BESAR (UNTUK PROYEKTOR KELAS)        */}

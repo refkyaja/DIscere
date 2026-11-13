@@ -177,10 +177,7 @@ export default function LayarHostKerupukMulti({
 
     const handleGameMulai = (data: { game?: string }) => {
       if (data.game && data.game !== 'makan_kerupuk') return;
-      setStatus('jalan');
-      soundEffects.startGame('whistle');
-      setCrowdCheer(true);
-      setTimeout(() => setCrowdCheer(false), 2000);
+      setIsStarting(true);
     };
 
     const handleKerupukUpdate = (data: {
@@ -288,11 +285,19 @@ export default function LayarHostKerupukMulti({
     setIsStarting(true);
     const socket = getSocket();
     socket.emit('sesi:mulai', { sessionId: id }, (res: any) => {
-      setIsStarting(false);
       if (!res?.success) {
+        setIsStarting(false);
         alert(res?.pesan || 'Gagal memulai lomba Makan Kerupuk.');
       }
     });
+  };
+
+  const handleTransisiSelesai = () => {
+    setStatus('jalan');
+    soundEffects.startGame('whistle');
+    setCrowdCheer(true);
+    setTimeout(() => setCrowdCheer(false), 2000);
+    setIsStarting(false);
   };
 
   const handleKonfirmasiAkhiri = () => {
@@ -355,6 +360,9 @@ export default function LayarHostKerupukMulti({
     if (status === 'jalan') {
       setModalKeluarOpen(true);
     } else {
+      if (id) {
+        getSocket().emit('sesi:batalkan', { sessionId: id, game: 'makan_kerupuk' });
+      }
       navigate(getGameConfigUrl());
     }
   };
@@ -565,7 +573,9 @@ export default function LayarHostKerupukMulti({
         maxPeserta={initialSession.config?.maxPeserta || 40}
         isStarting={isStarting}
         onMulai={handleMulaiLomba}
+        onTransisiSelesai={handleTransisiSelesai}
         onKembali={handleKembaliClick}
+        config={initialSession.config}
         onKickPeserta={(pid) => {
           handleKickPeserta(pid);
         }}

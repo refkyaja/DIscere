@@ -1030,14 +1030,18 @@ export const balapKarungManager = {
   },
 
   /**
-   * Menandai koneksi socket terputus tanpa menghilangkan progres pemain.
+   * Menandai koneksi socket terputus. Jika sesi masih di lobi, peserta dihapus dari sesi.
    */
-  putusKoneksiPeserta(socketId: string): { sessionId?: string; pesertaId?: string } {
+  putusKoneksiPeserta(socketId: string): { sessionId?: string; pesertaId?: string; wasRemoved?: boolean } {
     for (const sesi of sesiBalapMap.values()) {
       for (const p of sesi.peserta.values()) {
         if (p.socketId === socketId) {
+          if (sesi.status === 'lobi') {
+            sesi.peserta.delete(p.id);
+            return { sessionId: sesi.sessionId, pesertaId: p.id, wasRemoved: true };
+          }
           p.connected = false;
-          return { sessionId: sesi.sessionId, pesertaId: p.id };
+          return { sessionId: sesi.sessionId, pesertaId: p.id, wasRemoved: false };
         }
       }
     }
@@ -1909,5 +1913,16 @@ export const balapKarungManager = {
       sesiBalapMap.delete(sessionId);
     }
     dbWriteQueues.delete(sessionId);
+  },
+
+  batalkanSesi(sessionId: string): SesiBalapKarungActive | null {
+    const sesi = sesiBalapMap.get(sessionId);
+    if (!sesi) return null;
+    this.hapusSesi(sessionId);
+    return sesi;
+  },
+
+  dapatkanSemuaSesi(): SesiBalapKarungActive[] {
+    return Array.from(sesiBalapMap.values());
   },
 };
