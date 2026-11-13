@@ -28,12 +28,12 @@ export interface RuangTungguSiswaProps {
   onMulaiPermainan: () => void;
 }
 
-// Skema warna avatar deterministik berdasarkan nama
+// Skema warna avatar deterministik berdasarkan ID/nama peserta
 const AV_BG = ['#7cc6a4', '#f2c230', '#e98a7a', '#8fb8e8', '#c4a2e0', '#9ad06a', '#f0a15a', '#6fc3c9'];
 const AV_SKIN = ['#f0b98d', '#e9b08a', '#f3c9a2'];
 const AV_HAIR = ['#2b2019', '#3b2a22', '#1c1c24', '#5a3a22'];
 
-function hashName(str: string): number {
+function hashString(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     hash = (hash << 5) - hash + str.charCodeAt(i);
@@ -42,16 +42,18 @@ function hashName(str: string): number {
   return Math.abs(hash);
 }
 
-function getAvatarSvgString(name: string, size = 40): string {
-  const h = hashName(name || 'peserta');
+function getAvatarSvgString(id?: string, name?: string, size = 40): string {
+  const seed = id || name || 'peserta';
+  const h = hashString(seed);
   const bg = AV_BG[h % AV_BG.length];
   const sk = AV_SKIN[(h >> 2) % AV_SKIN.length];
   const hr = AV_HAIR[(h >> 4) % AV_HAIR.length];
   return `<svg width="${size}" height="${size}" viewBox="0 0 40 40" aria-hidden="true" style="border-radius:50%;display:block;flex-shrink:0;"><circle cx="20" cy="20" r="20" fill="${bg}" /><circle cx="20" cy="22" r="11" fill="${sk}" /><path d="M8.5 20Q9 8 20 8Q31 8 31.5 20Q27 14 20 15Q13 14 8.5 20Z" fill="${hr}" /><circle cx="16" cy="23" r="1.6" fill="#222" /><circle cx="24" cy="23" r="1.6" fill="#222" /><path d="M16.5 27.5Q20 30 23.5 27.5" stroke="#7a2a24" fill="none" stroke-width="1.4" stroke-linecap="round" /></svg>`;
 }
 
-function AvatarSvg({ name, size = 40 }: { name: string; size?: number }) {
-  const h = hashName(name || 'peserta');
+function AvatarSvg({ id, name, size = 40 }: { id?: string; name: string; size?: number }) {
+  const seed = id || name || 'peserta';
+  const h = hashString(seed);
   const bg = AV_BG[h % AV_BG.length];
   const sk = AV_SKIN[(h >> 2) % AV_SKIN.length];
   const hr = AV_HAIR[(h >> 4) % AV_HAIR.length];
@@ -232,7 +234,7 @@ export default function RuangTungguSiswa({
     // 1. Jika game Tarik Tambang: selalu 2 kelompok
     if (gameType === 'tarik_tambang') {
       const namaT1 = config?.namaTim1 || 'Tim Merah';
-      const namaT2 = config?.namaTim2 || 'Tim Putih';
+      const namaT2 = config?.namaTim2 || 'Tim Biru';
       const anggotaMerah: PesertaItem[] = [];
       const anggotaPutih: PesertaItem[] = [];
 
@@ -250,7 +252,7 @@ export default function RuangTungguSiswa({
         {
           id: 'merah',
           nama: namaT1,
-          c: '#c8362f',
+          c: '#e2312d',
           t: '#ffffff',
           anggota: anggotaMerah,
         },
@@ -264,14 +266,14 @@ export default function RuangTungguSiswa({
       ];
     }
 
-    // 2. Jika Balap Karung: bisa 2, 3, atau 4 kelompok sesuai config.jumlahTim
+    // 2. Jika Balap Karung: bisa 3 atau 4 kelompok sesuai config.jumlahTim
     if (gameType === 'balap_karung') {
       const jumlahKelompok: number = Number(config?.jumlahTim) || (liveTeams.length > 0 ? liveTeams.length : 3);
       const warnaTim = [
-        { id: 'merah', nama: 'Tim Merah', c: '#c8362f', t: '#ffffff' },
-        { id: 'kuning', nama: 'Tim Kuning', c: '#f2c230', t: '#1d3b2e' },
-        { id: 'hijau', nama: 'Tim Hijau', c: '#3f9e62', t: '#ffffff' },
+        { id: 'merah', nama: 'Tim Merah', c: '#e2312d', t: '#ffffff' },
         { id: 'biru', nama: 'Tim Biru', c: '#1d8fe0', t: '#ffffff' },
+        { id: 'hijau', nama: 'Tim Hijau', c: '#1f9d55', t: '#ffffff' },
+        { id: 'kuning', nama: 'Tim Kuning', c: '#e6a100', t: '#ffffff' },
       ];
 
       const defs = warnaTim.slice(0, Math.min(4, Math.max(2, jumlahKelompok)));
@@ -292,7 +294,7 @@ export default function RuangTungguSiswa({
         return {
           id: d.id,
           nama: foundLiveTeam?.nama || d.nama,
-          c: d.c,
+          c: foundLiveTeam?.warna || d.c,
           t: d.t,
           anggota,
         };
@@ -460,7 +462,7 @@ export default function RuangTungguSiswa({
           `;
           chipEl.innerHTML = `
             <span style="width:24px;height:24px;border-radius:50%;overflow:hidden;flex-shrink:0;display:inline-block;">
-              ${getAvatarSvgString(p.nama, 24)}
+              ${getAvatarSvgString(p.id, p.nama, 24)}
             </span>
             <span style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.nama}</span>
             ${isSelf ? '<b style="background:#c8362f;color:#fff;font-size:9px;padding:1px 6px;border-radius:999px;font-weight:900;">Kamu</b>' : ''}
@@ -761,8 +763,8 @@ export default function RuangTungguSiswa({
         <div className="flex items-center gap-2 sm:gap-2.5">
           {/* Chip Nama Siswa */}
           <div className="flex items-center gap-2 bg-[#fbf6e9] border border-[#e8dfc8] rounded-full py-0.5 sm:py-1 px-2.5 sm:px-3 text-[#163a2b] font-extrabold text-xs sm:text-sm shadow-sm">
-            <span className="relative w-6 h-6 sm:w-7 sm:h-7 flex-none rounded-full overflow-hidden">
-              <AvatarSvg name={nama} size={28} />
+            <span className="relative w-6 h-6 sm:w-7 sm:h-7 flex-none inline-block">
+              <AvatarSvg id={pesertaId} name={nama} size={28} />
               <i className="absolute right-0 bottom-0 w-2 h-2 rounded-full bg-[#4cc36b] border border-[#fbf6e9]" />
             </span>
             <span className="max-w-[100px] sm:max-w-[150px] truncate">{nama}</span>
@@ -878,7 +880,9 @@ export default function RuangTungguSiswa({
                     </g>
                   </svg>
                   <small className="font-bold text-[9px] sm:text-[11px] text-[#5a6f62]">Peserta</small>
-                  <b className="text-xs sm:text-base font-black">{jumlahPeserta} siswa</b>
+                  <b className="text-xs sm:text-base font-black">
+                    {jumlahPeserta} / {config?.maxPeserta || 40}
+                  </b>
                 </div>
 
                 {/* Kolom Mode Game */}
@@ -915,23 +919,23 @@ export default function RuangTungguSiswa({
                   )}
                 </div>
 
-                <ul className="grid grid-cols-2 gap-1 max-h-[80px] sm:max-h-[105px] overflow-y-auto overscroll-contain pr-0.5 custom-scrollbar">
+                <ul className="grid grid-cols-2 gap-1.5 max-h-[110px] sm:max-h-[140px] overflow-y-auto overscroll-contain pr-1 custom-scrollbar">
                   {listPesertaTampil.map((p, idx) => {
                     const isMe = p.id === pesertaId || p.nama === nama;
                     return (
                       <li
                         key={p.id || idx}
-                        className={`flex items-center gap-1 p-0.5 px-1 rounded-lg text-[10px] sm:text-[11px] border ${
+                        className={`flex items-center gap-1.5 p-1 px-1.5 rounded-lg text-[10px] sm:text-[11px] border ${
                           isMe
-                            ? 'bg-[#1f4a37]/15 font-black text-[#163a2b] border-[#1f4a37]/30'
+                            ? 'bg-[#1f4a37]/15 font-black text-[#163a2b] border-[#1f4a37]/35 shadow-xs'
                             : 'bg-[#fffdf6] border-[#e8dfc8] font-bold text-[#163a2b]'
                         }`}
                       >
-                        <div className="relative w-4 h-4 sm:w-5 sm:h-5 shrink-0 rounded-full overflow-hidden">
-                          <AvatarSvg name={p.nama} size={20} />
-                          <i className="absolute right-0 bottom-0 w-1 h-1 rounded-full bg-[#4cc36b] border border-[#fbf6e9]" />
-                        </div>
-                        <span className="truncate flex-1">{p.nama}</span>
+                        <span className="relative w-4 h-4 sm:w-5 sm:h-5 shrink-0 inline-block">
+                          <AvatarSvg id={p.id} name={p.nama} size={20} />
+                          <i className="absolute right-0 bottom-0 w-1.5 h-1.5 rounded-full bg-[#4cc36b] border border-[#fbf6e9]" />
+                        </span>
+                        <span className="truncate flex-1 font-extrabold">{p.nama}</span>
                         {isMe && (
                           <span className="text-[7px] font-black bg-[#1f4a37] text-[#f4ecd8] px-1 py-0.2 rounded-full shrink-0">
                             Kamu
@@ -985,7 +989,7 @@ export default function RuangTungguSiswa({
                         >
                           <span className={`pc ${isSelf ? 'me' : ''}`}>
                             <span className="w-4 h-4 rounded-full overflow-hidden shrink-0 inline-block">
-                              <AvatarSvg name={p.nama} size={16} />
+                              <AvatarSvg id={p.id} name={p.nama} size={16} />
                             </span>
                             <span className="max-w-[70px] sm:max-w-[90px] truncate">{p.nama}</span>
                             {isSelf && (
@@ -1088,7 +1092,7 @@ export default function RuangTungguSiswa({
                                             : 'bg-[#fffdf6] border border-[#e8dfc8]'
                                         }`}
                                       >
-                                        <AvatarSvg name={member.nama} size={15} />
+                                        <AvatarSvg id={member.id} name={member.nama} size={15} />
                                         <span className="truncate max-w-[60px] sm:max-w-[75px]">{member.nama}</span>
                                         {isSelf && (
                                           <b className="bg-[#c8362f] text-white text-[7px] px-1 py-0.2 rounded-full font-black">
@@ -1158,10 +1162,10 @@ export default function RuangTungguSiswa({
                         : 'bg-[#fffdf6] border-[#e8dfc8] font-bold text-[#163a2b]'
                     }`}
                   >
-                    <div className="relative w-6 h-6 shrink-0 rounded-full overflow-hidden">
-                      <AvatarSvg name={p.nama} size={24} />
+                    <span className="relative w-6 h-6 shrink-0 inline-block">
+                      <AvatarSvg id={p.id} name={p.nama} size={24} />
                       <i className="absolute right-0 bottom-0 w-1.5 h-1.5 rounded-full bg-[#4cc36b] border border-[#fbf6e9]" />
-                    </div>
+                    </span>
                     <span className="truncate flex-1 text-xs">{p.nama}</span>
                     {isMe && (
                       <span className="text-[9px] font-black bg-[#1f4a37] text-[#f4ecd8] px-1.5 py-0.2 rounded-full shrink-0">
