@@ -120,9 +120,11 @@ export default function LayarHostKerupukMulti({
   const [copied, setCopied] = useState(false);
 
   const { isMuted, toggleMute } = useGameSoundLifecycle(status === 'jalan' || status === 'jeda', id);
-  const modeSelectUrl = `/guru/makan-kerupuk?templateId=${encodeURIComponent(
-    initialSession.templateId
-  )}&kembali=${encodeURIComponent('/guru?tab=template')}`;
+  const modeSelectUrl = initialSession.templateId
+    ? `/guru/makan-kerupuk?templateId=${encodeURIComponent(
+        initialSession.templateId
+      )}&kembali=${encodeURIComponent(effectiveReturnUrl)}`
+    : effectiveReturnUrl;
 
   const timerRef = useRef<number | null>(null);
 
@@ -422,19 +424,24 @@ export default function LayarHostKerupukMulti({
   };
 
   const handleMainLagi = async () => {
+    if (isRematching) return;
     try {
       setIsRematching(true);
       soundEffects.stopAll();
-      const res = await apiRequest<{ sessionId: string }>(`/sesi/${id}/main-lagi`, {
-        method: 'POST',
-      });
-      const safeBack = getGameConfigUrl();
-      navigate(`/guru/sesi/${res.sessionId}?kembali=${encodeURIComponent(safeBack)}`, {
-        replace: true,
-      });
-      window.location.reload();
+      const res = await apiRequest<{ sessionId?: string; session?: { id: string } }>(
+        `/sesi/${id}/main-lagi`,
+        {
+          method: 'POST',
+        }
+      );
+      const nextId = res.session?.id || res.sessionId;
+      if (nextId) {
+        window.location.href = `/guru/sesi/${nextId}?kembali=${encodeURIComponent(effectiveReturnUrl)}`;
+      } else {
+        throw new Error('Sesi baru tidak dapat dibuat.');
+      }
     } catch (err: any) {
-      alert(err.pesan || 'Gagal membuat sesi baru.');
+      alert(err.pesan || err.message || 'Gagal membuat sesi baru.');
     } finally {
       setIsRematching(false);
     }
@@ -908,22 +915,29 @@ export default function LayarHostKerupukMulti({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setStatus('lobi')}
-                  className="px-6 py-2.5 rounded-xl bg-[#5b6b8c] text-white font-extrabold text-sm shadow-[0_4px_0_#3d4a66] cursor-pointer"
+                  onClick={handleMainLagi}
+                  disabled={isRematching}
+                  className="px-6 py-2.5 rounded-xl bg-[#5b6b8c] text-white font-extrabold text-sm shadow-[0_4px_0_#3d4a66] cursor-pointer hover:brightness-105 active:translate-y-0.5"
                 >
-                  Ubah Peserta / Ke Lobi
+                  {isRematching ? 'Menyiapkan...' : 'Ubah Peserta / Ke Lobi'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => navigate(modeSelectUrl)}
-                  className="px-6 py-2.5 rounded-xl border border-[#e6d3ae] bg-white hover:bg-[#f6ead4] text-[#0f3d2e] font-extrabold text-sm shadow-[0_4px_0_#e6d3ae] cursor-pointer"
+                  onClick={() => {
+                    soundEffects.stopAll();
+                    navigate(modeSelectUrl);
+                  }}
+                  className="px-6 py-2.5 rounded-xl border border-[#e6d3ae] bg-white hover:bg-[#f6ead4] text-[#0f3d2e] font-extrabold text-sm shadow-[0_4px_0_#e6d3ae] cursor-pointer hover:brightness-105 active:translate-y-0.5"
                 >
                   Pilih Mode Lain
                 </button>
                 <button
                   type="button"
-                  onClick={() => navigate(effectiveReturnUrl)}
-                  className="px-6 py-2.5 rounded-xl bg-[#ffb81c] text-[#4a3000] font-extrabold text-sm shadow-[0_4px_0_#c98a00] cursor-pointer"
+                  onClick={() => {
+                    soundEffects.stopAll();
+                    navigate(effectiveReturnUrl);
+                  }}
+                  className="px-6 py-2.5 rounded-xl bg-[#ffb81c] text-[#4a3000] font-extrabold text-sm shadow-[0_4px_0_#c98a00] cursor-pointer hover:brightness-105 active:translate-y-0.5"
                 >
                   Dashboard Guru
                 </button>

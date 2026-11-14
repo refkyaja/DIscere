@@ -369,7 +369,7 @@ export default function LayarHostMulti() {
     ];
   }, [sesi?.hasil?.ringkasanTim, sesi?.config?.namaTim1, sesi?.config?.namaTim2, anggotaMerah, anggotaBiru]);
 
-  const canStart = anggotaMerah.length >= 1 && anggotaBiru.length >= 1;
+  const canStart = (sesi?.daftarPeserta?.length || 0) >= 1;
 
   const handleCopyJoin = async () => {
     if (!sesi) return;
@@ -485,23 +485,6 @@ export default function LayarHostMulti() {
     }
   };
 
-  const handleTogglePause = () => {
-    if (!id || busyAction || !sesi) return;
-    const socket = getSocket();
-    if (sesi.status === 'jeda') {
-      socket.emit('sesi:lanjut', { sessionId: id }, (res: any) => {
-        if (res && !res.success) {
-          setErrorPesan(res.pesan || 'Gagal melanjutkan lomba.');
-        }
-      });
-    } else {
-      socket.emit('sesi:jeda', { sessionId: id }, (res: any) => {
-        if (res && !res.success) {
-          setErrorPesan(res.pesan || 'Gagal menjeda lomba.');
-        }
-      });
-    }
-  };
 
   if (loading) {
     return (
@@ -586,7 +569,6 @@ export default function LayarHostMulti() {
         actionPulse={actionPulse}
         isMuted={muted}
         onToggleMute={isPlaying ? toggleMute : undefined}
-        onTogglePause={isPlaying ? handleTogglePause : undefined}
         onStop={isPlaying ? handleAkhiriManual : undefined}
         onBack={handleKembaliClick}
       />
@@ -641,7 +623,7 @@ export default function LayarHostMulti() {
                 <div className="space-y-2">
                   <div className="text-xs font-extrabold text-[#6b6a85]">
                     {currentSesi.daftarPeserta.length} siswa bergabung •{' '}
-                    {canStart ? 'Siap dimulai!' : 'Butuh min. 1 siswa per tim'}
+                    {canStart ? 'Siap dimulai!' : 'Menunggu siswa bergabung...'}
                   </div>
                   <button
                     type="button"
