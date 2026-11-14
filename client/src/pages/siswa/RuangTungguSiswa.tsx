@@ -328,34 +328,37 @@ export default function RuangTungguSiswa({
   const slotRefs = useRef<{ [pid: string]: HTMLElement | null }>({});
   const isAnimatingRef = useRef(false);
 
+  // Deteksi preferensi aksesibilitas gerakan
+  const isReducedMotion = useMemo(
+    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    []
+  );
+
   // Fungsi countdown & animasi saat guru klik mulai
   const jalankanTransisiMulai = useCallback(() => {
     if (isAnimatingRef.current) return;
     isAnimatingRef.current = true;
 
     const waitMs = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-    const rm = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const rm = isReducedMotion;
 
     (async () => {
-      // 1. HITUNG MUNDUR 3 - 1 (Dengan latar solid bersih tanpa transparansi)
-      setStatusText('Guru menekan Mulai! Bersiaplah…');
-      setCountdownVal(3);
-      await waitMs(900);
-      setCountdownVal(2);
-      await waitMs(900);
-      setCountdownVal(1);
-      await waitMs(900);
-      setCountdownVal(null);
-
-      // Jika game individu tanpa tim
-      if (teamGroups.length === 0) {
+      // 0. Untuk game individu tanpa tim (Panjat Pinang dan Makan Kerupuk)
+      // Lewati seluruh tahap pool & shuffle langsung ke permainan
+      if ((gameType !== 'tarik_tambang' && gameType !== 'balap_karung') || teamGroups.length === 0) {
         setStatusText('Mulai! Bersiaplah…');
-        await waitMs(400);
+        await waitMs(200);
+        try {
+          const socket = getSocket();
+          socket.emit('siswa:siap_soal', { token, pesertaId });
+        } catch (err) {
+          console.error('[siswa:siap_soal error]', err);
+        }
         onMulaiPermainan();
         return;
       }
 
-      // 2. TAMPILKAN PAPAN ACAK NAMA (Pool nama-nama peserta dikocok sebelum dibagi ke kelompok)
+      // 1. TAHAP POOL & SLOT KOSONG: Render pool dan kartu tim terlebih dahulu agar DOM stabil
       setIsStarting(true);
       setAnimStage('SHUFFLING');
       setHeadingText('Mengacak nama…');
@@ -367,19 +370,38 @@ export default function RuangTungguSiswa({
       setStatusText('Guru menekan Mulai! Mengacak nama…');
       setLandedIds([]);
 
-      // Tunggu mounting DOM papan dan pool
-      await waitMs(400);
+      // Tunggu mounting DOM papan, pool, dan slot kosong agar posisi layout sudah final
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      await waitMs(450);
 
-      // Kocok pool secara nyata (Animasi Shuffle)
+      // 2. TAHAP SHUFFLE: Kocok chip peserta di dalam pool (FLIP animation 4 putaran)
       if (!rm && poolRef.current) {
         const pool = poolRef.current;
         const children = Array.from(pool.children) as HTMLElement[];
 
         if (children.length > 1) {
-          // Jika ada lebih dari 1 peserta: acak posisi DOM dan jalankan FLIP animation
           for (let round = 0; round < 4; round++) {
             const oldRects = new Map(children.map((c) => [c, c.getBoundingClientRect()]));
-            children.sort(() => Math.random() - 0.5).forEach((c) => pool.appendChild(c));
+
+            if (children.length <= 3) {
+              // Untuk 2-3 peserta: rotasi deterministik tiap putaran agar DIJAMIN posisinya berpindah
+              const first = children.shift()!;
+              children.push(first);
+            } else {
+              // Untuk 4 peserta ke atas: kocok acak dan pastikan urutan berubah dari sebelumnya
+              const prevOrder = children.map((c) => c.getAttribute('data-pid') || '');
+              let attempts = 0;
+              let hasChanged = false;
+              while (!hasChanged && attempts < 6) {
+                children.sort(() => Math.random() - 0.5);
+                const newOrder = children.map((c) => c.getAttribute('data-pid') || '');
+                hasChanged = newOrder.some((pid, idx) => pid !== prevOrder[idx]);
+                attempts++;
+              }
+            }
+
+            // Terapkan urutan baru ke DOM pool
+            children.forEach((c) => pool.appendChild(c));
 
             await Promise.all(
               children.map((c) => {
@@ -387,7 +409,8 @@ export default function RuangTungguSiswa({
                 const newR = c.getBoundingClientRect();
                 const dx = oldR.left - newR.left;
                 const dy = oldR.top - newR.top;
-                const rot = (Math.random() - 0.5) * 16;
+                const rot = (round % 2 === 0 ? 1 : -1) * (10 + Math.random() * 8);
+
                 return c.animate(
                   [
                     { transform: `translate(${dx}px, ${dy}px)` },
@@ -404,7 +427,7 @@ export default function RuangTungguSiswa({
             await waitMs(120);
           }
         } else if (children.length === 1) {
-          // Jika hanya 1 peserta (misal saat tes solo): kocok dengan gerakan lompat & goyang
+          // Jika hanya 1 peserta (tes solo)
           for (let round = 0; round < 3; round++) {
             const rot = (round % 2 === 0 ? 1 : -1) * 12;
             await children[0].animate(
@@ -418,38 +441,67 @@ export default function RuangTungguSiswa({
             await waitMs(100);
           }
         }
+      } else if (rm) {
+        // Aksesibilitas: Saat reduced motion aktif, tetap beri jeda wajar agar tahap "Mengacak nama…" terbaca jelas
+        await waitMs(750);
       }
 
-      await waitMs(500);
+      await waitMs(350);
 
-      // 3. MASUK KE TAHAP MEMBAGI KELOMPOK (Flying Token)
+      // 3. TAHAP TERBANG (FLY): Terbang satu per satu bergantian round-robin antar tim
       setAnimStage('FLYING');
       setHeadingText('Membagi kelompok…');
       setSubText('Nama peserta sedang dibagi ke kelompok.');
       setStatusText('Membagi kelompok…');
 
-      // Tentukan urutan terbang: nama user (isSelf) TERAKHIR!
-      const allParticipants = [...listPesertaTampil];
-      const sequence = allParticipants.sort((a, b) => {
+      // Bangun urutan Round-Robin antar tim (Tim 0 -> Tim 1 -> Tim 2 -> Tim 0...)
+      const roundRobinList: typeof listPesertaTampil = [];
+      const maxTeamSize = Math.max(...teamGroups.map((tg) => tg.anggota.length), 0);
+
+      for (let slot = 0; slot < maxTeamSize; slot++) {
+        for (let t = 0; t < teamGroups.length; t++) {
+          const member = teamGroups[t].anggota[slot];
+          if (member && !roundRobinList.some((m) => m.id === member.id)) {
+            roundRobinList.push(member);
+          }
+        }
+      }
+      // Safety check: jika ada peserta yang belum masuk
+      listPesertaTampil.forEach((p) => {
+        if (!roundRobinList.some((m) => m.id === p.id)) {
+          roundRobinList.push(p);
+        }
+      });
+
+      // Urutkan agar nama user (isSelf) SELALU terbang paling akhir (persis logika seq referensi)
+      const sequence = roundRobinList.sort((a, b) => {
         const aIsSelf = a.id === pesertaId || a.nama === nama;
         const bIsSelf = b.id === pesertaId || b.nama === nama;
         return (aIsSelf ? 1 : 0) - (bIsSelf ? 1 : 0);
       });
 
-      // Terbang satu per satu
-      for (let i = 0; i < sequence.length; i++) {
-        const p = sequence[i];
+      // Penyesuaian durasi untuk jumlah peserta banyak (hingga 40 orang):
+      // Agar total tahap fly berkisar 3–7 detik berapa pun jumlah pesertanya
+      const totalFlyTargetMs = sequence.length <= 10
+        ? sequence.length * 360
+        : Math.min(6500, Math.max(3500, sequence.length * 150));
+      const staggerDelay = Math.max(100, Math.min(380, Math.floor(totalFlyTargetMs / sequence.length)));
+      const normalFlyDuration = Math.max(360, Math.min(600, Math.floor(staggerDelay * 1.7)));
+      const selfFlyDuration = Math.max(750, normalFlyDuration * 1.4);
+
+      const flyParticipant = async (p: typeof listPesertaTampil[0]) => {
         const isSelf = p.id === pesertaId || p.nama === nama;
-        const targetTeam = teamGroups.find((tg) => tg.anggota.some((a) => a.id === p.id || a.nama === p.nama)) || teamGroups[i % teamGroups.length];
+        const targetTeam = teamGroups.find((tg) => tg.anggota.some((a) => a.id === p.id || a.nama === p.nama)) || teamGroups[0];
         const pTeam = targetTeam?.id;
 
         const sourceEl = poolRef.current?.querySelector(`[data-pid="${p.id}"]`) as HTMLElement | null;
         const destEl = slotRefs.current[p.id];
 
-        if (!rm && sourceEl && destEl) {
-          const s = sourceEl.getBoundingClientRect();
-          const d = destEl.getBoundingClientRect();
+        const s = sourceEl?.getBoundingClientRect();
+        const d = destEl?.getBoundingClientRect();
+        const isValidCoords = Boolean(s && d && s.width > 0 && d.width > 0 && (s.top !== 0 || s.left !== 0));
 
+        if (!rm && isValidCoords && sourceEl && destEl && s && d) {
           const tok = document.createElement('div');
           tok.className = 'tok';
           tok.style.cssText = `
@@ -487,24 +539,26 @@ export default function RuangTungguSiswa({
           tok.appendChild(chipEl);
           document.body.appendChild(tok);
 
-          sourceEl.style.visibility = 'hidden';
+          const sourceChip = sourceEl.querySelector('.pc') as HTMLElement | null;
+          if (sourceChip) sourceChip.style.visibility = 'hidden';
 
-          const up = Math.min(s.top, d.top) - (isSelf ? 85 : 45);
+          const up = Math.min(s.top, d.top) - (isSelf ? 90 : 50);
           const sx = d.left > s.left ? 1 : -1;
+          const duration = isSelf ? selfFlyDuration : normalFlyDuration;
 
           await tok.animate(
             [
               { transform: `translate(${s.left}px, ${s.top}px)` },
               {
                 transform: `translate(${(s.left + d.left) / 2}px, ${up}px) scale(${
-                  isSelf ? 1.4 : 1.15
+                  isSelf ? 1.4 : 1.18
                 }) rotate(${sx * 6}deg)`,
                 offset: 0.5,
               },
               { transform: `translate(${d.left}px, ${d.top}px)` },
             ],
             {
-              duration: isSelf ? 850 : 520,
+              duration,
               easing: 'cubic-bezier(.4,0,.2,1)',
               fill: 'both',
             }
@@ -512,20 +566,42 @@ export default function RuangTungguSiswa({
 
           tok.remove();
         } else if (sourceEl) {
-          sourceEl.style.visibility = 'hidden';
+          const sourceChip = sourceEl.querySelector('.pc') as HTMLElement | null;
+          if (sourceChip) sourceChip.style.visibility = 'hidden';
         }
 
         // Tandai sudah mendarat di kartu tim
-        setLandedIds((prev) => [...prev, p.id]);
+        setLandedIds((prev) => (prev.includes(p.id) ? prev : [...prev, p.id]));
         if (pTeam) {
           setBumpingTeamId(pTeam);
-          setTimeout(() => setBumpingTeamId(null), 240);
+          setTimeout(() => setBumpingTeamId(null), 220);
         }
+      };
 
-        await waitMs(rm ? 0 : 250);
+      for (let i = 0; i < sequence.length; i++) {
+        const p = sequence[i];
+        const isLast = i === sequence.length - 1;
+
+        if (rm) {
+          // Aksesibilitas prefers-reduced-motion:
+          // Proses pendaratan satu per satu secara bertahap tanpa animasi gerak showy.
+          // Tetap ada jeda kecil antar peserta agar transisi terbaca jelas.
+          await flyParticipant(p);
+          if (!isLast) {
+            await waitMs(Math.max(160, Math.min(320, staggerDelay)));
+          }
+        } else {
+          // Mode normal: staggered fly dengan animasi floating token
+          const flyPromise = flyParticipant(p);
+          if (isLast) {
+            await flyPromise;
+          } else {
+            await waitMs(staggerDelay);
+          }
+        }
       }
 
-      // Semua mendarat!
+      // 4. SEMUA MENDARAT: Sembunyikan pool dan sorot kartu tim sendiri
       setAnimStage('DONE');
       const myTeam = teamGroups.find((tg) => tg.id === detectedMyTeam) ||
                      teamGroups.find((tg) => tg.anggota.some((a) => a.id === pesertaId || a.nama === nama)) ||
@@ -534,11 +610,26 @@ export default function RuangTungguSiswa({
       if (myTeam) {
         setHeadingText(`Kamu di ${myTeam.nama}!`);
         setSubText(`Namamu sudah masuk ke ${myTeam.nama}. Siap-siap, game segera dimulai!`);
+        setStatusText(`Kamu di ${myTeam.nama}!`);
       }
 
       await waitMs(1200);
 
-      // 4. BARU MASUK KE SOALNYA: Beri tahu server bahwa animasi selesai dan siswa siap menerima soal pertama
+      // 5. BARU JALANKAN HITUNG MUNDUR 3 - 1 MENUJU SOAL
+      setStatusText('Game dimulai dalam 3…');
+      setCountdownVal(3);
+      await waitMs(900);
+      setStatusText('Game dimulai dalam 2…');
+      setCountdownVal(2);
+      await waitMs(900);
+      setStatusText('Game dimulai dalam 1…');
+      setCountdownVal(1);
+      await waitMs(900);
+      setCountdownVal(null);
+      setStatusText('Mulai! Tarik yang kuat!');
+      await waitMs(200);
+
+      // 6. BERI TAHU SERVER BAHWA SISWA SELESAI ANIMASI & SIAP TERIMA SOAL PERTAMA
       try {
         const socket = getSocket();
         socket.emit('siswa:siap_soal', {
@@ -550,7 +641,7 @@ export default function RuangTungguSiswa({
       }
       onMulaiPermainan();
     })();
-  }, [teamGroups, listPesertaTampil, detectedMyTeam, pesertaId, nama, token, onMulaiPermainan]);
+  }, [gameType, teamGroups, listPesertaTampil, detectedMyTeam, pesertaId, nama, token, onMulaiPermainan]);
 
   jalankanTransisiMulaiRef.current = jalankanTransisiMulai;
 
@@ -1008,13 +1099,14 @@ export default function RuangTungguSiswa({
                   >
                     {listPesertaTampil.map((p) => {
                       const isSelf = p.id === pesertaId || p.nama === nama;
+                      const isLanded = landedIds.includes(p.id);
                       return (
                         <span
                           key={p.id}
                           data-pid={p.id}
-                          className={`pl ${landedIds.includes(p.id) ? 'gone' : ''}`}
+                          className={`pl ${isLanded ? 'gone' : ''}`}
                         >
-                          <span className={`pc ${isSelf ? 'me' : ''}`}>
+                          <span className={`pc ${isSelf ? 'me' : ''} ${isLanded ? 'invisible opacity-0' : ''}`}>
                             <span className="w-5 h-5 sm:w-6 sm:h-6 rounded-full overflow-hidden shrink-0 inline-block">
                               <AvatarSvg id={p.id} name={p.nama} size={24} />
                             </span>
@@ -1102,31 +1194,35 @@ export default function RuangTungguSiswa({
                                       ref={(el) => {
                                         if (el) slotRefs.current[member.id] = el;
                                       }}
-                                      className={`inline-flex rounded-full transition-all ${
-                                        hasLanded ? '' : 'border border-dashed border-[#1f4a37]/30'
+                                      className={`inline-flex items-center rounded-full transition-all ${
+                                        hasLanded
+                                          ? ''
+                                          : 'border border-dashed border-[#1f4a37]/35 min-h-[24px] sm:min-h-[26px] min-w-[65px] sm:min-w-[80px] bg-[#1f4a37]/5'
                                       }`}
                                     >
-                                      <span
-                                        className={`inline-flex items-center gap-1 rounded-full py-0.5 px-1.5 text-[9px] sm:text-[10px] font-black text-[#163a2b] shadow-xs transition-opacity ${
-                                          hasLanded
-                                            ? animStage === 'FLYING'
-                                              ? 'land opacity-100'
+                                      {hasLanded && (
+                                        <span
+                                          className={`inline-flex items-center gap-1 rounded-full py-0.5 px-1.5 text-[9px] sm:text-[10px] font-black text-[#163a2b] shadow-xs ${
+                                            animStage === 'FLYING'
+                                              ? isReducedMotion
+                                                ? 'opacity-100 transition-opacity duration-200'
+                                                : 'land opacity-100'
                                               : 'opacity-100'
-                                            : 'invisible opacity-0'
-                                        } ${
-                                          isSelf
-                                            ? 'bg-gradient-to-r from-[#ffe88a] to-[#f2c230] border border-[#c79a14] ring-1 ring-[#f2c230]'
-                                            : 'bg-[#fffdf6] border border-[#e8dfc8]'
-                                        }`}
-                                      >
-                                        <AvatarSvg id={member.id} name={member.nama} size={15} />
-                                        <span className="truncate max-w-[60px] sm:max-w-[75px]">{member.nama}</span>
-                                        {isSelf && (
-                                          <b className="bg-[#c8362f] text-white text-[7px] px-1 py-0.2 rounded-full font-black">
-                                            Kamu
-                                          </b>
-                                        )}
-                                      </span>
+                                          } ${
+                                            isSelf
+                                              ? 'bg-gradient-to-r from-[#ffe88a] to-[#f2c230] border border-[#c79a14] ring-1 ring-[#f2c230]'
+                                              : 'bg-[#fffdf6] border border-[#e8dfc8]'
+                                          }`}
+                                        >
+                                          <AvatarSvg id={member.id} name={member.nama} size={15} />
+                                          <span className="truncate max-w-[60px] sm:max-w-[75px]">{member.nama}</span>
+                                          {isSelf && (
+                                            <b className="bg-[#c8362f] text-white text-[7px] px-1 py-0.2 rounded-full font-black">
+                                              Kamu
+                                            </b>
+                                          )}
+                                        </span>
+                                      )}
                                     </span>
                                   );
                                 })
