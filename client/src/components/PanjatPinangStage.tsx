@@ -1,4 +1,4 @@
-import React, { useId, useMemo } from 'react';
+import React, { useId, useMemo, useState, useEffect } from 'react';
 import { ArrowLeft, RotateCcw, Pause, Play, StopCircle } from 'lucide-react';
 import './balapKarungFestival.css';
 import { PanjatClimberAvatar, ClimberLook } from './PanjatClimberAvatar';
@@ -43,6 +43,74 @@ const ANC_ROPES = [25, 50, 75] as const;
 const PH = 340;
 const HC = 96;
 
+/**
+ * Komponen Penonton 2D persis person(...) di panjat-pinang-solo.html
+ */
+function PanjatPerson({
+  w,
+  c,
+  sk,
+  hr,
+  flag,
+  animDelay,
+  idx = 0,
+}: {
+  w: number;
+  c: string;
+  sk: string;
+  hr: string;
+  flag: boolean;
+  animDelay?: string;
+  idx?: number;
+}) {
+  const pc = ['#2b4a8a', '#3a3a3a', '#6b3b1e', '#1f7a5a'][idx % 4];
+  return (
+    <svg
+      width={w}
+      viewBox="0 -16 40 92"
+      className="panjat-person"
+      style={{ animationDelay: animDelay }}
+      aria-hidden="true"
+    >
+      <ellipse cx="20" cy="74" rx="15" ry="2.6" fill="rgba(0,0,0,.22)" />
+      <rect x="11" y="50" width="8" height="22" rx="3" fill={pc} stroke="#2b2a4a" strokeWidth="1.2" />
+      <rect x="21" y="50" width="8" height="22" rx="3" fill={pc} stroke="#2b2a4a" strokeWidth="1.2" />
+      <ellipse cx="14.5" cy="73" rx="6" ry="2.8" fill="#2b2a4a" />
+      <ellipse cx="25.5" cy="73" rx="6" ry="2.8" fill="#2b2a4a" />
+      <g className="sL">
+        <path d="M9 34L4 52" stroke={sk} strokeWidth="4.6" strokeLinecap="round" />
+        <path d="M9 34L6 42" stroke={c} strokeWidth="6" strokeLinecap="round" />
+      </g>
+      {flag ? (
+        <>
+          <path d="M37 16V-12" stroke="#6b4423" strokeWidth="2" />
+          <path d="M37 -12h12v5h-12z" fill="#e2312d" />
+          <path d="M37 -7h12v5h-12z" fill="#fff" stroke="#ddd" strokeWidth="0.5" />
+          <path
+            d="M31 34L37 24L37 15"
+            stroke={sk}
+            strokeWidth="4.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+          />
+        </>
+      ) : (
+        <g className="sR">
+          <path d="M31 34L36 52" stroke={sk} strokeWidth="4.6" strokeLinecap="round" />
+          <path d="M31 34L34 42" stroke={c} strokeWidth="6" strokeLinecap="round" />
+        </g>
+      )}
+      <rect x="8" y="30" width="24" height="26" rx="8" fill={c} stroke="#2b2a4a" strokeWidth="1.2" />
+      <circle cx="20" cy="19" r="10" fill={sk} stroke="#2b2a4a" strokeWidth="1.2" />
+      <path d="M10 18Q20 4 30 18Q20 11 10 18Z" fill={hr} />
+      <circle cx="17" cy="20" r="1.1" fill="#2b2a4a" />
+      <circle cx="23" cy="20" r="1.1" fill="#2b2a4a" />
+      <path d="M17.5 24Q20 26 22.5 24" stroke="#8a2a2a" strokeWidth="1.2" fill="none" />
+    </svg>
+  );
+}
+
 export function PanjatPinangStage({
   tiangList,
   crowdCheer = false,
@@ -67,10 +135,10 @@ export function PanjatPinangStage({
   // 46 bendera bunting atas dan bawah
   const buntings = useMemo(() => Array.from({ length: 46 }, (_, i) => i), []);
 
-  // 34 penonton belakang
+  // 34 penonton belakang pagar kayu (#cb di panjat-pinang-solo.html)
   const crowdBack = useMemo(
     () =>
-      Array.from({ length: 32 }, (_, i) => ({
+      Array.from({ length: 34 }, (_, i) => ({
         idx: i,
         w: 28 + ((i * 7) % 9),
         c: ['#e2312d', '#ffffff', '#1d8fe0', '#ffb81c', '#1f9d55', '#ff7a59', '#7a3fd0'][i % 7],
@@ -81,18 +149,183 @@ export function PanjatPinangStage({
     []
   );
 
-  // Genangan air lumpur acak stabil
+  // 7 genangan air lumpur alami memantul kilau air
   const puddles = useMemo(
     () => [
-      { left: 12, top: 25, w: 90 },
-      { left: 38, top: 45, w: 120 },
-      { left: 62, top: 20, w: 85 },
-      { left: 82, top: 55, w: 105 },
-      { left: 24, top: 70, w: 110 },
-      { left: 74, top: 78, w: 95 },
+      { left: 12, top: 28, w: 90 },
+      { left: 48, top: 18, w: 110 },
+      { left: 84, top: 32, w: 95 },
+      { left: 23, top: 55, w: 125 },
+      { left: 72, top: 60, w: 130 },
+      { left: 45, top: 75, w: 100 },
+      { left: 88, top: 80, w: 85 },
     ],
     []
   );
+
+  // 6 rumpun rumput alami di tanah lumpur
+  const grassTufts = useMemo(
+    () => [
+      { left: 10, top: 35, w: 70 },
+      { left: 22, top: 65, w: 80 },
+      { left: 46, top: 25, w: 60 },
+      { left: 58, top: 82, w: 90 },
+      { left: 80, top: 40, w: 75 },
+      { left: 90, top: 72, w: 65 },
+    ],
+    []
+  );
+
+  // 12 bercak lumpur pekat
+  const mudDrops = useMemo(
+    () => [
+      { left: 8, top: 20, w: 14, h: 8 },
+      { left: 18, top: 40, w: 18, h: 9 },
+      { left: 35, top: 15, w: 12, h: 6 },
+      { left: 54, top: 30, w: 16, h: 8 },
+      { left: 66, top: 18, w: 20, h: 10 },
+      { left: 80, top: 22, w: 14, h: 7 },
+      { left: 15, top: 78, w: 18, h: 9 },
+      { left: 38, top: 65, w: 22, h: 11 },
+      { left: 62, top: 72, w: 16, h: 8 },
+      { left: 78, top: 85, w: 15, h: 7 },
+      { left: 94, top: 55, w: 20, h: 10 },
+      { left: 50, top: 90, w: 14, h: 7 },
+    ],
+    []
+  );
+
+  // Penonton di lapangan lumpur (#cl persis panjat-pinang-solo.html)
+  // Tersebar di 5 kedalaman perspektif dan otomatis menghindari tiang-tiang
+  const mudSpectators = useMemo(() => {
+    const polesX = tiangList.map((t) => t.xPct);
+    const skColors = ['#ffd9a8', '#e8b27d', '#c58c5a', '#f3c99b'];
+    const hrColors = ['#2b2a4a', '#4a2c17', '#111111', '#6b3b1e'];
+    const shirtColors = [
+      '#e2312d',
+      '#ffffff',
+      '#1d8fe0',
+      '#ffb81c',
+      '#1f9d55',
+      '#ff7a59',
+      '#c2332f',
+      '#7a3fd0',
+    ];
+
+    // 5 baris kedalaman dari atas tanah lumpur sampai bagian bawah panggung
+    const depthRows = [
+      { topPct: 47, baseW: 24 },
+      { topPct: 58, baseW: 28 },
+      { topPct: 69, baseW: 32 },
+      { topPct: 80, baseW: 36 },
+      { topPct: 91, baseW: 40 },
+    ];
+
+    const isNearPole = (x: number) => polesX.some((px) => Math.abs(x - px) < 8.5);
+
+    const list: Array<{
+      id: string;
+      leftPct: number;
+      topPct: number;
+      w: number;
+      c: string;
+      sk: string;
+      hr: string;
+      flag: boolean;
+      animDelay: string;
+      idx: number;
+    }> = [];
+
+    let count = 0;
+    depthRows.forEach((row, rowIdx) => {
+      const step = 4.8;
+      for (let x = 3; x <= 97; x += step) {
+        const jitterX = ((count * 7) % 5) - 2;
+        const actualX = Math.max(2, Math.min(98, x + jitterX));
+
+        if (isNearPole(actualX)) continue;
+
+        const tooClose = list.some(
+          (p) => Math.abs(p.topPct - row.topPct) < 3 && Math.abs(p.leftPct - actualX) < 4.2
+        );
+        if (tooClose) continue;
+
+        const jitterW = (count * 3) % 4;
+        const w = row.baseW + jitterW;
+        const jitterY = (((count * 11) % 5) - 2) * 0.8;
+        const finalTop = Math.max(46, Math.min(94, row.topPct + jitterY));
+
+        list.push({
+          id: `mud-spec-${rowIdx}-${count}`,
+          leftPct: actualX,
+          topPct: finalTop,
+          w,
+          c: shirtColors[(count * 3) % shirtColors.length],
+          sk: skColors[count % skColors.length],
+          hr: hrColors[(count * 2) % hrColors.length],
+          flag: count % 3 === 0,
+          animDelay: `-${((count * 0.23) % 1.6).toFixed(2)}s`,
+          idx: count,
+        });
+
+        count++;
+      }
+    });
+
+    return list;
+  }, [tiangList]);
+
+  // Sorak penonton berkala yang hidup
+  const [crowdSay, setCrowdSay] = useState<{
+    specIndex: number;
+    text: string;
+    isGreen: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    const cheerTextsGood = [
+      'Mantap!',
+      'Ayo naik!',
+      'Keren!',
+      'Terus semangat!',
+      'Hebat, lanjut!',
+      'Jangan berhenti!',
+      'Sikat!',
+      'Merdeka!',
+      'Pasti bisa!',
+    ];
+
+    const cheerTextsIdle = [
+      'Ayo ayo!',
+      'Semangat!',
+      'Pasti bisa!',
+      'Merdeka!',
+      'Gas terus!',
+      'Kuat-kuat!',
+      'Tarik napas!',
+    ];
+
+    const intervalId = window.setInterval(() => {
+      if (mudSpectators.length === 0) return;
+      const randomSpecIdx = Math.floor(Math.random() * mudSpectators.length);
+      const isCheer = crowdCheer;
+      const texts = isCheer ? cheerTextsGood : cheerTextsIdle;
+      const text = texts[Math.floor(Math.random() * texts.length)];
+      setCrowdSay({
+        specIndex: randomSpecIdx,
+        text,
+        isGreen: isCheer,
+      });
+
+      const timeoutId = window.setTimeout(() => {
+        setCrowdSay((prev) => (prev?.specIndex === randomSpecIdx ? null : prev));
+      }, 2500);
+
+      return () => window.clearTimeout(timeoutId);
+    }, 3800);
+
+    return () => window.clearInterval(intervalId);
+  }, [mudSpectators, crowdCheer]);
 
   return (
     <div
@@ -285,10 +518,10 @@ export function PanjatPinangStage({
         </div>
       ))}
 
-      {/* 5. Penonton Belakang Pagar */}
+      {/* 5. Penonton Belakang Pagar Kayu (#cb di panjat-pinang-solo.html) */}
       <div
         className={`absolute left-0 right-0 flex items-end justify-around px-1 ${
-          crowdCheer ? 'cheer' : ''
+          crowdCheer ? 'panjat-cheer' : ''
         }`}
         style={{
           top: 'calc(var(--hz) - 100px)',
@@ -298,27 +531,16 @@ export function PanjatPinangStage({
         }}
       >
         {crowdBack.map((sp) => (
-          <svg
-            key={sp.idx}
-            width={sp.w}
-            viewBox="0 -16 40 92"
-            className="bk-spec"
-            style={{ animationDelay: `-${(sp.idx * 0.2).toFixed(2)}s` }}
-          >
-            <ellipse cx="20" cy="74" rx="15" ry="2.6" fill="rgba(0,0,0,.22)" />
-            <rect x="11" y="50" width="8" height="22" rx="3" fill="#2b4a8a" />
-            <rect x="21" y="50" width="8" height="22" rx="3" fill="#2b4a8a" />
-            {sp.flag ? (
-              <>
-                <path d="M37 16V-12" stroke="#6b4423" strokeWidth="2" />
-                <path d="M37 -12h12v5h-12z" fill="#e2312d" />
-                <path d="M37 -7h12v5h-12z" fill="#fff" stroke="#ddd" strokeWidth="0.5" />
-              </>
-            ) : null}
-            <rect x="8" y="30" width="24" height="26" rx="8" fill={sp.c} />
-            <circle cx="20" cy="19" r="10" fill={sp.sk} />
-            <path d="M10 18Q20 4 30 18Q20 11 10 18Z" fill={sp.hr} />
-          </svg>
+          <PanjatPerson
+            key={`cb-${sp.idx}`}
+            w={sp.w}
+            c={sp.c}
+            sk={sp.sk}
+            hr={sp.hr}
+            flag={sp.flag}
+            animDelay={`-${(sp.idx * 0.2).toFixed(2)}s`}
+            idx={sp.idx}
+          />
         ))}
       </div>
 
@@ -334,7 +556,7 @@ export function PanjatPinangStage({
         }}
       />
 
-      {/* 7. Bendera Bunting Atas & Bawah */}
+      {/* 7. Bendera Bunting Atas & Bawah Berkibar */}
       <div
         className="absolute left-0 right-0 flex justify-between"
         style={{
@@ -346,11 +568,13 @@ export function PanjatPinangStage({
       >
         {buntings.map((b) => (
           <i
-            key={b}
+            key={`bt-${b}`}
+            className="panjat-bunt-flag"
             style={{
               borderLeft: '9px solid transparent',
               borderRight: '9px solid transparent',
               borderTop: `20px solid ${b % 2 === 0 ? '#e2312d' : '#ffffff'}`,
+              animationDelay: b % 2 === 0 ? '0s' : '0.4s',
             }}
           />
         ))}
@@ -367,11 +591,13 @@ export function PanjatPinangStage({
       >
         {buntings.map((b) => (
           <i
-            key={b}
+            key={`bb-${b}`}
+            className="panjat-bunt-flag"
             style={{
               borderLeft: '9px solid transparent',
               borderRight: '9px solid transparent',
               borderTop: `20px solid ${b % 2 === 0 ? '#e2312d' : '#ffffff'}`,
+              animationDelay: b % 2 === 0 ? '0s' : '0.4s',
             }}
           />
         ))}
@@ -444,45 +670,93 @@ export function PanjatPinangStage({
         DIRGAHAYU REPUBLIK INDONESIA KE-81
       </div>
 
-      {/* 10. Lapisan Tanah Lumpur & Genangan Air */}
-      <div
-        className="absolute left-0 right-0 bottom-0"
-        style={{
-          top: 'var(--hz)',
-          background:
-            'radial-gradient(rgba(255,255,255,.07) 1px,transparent 1.6px) 0 0/13px 13px, radial-gradient(rgba(0,0,0,.16) 1px,transparent 1.8px) 6px 6px/17px 17px, linear-gradient(#85603a,#694529 40%,#563721)',
-          zIndex: 1,
-        }}
-      >
+      {/* 10. Lapisan Tanah Lumpur, Genangan Air Berkilau, Rumput & Bercak */}
+      <div className="panjat-gnd">
         {/* Rumput di tepian atas tanah */}
-        <div
-          className="absolute left-0 right-0 top-0 h-6"
-          style={{
-            background:
-              "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='22'%3E%3Cpath d='M6 22L8 8L11 22M14 22L18 4L21 22M26 22L30 10L33 22M38 22L40 12L43 22' fill='%2345a447'/%3E%3C/svg%3E\") repeat-x 0 0/48px 22px",
-          }}
-        />
+        <div className="panjat-gnd-grass" />
 
-        {/* Genangan air lumpur memantul */}
+        {/* Genangan air lumpur memantul dengan kilau air (.pud) */}
         {puddles.map((p, idx) => (
           <div
-            key={idx}
-            className="absolute rounded-full"
+            key={`pud-${idx}`}
+            className="panjat-pud"
             style={{
               left: `${p.left}%`,
               top: `${p.top}%`,
               width: `${p.w}px`,
               height: `${p.w * 0.28}px`,
-              background:
-                'radial-gradient(ellipse at 35% 30%,rgba(255,255,255,.75),rgba(140,185,210,.62) 38%,rgba(78,110,128,.68))',
-              boxShadow: 'inset 0 3px 7px rgba(0,0,0,.4), 0 0 0 3px rgba(60,40,22,.5)',
+              animationDelay: `-${(idx * 0.7).toFixed(1)}s`,
+            }}
+          />
+        ))}
+
+        {/* Rumpun rumput alami di tanah lumpur (.gt) */}
+        {grassTufts.map((gt, idx) => (
+          <div
+            key={`gt-${idx}`}
+            className="panjat-gt"
+            style={{
+              left: `${gt.left}%`,
+              top: `${gt.top}%`,
+              width: `${gt.w}px`,
+            }}
+          />
+        ))}
+
+        {/* Bercak lumpur pekat (.mdd) */}
+        {mudDrops.map((md, idx) => (
+          <div
+            key={`md-${idx}`}
+            className="panjat-mdd"
+            style={{
+              left: `${md.left}%`,
+              top: `${md.top}%`,
+              width: `${md.w}px`,
+              height: `${md.h}px`,
             }}
           />
         ))}
       </div>
 
+      {/* 10.5 PENONTON DI LAPANGAN LUMPUR (#cl di panjat-pinang-solo.html) */}
+      <div
+        className={`panjat-crowd-ground ${crowdCheer ? 'panjat-cheer' : ''}`}
+        style={{ zIndex: 6, pointerEvents: 'none' }}
+      >
+        {mudSpectators.map((sp) => {
+          const hasSay = crowdSay && crowdSay.specIndex === sp.idx;
+          return (
+            <div
+              key={sp.id}
+              style={{
+                position: 'absolute',
+                left: `${sp.leftPct}%`,
+                top: `${sp.topPct}%`,
+                transform: 'translate(-50%, -100%)',
+                zIndex: Math.round(sp.topPct),
+              }}
+            >
+              {hasSay && (
+                <span className={`panjat-crowd-say ${crowdSay.isGreen ? 'green' : ''}`}>
+                  {crowdSay.text}
+                </span>
+              )}
+              <PanjatPerson
+                w={sp.w}
+                c={sp.c}
+                sk={sp.sk}
+                hr={sp.hr}
+                flag={sp.flag}
+                animDelay={sp.animDelay}
+                idx={sp.idx}
+              />
+            </div>
+          );
+        })}
+      </div>
+
       {/* 11. ARENA TIANG-TIANG PINANG BERDIRI BERSAMA (#field) */}
-      <div className="absolute inset-0" style={{ zIndex: 5, pointerEvents: 'none' }}>
+      <div className="absolute inset-0" style={{ zIndex: 10, pointerEvents: 'none' }}>
         {tiangList.map((t) => {
           const safeP = Math.max(0, Math.min(100, t.posisiPersen));
           // y = p / 100 * (PH - HC * 0.62)
@@ -497,7 +771,7 @@ export function PanjatPinangStage({
                 bottom: '60px',
                 width: 0,
                 height: 0,
-                zIndex: 10,
+                zIndex: 20,
               }}
             >
               {/* Batang Tiang Pinang */}
@@ -532,39 +806,18 @@ export function PanjatPinangStage({
                 ))}
               </div>
 
-              {/* Tali Pengikat di 25%, 50%, 75% */}
+              {/* Tali Pengikat di 25%, 50%, 75% (.anc) */}
               {ANC_ROPES.map((a) => {
                 const yRope = Math.round((a / 100) * (PH - HC * 0.62)) + 16;
                 return (
                   <div
                     key={a}
-                    className="absolute"
+                    className="panjat-anc"
                     style={{
-                      left: '-19px',
                       bottom: `${yRope}px`,
-                      width: '38px',
-                      height: '11px',
-                      borderRadius: '6px',
-                      background: 'repeating-linear-gradient(90deg,#e2312d 0 6px,#fff 6px 12px)',
-                      border: '1.5px solid #5d3a14',
-                      zIndex: 2,
-                      boxShadow: '0 2px 0 rgba(0,0,0,.25)',
                     }}
                   >
-                    <i
-                      style={{
-                        position: 'absolute',
-                        left: '44px',
-                        top: '-2px',
-                        font: "800 0.65rem 'Nunito', sans-serif",
-                        fontStyle: 'normal',
-                        color: '#fff',
-                        textShadow: '0 1px 2px #000',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {a}%
-                    </i>
+                    <i>{a}%</i>
                   </div>
                 );
               })}
@@ -616,21 +869,11 @@ export function PanjatPinangStage({
                 </g>
               </svg>
 
-              {/* Label Nama Pemain di Dasar Tiang */}
+              {/* Label Nama Pemain di Dasar Tiang (.panjat-sgn) */}
               <div
-                className="absolute text-center text-white font-extrabold"
+                className="panjat-sgn"
                 style={{
-                  left: '-62px',
-                  width: '124px',
-                  bottom: '-36px',
                   background: t.warna,
-                  border: '2px solid #fff',
-                  borderRadius: '10px',
-                  padding: '1px 6px',
-                  fontFamily: "'Baloo 2', cursive, sans-serif",
-                  fontSize: '0.85rem',
-                  zIndex: 30,
-                  whiteSpace: 'nowrap',
                 }}
               >
                 {t.label}
@@ -666,7 +909,7 @@ export function PanjatPinangStage({
                       transition: t.jatuhBebas
                         ? 'bottom 1.4s cubic-bezier(.5,0,.85,.45)'
                         : 'bottom 0.85s cubic-bezier(.3,.8,.3,1)',
-                      zIndex: 12,
+                      zIndex: 25,
                     }}
                   >
                     {/* Balon Kata Feedback di Atas Karakter */}
@@ -714,31 +957,6 @@ export function PanjatPinangStage({
             </div>
           );
         })}
-      </div>
-
-      {/* 12. Penonton Depan di Sekeliling Panggung */}
-      <div
-        className={`absolute left-0 right-0 bottom-1 flex items-end justify-around px-3 ${
-          crowdCheer ? 'cheer' : ''
-        }`}
-        style={{ zIndex: 15, pointerEvents: 'none' }}
-      >
-        {crowdBack.slice(0, 22).map((sp) => (
-          <svg
-            key={`f-${sp.idx}`}
-            width={sp.w + 6}
-            viewBox="0 -16 40 92"
-            className="bk-spec"
-            style={{ animationDelay: `-${(sp.idx * 0.15).toFixed(2)}s` }}
-          >
-            <ellipse cx="20" cy="74" rx="15" ry="2.6" fill="rgba(0,0,0,.22)" />
-            <rect x="11" y="50" width="8" height="22" rx="3" fill="#2b4a8a" />
-            <rect x="21" y="50" width="8" height="22" rx="3" fill="#2b4a8a" />
-            <rect x="8" y="30" width="24" height="26" rx="8" fill={sp.c} />
-            <circle cx="20" cy="19" r="10" fill={sp.sk} />
-            <path d="M10 18Q20 4 30 18Q20 11 10 18Z" fill={sp.hr} />
-          </svg>
-        ))}
       </div>
     </div>
   );

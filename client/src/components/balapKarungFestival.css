@@ -1088,4 +1088,174 @@
 .panjat-mb.win .panjat-pp { animation: panjatHop .5s ease-in-out infinite; }
 @keyframes panjatHop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 
+/* ========================================================
+   SISTEM ARENA PANJAT PINANG SESUAI DESAIN panjat-pinang-solo.html
+   ======================================================== */
+
+.panjat-gnd {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--hz, 230px);
+  bottom: 0;
+  background: radial-gradient(rgba(255,255,255,.07) 1px, transparent 1.6px) 0 0/13px 13px,
+              radial-gradient(rgba(0,0,0,.16) 1px, transparent 1.8px) 6px 6px/17px 17px,
+              linear-gradient(#85603a, #694529 40%, #563721);
+  z-index: 1;
+}
+
+.panjat-gnd-grass {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 26px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='22'%3E%3Cpath d='M6 22L8 8L11 22M14 22L18 4L21 22M26 22L30 10L33 22M38 22L40 12L43 22' fill='%2345a447'/%3E%3C/svg%3E") repeat-x 0 0/48px 22px;
+}
+
+/* Genangan Air Lumpur dengan pantulan kilau air */
+.panjat-pud {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 35% 30%, rgba(255,255,255,.75), rgba(140,185,210,.62) 38%, rgba(78,110,128,.68));
+  box-shadow: inset 0 3px 7px rgba(0,0,0,.4), 0 0 0 3px rgba(60,40,22,.5);
+  animation: panjatShim 3.4s ease-in-out infinite;
+}
+@keyframes panjatShim {
+  50% { filter: brightness(1.18); }
+}
+
+/* Rumpun Rumput di Arena Lumpur */
+.panjat-gt {
+  position: absolute;
+  height: 22px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='22'%3E%3Cpath d='M6 22L8 8L11 22M14 22L18 4L21 22M26 22L30 10L33 22M38 22L40 12L43 22' fill='%2345a447'/%3E%3C/svg%3E") repeat-x 0 100%/32px 22px;
+  opacity: .9;
+  pointer-events: none;
+}
+
+/* Bercak Lumpur Tebal */
+.panjat-mdd {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(40,24,12,.3);
+  pointer-events: none;
+}
+
+/* Penonton Lumpur & Belakang Pagar */
+.panjat-person {
+  display: block;
+  overflow: visible;
+  transform-origin: 50% 100%;
+  animation: panjatSpecSway 1.6s ease-in-out infinite;
+}
+.cheer .panjat-person,
+.panjat-cheer .panjat-person {
+  animation: panjatSpecJump .33s ease-in-out infinite;
+}
+@keyframes panjatSpecSway {
+  0%, 100% { transform: rotate(-2deg); }
+  50% { transform: rotate(2deg); }
+}
+@keyframes panjatSpecJump {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-13px); }
+}
+
+.panjat-person .sL { transform-origin: 9px 34px; transition: transform .3s; }
+.panjat-person .sR { transform-origin: 31px 34px; transition: transform .3s; }
+.cheer .panjat-person .sL,
+.panjat-cheer .panjat-person .sL {
+  transform: rotate(155deg);
+}
+.cheer .panjat-person .sR,
+.panjat-cheer .panjat-person .sR {
+  transform: rotate(-155deg);
+}
+
+/* Balon Kata Sorak Penonton */
+.panjat-crowd-say {
+  position: absolute;
+  left: 50%;
+  top: -36px;
+  transform: translateX(-50%);
+  background: #ffffff;
+  border: 2px solid #e2312d;
+  border-radius: 12px;
+  padding: 3px 12px;
+  font-family: 'Baloo 2', cursive, sans-serif;
+  font-weight: 800;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  z-index: 50;
+  color: #2b2a4a;
+  box-shadow: 0 2px 6px rgba(0,0,0,.15);
+  animation: panjatCrowdPop 2.6s forwards;
+  pointer-events: none;
+}
+.panjat-crowd-say.green {
+  border-color: #1f9d55;
+  color: #1f9d55;
+}
+@keyframes panjatCrowdPop {
+  0% { opacity: 0; transform: translate(-50%, 10px) scale(.6); }
+  15% { opacity: 1; transform: translate(-50%, 0) scale(1.1); }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -12px); }
+}
+
+/* Bendera Bunting Berkibar */
+.panjat-bunt-flag {
+  transform-origin: 50% 0;
+  animation: panjatBuntFlap 2.4s ease-in-out infinite;
+}
+@keyframes panjatBuntFlap {
+  0%, 100% { transform: rotate(-4deg); }
+  50% { transform: rotate(4deg); }
+}
+
+/* Label Nama Pemain di Dasar Tiang */
+.panjat-sgn {
+  position: absolute;
+  left: -62px;
+  width: 124px;
+  bottom: -36px;
+  text-align: center;
+  font-family: 'Baloo 2', cursive, sans-serif;
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: #fff;
+  border: 2px solid #fff;
+  border-radius: 10px;
+  padding: 1px 6px;
+  z-index: 30;
+  white-space: nowrap;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+}
+
+/* Tali Pengikat Persentase Tiang */
+.panjat-anc {
+  position: absolute;
+  left: -19px;
+  width: 38px;
+  height: 11px;
+  border-radius: 6px;
+  background: repeating-linear-gradient(90deg, #e2312d 0 6px, #fff 6px 12px);
+  border: 1.5px solid #5d3a14;
+  z-index: 2;
+  box-shadow: 0 2px 0 rgba(0,0,0,.25);
+}
+.panjat-anc i {
+  position: absolute;
+  left: 44px;
+  top: -2px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 0.65rem;
+  font-style: normal;
+  color: #fff;
+  text-shadow: 0 1px 2px #000;
+  white-space: nowrap;
+}
+
 
