@@ -127,9 +127,11 @@ Discere dibangun menggunakan arsitektur modern berbasis monorepo TypeScript deng
 
 ---
 
-## 6. Arsitektur Sistem
+## 6. Arsitektur Sistem & Diagram Alur Program
 
 Discere menerapkan pemisahan tugas (*separation of concerns*) yang jelas antara penyajian grafis di sisi peramban, *in-memory state machine* real-time di server, dan lapisan penyimpanan data terstruktur.
+
+### A. Arsitektur Sistem
 
 ```mermaid
 flowchart TD
@@ -181,6 +183,42 @@ flowchart TD
     PRISMA_CLIENT --> DB_SQLITE
 ```
 
+### B. Diagram Alur Program (User Flow & Gameplay Loop)
+
+```mermaid
+flowchart TD
+    Start([Mulai]) --> Role{Pilih Peran Pengguna}
+    
+    %% Alur Guru
+    Role -->|Guru / Host| Login[Login Akun Guru]
+    Login --> Dash[Dashboard Guru]
+    Dash -->|Pilih Bank Soal| ModeGame{Pilih Mode Permainan}
+    Dash -->|Buka Papan Tulis| Board[Papan Tulis Kolaboratif]
+    Dash -->|AI Generator| GenerateSoal[Generate Soal Otomatis via Gemini API]
+    GenerateSoal --> Dash
+    
+    ModeGame -->|Mode Solo| SoloArena[Arena Solo 1 vs 1 / Lawan Bot]
+    SoloArena --> MainSolo[Siswa/Guru Menjawab di Layar Proyektor]
+    MainSolo --> HasilSolo[Podium Juara & Analisis Skor]
+    
+    ModeGame -->|Mode Multiplayer| CreateLobby[Buat Sesi & Buka Lobi Ruang Tunggu]
+    CreateLobby --> TampilPIN[Tampilkan PIN 6-Digit & QR Code di Proyektor]
+    
+    %% Alur Siswa
+    Role -->|Peserta Siswa| JoinPage[Buka /join di HP]
+    JoinPage --> InputPIN[Ketik PIN & Nama Siswa]
+    InputPIN --> TampilPIN
+    
+    TampilPIN --> GuruStart{Guru Klik Mulai Game?}
+    GuruStart -->|Ya| StartRound[Broadcast Soal Real-Time ke Seluruh HP Siswa]
+    StartRound --> JawabSoal[Siswa Menjawab di HP Sesuai Batas Waktu]
+    JawabSoal --> HitungSkor[Server Hitung Poin, Tarikan / Lompatan / Gigitan]
+    HitungSkor --> CekSelesai{Game Selesai / Waktu Habis?}
+    CekSelesai -->|Belum| NextSoal[Kirim Soal Berikutnya] --> StartRound
+    CekSelesai -->|Ya| Leaderboard[Tampilkan Leaderboard Kelas, Heatmap & Podium Juara]
+    Leaderboard --> Selesai([Selesai])
+```
+
 ---
 
 ## 7. Struktur Folder Project
@@ -191,10 +229,10 @@ Monorepo Discere ditata dengan struktur yang rapi dan terisolasi:
 DIscere/
 ├── .github/                     # Konfigurasi workflow CI/CD
 ├── client/                      # Aplikasi Frontend (React 19 + Vite)
-│   ├── public/                  # Aset publik statis (favicon, logo, manifest)
+│   ├── public/                  # Aset publik statis (favicon.svg, chalk-doodles.svg, papan-tulis.png)
 │   ├── src/
-│   │   ├── assets/              # Gambar ilustrasi dan ikon lokal
 │   │   ├── components/          # Komponen antarmuka (GameConfig, Stadium, Modal, Papan)
+│   │   ├── lib/                 # Utility klien (api fetcher, auth context, socket connection)
 │   │   ├── pages/               # Halaman aplikasi
 │   │   │   ├── admin/           # Dashboard administrator
 │   │   │   ├── game/            # Layar Host pertandingan (Solo & Multiplayer)
@@ -202,10 +240,12 @@ DIscere/
 │   │   │   ├── papan/           # Halaman kanvas papan tulis interaktif
 │   │   │   ├── publik/          # Landing page, halaman masuk & daftar
 │   │   │   └── siswa/           # Halaman ruang tunggu & layar jawab soal siswa
+│   │   ├── styles/              # CSS styling global, festival theme, dan landing page
 │   │   ├── App.tsx              # Router deklaratif React Router v7
 │   │   └── main.tsx             # Entry point klien
 │   ├── package.json
 │   ├── tsconfig.json
+│   ├── vercel.json              # Konfigurasi rewrite SPA deployment Vercel
 │   └── vite.config.ts
 ├── server/                      # Aplikasi Backend (Express 5 + Prisma)
 │   ├── prisma/
@@ -229,13 +269,16 @@ DIscere/
 │   ├── e2e/                     # Test spec (homepage, settings, 4 gameplay, hasil, responsif)
 │   ├── fixtures/                # Custom auth fixture (guruPage)
 │   └── utils/                   # Test helper fungsi login & pemilihan template kuis
+├── .dockerignore                 # Konfigurasi pengecualian image Docker
 ├── .env.example                 # Template variabel lingkungan
 ├── .gitignore                   # Daftar pengabaian berkas Git
-├── Claude.md                    # Pedoman rekayasa & konvensi tim
+├── CLEANUP_REPORT.md            # Laporan audit & verifikasi pembersihan repository
+├── Dockerfile                   # Konfigurasi containerized deployment
 ├── package.json                 # Monorepo root package & script orchestrator
 ├── playwright.config.ts         # Konfigurasi pengujian Playwright
 ├── PLAYWRIGHT_TESTING.md        # Panduan teknis lengkap E2E testing
-└── README.md                    # Dokumentasi utama proyek
+├── README.md                    # Dokumentasi utama proyek
+└── supabase_schema.sql          # Definisi DDL skema database PostgreSQL Supabase
 ```
 
 ---
@@ -522,10 +565,10 @@ Saat ini repositori Discere dioptimalkan untuk pengujian lokal terpadu (*Local F
    ```
    *Rekomendasi:* Gunakan process manager seperti **PM2** (`pm2 start server/dist/index.js --name discere-backend`) dan reverse proxy **Nginx** dengan sertifikat SSL/TLS (Let's Encrypt).
 
-> [!NOTE]
-> **Rencana Pengembangan Deployment (TODO):**
-> - Penambahan `Dockerfile` dan `docker-compose.yml` multi-stage untuk orkestrasi container backend dan frontend otomatis.
-> - Konfigurasi pipeline deployment otomatis via GitHub Actions menuju cloud provider seperti Vercel / Railway / VPS.
+### Opsi Deployment Modern (Cloud & Container)
+- **Container Deployment (`Dockerfile`):** Tersedia file `Dockerfile` siap pakai berbasis Node.js yang mem-bundle frontend Vite dan backend Express terpadu.
+- **Frontend Serverless (`client/vercel.json`):** Tersedia konfigurasi rewrite SPA untuk deployment instan ke platform seperti Vercel.
+- **Cloud Database:** Mendukung koneksi terdistribusi langsung ke Supabase PostgreSQL melalui connection pooler (port 5432/6543).
 
 ---
 
