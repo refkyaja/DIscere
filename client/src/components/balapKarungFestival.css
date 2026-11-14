@@ -1023,3 +1023,69 @@
   animation: panjatMudSplash 0.75s ease-out forwards;
 }
 
+/* Panjat Pinang Climber Avatar System */
+.panjat-mb {
+  display: inline-block;
+  transform-origin: 50% 100%;
+}
+.panjat-mb .aL { transform-origin: 35px 56px; transition: transform .3s ease; }
+.panjat-mb .aR { transform-origin: 65px 56px; transition: transform .3s ease; }
+.panjat-mb .lL { transform-origin: 42px 106px; transition: transform .3s ease; }
+.panjat-mb .lR { transform-origin: 58px 106px; transition: transform .3s ease; }
+
+.panjat-mb .fmS,
+.panjat-mb .fmO,
+.panjat-mb .fmW {
+  display: none;
+}
+
+/* Pose IDLE: Berdiri tegak */
+.panjat-mb.idle .aL { transform: rotate(12deg); }
+.panjat-mb.idle .aR { transform: rotate(-12deg); }
+.panjat-mb.idle .panjat-pp { animation: panjatIdl 2.2s ease-in-out infinite; }
+@keyframes panjatIdl { 50% { transform: scaleY(1.02); } }
+
+/* Pose CLIMB: Merangkul tiang */
+.panjat-mb.cl .aL { transform: rotate(168deg); }
+.panjat-mb.cl .aR { transform: rotate(-168deg); }
+.panjat-mb.cl .lL { transform: rotate(14deg); }
+.panjat-mb.cl .lR { transform: rotate(-14deg); }
+.panjat-mb.cl .fm0 { display: none; }
+.panjat-mb.cl .fmS { display: inline; }
+
+/* Pose MOVE: Gerak memanjat */
+.panjat-mb.mv .aL { animation: panjatArmL .5s ease-in-out infinite alternate; }
+.panjat-mb.mv .aR { animation: panjatArmR .5s ease-in-out infinite alternate-reverse; }
+.panjat-mb.mv .lL { animation: panjatLegL .5s ease-in-out infinite alternate-reverse; }
+.panjat-mb.mv .lR { animation: panjatLegR .5s ease-in-out infinite alternate; }
+.panjat-mb.mv .panjat-pp { animation: panjatBob .5s ease-in-out infinite alternate; }
+@keyframes panjatArmL { from { transform: rotate(148deg); } to { transform: rotate(178deg); } }
+@keyframes panjatArmR { from { transform: rotate(-178deg); } to { transform: rotate(-148deg); } }
+@keyframes panjatLegL { from { transform: rotate(4deg); } to { transform: rotate(36deg); } }
+@keyframes panjatLegR { from { transform: rotate(-36deg); } to { transform: rotate(-4deg); } }
+@keyframes panjatBob { to { transform: translateY(-3px); } }
+
+/* Pose SLIP: Tergelincir licin */
+.panjat-mb.sl .aL { animation: panjatFl .22s ease-in-out infinite alternate; }
+.panjat-mb.sl .aR { animation: panjatFl2 .22s ease-in-out infinite alternate; }
+@keyframes panjatFl { from { transform: rotate(115deg); } to { transform: rotate(172deg); } }
+@keyframes panjatFl2 { from { transform: rotate(-172deg); } to { transform: rotate(-115deg); } }
+.panjat-mb.sl .lL { transform: rotate(38deg); }
+.panjat-mb.sl .lR { transform: rotate(-38deg); }
+.panjat-mb.sl .fm0,
+.panjat-mb.sl .fmS { display: none; }
+.panjat-mb.sl .fmO { display: inline; }
+.panjat-mb.sl .panjat-pp { transform: rotate(-7deg); }
+
+/* Pose WIN: Meraih puncak */
+.panjat-mb.win .aL { animation: panjatWvL .35s ease-in-out infinite alternate; }
+.panjat-mb.win .aR { animation: panjatWvR .35s ease-in-out infinite alternate; }
+@keyframes panjatWvL { from { transform: rotate(150deg); } to { transform: rotate(176deg); } }
+@keyframes panjatWvR { from { transform: rotate(-176deg); } to { transform: rotate(-150deg); } }
+.panjat-mb.win .fm0,
+.panjat-mb.win .fmS { display: none; }
+.panjat-mb.win .fmW { display: inline; }
+.panjat-mb.win .panjat-pp { animation: panjatHop .5s ease-in-out infinite; }
+@keyframes panjatHop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+
+

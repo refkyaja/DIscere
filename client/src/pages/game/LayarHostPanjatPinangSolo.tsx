@@ -7,11 +7,11 @@ import {
   resolveGuruReturnUrl,
 } from '../../components';
 import { ModalKonfirmasiKeluar } from '../../components/ModalKonfirmasiKeluar';
-import { FestivalStadiumShell } from '../../components/FestivalStadiumShell';
 import { PanjatPinangStage, TiangStageItem } from '../../components/PanjatPinangStage';
+import { PanjatClimberAvatar } from '../../components/PanjatClimberAvatar';
 import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import { EfekAktifVisual } from '../siswa/TiangPinangVisual';
-import KarakterPanjatPinang, { EkspresiKarakterPanjat } from '../siswa/KarakterPanjatPinang';
+import { EkspresiKarakterPanjat } from '../siswa/KarakterPanjatPinang';
 import {
   Bot,
   CheckCircle2,
@@ -511,7 +511,7 @@ export default function LayarHostPanjatPinangSolo() {
   const isSoundActive = Boolean(
     sesi && !sesi.isFinished && (sesi.state === 'PLAYING' || sesi.state === 'PAUSED')
   );
-  const { isMuted, toggleMute } = useGameSoundLifecycle(isSoundActive, id);
+  useGameSoundLifecycle(isSoundActive, id);
 
   const handleMulai = async () => {
     if (!id || !sesi || isActionLoading) return;
@@ -1080,43 +1080,24 @@ export default function LayarHostPanjatPinangSolo() {
 
   return (
     <div className="bk-festival">
-      <FestivalStadiumShell
-        title="Panjat Pinang Solo 1 vs 1"
-        subtitle={`${sesi.templateJudul} • ${isDuelLokal ? 'Duel Lokal (2 Orang)' : 'Lawan Bot AI'}`}
-        statusLabel={badge.text}
-        statusTone={badge.tone}
-        targetLabel="Target Puncak 100%"
-        ruleSummary={`Benar +${sesi.config.naikBenar}% • Salah -${sesi.config.turunSalah}% • ${timerSec} dtk/soal`}
-        crowdCheer={crowdCheer || sesi.isFinished}
-        isMuted={isMuted}
-        onToggleMute={isSoundActive ? toggleMute : undefined}
-        onBack={handleKembaliClick}
-        backLabel={returnUrl.includes('panjat-pinang') ? 'Pengaturan' : 'Dashboard'}
-        isPaused={sesi.state === 'PAUSED'}
-        onTogglePause={
-          sesi.state === 'PLAYING' || sesi.state === 'PAUSED' ? handleTogglePause : undefined
-        }
-        onStop={!sesi.isFinished ? () => setModalHentikanOpen(true) : undefined}
-        stopLabel="Akhiri"
-        extraBadges={
-          sesi.state !== 'FINISHED' && sesi.state !== 'STOPPED' ? (
-            <button
-              type="button"
-              onClick={() => setModalUlangOpen(true)}
-              className="bk-hud-btn alt"
-              title="Ulang lomba dari posisi 0%"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Ulang</span>
-            </button>
-          ) : undefined
-        }
-      />
-
-      {/* PANGGUNG FESTIVAL BERSAMA (SESUAI DESAIN panjat-pinang-solo.html) */}
+      {/* PANGGUNG FESTIVAL BERSAMA TUNGGAL (PERSIS DESAIN panjat-pinang-solo.html) */}
       <PanjatPinangStage
         tiangList={tiangStageSolo}
         crowdCheer={crowdCheer || sesi.isFinished}
+        title="Panjat Pinang Solo 1 vs 1"
+        subtitle={`${sesi.templateJudul} • ${isDuelLokal ? 'Duel Lokal (2 Orang)' : 'Lawan Bot AI'}`}
+        statusLabel={badge.text}
+        targetLabel="Target Puncak 100%"
+        ruleSummary={`Benar +${sesi.config.naikBenar}% • Salah -${sesi.config.turunSalah}% • ${timerSec} dtk/soal`}
+        onBack={handleKembaliClick}
+        backLabel={returnUrl.includes('panjat-pinang') ? 'Pengaturan' : 'Dashboard'}
+        onUlang={sesi.state !== 'READY' ? () => setModalUlangOpen(true) : undefined}
+        onTogglePause={
+          sesi.state === 'PLAYING' || sesi.state === 'PAUSED' ? handleTogglePause : undefined
+        }
+        isPaused={sesi.state === 'PAUSED'}
+        onStop={!sesi.isFinished && sesi.state !== 'READY' ? () => setModalHentikanOpen(true) : undefined}
+        stopLabel="Akhiri"
       />
 
       <main className="bk-wrap space-y-5">
@@ -1173,14 +1154,14 @@ export default function LayarHostPanjatPinangSolo() {
               </button>
             </div>
 
-            {/* Kartu VS Dua Karakter 2D */}
+            {/* Kartu VS Dua Karakter 2D (Sesuai Desain panjat-pinang-solo.html BUFF) */}
             <div className="grid grid-cols-1 md:grid-cols-11 gap-4 items-center">
               <div className="md:col-span-5 bg-[#fdecec]/60 border-2 border-[#f4b6b6] rounded-2xl p-5 flex items-center gap-4">
-                <KarakterPanjatPinang
-                  nama={sesi.pemain1.nama}
-                  pose="panjat"
-                  ekspresi="bahagia"
-                  size="lg"
+                <PanjatClimberAvatar
+                  look={{ skin: '#d9a066', hair: '#241a14', hs: 0, tp: 'none', sh: '#e2312d', bulk: true }}
+                  state="idle"
+                  width={68}
+                  height={108}
                 />
                 <div className="min-w-0">
                   <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#e2312d]">
@@ -1200,11 +1181,11 @@ export default function LayarHostPanjatPinangSolo() {
               </div>
 
               <div className="md:col-span-5 bg-[#e6f3fd] border-2 border-[#93c5fd] rounded-2xl p-5 flex items-center gap-4">
-                <KarakterPanjatPinang
-                  nama={sesi.pemain2.nama}
-                  pose="panjat"
-                  ekspresi="bahagia"
-                  size="lg"
+                <PanjatClimberAvatar
+                  look={{ skin: '#8d5a3b', hair: '#111', hs: 1, tp: 'none', sh: '#1d8fe0', bulk: true }}
+                  state="idle"
+                  width={68}
+                  height={108}
                 />
                 <div className="min-w-0">
                   <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#1d8fe0]">
@@ -1409,12 +1390,15 @@ export default function LayarHostPanjatPinangSolo() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {juara1 && (
                       <div className="bg-gradient-to-b from-[#fff3c4] to-[#fff3d6] border-[3px] border-[#ffb81c] rounded-2xl p-5 text-center flex flex-col items-center">
-                        <KarakterPanjatPinang
-                          nama={juara1.nama}
-                          pose="podium"
-                          ekspresi="bahagia"
-                          podiumRank={sesi.winnerSlot === 'SERI' ? undefined : 1}
-                          size="lg"
+                        <PanjatClimberAvatar
+                          look={
+                            juara1.id === 'pemain1'
+                              ? { skin: '#d9a066', hair: '#241a14', hs: 0, tp: 'none', sh: '#e2312d', bulk: true }
+                              : { skin: '#8d5a3b', hair: '#111', hs: 1, tp: 'none', sh: '#1d8fe0', bulk: true }
+                          }
+                          state="win"
+                          width={82}
+                          height={124}
                           className="mb-2"
                         />
                         <span className="px-3 py-0.5 rounded-full bg-[#ffb81c] text-[#4a3000] text-xs font-extrabold mb-1">
@@ -1438,12 +1422,15 @@ export default function LayarHostPanjatPinangSolo() {
 
                     {juara2 && (
                       <div className="bg-[#fffaf0] border-2 border-[#cbd5e1] rounded-2xl p-5 text-center flex flex-col items-center">
-                        <KarakterPanjatPinang
-                          nama={juara2.nama}
-                          pose="podium"
-                          ekspresi="netral"
-                          podiumRank={sesi.winnerSlot === 'SERI' ? undefined : 2}
-                          size="md"
+                        <PanjatClimberAvatar
+                          look={
+                            juara2.id === 'pemain1'
+                              ? { skin: '#d9a066', hair: '#241a14', hs: 0, tp: 'none', sh: '#e2312d', bulk: true }
+                              : { skin: '#8d5a3b', hair: '#111', hs: 1, tp: 'none', sh: '#1d8fe0', bulk: true }
+                          }
+                          state="idle"
+                          width={72}
+                          height={110}
                           className="mb-2"
                         />
                         <span className="px-3 py-0.5 rounded-full bg-[#dfe3ee] text-[#394060] text-xs font-extrabold mb-1">

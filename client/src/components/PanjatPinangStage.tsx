@@ -1,5 +1,7 @@
 import React, { useId, useMemo } from 'react';
+import { ArrowLeft, RotateCcw, Pause, Play, StopCircle } from 'lucide-react';
 import './balapKarungFestival.css';
+import { PanjatClimberAvatar, ClimberLook } from './PanjatClimberAvatar';
 
 export interface TiangStageItem {
   id: string;
@@ -17,6 +19,19 @@ export interface PanjatPinangStageProps {
   tiangList: TiangStageItem[];
   crowdCheer?: boolean;
   className?: string;
+  title?: string;
+  subtitle?: string;
+  statusLabel?: string;
+  targetLabel?: string;
+  ruleSummary?: string;
+  onBack?: () => void;
+  backLabel?: string;
+  onUlang?: () => void;
+  onTogglePause?: () => void;
+  isPaused?: boolean;
+  onStop?: () => void;
+  stopLabel?: string;
+  extraBadges?: React.ReactNode;
 }
 
 const ZONES_OLI = [
@@ -32,6 +47,19 @@ export function PanjatPinangStage({
   tiangList,
   crowdCheer = false,
   className = '',
+  title,
+  subtitle,
+  statusLabel,
+  targetLabel,
+  ruleSummary,
+  onBack,
+  backLabel = 'Pengaturan',
+  onUlang,
+  onTogglePause,
+  isPaused,
+  onStop,
+  stopLabel = 'Akhiri',
+  extraBadges,
 }: PanjatPinangStageProps) {
   const reactId = useId().replace(/:/g, '');
   const patternId = `pp-town-${reactId}`;
@@ -80,6 +108,94 @@ export function PanjatPinangStage({
         } as React.CSSProperties
       }
     >
+      {/* 0. Top Floating HUD (Persis Desain panjat-pinang-solo.html .top) */}
+      {title && (
+        <header
+          className="absolute z-30 top-3 left-3 right-3 max-w-[1100px] mx-auto bg-[#fffaf0]/95 border-2 border-[#e6d3ae] rounded-2xl p-2.5 sm:p-3 shadow-md flex flex-col gap-1.5 pointer-events-auto"
+          style={{ backdropFilter: 'blur(4px)' }}
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            {onBack && (
+              <button
+                type="button"
+                onClick={onBack}
+                className="inline-flex items-center gap-1 text-xs font-extrabold px-3 py-1.5 rounded-xl bg-[#fff3d6] border border-[#f0dfb4] text-[#2b2a4a] hover:bg-[#fde9b8] transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>{backLabel}</span>
+              </button>
+            )}
+
+            <h1 className="text-base sm:text-lg font-extrabold text-[#2b2a4a] font-['Baloo_2',cursive]">
+              {title}
+            </h1>
+
+            {subtitle && (
+              <span className="bk-chip text-xs">
+                {subtitle}
+              </span>
+            )}
+
+            {statusLabel && (
+              <span className="bk-chip live text-xs">
+                {statusLabel}
+              </span>
+            )}
+
+            {targetLabel && (
+              <span className="bk-chip yellow text-xs">
+                {targetLabel}
+              </span>
+            )}
+
+            {extraBadges}
+
+            {onUlang && (
+              <button
+                type="button"
+                onClick={onUlang}
+                className="inline-flex items-center gap-1 text-xs font-extrabold px-3 py-1 rounded-xl bg-[#fff3d6] border border-[#f0dfb4] text-[#2b2a4a] hover:bg-[#fde9b8] transition-colors cursor-pointer ml-auto"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Ulang</span>
+              </button>
+            )}
+          </div>
+
+          {(ruleSummary || onTogglePause || onStop) && (
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#f0dfb4]/60 pt-1 text-xs">
+              <span className="text-[#6b6a85] font-extrabold">
+                {ruleSummary}
+              </span>
+
+              <div className="flex items-center gap-2 ml-auto">
+                {onTogglePause && (
+                  <button
+                    type="button"
+                    onClick={onTogglePause}
+                    className="inline-flex items-center gap-1 text-xs font-extrabold px-3 py-1 rounded-xl bg-[#fff0c9] border border-[#f3d37a] text-[#7a5200] hover:bg-[#ffe39c] transition-colors cursor-pointer"
+                  >
+                    {isPaused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
+                    <span>{isPaused ? 'Lanjutkan' : 'Jeda'}</span>
+                  </button>
+                )}
+
+                {onStop && (
+                  <button
+                    type="button"
+                    onClick={onStop}
+                    className="inline-flex items-center gap-1 text-xs font-extrabold px-3 py-1 rounded-xl bg-[#ffe3e1] border border-[#f5b5b1] text-[#a3201c] hover:bg-[#fcd0cd] transition-colors cursor-pointer"
+                  >
+                    <StopCircle className="w-3 h-3" />
+                    <span>{stopLabel}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </header>
+      )}
+
       {/* 1. Matahari Kuning Berpendar */}
       <div
         className="absolute rounded-full"
@@ -520,116 +636,62 @@ export function PanjatPinangStage({
                 {t.label}
               </div>
 
-              {/* Karakter Pemanjat 2D */}
-              <div
-                className={`absolute ${t.jatuhBebas ? 'panjat-anim-free' : ''}`}
-                style={{
-                  transform: 'translateX(-50%)',
-                  left: '0px',
-                  bottom: `${climberY}px`,
-                  width: `${Math.round(HC * 0.64 * 1.32)}px`,
-                  height: `${HC}px`,
-                  transition: t.jatuhBebas
-                    ? 'bottom 1.4s cubic-bezier(.5,0,.85,.45)'
-                    : 'bottom 0.85s cubic-bezier(.3,.8,.3,1)',
-                  zIndex: 12,
-                }}
-              >
-                {/* Balon Kata Feedback di Atas Karakter */}
-                {t.bubbleText && (
-                  <div
-                    className={`absolute left-1/2 -top-7 -translate-x-1/2 px-2.5 py-0.5 rounded-full text-xs font-black shadow-md border-2 whitespace-nowrap z-40 ${
-                      t.bubbleText.includes('-') || t.bubbleText.includes('!') || t.bubbleText.includes('Aaaah')
-                        ? 'bg-[#fdecec] text-[#d63b3b] border-[#f4b6b6]'
-                        : 'bg-[#e9f9ef] text-[#1f9d55] border-[#9de0b6]'
-                    }`}
-                    style={{ animation: 'ppPop 1.35s forwards' }}
-                  >
-                    {t.bubbleText}
-                  </div>
-                )}
+              {/* Karakter Pemanjat 2D (Sesuai Desain panjat-pinang-solo.html pup(L)) */}
+              {(() => {
+                const climberLook: ClimberLook =
+                  t.id === 'pemain1'
+                    ? { skin: '#d9a066', hair: '#241a14', hs: 0, tp: 'none', sh: '#e2312d', bulk: true }
+                    : t.id === 'pemain2'
+                    ? { skin: '#8d5a3b', hair: '#111', hs: 1, tp: 'none', sh: '#1d8fe0', bulk: true }
+                    : { skin: '#d9a066', hair: '#241a14', hs: 0, tp: 'none', sh: t.warna || '#e2312d', bulk: true };
 
-                {/* SVG Karakter Pemanjat Pinang */}
-                <svg
-                  viewBox="0 0 100 160"
-                  className="w-full h-full overflow-visible"
-                  style={{ transformOrigin: '50% 100%' }}
-                >
-                  <ellipse cx="50" cy="157" rx="28" ry="4" fill="rgba(0,0,0,.25)" />
-                  {/* Kaki Kiri */}
-                  <g>
-                    <path
-                      d="M42 106L40 130L41 150"
-                      stroke="#ffd9a8"
-                      strokeWidth="13"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      fill="none"
-                    />
-                    <ellipse cx="41" cy="153" rx="8.5" ry="4.2" fill="#ffd9a8" />
-                  </g>
-                  {/* Kaki Kanan */}
-                  <g>
-                    <path
-                      d="M58 106L60 130L59 150"
-                      stroke="#ffd9a8"
-                      strokeWidth="13"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      fill="none"
-                    />
-                    <ellipse cx="59" cy="153" rx="8.5" ry="4.2" fill="#ffd9a8" />
-                  </g>
-                  {/* Celana */}
-                  <path d="M34 96L66 96L68 120L52 120L50 112L48 120L32 120Z" fill="#1f3b6e" stroke="#2b2a4a" strokeWidth="2.5" />
-                  {/* Badan / Baju Berwarna Sesuai Tim/Pemain */}
-                  <path d="M33 54Q50 47 67 54L64 100L36 100Z" fill={t.warna} stroke="#2b2a4a" strokeWidth="2.5" />
-                  {/* Lengan Kiri Merangkul Tiang */}
-                  <g>
-                    <path
-                      d="M35 56L24 80L30 98"
-                      stroke="#ffd9a8"
-                      strokeWidth="13"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      fill="none"
-                    />
-                    <circle cx="30" cy="100" r="5.5" fill="#ffd9a8" />
-                  </g>
-                  {/* Lengan Kanan Merangkul Tiang */}
-                  <g>
-                    <path
-                      d="M65 56L76 80L70 98"
-                      stroke="#ffd9a8"
-                      strokeWidth="13"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      fill="none"
-                    />
-                    <circle cx="70" cy="100" r="5.5" fill="#ffd9a8" />
-                  </g>
-                  {/* Kepala & Ikat Kepala Merah Putih */}
-                  <g>
-                    <circle cx="50" cy="30" r="16" fill="#ffd9a8" stroke="#2b2a4a" strokeWidth="2.8" />
-                    {/* Rambut */}
-                    <path d="M35 24Q38 9 50 9Q62 9 65 24Q50 16 35 24Z" fill="#241a14" />
-                    {/* Ikat Kepala */}
-                    <path d="M34 26Q50 17 66 26L66 31Q50 22 34 31Z" fill="#fff" stroke="#2b2a4a" strokeWidth="1.8" />
-                    <path d="M34 26Q50 17 66 26L66 28.5Q50 20 34 28.5Z" fill="#e2312d" />
-                    {/* Mata */}
-                    <ellipse cx="44" cy="30" rx="3.3" ry="3.9" fill="#fff" stroke="#2b2a4a" strokeWidth="1" />
-                    <circle cx="44.8" cy="30.4" r="2" fill="#2b2a4a" />
-                    <ellipse cx="56" cy="30" rx="3.3" ry="3.9" fill="#fff" stroke="#2b2a4a" strokeWidth="1" />
-                    <circle cx="56.8" cy="30.4" r="2" fill="#2b2a4a" />
-                    {/* Senyum */}
-                    {t.ekspresi === 'sedih' ? (
-                      <path d="M44 40Q50 35 56 40" stroke="#2b2a4a" strokeWidth="2.3" fill="none" strokeLinecap="round" />
-                    ) : (
-                      <path d="M44 37Q50 43 56 37" stroke="#2b2a4a" strokeWidth="2.3" fill="none" strokeLinecap="round" />
+                const climberState =
+                  t.posisiPersen >= 100
+                    ? 'win'
+                    : t.jatuhBebas
+                    ? 'sl'
+                    : t.posisiPersen > 0
+                    ? 'cl'
+                    : 'idle';
+
+                return (
+                  <div
+                    className={`absolute ${t.jatuhBebas ? 'panjat-anim-free' : ''}`}
+                    style={{
+                      transform: 'translateX(-50%)',
+                      left: '0px',
+                      bottom: `${climberY}px`,
+                      width: `${Math.round(HC * 0.64 * 1.32)}px`,
+                      height: `${HC}px`,
+                      transition: t.jatuhBebas
+                        ? 'bottom 1.4s cubic-bezier(.5,0,.85,.45)'
+                        : 'bottom 0.85s cubic-bezier(.3,.8,.3,1)',
+                      zIndex: 12,
+                    }}
+                  >
+                    {/* Balon Kata Feedback di Atas Karakter */}
+                    {t.bubbleText && (
+                      <div
+                        className={`absolute left-1/2 -top-7 -translate-x-1/2 px-2.5 py-0.5 rounded-full text-xs font-black shadow-md border-2 whitespace-nowrap z-40 ${
+                          t.bubbleText.includes('-') || t.bubbleText.includes('!') || t.bubbleText.includes('Aaaah')
+                            ? 'bg-[#fdecec] text-[#d63b3b] border-[#f4b6b6]'
+                            : 'bg-[#e9f9ef] text-[#1f9d55] border-[#9de0b6]'
+                        }`}
+                        style={{ animation: 'ppPop 1.35s forwards' }}
+                      >
+                        {t.bubbleText}
+                      </div>
                     )}
-                  </g>
-                </svg>
-              </div>
+
+                    <PanjatClimberAvatar
+                      look={climberLook}
+                      state={climberState}
+                      width={Math.round(HC * 0.64 * 1.32)}
+                      height={HC}
+                    />
+                  </div>
+                );
+              })()}
 
               {/* Percikan Lumpur Saat Jatuh Bebas ke Dasar */}
               {t.jatuhBebas && (
