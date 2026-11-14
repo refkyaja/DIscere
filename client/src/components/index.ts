@@ -8,6 +8,7 @@ export * from './TemplateEditor';
 export * from './PortalLedge';
 export * from './GameConfigShell';
 export * from './QuestionTimerBar';
+export * from './KapasitasPesertaControl';
 export * from './KerupukStadium';
 export * from './ErrorBoundary';
 
