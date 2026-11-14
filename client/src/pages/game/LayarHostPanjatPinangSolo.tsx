@@ -78,6 +78,8 @@ interface PesertaPanjatSoloClient {
   waktuSelesaiMs: number | null;
   rataRataWaktuJawabMs: number;
   jumlahJawab: number;
+  streakSalahBerturut?: number;
+  jatuhKeDasar?: number;
   efekAktif: EfekAktifVisual;
   riwayatRintangan: RiwayatRintanganItem[];
   soalAktif: SoalAktifPanjatSolo | null;
@@ -97,9 +99,20 @@ interface FeedbackAksiPanjatSolo {
   perubahanPosisi: number;
   bonusStreakDidapat: number;
   bonusPeganganKuatDidapat: number;
+  bonusCepatDidapat?: number;
   penaltiTiangLicin: number;
   perisaiDigunakan: boolean;
   perisaiDiperoleh: boolean;
+  peganganKuatDiperoleh?: boolean;
+  peganganKuatDigunakan?: boolean;
+  streakSalahBerturut?: number;
+  jatuhBebas?: boolean;
+  awasJatuh?: boolean;
+  tertahanTali?: boolean;
+  taliTerkait?: number;
+  isSoalPuncak?: boolean;
+  soalPuncakBerhasil?: boolean;
+  jatuhKeDasar?: number;
   rintanganBaru: RiwayatRintanganItem | null;
   selesaiBaru: boolean;
   waktuJawabMs: number;
@@ -149,6 +162,7 @@ interface LeaderboardItemSolo {
   waktuSelesaiMs: number | null;
   rataRataWaktuJawabMs: number;
   efekAktif?: EfekAktifVisual;
+  jatuhKeDasar?: number;
 }
 
 interface SesiPanjatSoloClient {
@@ -208,13 +222,22 @@ function formatDurasiDetik(ms: number | null | undefined): string {
 
 function buildFeedbackSummary(fb: FeedbackAksiPanjatSolo): string {
   const extras: string[] = [];
+  if (fb.bonusCepatDidapat && fb.bonusCepatDidapat > 0) extras.push(`Cepat (<5s) +${fb.bonusCepatDidapat}%`);
   if (fb.bonusStreakDidapat > 0) extras.push(`Streak +${fb.bonusStreakDidapat}%`);
   if (fb.bonusPeganganKuatDidapat > 0) extras.push(`Pegangan Kuat +${fb.bonusPeganganKuatDidapat}%`);
+  if (fb.peganganKuatDiperoleh) extras.push('Pegangan Kuat siap!');
+  if (fb.peganganKuatDigunakan) extras.push('Pegangan Kuat menahanmu!');
+  if (fb.tertahanTali) extras.push(`Tertahan tali ${fb.taliTerkait}%!`);
+  if (fb.awasJatuh) extras.push('⚠ Satu salah lagi = jatuh ke dasar!');
   if (fb.penaltiTiangLicin > 0) extras.push(`Tiang Licin -${fb.penaltiTiangLicin}%`);
   if (fb.perisaiDigunakan) extras.push('Perisai menahan licin!');
   if (fb.perisaiDiperoleh) extras.push('Peroleh Perisai Pisang!');
   if (fb.rintanganBaru?.judul) extras.push(fb.rintanganBaru.judul);
   const suffix = extras.length > 0 ? ` (${extras.join(' · ')})` : '';
+
+  if (fb.jatuhBebas) {
+    return `3× salah beruntun! Jatuh bebas ke dasar tiang (0%)!`;
+  }
 
   if (fb.isBonusKulitPisang) {
     if (fb.benar) return `Berhasil jawab soal bonus Kulit Pisang! Perisai aktif${suffix}.`;
@@ -223,9 +246,17 @@ function buildFeedbackSummary(fb: FeedbackAksiPanjatSolo): string {
       : `Soal bonus belum tepat. Jawaban: ${fb.kunciKey}. Posisi aman.`;
   }
 
+  if (fb.isSoalPuncak) {
+    if (fb.benar) return `⭐ Soal Puncak Terjawab Benar! Meraih Hadiah Puncak (100%)!`;
+    return `Gagal di Soal Puncak! Melorot ke Tali 75%${suffix}. Kunci: ${fb.kunciKey}.`;
+  }
+
   if (fb.benar) {
     const sign = fb.perubahanPosisi >= 0 ? `+${fb.perubahanPosisi}%` : `${fb.perubahanPosisi}%`;
     return `Benar! Naik ${sign}${suffix}.`;
+  }
+  if (fb.peganganKuatDigunakan) {
+    return `Belum tepat, tapi Pegangan Kuat menahanmu! Kunci: ${fb.kunciKey}.`;
   }
   if (fb.timedOut) {
     return `Waktu habis (${fb.perubahanPosisi}%)${suffix}. Kunci: ${fb.kunciKey}.`;
@@ -247,6 +278,14 @@ export default function LayarHostPanjatPinangSolo() {
   const [isMainLagi, setIsMainLagi] = useState(false);
   const [updatingBot, setUpdatingBot] = useState(false);
   const [crowdCheer, setCrowdCheer] = useState(false);
+  const [jatuhBebasMap, setJatuhBebasMap] = useState<Record<SlotPemain, boolean>>({
+    pemain1: false,
+    pemain2: false,
+  });
+  const [bubbleMap, setBubbleMap] = useState<Record<SlotPemain, string | undefined>>({
+    pemain1: undefined,
+    pemain2: undefined,
+  });
 
   const [revealMap, setRevealMap] = useState<Record<SlotPemain, RevealState | null>>({
     pemain1: null,
@@ -328,18 +367,40 @@ export default function LayarHostPanjatPinangSolo() {
         soundEffects.playShield();
         pulseCheer();
       } else if (fb.benar) {
-        if (fb.bonusStreakDidapat > 0 || fb.bonusPeganganKuatDidapat > 0) {
+        if (fb.bonusStreakDidapat > 0 || fb.bonusPeganganKuatDidapat > 0 || (fb.bonusCepatDidapat && fb.bonusCepatDidapat > 0)) {
           soundEffects.playBoost();
         } else {
           soundEffects.playClimb();
         }
         pulseCheer();
       } else {
-        if (fb.penaltiTiangLicin > 0) {
+        if (fb.jatuhBebas) {
+          soundEffects.playIncorrect();
+        } else if (fb.penaltiTiangLicin > 0) {
           soundEffects.playSlip();
         } else {
           soundEffects.playIncorrect();
         }
+      }
+
+      // Reaksi visual khusus untuk Jatuh Bebas, Awas Jatuh, dan Pegangan Kuat
+      if (fb.jatuhBebas) {
+        setJatuhBebasMap((prev) => ({ ...prev, [slot]: true }));
+        setBubbleMap((prev) => ({ ...prev, [slot]: 'Aaaah!!' }));
+        setTimeout(() => {
+          setJatuhBebasMap((prev) => ({ ...prev, [slot]: false }));
+          setBubbleMap((prev) => ({ ...prev, [slot]: undefined }));
+        }, 1800);
+      } else if (fb.awasJatuh) {
+        setBubbleMap((prev) => ({ ...prev, [slot]: 'Awas jatuh!' }));
+        setTimeout(() => setBubbleMap((prev) => ({ ...prev, [slot]: undefined })), 1800);
+      } else if (fb.peganganKuatDigunakan) {
+        setBubbleMap((prev) => ({ ...prev, [slot]: 'Pegangan Kuat!' }));
+        setTimeout(() => setBubbleMap((prev) => ({ ...prev, [slot]: undefined })), 1500);
+      } else if (fb.benar) {
+        const bubbleTxt = fb.bonusCepatDidapat ? `+${fb.perubahanPosisi}% (Cepat!)` : `+${fb.perubahanPosisi}%`;
+        setBubbleMap((prev) => ({ ...prev, [slot]: bubbleTxt }));
+        setTimeout(() => setBubbleMap((prev) => ({ ...prev, [slot]: undefined })), 1200);
       }
 
       setDeltaMap((prev) => ({
@@ -824,6 +885,7 @@ export default function LayarHostPanjatPinangSolo() {
         <div className={`${accentHeader} px-4 py-2.5 flex items-center justify-between gap-2`}>
           <div className="min-w-0">
             <span className="text-[11px] font-bold uppercase opacity-85 block">
+              {p.posisi >= 90 ? '⭐ SOAL PUNCAK • ' : ''}
               {isP1 ? 'Pemanjat 1 (Kiri)' : 'Pemanjat 2 (Kanan)'} • Soal #{soal.urutanSoal}
             </span>
             <h3 className="bk-h text-lg font-extrabold truncate">{p.nama}</h3>
@@ -1237,6 +1299,8 @@ export default function LayarHostPanjatPinangSolo() {
                         ekspresi={ekspresiMap[slot]}
                         streak={p.streakSaatIni}
                         status={p.status}
+                        jatuhBebas={jatuhBebasMap[slot]}
+                        bubbleText={bubbleMap[slot]}
                       />
 
                       {slot === 'pemain2' && p.isBot && botFeedback && (
@@ -1339,7 +1403,7 @@ export default function LayarHostPanjatPinangSolo() {
                           {juara1.posisi}%
                         </p>
                         <p className="text-xs font-bold text-[#6b6a85] mt-1">
-                          Benar {juara1.totalBenar} • Salah {juara1.totalSalah} • Streak Maks{' '}
+                          Benar {juara1.totalBenar} • Salah {juara1.totalSalah} • Jatuh ke dasar {juara1.jatuhKeDasar ?? 0}x • Streak Maks{' '}
                           {juara1.streakTertinggi}x •{' '}
                           {juara1.waktuSelesaiMs
                             ? `Selesai ${formatDurasiDetik(juara1.waktuSelesaiMs)}`
@@ -1368,7 +1432,7 @@ export default function LayarHostPanjatPinangSolo() {
                           {juara2.posisi}%
                         </p>
                         <p className="text-xs font-bold text-[#6b6a85] mt-1">
-                          Benar {juara2.totalBenar} • Salah {juara2.totalSalah} • Streak Maks{' '}
+                          Benar {juara2.totalBenar} • Salah {juara2.totalSalah} • Jatuh ke dasar {juara2.jatuhKeDasar ?? 0}x • Streak Maks{' '}
                           {juara2.streakTertinggi}x • Rata-rata{' '}
                           {formatDurasiDetik(juara2.rataRataWaktuJawabMs)}
                         </p>

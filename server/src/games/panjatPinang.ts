@@ -299,6 +299,8 @@ export interface PesertaPanjatState {
   terakhirSoalId?: string;
   presentasiAktif: PresentasiSoalPanjat | null;
   nomorSoalPemain: number;
+  streakSalahBerturut?: number;
+  jatuhKeDasar?: number;
 }
 
 export interface SoalPanjat {
@@ -554,9 +556,20 @@ export interface HasilJawabanPanjat {
   perubahanPosisi: number;
   bonusStreakDidapat: number;
   bonusPeganganKuatDidapat: number;
+  bonusCepatDidapat?: number;
   penaltiTiangLicin: number;
   perisaiDigunakan: boolean;
   perisaiDiperoleh: boolean;
+  peganganKuatDiperoleh?: boolean;
+  peganganKuatDigunakan?: boolean;
+  streakSalahBerturut?: number;
+  jatuhBebas?: boolean;
+  awasJatuh?: boolean;
+  tertahanTali?: boolean;
+  taliTerkait?: number;
+  isSoalPuncak?: boolean;
+  soalPuncakBerhasil?: boolean;
+  jatuhKeDasar?: number;
   rintanganBaru: RiwayatRintanganEntry | null;
   selesaiBaru: boolean;
   waktuJawabMs: number;
@@ -569,6 +582,8 @@ export interface HasilJawabanPanjat {
 export function clonePesertaPanjat(p: PesertaPanjatState): PesertaPanjatState {
   return {
     ...p,
+    streakSalahBerturut: p.streakSalahBerturut ?? 0,
+    jatuhKeDasar: p.jatuhKeDasar ?? 0,
     efekAktif: { ...p.efekAktif },
     riwayatPosisi: [...p.riwayatPosisi],
     riwayatRintangan: [...p.riwayatRintangan],
@@ -626,10 +641,21 @@ export function prosesJawabanPanjatPinang(
   let perubahanPosisi = 0;
   let bonusStreakDidapat = 0;
   let bonusPeganganKuatDidapat = 0;
+  let bonusCepatDidapat = 0;
   let penaltiTiangLicin = 0;
   let perisaiDigunakan = false;
   let perisaiDiperoleh = false;
+  let peganganKuatDiperoleh = false;
+  let peganganKuatDigunakan = false;
+  let jatuhBebas = false;
+  let awasJatuh = false;
+  let tertahanTali = false;
+  let taliTerkait: number | undefined = undefined;
+  const isSoalPuncak = posisiSebelum >= 90;
+  let soalPuncakBerhasil = false;
   let rintanganBaru: RiwayatRintanganEntry | null = null;
+
+  const ANC = [25, 50, 75];
 
   if (presentasi.isBonusKulitPisang) {
     // Pertanyaan bonus Kulit Pisang: menjawab benar memberi perisai, salah tidak menurunkan posisi
@@ -665,42 +691,64 @@ export function prosesJawabanPanjatPinang(
       updated.riwayatRintangan.push(log);
     }
   } else {
-    // Pertanyaan reguler
-    let delta = 0;
+    // Pertanyaan reguler / Soal Puncak
     const catatanAlasan: string[] = [];
 
     if (benar) {
       updated.totalBenar += 1;
       updated.streakSaatIni += 1;
+      updated.streakSalahBerturut = 0;
       if (updated.streakSaatIni > updated.streakTertinggi) {
         updated.streakTertinggi = updated.streakSaatIni;
       }
 
-      delta += config.naikBenar;
-      catatanAlasan.push(`Benar +${config.naikBenar}%`);
+      if (isSoalPuncak) {
+        // Berhasil menjawab Soal Puncak -> 100% dan menang!
+        updated.posisi = 100;
+        soalPuncakBerhasil = true;
+        catatanAlasan.push('⭐ Berhasil menjawab Soal Puncak! Meraih Hadiah Puncak!');
+      } else {
+        let delta = config.naikBenar;
+        catatanAlasan.push(`Benar +${config.naikBenar}%`);
 
-      // Milestone bonus streak (hanya 1 kali per rangkaian streak)
-      if (config.bonusStreakAktif) {
-        if (updated.streakSaatIni === 3 && !updated.bonus3DalamStreak) {
-          delta += config.bonusStreak3;
-          bonusStreakDidapat += config.bonusStreak3;
-          updated.bonus3DalamStreak = true;
-          catatanAlasan.push(`Streak 3 +${config.bonusStreak3}%`);
+        // Bonus waktu cepat (< 5 detik pertama) memberi bonus +2%
+        if (waktuJawabMs < 5000) {
+          delta += 2;
+          bonusCepatDidapat = 2;
+          catatanAlasan.push('Bonus Cepat (<5dtk) +2%');
         }
-        if (updated.streakSaatIni === 5 && !updated.bonus5DalamStreak) {
-          delta += config.bonusStreak5;
-          bonusStreakDidapat += config.bonusStreak5;
-          updated.bonus5DalamStreak = true;
-          catatanAlasan.push(`Streak 5 +${config.bonusStreak5}%`);
-        }
-      }
 
-      // Pegangan Kuat: bonus tambahan 1 kali pada jawaban benar
-      if (updated.efekAktif.peganganKuat) {
-        delta += config.bonusPeganganKuat;
-        bonusPeganganKuatDidapat = config.bonusPeganganKuat;
-        updated.efekAktif.peganganKuat = false;
-        catatanAlasan.push(`Pegangan Kuat +${config.bonusPeganganKuat}%`);
+        // Milestone bonus streak (hanya 1 kali per rangkaian streak)
+        if (config.bonusStreakAktif) {
+          if (updated.streakSaatIni === 3 && !updated.bonus3DalamStreak) {
+            delta += config.bonusStreak3;
+            bonusStreakDidapat += config.bonusStreak3;
+            updated.bonus3DalamStreak = true;
+            catatanAlasan.push(`Streak 3 +${config.bonusStreak3}%`);
+          }
+          if (updated.streakSaatIni === 5 && !updated.bonus5DalamStreak) {
+            delta += config.bonusStreak5;
+            bonusStreakDidapat += config.bonusStreak5;
+            updated.bonus5DalamStreak = true;
+            catatanAlasan.push(`Streak 5 +${config.bonusStreak5}%`);
+          }
+        }
+
+        // Setiap 3 jawaban benar beruntun: dapatkan Pegangan Kuat penahan 1 kesalahan
+        if (updated.streakSaatIni > 0 && updated.streakSaatIni % 3 === 0) {
+          updated.efekAktif.peganganKuat = true;
+          peganganKuatDiperoleh = true;
+          catatanAlasan.push('Pegangan Kuat diperoleh!');
+        }
+
+        // Batasi kemajuan pertanyaan reguler berhenti maksimal di 90% (Soal Puncak)
+        const posisiTentatif = posisiSebelum + delta;
+        if (posisiTentatif > 90) {
+          updated.posisi = 90;
+          catatanAlasan.push('Mencapai ambang 90% (Siap Soal Puncak!)');
+        } else {
+          updated.posisi = Math.min(90, posisiTentatif);
+        }
       }
 
       // Melewati bagian tiang licin dengan aman jika menjawab benar
@@ -713,46 +761,92 @@ export function prosesJawabanPanjatPinang(
       updated.bonus3DalamStreak = false;
       updated.bonus5DalamStreak = false;
 
-      delta -= config.turunSalah;
-      catatanAlasan.push(
-        timedOut ? `Waktu habis -${config.turunSalah}%` : `Salah -${config.turunSalah}%`
-      );
+      // Cek apakah kesalahan ditahan oleh Pegangan Kuat (setiap streak 3)
+      if (updated.efekAktif.peganganKuat) {
+        updated.efekAktif.peganganKuat = false;
+        peganganKuatDigunakan = true;
+        catatanAlasan.push(
+          timedOut
+            ? 'Waktu habis, tapi Pegangan Kuat menahanmu terpeleset!'
+            : 'Belum tepat, tapi Pegangan Kuat menahanmu terpeleset!'
+        );
+        // Posisi tidak berkurang dan salah beruntun tidak bertambah
+      } else {
+        // Tambah hitungan salah berturut-turut
+        updated.streakSalahBerturut = (updated.streakSalahBerturut || 0) + 1;
 
-      // Cek Tiang Licin dan Perisai Kulit Pisang saat salah
-      if (updated.efekAktif.tiangLicin) {
-        updated.efekAktif.tiangLicin = false;
-        if (updated.efekAktif.perisaiKulitPisang) {
-          updated.efekAktif.perisaiKulitPisang = false;
-          perisaiDigunakan = true;
-          catatanAlasan.push('Perisai tahan Tiang Licin');
-          updated.riwayatRintangan.push({
-            id: crypto.randomUUID(),
-            tipe: 'perisai_terpakai',
-            judul: 'Perisai Kulit Pisang Aktif!',
-            deskripsi: 'Berhasil menahan efek penurunan tambahan Tiang Licin.',
-            efekNilai: 0,
-            satuan: 'perisai',
-            timestampMs: nowMs,
-          });
+        if (updated.streakSalahBerturut >= 3) {
+          // Tiga kali salah berturut-turut -> jatuh bebas ke dasar (0%)
+          updated.posisi = 0;
+          updated.streakSalahBerturut = 0;
+          updated.jatuhKeDasar = (updated.jatuhKeDasar || 0) + 1;
+          jatuhBebas = true;
+          catatanAlasan.push('3× salah beruntun! Jatuh bebas ke dasar tiang!');
         } else {
-          delta -= config.penurunanTiangLicin;
-          penaltiTiangLicin = config.penurunanTiangLicin;
-          catatanAlasan.push(`Tiang Licin -${config.penurunanTiangLicin}%`);
+          if (updated.streakSalahBerturut === 2) {
+            awasJatuh = true;
+            catatanAlasan.push('Awas jatuh! 1 kesalahan lagi = jatuh ke dasar!');
+          }
+
+          if (isSoalPuncak) {
+            // Pada Soal Puncak jika salah -> turun ke tali 75%
+            updated.posisi = 75;
+            catatanAlasan.push('Gagal di Soal Puncak, melorot ke Tali 75%');
+          } else {
+            // Terpeleset biasa
+            let slip = config.turunSalah;
+
+            // Cek Tiang Licin dan Perisai Kulit Pisang
+            if (updated.efekAktif.tiangLicin) {
+              updated.efekAktif.tiangLicin = false;
+              if (updated.efekAktif.perisaiKulitPisang) {
+                updated.efekAktif.perisaiKulitPisang = false;
+                perisaiDigunakan = true;
+                catatanAlasan.push('Perisai tahan Tiang Licin');
+                updated.riwayatRintangan.push({
+                  id: crypto.randomUUID(),
+                  tipe: 'perisai_terpakai',
+                  judul: 'Perisai Kulit Pisang Aktif!',
+                  deskripsi: 'Berhasil menahan efek penurunan tambahan Tiang Licin.',
+                  efekNilai: 0,
+                  satuan: 'perisai',
+                  timestampMs: nowMs,
+                });
+              } else {
+                slip += config.penurunanTiangLicin;
+                penaltiTiangLicin = config.penurunanTiangLicin;
+                catatanAlasan.push(`Tiang Licin -${config.penurunanTiangLicin}%`);
+              }
+            }
+
+            // Tali pengikat di 25%, 50%, dan 75%: tidak turun lebih rendah dari tali terdekat
+            const taliTerdekat = Math.max(0, ...ANC.filter((x) => x <= posisiSebelum));
+            const posisiTentatif = posisiSebelum - slip;
+            const posisiBaru = Math.max(taliTerdekat, posisiTentatif);
+
+            if (posisiTentatif < taliTerdekat && taliTerdekat > 0) {
+              tertahanTali = true;
+              taliTerkait = taliTerdekat;
+              catatanAlasan.push(`Tertahan tali pengikat di ${taliTerdekat}%`);
+            } else {
+              catatanAlasan.push(
+                timedOut ? `Waktu habis -${slip}%` : `Salah -${slip}%`
+              );
+            }
+            updated.posisi = Math.max(0, Math.min(100, posisiBaru));
+          }
         }
       }
     }
 
-    // Batasi posisi selalu dalam rentang 0%..100%
-    const posisiBaru = Math.max(0, Math.min(100, posisiSebelum + delta));
-    perubahanPosisi = posisiBaru - posisiSebelum;
-    updated.posisi = posisiBaru;
+    perubahanPosisi = updated.posisi - posisiSebelum;
 
     updated.riwayatPosisi.push({
       urutan: updated.riwayatPosisi.length + 1,
       questionId: presentasi.questionId,
       posisiSebelum,
       perubahan: perubahanPosisi,
-      posisiSesudah: posisiBaru,
+      posisiSesudah: updated.posisi,
       alasan: catatanAlasan.join(', '),
       timestampMs: nowMs,
     });
@@ -800,9 +894,20 @@ export function prosesJawabanPanjatPinang(
     perubahanPosisi: updated.posisi - posisiSebelum,
     bonusStreakDidapat,
     bonusPeganganKuatDidapat,
+    bonusCepatDidapat,
     penaltiTiangLicin,
     perisaiDigunakan,
     perisaiDiperoleh,
+    peganganKuatDiperoleh,
+    peganganKuatDigunakan,
+    streakSalahBerturut: updated.streakSalahBerturut,
+    jatuhBebas,
+    awasJatuh,
+    tertahanTali,
+    taliTerkait,
+    isSoalPuncak,
+    soalPuncakBerhasil,
+    jatuhKeDasar: updated.jatuhKeDasar,
     rintanganBaru,
     selesaiBaru,
     waktuJawabMs,

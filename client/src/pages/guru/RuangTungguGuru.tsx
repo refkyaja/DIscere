@@ -102,14 +102,19 @@ export default function RuangTungguGuru({
       ];
     }
 
-    if (gameType === 'balap_karung' || gameType === 'makan_kerupuk') {
+    if (gameType === 'balap_karung' || gameType === 'makan_kerupuk' || gameType === 'panjat_pinang') {
       const defWarna = [
         { id: 'merah', nama: 'Tim Merah', c: '#c8362f', t: '#ffffff' },
         { id: 'biru', nama: 'Tim Biru', c: '#1d8fe0', t: '#ffffff' },
         { id: 'hijau', nama: 'Tim Hijau', c: '#3f9e62', t: '#ffffff' },
         { id: 'kuning', nama: 'Tim Kuning', c: '#f2c230', t: '#1d3b2e' },
       ];
-      const numTeams = metaDetail?.includes('4 tim') || config?.jumlahTim === 4 ? 4 : 3;
+      const numTeams =
+        metaDetail?.includes('2 tim') || config?.jumlahTim === 2
+          ? 2
+          : metaDetail?.includes('4 tim') || config?.jumlahTim === 4
+          ? 4
+          : 3;
       const defs = defWarna.slice(0, numTeams);
       return defs.map((d, k) => {
         const anggota = (daftarPeserta || []).filter((p, idx) => {

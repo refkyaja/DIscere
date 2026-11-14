@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { apiRequest } from '../../lib/api';
 import { getSocket } from '../../lib/socket';
@@ -47,6 +47,7 @@ interface LeaderboardItemHost {
   peringkat: number;
   id: string;
   nama: string;
+  tim?: string;
   connected?: boolean;
   posisi: number;
   poinBonus: number;
@@ -55,6 +56,8 @@ interface LeaderboardItemHost {
   akurasiPersen: number;
   streakSaatIni: number;
   streakTertinggi: number;
+  streakSalahBerturut?: number;
+  jatuhKeDasar?: number;
   status: 'bermain' | 'selesai';
   waktuSelesaiMs: number | null;
   rataRataWaktuJawabMs: number;
@@ -94,6 +97,8 @@ interface LaporanPemainHost {
   akurasiPersen: number;
   streakTertinggi: number;
   streakSaatIni: number;
+  streakSalahBerturut?: number;
+  jatuhKeDasar?: number;
   rataRataWaktuJawabMs: number;
   waktuSelesaiMs: number | null;
   riwayatRintangan: RiwayatRintanganHost[];
@@ -160,6 +165,8 @@ export default function LayarHostPanjatPinang() {
   const [totalPeserta, setTotalPeserta] = useState(0);
   const [deltaMap, setDeltaMap] = useState<Record<string, number | null>>({});
   const [ekspresiMap, setEkspresiMap] = useState<Record<string, EkspresiKarakterPanjat>>({});
+  const [jatuhBebasMap, setJatuhBebasMap] = useState<Record<string, boolean>>({});
+  const [bubbleMap, setBubbleMap] = useState<Record<string, string | undefined>>({});
   const [tampilSemuaTiang, setTampilSemuaTiang] = useState(false);
 
   const [liveFeed, setLiveFeed] = useState<
@@ -265,6 +272,17 @@ export default function LayarHostPanjatPinang() {
         posisiBaru: number;
         perubahanPosisi: number;
         streakSaatIni: number;
+        streakSalahBerturut?: number;
+        jatuhBebas?: boolean;
+        awasJatuh?: boolean;
+        tertahanTali?: boolean;
+        taliTerkait?: number;
+        isSoalPuncak?: boolean;
+        soalPuncakBerhasil?: boolean;
+        peganganKuatDiperoleh?: boolean;
+        peganganKuatDigunakan?: boolean;
+        bonusCepatDidapat?: number;
+        jatuhKeDasar?: number;
         rintanganBaru?: { judul: string; tipe: string } | null;
         perisaiDigunakan?: boolean;
         perisaiDiperoleh?: boolean;
@@ -291,6 +309,58 @@ export default function LayarHostPanjatPinang() {
           [aksi.pesertaId]: ekspresiAksi,
         }));
 
+        if (aksi.jatuhBebas) {
+          setJatuhBebasMap((prev) => ({ ...prev, [aksi.pesertaId]: true }));
+          setBubbleMap((prev) => ({ ...prev, [aksi.pesertaId]: 'Aaaah!! 😱' }));
+          soundEffects.playWhistle();
+          setTimeout(() => {
+            setJatuhBebasMap((prev) => ({ ...prev, [aksi.pesertaId]: false }));
+          }, 1800);
+          setTimeout(() => {
+            setBubbleMap((prev) => ({ ...prev, [aksi.pesertaId]: undefined }));
+          }, 2400);
+        } else if (aksi.awasJatuh) {
+          setBubbleMap((prev) => ({ ...prev, [aksi.pesertaId]: 'Awas jatuh! ⚠️' }));
+          setTimeout(() => {
+            setBubbleMap((prev) => ({ ...prev, [aksi.pesertaId]: undefined }));
+          }, 2000);
+        } else if (aksi.peganganKuatDiperoleh) {
+          setBubbleMap((prev) => ({ ...prev, [aksi.pesertaId]: 'Pegangan Kuat! ✊' }));
+          setTimeout(() => {
+            setBubbleMap((prev) => ({ ...prev, [aksi.pesertaId]: undefined }));
+          }, 2000);
+        } else if (aksi.peganganKuatDigunakan) {
+          setBubbleMap((prev) => ({ ...prev, [aksi.pesertaId]: 'Tertahan! 🛡️' }));
+          setTimeout(() => {
+            setBubbleMap((prev) => ({ ...prev, [aksi.pesertaId]: undefined }));
+          }, 2000);
+        } else if (aksi.tertahanTali) {
+          setBubbleMap((prev) => ({ ...prev, [aksi.pesertaId]: `Tertahan Tali ${aksi.taliTerkait}% 🪢` }));
+          setTimeout(() => {
+            setBubbleMap((prev) => ({ ...prev, [aksi.pesertaId]: undefined }));
+          }, 2000);
+        } else if (aksi.bonusCepatDidapat) {
+          setBubbleMap((prev) => ({ ...prev, [aksi.pesertaId]: `+${aksi.perubahanPosisi}% (Cepat!) ⚡` }));
+          setTimeout(() => {
+            setBubbleMap((prev) => ({ ...prev, [aksi.pesertaId]: undefined }));
+          }, 1800);
+        } else if (aksi.isSoalPuncak && aksi.soalPuncakBerhasil) {
+          setBubbleMap((prev) => ({ ...prev, [aksi.pesertaId]: 'PUNCAK! 🏆' }));
+          setTimeout(() => {
+            setBubbleMap((prev) => ({ ...prev, [aksi.pesertaId]: undefined }));
+          }, 2500);
+        } else if (aksi.benar) {
+          setBubbleMap((prev) => ({ ...prev, [aksi.pesertaId]: `+${aksi.perubahanPosisi}% 🧗` }));
+          setTimeout(() => {
+            setBubbleMap((prev) => ({ ...prev, [aksi.pesertaId]: undefined }));
+          }, 1600);
+        } else {
+          setBubbleMap((prev) => ({ ...prev, [aksi.pesertaId]: `${aksi.perubahanPosisi}% 💦` }));
+          setTimeout(() => {
+            setBubbleMap((prev) => ({ ...prev, [aksi.pesertaId]: undefined }));
+          }, 1600);
+        }
+
         setTimeout(() => {
           setDeltaMap((prev) => ({
             ...prev,
@@ -316,6 +386,15 @@ export default function LayarHostPanjatPinang() {
           soundEffects.playVictoryFanfare();
           setCrowdCheer(true);
           setTimeout(() => setCrowdCheer(false), 2000);
+        } else if (aksi.jatuhBebas) {
+          teks = `${aksi.nama} 3× salah beruntun & jatuh bebas ke dasar tiang!`;
+          tipe = 'turun';
+        } else if (aksi.awasJatuh) {
+          teks = `${aksi.nama} 2× salah beruntun! Awas jatuh ke dasar!`;
+          tipe = 'turun';
+        } else if (aksi.tertahanTali) {
+          teks = `${aksi.nama} tertahan di tali pengikat ${aksi.taliTerkait}%!`;
+          tipe = 'turun';
         } else if (aksi.rintanganBaru) {
           teks = `${aksi.nama} memicu rintangan ${aksi.rintanganBaru.judul}!`;
           tipe = 'rintangan';
@@ -495,6 +574,55 @@ export default function LayarHostPanjatPinang() {
     />
   );
 
+  const teamsData = useMemo(() => {
+    const defWarna = [
+      { id: 'merah', nama: 'Tim Merah', warna: '#e2312d' },
+      { id: 'biru', nama: 'Tim Biru', warna: '#1d8fe0' },
+      { id: 'hijau', nama: 'Tim Hijau', warna: '#1f9d55' },
+      { id: 'kuning', nama: 'Tim Kuning', warna: '#f2c230' },
+    ];
+    const numTeams = Math.min(defWarna.length, Math.max(2, leaderboard.length >= 6 ? 3 : 2));
+    const activeTeams = defWarna.slice(0, numTeams);
+
+    return activeTeams.map((t, tIdx) => {
+      const rawMembers = leaderboard.filter((p, idx) => {
+        if (p.tim) return p.tim === t.id;
+        return idx % activeTeams.length === tIdx;
+      });
+
+      const n = rawMembers.length;
+      const anggota = rawMembers.map((m, k) => {
+        let role: 'pemanjat' | 'penopang' | 'penopang bawah' = 'pemanjat';
+        if (n > 1) {
+          if (k === 0) role = 'penopang bawah';
+          else if (k === n - 1) role = 'pemanjat';
+          else role = 'penopang';
+        }
+        return { item: m, role };
+      });
+
+      const posisiMax = n > 0 ? Math.max(...rawMembers.map((m) => m.posisi)) : 0;
+      const salahBeruntunTotal = rawMembers.reduce((sum, m) => sum + (m.streakSalahBerturut || 0), 0);
+      const limit = n > 3 ? 4 : 3;
+      const salahBeruntun = Math.min(limit, salahBeruntunTotal);
+      const penopangBenar = rawMembers
+        .filter((_, k) => k < n - 1)
+        .reduce((sum, m) => sum + m.totalBenar, 0);
+      const sisaPasir = Math.min(3, penopangBenar);
+
+      return {
+        id: t.id,
+        nama: t.nama,
+        warna: t.warna,
+        posisi: posisiMax,
+        salahBeruntun,
+        sisaPasir,
+        limitSalah: limit,
+        anggota,
+      };
+    });
+  }, [leaderboard]);
+
   // -------------------------------------------------------------------------
   // FASE 1: LOBI PROYEKTOR (TEMA FESTIVAL 17 AGUSTUS)
   // -------------------------------------------------------------------------
@@ -629,7 +757,7 @@ export default function LayarHostPanjatPinang() {
                     {podium.juara2.posisi}%
                   </p>
                   <p className="text-xs font-bold text-[#6b6a85] mt-1">
-                    Akurasi {podium.juara2.akurasiPersen}% • Rata-rata {formatDurasiDetik(podium.juara2.rataRataWaktuJawabMs)}
+                    Akurasi {podium.juara2.akurasiPersen}% • Jatuh ke dasar {podium.juara2.jatuhKeDasar ?? 0}x • Rata-rata {formatDurasiDetik(podium.juara2.rataRataWaktuJawabMs)}
                   </p>
                 </div>
               )}
@@ -655,7 +783,7 @@ export default function LayarHostPanjatPinang() {
                     {podium.juara1.posisi}%
                   </p>
                   <p className="text-xs font-bold text-[#6b6a85] mt-1">
-                    Benar {podium.juara1.totalBenar} • Akurasi {podium.juara1.akurasiPersen}% •{' '}
+                    Benar {podium.juara1.totalBenar} • Akurasi {podium.juara1.akurasiPersen}% • Jatuh ke dasar {podium.juara1.jatuhKeDasar ?? 0}x •{' '}
                     {podium.juara1.waktuSelesaiMs
                       ? `Selesai ${formatDurasiDetik(podium.juara1.waktuSelesaiMs)}`
                       : `Rata-rata ${formatDurasiDetik(podium.juara1.rataRataWaktuJawabMs)}`}
@@ -684,7 +812,7 @@ export default function LayarHostPanjatPinang() {
                     {podium.juara3.posisi}%
                   </p>
                   <p className="text-xs font-bold text-[#6b6a85] mt-1">
-                    Akurasi {podium.juara3.akurasiPersen}% • Rata-rata {formatDurasiDetik(podium.juara3.rataRataWaktuJawabMs)}
+                    Akurasi {podium.juara3.akurasiPersen}% • Jatuh ke dasar {podium.juara3.jatuhKeDasar ?? 0}x • Rata-rata {formatDurasiDetik(podium.juara3.rataRataWaktuJawabMs)}
                   </p>
                 </div>
               )}
@@ -712,6 +840,7 @@ export default function LayarHostPanjatPinang() {
                     <th className="px-3 py-2.5 text-center">Benar / Salah</th>
                     <th className="px-3 py-2.5 text-right">Akurasi</th>
                     <th className="px-3 py-2.5 text-right">Streak Maks</th>
+                    <th className="px-3 py-2.5 text-center">Jatuh</th>
                     <th className="px-3 py-2.5 text-right">Rata Jawab</th>
                     <th className="px-3 py-2.5 text-right">Waktu Selesai</th>
                     <th className="px-3 py-2.5 text-center">Rintangan</th>
@@ -749,6 +878,9 @@ export default function LayarHostPanjatPinang() {
                       </td>
                       <td className="px-3 py-2.5 text-right font-mono font-extrabold text-[#e6a100]">
                         {p.streakTertinggi}x
+                      </td>
+                      <td className="px-3 py-2.5 text-center font-mono font-extrabold text-[#d63b3b]">
+                        {p.jatuhKeDasar ? `${p.jatuhKeDasar}x` : '0x'}
                       </td>
                       <td className="px-3 py-2.5 text-right font-mono text-[#6b6a85]">
                         {formatDurasiDetik(p.rataRataWaktuJawabMs)}
@@ -956,6 +1088,8 @@ export default function LayarHostPanjatPinang() {
                     ekspresi={ekspresiMap[p.id]}
                     streak={p.streakSaatIni}
                     status={p.status}
+                    jatuhBebas={Boolean(jatuhBebasMap[p.id])}
+                    bubbleText={bubbleMap[p.id]}
                     compact
                   />
                 </div>
@@ -1081,6 +1215,105 @@ export default function LayarHostPanjatPinang() {
             </button>
           </section>
         </div>
+
+        {/* Panel Kekompakan Tim (Sesuai Desain Multiplayer) */}
+        {teamsData.length > 0 && (
+          <section className="bk-card space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="bk-h text-xl font-extrabold text-[#2b2a4a] flex items-center gap-2">
+                  <Flag className="w-4 h-4 text-[#e2312d]" />
+                  Kekompakan Tim ({teamsData.length} Tim)
+                </h2>
+                <p className="text-xs font-bold text-[#6b6a85]">
+                  Penopang isi Pasir • 3× Salah Beruntun = Runtuh ke Dasar • 90% = ⭐ Soal Puncak
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {teamsData.map((t) => {
+                const isPuncak = t.posisi >= 90;
+                const awasRuntuh = t.salahBeruntun === t.limitSalah - 1;
+                return (
+                  <div
+                    key={t.id}
+                    style={{ borderColor: t.warna }}
+                    className="rounded-2xl p-4 border-[2.5px] bg-[#fffdf6] shadow-xs flex flex-col justify-between gap-3"
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-2 mb-1.5">
+                        <h3 className="bk-h text-lg font-black" style={{ color: t.warna }}>
+                          {t.nama}
+                        </h3>
+                        <span className="tabular-nums font-black text-[#2b2a4a] text-lg">
+                          {Math.round(t.posisi)}%
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-1.5 text-xs font-extrabold mb-2 text-[#6b6a85]">
+                        {isPuncak && (
+                          <span className="px-2 py-0.5 rounded-full bg-[#fff0c9] text-[#b87700] border border-[#f3d37a] text-[11px] font-black animate-pulse">
+                            ⭐ Soal Puncak
+                          </span>
+                        )}
+                        <span className="bg-[#fff3d6] px-2 py-0.5 rounded-lg border border-[#f0dfb4] text-[#7a5200] font-mono">
+                          Pasir {'●'.repeat(t.sisaPasir)}{'○'.repeat(3 - t.sisaPasir)}
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 rounded-lg font-mono ${
+                            awasRuntuh
+                              ? 'bg-[#fdecec] text-[#d63b3b] border border-[#f4b6b6] font-black animate-bounce'
+                              : 'bg-[#f4f3f8] text-[#6b6a85]'
+                          }`}
+                        >
+                          Salah {t.salahBeruntun}/{t.limitSalah} {awasRuntuh ? '⚠️ Awas runtuh!' : ''}
+                        </span>
+                      </div>
+
+                      {/* Progress Bar Tim */}
+                      <div className="w-full h-3 bg-[#e6cfa0]/40 rounded-full overflow-hidden p-0.5 border border-[#f0dfb4] mb-3">
+                        <div
+                          className="h-full rounded-full transition-all duration-500 ease-out"
+                          style={{
+                            width: `${Math.max(0, Math.min(100, t.posisi))}%`,
+                            background: isPuncak
+                              ? 'linear-gradient(90deg, #ffb81c, #ffd23f)'
+                              : `linear-gradient(90deg, #ffb81c, ${t.warna})`,
+                          }}
+                        />
+                      </div>
+
+                      {/* Daftar Anggota Tim */}
+                      <ul className="space-y-1.5 text-xs">
+                        {t.anggota.map(({ item: m, role }) => (
+                          <li
+                            key={m.id}
+                            className="flex items-center justify-between py-1.5 px-2.5 rounded-xl bg-[#fffaf0] border border-[#f0dfb4]/60"
+                          >
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="font-extrabold text-[#2b2a4a] truncate max-w-[120px]">
+                                {m.nama}
+                              </span>
+                              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-white border border-[#f0dfb4] text-[#6b6a85]">
+                                {role}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0 font-mono text-[11px]">
+                              <span className="text-[#1f9d55] font-black">{m.totalBenar}</span>
+                              <span className="text-[#9e9cb3]">/</span>
+                              <span className="text-[#d63b3b] font-black">{m.totalSalah}</span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
       </main>
 
       {/* Modal Konfirmasi Akhiri Sesi Manual */}

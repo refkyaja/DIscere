@@ -47,6 +47,7 @@ export interface LeaderboardItemPanjat {
   rataRataWaktuJawabMs: number;
   jumlahJawab: number;
   efekAktif: EfekAktifPanjat;
+  jatuhKeDasar?: number;
 }
 
 export interface LaporanPemainPanjat {
@@ -65,6 +66,7 @@ export interface LaporanPemainPanjat {
   waktuSelesaiMs: number | null;
   riwayatRintangan: RiwayatRintanganEntry[];
   riwayatPosisi: RiwayatPosisiEntry[];
+  jatuhKeDasar?: number;
 }
 
 export interface LaporanAkhirPanjatPinang {
@@ -173,6 +175,7 @@ function formatLeaderboardItem(p: PesertaPanjatState, peringkat: number): Leader
     rataRataWaktuJawabMs: p.rataRataWaktuJawabMs,
     jumlahJawab: p.jumlahJawab,
     efekAktif: { ...p.efekAktif },
+    jatuhKeDasar: p.jatuhKeDasar ?? 0,
   };
 }
 
@@ -228,6 +231,7 @@ export function buatLaporanAkhirPanjat(
       waktuSelesaiMs: p.waktuSelesaiMs,
       riwayatRintangan: [...p.riwayatRintangan],
       riwayatPosisi: [...p.riwayatPosisi],
+      jatuhKeDasar: p.jatuhKeDasar ?? 0,
     };
   });
 

@@ -985,3 +985,41 @@
   box-shadow: 0 0 0 2px rgba(29, 143, 224, 0.25);
 }
 
+/* Animasi Panjat Pinang: Jatuh Bebas, Tali Pengikat, Guncangan Tiang & Percikan Lumpur */
+@keyframes panjatTumble {
+  0% { transform: rotate(-4deg); }
+  35% { transform: rotate(-16deg) translateY(4px); }
+  70% { transform: rotate(10deg); }
+  100% { transform: rotate(0); }
+}
+
+@keyframes panjatPoleShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+@keyframes panjatMudSplash {
+  0% { opacity: 1; transform: translate(0, 0) scale(1); }
+  100% { opacity: 0; transform: translate(var(--dx, 0px), var(--dy, -25px)) scale(0.3); }
+}
+
+.panjat-anim-free {
+  animation: panjatTumble 1.4s ease-in forwards !important;
+}
+
+.panjat-pole-shake {
+  animation: panjatPoleShake 0.5s ease-in-out 3 !important;
+}
+
+.panjat-mud-particle {
+  position: absolute;
+  bottom: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #5a3a22;
+  pointer-events: none;
+  animation: panjatMudSplash 0.75s ease-out forwards;
+}
+

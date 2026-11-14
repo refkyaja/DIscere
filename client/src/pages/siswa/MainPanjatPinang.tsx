@@ -846,11 +846,22 @@ export default function MainPanjatPinang({
               {/* 4. Area Pertanyaan */}
               <div className="bk-card space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="bk-chip red !text-[11px]">
-                    {soalAktif?.isBonusKulitPisang
+                  <span
+                    className={`bk-chip !text-[11px] ${
+                      safePosisi >= 90 ? 'gold font-black animate-pulse' : 'red'
+                    }`}
+                  >
+                    {safePosisi >= 90
+                      ? '⭐ SOAL PUNCAK'
+                      : soalAktif?.isBonusKulitPisang
                       ? 'Tantangan Bonus Perisai'
                       : `Pertanyaan #${soalAktif?.nomorSoal ?? 1}`}
                   </span>
+                  {safePosisi >= 90 && (
+                    <span className="text-xs font-black text-[#b87700] bg-[#fff0c9] px-2.5 py-0.5 rounded-full border border-[#f3d37a]">
+                      Benar = Menang 100% • Salah = Melorot 75%
+                    </span>
+                  )}
                   {soalAktif?.totalSoalTemplate ? (
                     <span className="text-xs font-extrabold text-[#6b6a85]">
                       Bank Soal: {soalAktif.totalSoalTemplate} Soal

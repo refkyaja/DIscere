@@ -57,9 +57,20 @@ export interface FeedbackAksiPanjatSolo {
   perubahanPosisi: number;
   bonusStreakDidapat: number;
   bonusPeganganKuatDidapat: number;
+  bonusCepatDidapat?: number;
   penaltiTiangLicin: number;
   perisaiDigunakan: boolean;
   perisaiDiperoleh: boolean;
+  peganganKuatDiperoleh?: boolean;
+  peganganKuatDigunakan?: boolean;
+  streakSalahBerturut?: number;
+  jatuhBebas?: boolean;
+  awasJatuh?: boolean;
+  tertahanTali?: boolean;
+  taliTerkait?: number;
+  isSoalPuncak?: boolean;
+  soalPuncakBerhasil?: boolean;
+  jatuhKeDasar?: number;
   rintanganBaru: RiwayatRintanganEntry | null;
   selesaiBaru: boolean;
   waktuJawabMs: number;
@@ -81,6 +92,8 @@ export interface PesertaClientPanjatSolo {
   waktuSelesaiMs: number | null;
   rataRataWaktuJawabMs: number;
   jumlahJawab: number;
+  streakSalahBerturut?: number;
+  jatuhKeDasar?: number;
   efekAktif: {
     tiangLicin: boolean;
     perisaiKulitPisang: boolean;
@@ -271,6 +284,8 @@ function toPesertaClient(
     waktuSelesaiMs: p.waktuSelesaiMs,
     rataRataWaktuJawabMs: p.rataRataWaktuJawabMs,
     jumlahJawab: p.jumlahJawab,
+    streakSalahBerturut: p.streakSalahBerturut ?? 0,
+    jatuhKeDasar: p.jatuhKeDasar ?? 0,
     efekAktif: { ...p.efekAktif },
     riwayatPosisi: [...p.riwayatPosisi],
     riwayatRintangan: [...p.riwayatRintangan],
@@ -380,6 +395,7 @@ function buildLeaderboardSolo(sesi: SesiPanjatPinangSoloActive): LeaderboardItem
       rataRataWaktuJawabMs: p.rataRataWaktuJawabMs,
       jumlahJawab: p.jumlahJawab,
       efekAktif: { ...p.efekAktif },
+      jatuhKeDasar: p.jatuhKeDasar ?? 0,
     };
   });
 }
@@ -949,9 +965,20 @@ export const panjatPinangSoloManager = {
       perubahanPosisi: hasilJawaban.perubahanPosisi,
       bonusStreakDidapat: hasilJawaban.bonusStreakDidapat,
       bonusPeganganKuatDidapat: hasilJawaban.bonusPeganganKuatDidapat,
+      bonusCepatDidapat: hasilJawaban.bonusCepatDidapat,
       penaltiTiangLicin: hasilJawaban.penaltiTiangLicin,
       perisaiDigunakan: hasilJawaban.perisaiDigunakan,
       perisaiDiperoleh: hasilJawaban.perisaiDiperoleh,
+      peganganKuatDiperoleh: hasilJawaban.peganganKuatDiperoleh,
+      peganganKuatDigunakan: hasilJawaban.peganganKuatDigunakan,
+      streakSalahBerturut: hasilJawaban.streakSalahBerturut,
+      jatuhBebas: hasilJawaban.jatuhBebas,
+      awasJatuh: hasilJawaban.awasJatuh,
+      tertahanTali: hasilJawaban.tertahanTali,
+      taliTerkait: hasilJawaban.taliTerkait,
+      isSoalPuncak: hasilJawaban.isSoalPuncak,
+      soalPuncakBerhasil: hasilJawaban.soalPuncakBerhasil,
+      jatuhKeDasar: hasilJawaban.jatuhKeDasar,
       rintanganBaru: hasilJawaban.rintanganBaru,
       selesaiBaru: hasilJawaban.selesaiBaru,
       waktuJawabMs: hasilJawaban.waktuJawabMs,

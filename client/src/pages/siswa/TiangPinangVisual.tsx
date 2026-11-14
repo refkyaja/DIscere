@@ -20,6 +20,8 @@ export interface TiangPinangVisualProps {
   compact?: boolean;
   showProgressFooter?: boolean;
   reactionNonce?: number;
+  jatuhBebas?: boolean;
+  bubbleText?: string;
 }
 
 const WORLD_PARALLAX_CLOUDS = [
@@ -40,6 +42,8 @@ export default function TiangPinangVisual({
   compact = false,
   showProgressFooter = true,
   reactionNonce = 0,
+  jatuhBebas = false,
+  bubbleText,
 }: TiangPinangVisualProps) {
   const geom = hitungGeometriTiangPanjat({ posisi, status, compact });
   const {
@@ -66,7 +70,9 @@ export default function TiangPinangVisual({
     ? 'sedih'
     : 'netral';
 
-  const animClass = isPuncak
+  const animClass = jatuhBebas
+    ? 'panjat-anim-free'
+    : isPuncak
     ? 'motion-safe:panjat-anim-summit'
     : lastDelta !== undefined && lastDelta !== null && lastDelta > 0
     ? 'motion-safe:panjat-anim-climb'
@@ -96,9 +102,13 @@ export default function TiangPinangVisual({
         className={
           compact
             ? `relative h-44 w-[124px] rounded-2xl border-2 overflow-hidden shadow-sm transition-colors duration-500 motion-reduce:transition-none ${
+                jatuhBebas ? 'panjat-pole-shake' : ''
+              } ${
                 isPuncak ? 'border-[#ffb81c] ring-2 ring-[#ffb81c]/45' : 'border-[#f0dfb4]'
               }`
             : `relative w-full h-[275px] min-h-[275px] sm:h-[320px] sm:min-h-[320px] md:flex-1 md:h-auto md:min-h-[400px] rounded-[22px] border-[2.5px] overflow-hidden shadow-inner transition-colors duration-500 motion-reduce:transition-none ${
+                jatuhBebas ? 'panjat-pole-shake' : ''
+              } ${
                 isPuncak ? 'border-[#ffb81c] ring-2 ring-[#ffb81c]/35' : 'border-[#f0dfb4]'
               }`
         }
@@ -233,6 +243,35 @@ export default function TiangPinangVisual({
                 compact ? 'inset-x-1.5' : 'inset-x-3 sm:inset-x-4 pl-3'
               } ${trackInsetClass} pointer-events-none`}
             >
+              {/* Tali Pengikat Merah Putih di 25%, 50%, 75% */}
+              {[25, 50, 75].map((tali) => (
+                <div
+                  key={`tali-${tali}`}
+                  style={{ bottom: `${tali}%` }}
+                  className="absolute left-1/2 -translate-x-1/2 translate-y-1/2 z-10 pointer-events-none flex items-center justify-center"
+                >
+                  <div
+                    className={`${
+                      compact
+                        ? 'w-6 h-2 rounded-[2px] border'
+                        : 'w-10 sm:w-12 h-3 sm:h-3.5 rounded-md border-[1.5px]'
+                    } border-[#5d3a14] shadow-sm flex items-center justify-center overflow-hidden`}
+                    style={{
+                      background:
+                        'repeating-linear-gradient(90deg, #e2312d 0px, #e2312d 5px, #ffffff 5px, #ffffff 10px)',
+                    }}
+                  >
+                    <span
+                      className={`font-black uppercase tracking-tight text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.85)] ${
+                        compact ? 'text-[7px]' : 'text-[9px]'
+                      }`}
+                    >
+                      {tali}%
+                    </span>
+                  </div>
+                </div>
+              ))}
+
               {rulerMarks.map((mark) => {
                 const isTarget = mark === 100;
                 return (
@@ -320,6 +359,22 @@ export default function TiangPinangVisual({
                     : ''
                 }`}
               >
+                {/* Gelembung Suara / Peringatan Awas Jatuh! */}
+                {bubbleText && (
+                  <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-40 px-2.5 py-0.5 rounded-full bg-white border-2 border-[#2b2a4a] text-[#2b2a4a] text-[10px] font-black whitespace-nowrap shadow-md motion-safe:animate-bounce">
+                    {bubbleText}
+                  </div>
+                )}
+
+                {/* Percikan Lumpur Saat Jatuh Bebas ke Dasar */}
+                {jatuhBebas && (
+                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 pointer-events-none z-30">
+                    <span className="panjat-mud-particle" style={{ ['--dx' as any]: '-22px', ['--dy' as any]: '-32px' }} />
+                    <span className="panjat-mud-particle" style={{ ['--dx' as any]: '18px', ['--dy' as any]: '-28px' }} />
+                    <span className="panjat-mud-particle" style={{ ['--dx' as any]: '-8px', ['--dy' as any]: '-40px' }} />
+                    <span className="panjat-mud-particle" style={{ ['--dx' as any]: '12px', ['--dy' as any]: '-36px' }} />
+                  </div>
+                )}
                 <KarakterPanjatPinang
                   nama={namaPemain}
                   ekspresi={resolvedEkspresi}
