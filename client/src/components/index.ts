@@ -9,4 +9,5 @@ export * from './PortalLedge';
 export * from './GameConfigShell';
 export * from './QuestionTimerBar';
 export * from './KerupukStadium';
+export * from './ErrorBoundary';
 

@@ -2,7 +2,7 @@ import { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router';
 import { Loader2 } from 'lucide-react';
 import { AuthProvider, RequireRole } from './lib/auth';
-import { ToastProvider } from './components';
+import { ToastProvider, ErrorBoundary } from './components';
 
 const Landing = lazy(() => import('./pages/publik/Landing'));
 const Daftar = lazy(() => import('./pages/publik/Daftar'));
@@ -40,8 +40,9 @@ export default function App() {
     <BrowserRouter>
       <ToastProvider>
         <AuthProvider>
-          <Suspense fallback={<RouteLoadingFallback />}>
-            <Routes>
+          <ErrorBoundary>
+            <Suspense fallback={<RouteLoadingFallback />}>
+              <Routes>
               {/* Rute Publik */}
               <Route path="/" element={<Landing />} />
               <Route path="/daftar" element={<Daftar />} />
@@ -77,8 +78,9 @@ export default function App() {
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
-        </AuthProvider>
-      </ToastProvider>
+        </ErrorBoundary>
+      </AuthProvider>
+    </ToastProvider>
     </BrowserRouter>
   );
 }

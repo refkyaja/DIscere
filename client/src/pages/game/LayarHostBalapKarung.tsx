@@ -178,12 +178,16 @@ export default function LayarHostBalapKarung() {
         };
       }>(`/sesi/${id}`);
 
-      const s = res.session;
-      setTemplateJudul(s.templateJudul);
+      const s = res?.session;
+      if (!s) {
+        setErrorPesan('Data sesi tidak ditemukan.');
+        return;
+      }
+      setTemplateJudul(s.templateJudul || 'Balap Karung');
       setToken(s.token || '');
       setQrDataUrl(s.qrDataUrl || '');
       setJoinUrl(s.joinUrl || '');
-      setStatus(s.status);
+      setStatus(s.status || 'lobi');
       setTotalPeserta(s.totalPeserta ?? 0);
       if (s.config) setConfig(s.config);
       if (s.teams) setTeams(s.teams);
@@ -533,14 +537,17 @@ export default function LayarHostBalapKarung() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const targetJarak = config.targetJarak || 100;
-  const jumlahTim = config.jumlahTim === 4 ? 4 : 3;
+  const targetJarak = config?.targetJarak || 100;
+  const jumlahTim = config?.jumlahTim === 4 ? 4 : 3;
 
   // Pastikan lintasan selalu berurutan (Merah, Biru, Hijau, [Kuning])
   const activeTeams: RingkasanTimClient[] = useMemo(() => {
-    if (teams.length > 0) {
+    if (teams && teams.length > 0) {
       const order: KodeTim[] = ['merah', 'biru', 'hijau', 'kuning'];
-      return [...teams].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+      return [...teams].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id)).map((t) => ({
+        ...t,
+        anggota: t.anggota || [],
+      }));
     }
     return DEFAULT_TEAMS.slice(0, jumlahTim).map((t) => ({
       id: t.id,
@@ -581,7 +588,7 @@ export default function LayarHostBalapKarung() {
       isHurt: Boolean(teamHurtMap[t.id]),
       sayBubble: teamSayMap[t.id] || null,
       deltaBadge: teamDeltaMap[t.id] ?? null,
-      members: t.anggota.map((a) => ({
+      members: (t.anggota || []).map((a) => ({
         id: a.id,
         nama: a.nama,
         pulse: memberPulseMap[a.id] || null,
@@ -598,6 +605,10 @@ export default function LayarHostBalapKarung() {
     teamDeltaMap,
     memberPulseMap,
   ]);
+
+  const daftarPeserta = useMemo(() => {
+    return (teams || []).flatMap((t) => (t.anggota || []).map((a) => ({ id: a.id, nama: a.nama, tim: t.id })));
+  }, [teams]);
 
   if (loading) {
     return (
@@ -628,7 +639,10 @@ export default function LayarHostBalapKarung() {
 
   const finalLaporanTim: LaporanTimItem[] =
     hasilAkhir?.laporanTim && hasilAkhir.laporanTim.length > 0
-      ? hasilAkhir.laporanTim
+      ? hasilAkhir.laporanTim.map((t) => ({
+          ...t,
+          anggota: t.anggota || [],
+        }))
       : rankedTeams.map((t, i) => ({
           peringkat: i + 1,
           id: t.id,
@@ -636,17 +650,13 @@ export default function LayarHostBalapKarung() {
           warna: t.warna,
           meter: t.meter,
           isWinner: i === 0 || t.isWinner || timPemenang === t.id,
-          totalBenar: t.anggota.reduce((acc, a) => acc + (a.totalBenar || 0), 0),
-          totalSalah: t.anggota.reduce((acc, a) => acc + (a.totalSalah || 0), 0),
-          anggota: t.anggota,
+          totalBenar: (t.anggota || []).reduce((acc, a) => acc + (a.totalBenar || 0), 0),
+          totalSalah: (t.anggota || []).reduce((acc, a) => acc + (a.totalSalah || 0), 0),
+          anggota: t.anggota || [],
         }));
 
   const winnerTeamName =
     hasilAkhir?.namaTimPemenang || finalLaporanTim[0]?.nama || 'Tim Juara';
-
-  const daftarPeserta = useMemo(() => {
-    return teams.flatMap((t) => t.anggota.map((a) => ({ id: a.id, nama: a.nama, tim: t.id })));
-  }, [teams]);
 
   if (status === 'lobi') {
     return (

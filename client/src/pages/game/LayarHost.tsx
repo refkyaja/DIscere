@@ -29,6 +29,10 @@ export default function LayarHost() {
             game?: 'tarik_tambang' | 'makan_kerupuk' | 'panjat_pinang' | 'balap_karung';
           };
         }>(`/sesi/${id}`);
+        if (!res?.session) {
+          setErrorPesan('Data sesi permainan tidak ditemukan.');
+          return;
+        }
         setMode(res.session.mode || 'solo');
         if (res.session.game === 'makan_kerupuk') {
           setGame('makan_kerupuk');

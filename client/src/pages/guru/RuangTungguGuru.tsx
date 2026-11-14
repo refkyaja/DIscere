@@ -53,12 +53,14 @@ function AvatarSvg({ name, size = 44 }: { name: string; size?: number }) {
 }
 
 export default function RuangTungguGuru({
+  sessionId: _sessionId,
   token,
   qrDataUrl,
   gameType,
   gameTitle,
+  templateJudul,
   metaDetail,
-  daftarPeserta,
+  daftarPeserta = [],
   minPeserta = 1,
   maxPeserta,
   isStarting = false,
@@ -103,14 +105,14 @@ export default function RuangTungguGuru({
     if (gameType === 'balap_karung' || gameType === 'makan_kerupuk') {
       const defWarna = [
         { id: 'merah', nama: 'Tim Merah', c: '#c8362f', t: '#ffffff' },
-        { id: 'kuning', nama: 'Tim Kuning', c: '#f2c230', t: '#1d3b2e' },
-        { id: 'hijau', nama: 'Tim Hijau', c: '#3f9e62', t: '#ffffff' },
         { id: 'biru', nama: 'Tim Biru', c: '#1d8fe0', t: '#ffffff' },
+        { id: 'hijau', nama: 'Tim Hijau', c: '#3f9e62', t: '#ffffff' },
+        { id: 'kuning', nama: 'Tim Kuning', c: '#f2c230', t: '#1d3b2e' },
       ];
       const numTeams = metaDetail?.includes('4 tim') || config?.jumlahTim === 4 ? 4 : 3;
       const defs = defWarna.slice(0, numTeams);
       return defs.map((d, k) => {
-        const anggota = daftarPeserta.filter((p, idx) => {
+        const anggota = (daftarPeserta || []).filter((p, idx) => {
           if (p.tim) return p.tim === d.id;
           return idx % defs.length === k;
         });
@@ -276,7 +278,7 @@ export default function RuangTungguGuru({
     statusText = `Menunggu siswa masuk… (${daftarPeserta.length} siswa siap)`;
   }
 
-  const metaText = metaDetail || gameTitle;
+  const metaText = metaDetail || (templateJudul ? `${gameTitle} • ${templateJudul}` : gameTitle);
 
   return (
     <div className="rt-guru fixed inset-0 w-full h-[100dvh] max-h-[100dvh] flex flex-col justify-between select-none text-[#f4ecd8] overflow-hidden">
