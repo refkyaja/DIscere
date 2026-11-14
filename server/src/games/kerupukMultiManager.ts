@@ -173,7 +173,11 @@ function siapkanSoalUntukPeserta(
   peserta.terakhirSoalId = terakhirSoalIdBaru;
   peserta.activePresentation = presentation;
 
-  return serialisasiSoalTampilKerupuk(presentation, sesi.questions.length);
+  return serialisasiSoalTampilKerupuk(
+    presentation,
+    sesi.questions.length,
+    sesi.config.waktuPerSoalDetik
+  );
 }
 
 export const kerupukMultiManager = {
@@ -520,7 +524,11 @@ export const kerupukMultiManager = {
     }
 
     if (peserta.activePresentation) {
-      return serialisasiSoalTampilKerupuk(peserta.activePresentation, sesi.questions.length);
+      return serialisasiSoalTampilKerupuk(
+        peserta.activePresentation,
+        sesi.questions.length,
+        sesi.config.waktuPerSoalDetik
+      );
     }
 
     return siapkanSoalUntukPeserta(sesi, peserta);
@@ -536,7 +544,11 @@ export const kerupukMultiManager = {
     }
 
     if (peserta.activePresentation) {
-      return serialisasiSoalTampilKerupuk(peserta.activePresentation, sesi.questions.length);
+      return serialisasiSoalTampilKerupuk(
+        peserta.activePresentation,
+        sesi.questions.length,
+        sesi.config.waktuPerSoalDetik
+      );
     }
 
     return siapkanSoalUntukPeserta(sesi, peserta);
@@ -550,6 +562,7 @@ export const kerupukMultiManager = {
       choiceId?: string;
       questionId?: string;
       jawaban?: string;
+      timedOut?: boolean;
     },
     pesertaSecret?: string,
     options?: { randomNormalized?: number; nowMs?: number }
@@ -606,7 +619,9 @@ export const kerupukMultiManager = {
     }
 
     let benar = false;
-    if (input.choiceId) {
+    if (input.timedOut) {
+      benar = false;
+    } else if (input.choiceId) {
       if (!activePres.pilihanMap.has(input.choiceId)) {
         throw new Error('ID pilihan jawaban tidak valid.');
       }

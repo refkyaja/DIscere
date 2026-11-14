@@ -209,6 +209,14 @@ export function getSesiIO(): Server | null {
   return globalIO;
 }
 
+export function broadcastSesiMainLagi(
+  oldSessionId: string,
+  data: { sessionId: string; token: string; joinUrl?: string }
+) {
+  if (!globalIO) return;
+  globalIO.to(`session:${oldSessionId}`).emit('sesi:main_lagi', data);
+}
+
 export function setupMultiplayerSocket(io: Server) {
   globalIO = io;
   io.on('connection', (socket: Socket) => {
@@ -1713,9 +1721,13 @@ export function setupMultiplayerSocket(io: Server) {
           const sesiTarik = multiManager.dapatkanSesi(sessionId);
           if (sesiTarik && (sesiTarik.status === 'jalan' || sesiTarik.status === 'jeda')) {
             const p = sesiTarik.peserta.get(pesertaId);
-            if (p && p.connected) {
-              const targetSocketId = p.socketId || socket.id;
-              const soalData = multiManager.dapatkanSoalAktifPeserta(sessionId, pesertaId);
+            if (p) {
+              p.socketId = socket.id;
+              p.connected = true;
+              const targetSocketId = socket.id;
+              const soalData =
+                multiManager.dapatkanSoalAktifPeserta(sessionId, pesertaId) ||
+                multiManager.siapkanSoalBerikutnyaPeserta(sessionId, pesertaId);
               if (soalData && targetSocketId) {
                 io.to(targetSocketId).emit('soal:tampil', soalData);
                 if (sesiTarik.status === 'jalan') {
@@ -1962,6 +1974,7 @@ export function setupMultiplayerSocket(io: Server) {
               questionId: pj.questionId || pj.id,
               choiceId: pj.choiceId,
               jawaban: pj.jawaban,
+              timedOut: pj.timedOut,
             });
 
             const roomName = `session:${sesiPanjat.sessionId}`;
@@ -2095,6 +2108,7 @@ export function setupMultiplayerSocket(io: Server) {
                 choiceId: pk.choiceId,
                 questionId: targetQuestionId,
                 jawaban: pk.jawaban,
+                timedOut: pk.timedOut,
               },
               pk.pesertaSecret
             );
@@ -3272,7 +3286,8 @@ async function mulaiMatchTarikTambang(io: Server, sesi: SesiMultiplayerActive): 
   armTarikMatchTimer(io, sesi);
 
   // Jangan langsung stempel deadline soal pertama saat guru klik Mulai.
-  // Tunggu siswa:siap_soal setelah animasi lobi selesai (dengan fallback aman 25 detik).
+  // Tunggu siswa:siap_soal setelah animasi pembagian kelompok siswa selesai,
+  // dengan batas aman fallback 25 detik agar tidak macet bila murid offline.
   for (const p of sesi.peserta.values()) {
     if (p.connected && p.socketId) {
       const timerKey = `${sesi.sessionId}:${p.id}`;
@@ -3286,7 +3301,9 @@ async function mulaiMatchTarikTambang(io: Server, sesi: SesiMultiplayerActive): 
         const pNow = sesiNow.peserta.get(p.id);
         if (!pNow || !pNow.connected || !pNow.socketId) return;
 
-        const soalData = multiManager.dapatkanSoalAktifPeserta(sesi.sessionId, pNow.id);
+        const soalData =
+          multiManager.dapatkanSoalAktifPeserta(sesi.sessionId, pNow.id) ||
+          multiManager.siapkanSoalBerikutnyaPeserta(sesi.sessionId, pNow.id);
         if (soalData) {
           io.to(pNow.socketId).emit('soal:tampil', soalData);
           armTarikQuestionTimeout(io, sesiNow, pNow.id, soalData.presentationId, soalData.endsAt);

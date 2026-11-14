@@ -609,14 +609,14 @@ class MultiSessionManager {
     if (!sesi) throw new Error('Sesi tidak ditemukan.');
     if (sesi.hostId !== hostId) throw new Error('Hanya guru pembuat sesi yang bisa memulai.');
     if (sesi.status !== 'lobi') throw new Error('Permainan sudah dimulai atau selesai.');
-    if (sesi.peserta.size < 2) {
-      throw new Error('Minimal butuh 2 siswa di lobi sebelum memulai lomba.');
+    if (sesi.peserta.size < 1) {
+      throw new Error('Minimal butuh 1 siswa di lobi sebelum memulai lomba.');
     }
 
     const merahCount = Array.from(sesi.peserta.values()).filter((p) => p.tim === 'merah').length;
     const biruCount = Array.from(sesi.peserta.values()).filter((p) => p.tim === 'putih').length;
-    if (merahCount === 0 || biruCount === 0) {
-      throw new Error('Setiap tim (Tim Merah dan Tim Biru) harus memiliki minimal 1 peserta.');
+    if (sesi.peserta.size >= 2 && (merahCount === 0 || biruCount === 0)) {
+      this.acakUlangTim(sessionId, hostId);
     }
 
     const now = Date.now();

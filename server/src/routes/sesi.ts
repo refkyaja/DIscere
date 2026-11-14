@@ -8,7 +8,7 @@ import { getNetworkBaseUrl } from '../utils/network.js';
 import { mapDbQuestionForGame, SoalRecordForGame } from '../utils/questionOptions.js';
 import { authMiddleware, AuthRequest } from '../middleware/auth.js';
 import { roleMiddleware } from '../middleware/role.js';
-import { getSesiIO } from '../realtime/sesi.js';
+import { getSesiIO, broadcastSesiMainLagi } from '../realtime/sesi.js';
 import { soloManager } from '../games/soloManager.js';
 import { multiManager } from '../games/multiManager.js';
 import {
@@ -88,11 +88,26 @@ async function resolveSessionAnyManager(id: string): Promise<ResolvedSessionMana
   // Fallback pemulihan DB: 1 query ringan untuk menentukan game & mode sesi
   const dbMeta = await prisma.session.findUnique({
     where: { id },
-    select: { mode: true, template: { select: { game: true } } },
+    select: { mode: true, konfigurasi: true, template: { select: { game: true } } },
   });
   if (!dbMeta) return null;
 
-  const g = dbMeta.template?.game || 'tarik_tambang';
+  let g = dbMeta.template?.game || 'tarik_tambang';
+  if (dbMeta.konfigurasi) {
+    try {
+      const parsed = JSON.parse(dbMeta.konfigurasi);
+      const cfg = parsed.config || parsed;
+      if (cfg.targetKerupuk !== undefined || cfg.probabilitas !== undefined) {
+        g = 'makan_kerupuk';
+      } else if (cfg.targetJarak !== undefined || (dbMeta.mode === 'multi' && parsed.jumlahTim !== undefined)) {
+        g = 'balap_karung';
+      } else if (cfg.naikBenar !== undefined || cfg.turunSalah !== undefined || cfg.rintanganDipilih !== undefined) {
+        g = 'panjat_pinang';
+      } else if (cfg.batasMenangMeter !== undefined || cfg.durasiLombaDetik !== undefined) {
+        g = 'tarik_tambang';
+      }
+    } catch {}
+  }
   const m = dbMeta.mode || 'solo';
 
   if (g === 'balap_karung') {
@@ -2387,8 +2402,34 @@ sesiRouter.post('/:id/main-lagi', async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ pesan: 'Anda tidak berwenang atas sesi ini.' });
     }
 
+    // Deteksi game sesi sebelumnya secara akurat
+    let gameSesi = sessionLama.template.game;
+    if (kerupukMultiManager.dapatkanSesi(id) || kerupukManager.dapatkanSesi(id)) {
+      gameSesi = 'makan_kerupuk';
+    } else if (balapKarungManager.dapatkanSesi(id) || balapKarungSoloManager.dapatkanSesi(id)) {
+      gameSesi = 'balap_karung';
+    } else if (panjatPinangManager.dapatkanSesi(id) || panjatPinangSoloManager.dapatkanSesi(id)) {
+      gameSesi = 'panjat_pinang';
+    } else if (multiManager.dapatkanSesi(id) || soloManager.dapatkanSesi(id)) {
+      gameSesi = 'tarik_tambang';
+    } else if (sessionLama.konfigurasi) {
+      try {
+        const parsed = JSON.parse(sessionLama.konfigurasi);
+        const cfg = parsed.config || parsed;
+        if (cfg.targetKerupuk !== undefined || cfg.probabilitas !== undefined) {
+          gameSesi = 'makan_kerupuk';
+        } else if (cfg.targetJarak !== undefined || (sessionLama.mode === 'multi' && parsed.jumlahTim !== undefined)) {
+          gameSesi = 'balap_karung';
+        } else if (cfg.naikBenar !== undefined || cfg.turunSalah !== undefined || cfg.rintanganDipilih !== undefined) {
+          gameSesi = 'panjat_pinang';
+        } else if (cfg.batasMenangMeter !== undefined || cfg.durasiLombaDetik !== undefined) {
+          gameSesi = 'tarik_tambang';
+        }
+      } catch {}
+    }
+
     // Buat sesi baru sesuai game & mode sesi sebelumnya
-    if (sessionLama.template.game === 'makan_kerupuk') {
+    if (gameSesi === 'makan_kerupuk') {
       let configSebelumnya: any;
       if (sessionLama.konfigurasi) {
         try {
@@ -2428,6 +2469,12 @@ sesiRouter.post('/:id/main-lagi', async (req: AuthRequest, res: Response) => {
           sessionLama.template.questions.map(mapDbQuestionForGame),
           configSnapshot
         );
+
+        broadcastSesiMainLagi(id, {
+          sessionId: sessionBaru.id,
+          token,
+          joinUrl,
+        });
 
         return res.status(201).json({
           pesan: 'Sesi Multiplayer Makan Kerupuk baru berhasil dibuat.',
@@ -2485,7 +2532,7 @@ sesiRouter.post('/:id/main-lagi', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    if (sessionLama.template.game === 'balap_karung') {
+    if (gameSesi === 'balap_karung') {
       let configSebelumnya: any;
       if (sessionLama.konfigurasi) {
         try {
@@ -2576,6 +2623,12 @@ sesiRouter.post('/:id/main-lagi', async (req: AuthRequest, res: Response) => {
         configSnapshot
       );
 
+      broadcastSesiMainLagi(id, {
+        sessionId: sessionBaru.id,
+        token,
+        joinUrl,
+      });
+
       return res.status(201).json({
         pesan: 'Sesi Balap Karung baru berhasil dibuat.',
         sessionId: sessionBaru.id,
@@ -2589,7 +2642,7 @@ sesiRouter.post('/:id/main-lagi', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    if (sessionLama.template.game === 'panjat_pinang') {
+    if (gameSesi === 'panjat_pinang') {
       let configSebelumnya: any;
       if (sessionLama.konfigurasi) {
         try {
@@ -2671,6 +2724,12 @@ sesiRouter.post('/:id/main-lagi', async (req: AuthRequest, res: Response) => {
         configSnapshot
       );
 
+      broadcastSesiMainLagi(id, {
+        sessionId: sessionBaru.id,
+        token,
+        joinUrl,
+      });
+
       return res.status(201).json({
         pesan: 'Sesi Panjat Pinang baru berhasil dibuat.',
         sessionId: sessionBaru.id,
@@ -2714,6 +2773,12 @@ sesiRouter.post('/:id/main-lagi', async (req: AuthRequest, res: Response) => {
         mappedQuestions,
         configTarik
       );
+
+      broadcastSesiMainLagi(id, {
+        sessionId: sessionBaru.id,
+        token,
+        joinUrl,
+      });
 
       return res.status(201).json({
         pesan: 'Sesi Tarik Tambang Multiplayer baru berhasil dibuat.',

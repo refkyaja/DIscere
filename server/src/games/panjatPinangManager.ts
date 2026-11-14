@@ -28,6 +28,9 @@ export interface SoalPublikPanjat {
   pilihan: OpsiPilihanPanjat[];
   isBonusKulitPisang: boolean;
   ditampilkanPadaMs: number;
+  waktuPerSoalDetik?: number;
+  berakhirPadaMs?: number;
+  serverNowMs?: number;
 }
 
 export interface LeaderboardItemPanjat {
@@ -182,8 +185,11 @@ function formatLeaderboardItem(p: PesertaPanjatState, peringkat: number): Leader
 
 function formatPresentasiPublik(
   pres: PresentasiSoalPanjat,
-  totalSoalTemplate: number
+  totalSoalTemplate: number,
+  waktuPerSoalDetik: number = 15
 ): SoalPublikPanjat {
+  const durasiSec = Math.max(5, waktuPerSoalDetik);
+  const nowMs = Date.now();
   return {
     presentationId: pres.presentationId,
     questionId: pres.questionId,
@@ -193,6 +199,9 @@ function formatPresentasiPublik(
     pilihan: pres.pilihan,
     isBonusKulitPisang: pres.isBonusKulitPisang,
     ditampilkanPadaMs: pres.ditampilkanPadaMs,
+    waktuPerSoalDetik: durasiSec,
+    berakhirPadaMs: pres.ditampilkanPadaMs + durasiSec * 1000,
+    serverNowMs: nowMs,
   };
 }
 
@@ -761,7 +770,7 @@ export const panjatPinangManager = {
     peserta.terakhirSoalId = soal.id;
     peserta.presentasiAktif = presentasi;
 
-    return formatPresentasiPublik(presentasi, sesi.totalSoal);
+    return formatPresentasiPublik(presentasi, sesi.totalSoal, sesi.config.waktuPerSoalDetik);
   },
 
   /**
@@ -778,7 +787,7 @@ export const panjatPinangManager = {
     if (!peserta || peserta.status === 'selesai' || peserta.posisi >= 100) return null;
 
     if (peserta.presentasiAktif) {
-      return formatPresentasiPublik(peserta.presentasiAktif, sesi.totalSoal);
+      return formatPresentasiPublik(peserta.presentasiAktif, sesi.totalSoal, sesi.config.waktuPerSoalDetik);
     }
 
     return this.ambilSoalBerikutnyaUntukPeserta(sessionId, pesertaId);
@@ -796,6 +805,7 @@ export const panjatPinangManager = {
     questionId?: string;
     choiceId?: string;
     jawaban?: string;
+    timedOut?: boolean;
     nowMs?: number;
     rngRintangan?: RngRintangan;
   }): {
@@ -815,6 +825,7 @@ export const panjatPinangManager = {
       questionId,
       choiceId,
       jawaban,
+      timedOut = false,
       nowMs = Date.now(),
       rngRintangan,
     } = params;
@@ -875,6 +886,7 @@ export const panjatPinangManager = {
         presentasi,
         choiceId,
         fallbackJawabanKey: jawaban,
+        timedOut,
         config: sesi.config,
         gameMulaiPadaMs: sesi.gameMulaiPadaMs || nowMs,
         nowMs,

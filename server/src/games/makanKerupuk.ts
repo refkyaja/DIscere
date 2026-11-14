@@ -49,6 +49,7 @@ export interface KonfigurasiKerupukSolo {
   targetPreset: TargetKerupukPreset;
   kesulitan: KesulitanKerupuk;
   probabilitas: ProbabilitasConfig;
+  waktuPerSoalDetik: number;
 }
 
 export interface KonfigurasiKerupukMulti extends KonfigurasiKerupukSolo {
@@ -79,6 +80,9 @@ export interface SoalTampilKerupuk {
   totalSoalBank: number;
   teks: string;
   pilihan: PilihanSoalKerupuk[];
+  waktuPerSoalDetik?: number;
+  berakhirPadaMs?: number;
+  serverNowMs?: number;
 }
 
 export interface ActivePresentationKerupuk {
@@ -204,6 +208,7 @@ export const konfigurasiKerupukSoloSchema = z.object({
   targetPreset: z.enum(['50', '100', '150', '200', 'custom']).optional(),
   kesulitan: z.enum(['mudah', 'normal', 'sulit', 'custom']).default('normal'),
   probabilitas: probabilitasSchema.optional(),
+  waktuPerSoalDetik: z.number().int().min(5).max(120).default(15),
 });
 
 export const konfigurasiKerupukMultiSchema = konfigurasiKerupukSoloSchema.extend({
@@ -260,6 +265,7 @@ export function bangunKonfigurasiKerupukSolo(
     targetPreset: TargetKerupukPreset;
     kesulitan: KesulitanKerupuk;
     probabilitas: ProbabilitasConfig;
+    waktuPerSoalDetik: number;
   }>
 ): KonfigurasiKerupukSolo {
   const targetKerupuk = input?.targetKerupuk ?? 100;
@@ -295,11 +301,17 @@ export function bangunKonfigurasiKerupukSolo(
     throw new Error(cek.pesanError || 'Konfigurasi probabilitas tidak valid.');
   }
 
+  const waktuPerSoalDetik =
+    typeof input?.waktuPerSoalDetik === 'number' && Number.isInteger(input.waktuPerSoalDetik)
+      ? Math.max(5, Math.min(120, input.waktuPerSoalDetik))
+      : 15;
+
   return Object.freeze({
     targetKerupuk,
     targetPreset,
     kesulitan,
     probabilitas: Object.freeze({ ...rawProb }),
+    waktuPerSoalDetik,
   });
 }
 
@@ -309,6 +321,7 @@ export function bangunKonfigurasiKerupukMulti(
     targetPreset: TargetKerupukPreset;
     kesulitan: KesulitanKerupuk;
     probabilitas: ProbabilitasConfig;
+    waktuPerSoalDetik: number;
     maxPeserta: number;
     allowLateJoin: boolean;
     jumlahTim: 3 | 4;
@@ -453,9 +466,12 @@ export function siapkanPresentasiSoalDariAntrean(
 
 export function serialisasiSoalTampilKerupuk(
   pres: ActivePresentationKerupuk | null,
-  totalSoalBank: number
+  totalSoalBank: number,
+  waktuPerSoalDetik: number = 15
 ): SoalTampilKerupuk | null {
   if (!pres) return null;
+  const durasiSec = Math.max(5, waktuPerSoalDetik);
+  const nowMs = Date.now();
   return {
     presentationId: pres.presentationId,
     questionId: pres.questionId,
@@ -467,6 +483,9 @@ export function serialisasiSoalTampilKerupuk(
       label: p.label,
       teks: p.teks,
     })),
+    waktuPerSoalDetik: durasiSec,
+    berakhirPadaMs: pres.tampilPadaMs + durasiSec * 1000,
+    serverNowMs: nowMs,
   };
 }
 
