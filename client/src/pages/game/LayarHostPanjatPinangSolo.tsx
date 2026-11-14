@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { apiRequest } from '../../lib/api';
 import {
@@ -8,8 +8,9 @@ import {
 } from '../../components';
 import { ModalKonfirmasiKeluar } from '../../components/ModalKonfirmasiKeluar';
 import { FestivalStadiumShell } from '../../components/FestivalStadiumShell';
+import { PanjatPinangStage, TiangStageItem } from '../../components/PanjatPinangStage';
 import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
-import TiangPinangVisual, { EfekAktifVisual } from '../siswa/TiangPinangVisual';
+import { EfekAktifVisual } from '../siswa/TiangPinangVisual';
 import KarakterPanjatPinang, { EkspresiKarakterPanjat } from '../siswa/KarakterPanjatPinang';
 import {
   Bot,
@@ -291,7 +292,7 @@ export default function LayarHostPanjatPinangSolo() {
     pemain1: null,
     pemain2: null,
   });
-  const [deltaMap, setDeltaMap] = useState<Record<SlotPemain, number | undefined>>({
+  const [, setDeltaMap] = useState<Record<SlotPemain, number | undefined>>({
     pemain1: undefined,
     pemain2: undefined,
   });
@@ -857,6 +858,89 @@ export default function LayarHostPanjatPinangSolo() {
     </div>
   );
 
+  const tiangStageSolo: TiangStageItem[] = useMemo(
+    () => [
+      {
+        id: 'pemain1',
+        label: sesi.pemain1.nama || 'Pemain 1',
+        warna: '#e2312d',
+        posisiPersen: sesi.pemain1.posisi,
+        jatuhBebas: Boolean(jatuhBebasMap.pemain1),
+        bubbleText: bubbleMap.pemain1,
+        isPuncak: sesi.pemain1.posisi >= 100,
+        ekspresi: ekspresiMap.pemain1,
+        xPct: 30,
+      },
+      {
+        id: 'pemain2',
+        label: sesi.isBotLawan ? 'Lawan Bot' : sesi.pemain2.nama || 'Pemain 2',
+        warna: '#1d8fe0',
+        posisiPersen: sesi.pemain2.posisi,
+        jatuhBebas: Boolean(jatuhBebasMap.pemain2),
+        bubbleText: bubbleMap.pemain2,
+        isPuncak: sesi.pemain2.posisi >= 100,
+        ekspresi: ekspresiMap.pemain2,
+        xPct: 70,
+      },
+    ],
+    [sesi, jatuhBebasMap, bubbleMap, ekspresiMap]
+  );
+
+  const renderBotPanel = () => {
+    const p = sesi.pemain2;
+    return (
+      <div className="bk-card border-[3px] border-[#1d8fe0] !p-0 overflow-hidden flex flex-col justify-between">
+        <div>
+          <div className="bg-[#1d8fe0] text-white px-4 py-2.5 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <span className="text-[11px] font-bold uppercase opacity-85 block">
+                {p.posisi >= 90 ? '⭐ SOAL PUNCAK • ' : ''}Lawan Bot AI (Kanan)
+              </span>
+              <h3 className="bk-h text-lg font-extrabold truncate">{p.nama}</h3>
+            </div>
+            <span className="px-2.5 py-1 rounded-full bg-white/20 text-xs font-mono font-extrabold">
+              {p.posisi}%
+            </span>
+          </div>
+
+          {/* Progress Bar Bot */}
+          <div className="h-2 w-full bg-[#f3ead5]">
+            <div
+              className="h-full bg-[#1d8fe0] transition-all duration-300"
+              style={{ width: `${Math.max(0, Math.min(100, p.posisi))}%` }}
+            />
+          </div>
+
+          <div className="p-4 sm:p-5 space-y-4">
+            <div className="flex items-center justify-between text-xs font-extrabold text-[#6b6a85]">
+              <span>Tingkat: {LABEL_BOT_KESULITAN[sesi.config.kesulitanBot]}</span>
+              <span className="font-mono text-[#2b2a4a]">
+                Benar: {p.totalBenar} • Salah: {p.totalSalah}
+              </span>
+            </div>
+
+            {renderPlayerCardEffects(p)}
+
+            {/* Kotak Status Pemikiran Bot */}
+            <div className="p-4 rounded-2xl bg-[#f0f9ff] border-2 border-[#bae6fd] text-center space-y-2">
+              <div className="flex items-center justify-center gap-2 text-sm font-extrabold text-[#0369a1]">
+                <Bot className="w-5 h-5 animate-bounce" />
+                <span>
+                  {p.status === 'selesai' ? 'Bot telah mencapai puncak!' : 'Bot sedang berpikir & memanjat…'}
+                </span>
+              </div>
+              {botFeedback && (
+                <p className={`text-xs font-bold ${botFeedback.benar ? 'text-[#15803d]' : 'text-[#b91c1c]'}`}>
+                  Langkah terakhir: {buildFeedbackSummary(botFeedback)}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderQuestionPanel = (slot: SlotPemain) => {
     const p = sesi[slot];
     const reveal = revealMap[slot];
@@ -1029,6 +1113,12 @@ export default function LayarHostPanjatPinangSolo() {
         }
       />
 
+      {/* PANGGUNG FESTIVAL BERSAMA (SESUAI DESAIN panjat-pinang-solo.html) */}
+      <PanjatPinangStage
+        tiangList={tiangStageSolo}
+        crowdCheer={crowdCheer || sesi.isFinished}
+      />
+
       <main className="bk-wrap space-y-5">
         {actionError && (
           <div className="p-3 rounded-2xl bg-[#fdecec] border-2 border-[#f4b6b6] text-[#8a1f1f] text-xs font-extrabold flex items-center justify-between gap-2">
@@ -1198,137 +1288,71 @@ export default function LayarHostPanjatPinangSolo() {
         {/* FASE 2 & 3: ARENA DUAL TIANG PINANG + SOAL ATAU PODIUM AKHIR */}
         {sesi.state !== 'READY' && (
           <>
-            {/* Card Arena Visual Dual Tiang Pinang */}
-            <section className="bk-card space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="bk-h text-xl font-extrabold text-[#2b2a4a] flex items-center gap-2">
-                    <Flag className="w-4 h-4 text-[#e2312d]" />
-                    Arena Panjat Pinang 1 vs 1
-                  </h2>
-                  <p className="text-xs font-bold text-[#6b6a85]">
-                    {sesi.pemain1.nama} ({sesi.pemain1.posisi}%) vs {sesi.pemain2.nama} ({sesi.pemain2.posisi}%)
-                  </p>
-                </div>
-
-                {sesi.isBotLawan && sesi.state === 'PLAYING' && (
-                  <div className="flex items-center gap-1.5">
-                    {(['santai', 'sedang', 'cepat'] as const).map((lvl) => (
-                      <button
-                        key={lvl}
-                        type="button"
-                        disabled={updatingBot}
-                        onClick={() => handleUbahKesulitanBot(lvl)}
-                        className={`px-2.5 py-1 rounded-lg border text-[11px] font-extrabold cursor-pointer transition-all ${
-                          sesi.config.kesulitanBot === lvl
-                            ? 'bg-[#2b2a4a] text-[#fff3d6] border-[#2b2a4a]'
-                            : 'bg-[#fffdf6] text-[#2b2a4a] border-[#e0d5b8] hover:border-[#2b2a4a]'
-                        }`}
-                      >
-                        {lvl === 'santai' ? 'Santai' : lvl === 'sedang' ? 'Sedang' : 'Cepat'}
-                      </button>
-                    ))}
-                  </div>
-                )}
+            {/* Header Baris Status Duel 1 vs 1 */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="bk-h text-xl font-extrabold text-[#2b2a4a] flex items-center gap-2">
+                  <Flag className="w-4 h-4 text-[#e2312d]" />
+                  Arena Panjat Pinang 1 vs 1
+                </h2>
+                <p className="text-xs font-bold text-[#6b6a85]">
+                  {sesi.pemain1.nama} ({sesi.pemain1.posisi}%) vs {sesi.isBotLawan ? 'Lawan Bot' : sesi.pemain2.nama} ({sesi.pemain2.posisi}%)
+                </p>
               </div>
 
-              {/* Pita Status Pause */}
-              {sesi.state === 'PAUSED' && (
-                <div className="p-3.5 rounded-2xl bg-[#fff3c4] border-2 border-[#ffb81c] flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 text-sm font-extrabold text-[#7a5200]">
-                    <Pause className="w-4 h-4" />
-                    Permainan sedang dijeda. Waktu soal dan aksi Bot ditahan.
-                  </div>
-                  <div className="flex items-center gap-2">
+              {sesi.isBotLawan && sesi.state === 'PLAYING' && (
+                <div className="flex items-center gap-1.5">
+                  {(['santai', 'sedang', 'cepat'] as const).map((lvl) => (
                     <button
+                      key={lvl}
                       type="button"
-                      onClick={handleTogglePause}
-                      disabled={isActionLoading}
-                      className="bk-btn !py-1.5 !px-3.5 !text-xs"
-                    >
-                      <Play className="w-3.5 h-3.5" /> Lanjutkan
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setModalUlangOpen(true)}
-                      className="bk-btn alt !py-1.5 !px-3.5 !text-xs"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" /> Ulang
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Dua Tiang Pinang Berdampingan */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {(['pemain1', 'pemain2'] as SlotPemain[]).map((slot) => {
-                  const p = sesi[slot];
-                  const isWinner =
-                    sesi.isFinished &&
-                    sesi.winnerSlot !== 'SERI' &&
-                    sesi.winnerSlot === slot;
-                  return (
-                    <div
-                      key={p.id}
-                      className={`rounded-2xl p-4 border-2 flex flex-col items-center gap-2 ${
-                        isWinner
-                          ? 'bg-[#fff8dc] border-[#ffb81c] shadow-sm'
-                          : slot === 'pemain1'
-                          ? 'bg-[#fff7f7] border-[#f4b6b6]'
-                          : 'bg-[#f4faff] border-[#bfdbfe]'
+                      disabled={updatingBot}
+                      onClick={() => handleUbahKesulitanBot(lvl)}
+                      className={`px-2.5 py-1 rounded-lg border text-[11px] font-extrabold cursor-pointer transition-all ${
+                        sesi.config.kesulitanBot === lvl
+                          ? 'bg-[#2b2a4a] text-[#fff3d6] border-[#2b2a4a]'
+                          : 'bg-[#fffdf6] text-[#2b2a4a] border-[#e0d5b8] hover:border-[#2b2a4a]'
                       }`}
                     >
-                      <div className="w-full flex items-center justify-between gap-2 text-xs font-extrabold">
-                        <span className={slot === 'pemain1' ? 'text-[#e2312d]' : 'text-[#1d8fe0]'}>
-                          {slot === 'pemain1'
-                            ? 'Pemanjat 1'
-                            : p.isBot
-                            ? `Bot (${LABEL_BOT_KESULITAN[sesi.config.kesulitanBot]})`
-                            : 'Pemanjat 2'}
-                        </span>
-                        <span className="font-mono text-[#2b2a4a]">
-                          {p.posisi}% • {p.totalBenar}B/{p.totalSalah}S
-                        </span>
-                      </div>
+                      {lvl === 'santai' ? 'Santai' : lvl === 'sedang' ? 'Sedang' : 'Cepat'}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
-                      <TiangPinangVisual
-                        posisi={p.posisi}
-                        namaPemain={p.nama}
-                        efekAktif={p.efekAktif}
-                        lastDelta={deltaMap[slot]}
-                        ekspresi={ekspresiMap[slot]}
-                        streak={p.streakSaatIni}
-                        status={p.status}
-                        jatuhBebas={jatuhBebasMap[slot]}
-                        bubbleText={bubbleMap[slot]}
-                      />
-
-                      {slot === 'pemain2' && p.isBot && botFeedback && (
-                        <div
-                          className={`w-full px-3 py-1.5 rounded-xl border text-[11px] font-bold text-center ${
-                            botFeedback.benar
-                              ? 'bg-[#e9f9ef] border-[#9de0b6] text-[#136837]'
-                              : 'bg-[#fdecec] border-[#f4b6b6] text-[#8a1f1f]'
-                          }`}
-                        >
-                          Bot: {buildFeedbackSummary(botFeedback)}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+            {/* Pita Status Pause */}
+            {sesi.state === 'PAUSED' && (
+              <div className="p-3.5 rounded-2xl bg-[#fff3c4] border-2 border-[#ffb81c] flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-sm font-extrabold text-[#7a5200]">
+                  <Pause className="w-4 h-4" />
+                  Permainan sedang dijeda. Waktu soal dan aksi Bot ditahan.
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleTogglePause}
+                    disabled={isActionLoading}
+                    className="bk-btn !py-1.5 !px-3.5 !text-xs"
+                  >
+                    <Play className="w-3.5 h-3.5" /> Lanjutkan
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModalUlangOpen(true)}
+                    className="bk-btn alt !py-1.5 !px-3.5 !text-xs"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" /> Ulang
+                  </button>
+                </div>
               </div>
-            </section>
+            )}
 
-            {/* Panel Soal Saat Bermain / Jeda */}
+            {/* Panel Soal Duo Saat Bermain / Jeda (Sesuai Desain panjat-pinang-solo.html) */}
             {(sesi.state === 'PLAYING' || sesi.state === 'PAUSED') && !showEndCard && (
-              <div
-                className={`grid grid-cols-1 ${
-                  isDuelLokal ? 'lg:grid-cols-2 items-start' : 'max-w-3xl mx-auto w-full'
-                } gap-4`}
-              >
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
                 {renderQuestionPanel('pemain1')}
-                {isDuelLokal && renderQuestionPanel('pemain2')}
+                {isDuelLokal ? renderQuestionPanel('pemain2') : renderBotPanel()}
               </div>
             )}
 

@@ -6,6 +6,7 @@ import { bindHostReconnect } from '../../lib/socketReconnect';
 import { Modal } from '../../components';
 import { ModalKonfirmasiKeluar } from '../../components/ModalKonfirmasiKeluar';
 import { FestivalStadiumShell } from '../../components/FestivalStadiumShell';
+import { PanjatPinangStage, TiangStageItem } from '../../components/PanjatPinangStage';
 import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import TiangPinangVisual, { EfekAktifVisual } from '../siswa/TiangPinangVisual';
 import KarakterPanjatPinang, { EkspresiKarakterPanjat } from '../siswa/KarakterPanjatPinang';
@@ -623,6 +624,54 @@ export default function LayarHostPanjatPinang() {
     });
   }, [leaderboard]);
 
+  const tiangStageMulti: TiangStageItem[] = useMemo(() => {
+    if (teamsData.length > 0) {
+      const xs =
+        teamsData.length === 2
+          ? [33, 67]
+          : teamsData.length === 3
+          ? [20, 50, 80]
+          : [15, 38, 62, 85];
+      return teamsData.map((t, idx) => {
+        const topMember = t.anggota.find((a) => a.role === 'pemanjat')?.item || t.anggota[0]?.item;
+        const bText = topMember ? bubbleMap[topMember.id] : undefined;
+        const jBebas = topMember ? Boolean(jatuhBebasMap[topMember.id]) : t.salahBeruntun >= t.limitSalah;
+        const eksp = topMember ? ekspresiMap[topMember.id] : undefined;
+        return {
+          id: t.id,
+          label: t.nama,
+          warna: t.warna,
+          posisiPersen: t.posisi,
+          xPct: xs[idx] ?? Math.round(((idx + 1) / (teamsData.length + 1)) * 100),
+          jatuhBebas: jBebas,
+          bubbleText: bText,
+          isPuncak: t.posisi >= 100,
+          ekspresi: eksp,
+        };
+      });
+    }
+
+    const topPeserta = leaderboard.slice(0, 4);
+    const xs =
+      topPeserta.length === 2
+        ? [33, 67]
+        : topPeserta.length === 3
+        ? [20, 50, 80]
+        : [15, 38, 62, 85];
+    const colors = ['#e2312d', '#1d8fe0', '#1f9d55', '#f2c230'];
+    return topPeserta.map((p, idx) => ({
+      id: p.id,
+      label: p.nama,
+      warna: colors[idx % colors.length],
+      posisiPersen: p.posisi,
+      xPct: xs[idx] ?? Math.round(((idx + 1) / (topPeserta.length + 1)) * 100),
+      jatuhBebas: Boolean(jatuhBebasMap[p.id]),
+      bubbleText: bubbleMap[p.id],
+      isPuncak: p.posisi >= 100,
+      ekspresi: ekspresiMap[p.id],
+    }));
+  }, [teamsData, leaderboard, bubbleMap, jatuhBebasMap, ekspresiMap]);
+
   // -------------------------------------------------------------------------
   // FASE 1: LOBI PROYEKTOR (TEMA FESTIVAL 17 AGUSTUS)
   // -------------------------------------------------------------------------
@@ -1007,6 +1056,12 @@ export default function LayarHostPanjatPinang() {
   return (
     <div className="bk-festival">
       {stadiumHeader}
+
+      {/* PANGGUNG FESTIVAL BERSAMA MULTIPLAYER (SESUAI DESAIN panjat-pinang-multiplayer.html) */}
+      <PanjatPinangStage
+        tiangList={tiangStageMulti}
+        crowdCheer={crowdCheer || totalSelesaiCount > 0}
+      />
 
       <main className="bk-wrap space-y-4">
         {/* Live Feed Aktivitas */}
