@@ -22,9 +22,9 @@ RUN npm run build
 # Hugging Face Spaces default non-root user (UID 1000)
 USER node
 
-# Hugging Face Spaces default port
-ENV PORT=7860
-EXPOSE 7860
+# Port
+ENV PORT=3000
+EXPOSE 3000
 
 CMD ["node", "server/dist/index.js"]
 
