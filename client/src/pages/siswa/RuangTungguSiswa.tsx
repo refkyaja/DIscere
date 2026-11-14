@@ -1224,24 +1224,15 @@ export default function RuangTungguSiswa({
       {/* OVERLAY HITUNG MUNDUR 3 - 1 SAAT GURU KLIK MULAI            */}
       {/* ============================================================ */}
       {countdownVal !== null && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#163a2b] text-[#f4ecd8] animate-[fadeIn_0.15s_ease-out] select-none">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#163a2b] text-[#f4ecd8] animate-[fadeIn_0.15s_ease-out] select-none">
           {/* Latar belakang papan tulis Discere solid */}
           <div className="absolute inset-0 opacity-15 pointer-events-none bg-[radial-gradient(#f4ecd8_1px,transparent_1px)] [background-size:24px_24px]" />
 
-          <div className="relative z-10 flex flex-col items-center gap-3 px-8 py-7 rounded-3xl bg-[#1f4a37] border-3 sm:border-4 border-[#e8dfc8]/30 shadow-[0_16px_48px_rgba(0,0,0,0.55)] max-w-sm sm:max-w-md w-[88%] text-center">
-            <span className="font-black text-xs sm:text-sm uppercase tracking-widest text-[#f2c230] drop-shadow-sm flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#f2c230] animate-ping" />
-              Game Dimulai Dalam
-            </span>
-            <div
-              key={countdownVal}
-              className="font-['Caveat',sans-serif] text-8xl sm:text-9xl font-black text-[#f2c230] animate-[popIn_0.35s_cubic-bezier(0.34,1.56,0.64,1)] drop-shadow-[0_6px_24px_rgba(242,194,48,0.75)] leading-none my-1"
-            >
-              {countdownVal}
-            </div>
-            <p className="text-xs sm:text-sm font-bold text-[#f4ecd8]/90 max-w-xs mx-auto">
-              Bersiaplah! Nama peserta akan segera diacak...
-            </p>
+          <div
+            key={countdownVal}
+            className="relative z-10 font-['Caveat',sans-serif] text-[160px] sm:text-[220px] md:text-[260px] font-black text-[#f2c230] animate-[popIn_0.35s_cubic-bezier(0.34,1.56,0.64,1)] drop-shadow-[0_8px_32px_rgba(242,194,48,0.75)] leading-none my-1 select-none"
+          >
+            {countdownVal}
           </div>
         </div>
       )}
