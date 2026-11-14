@@ -332,13 +332,12 @@ export default function RuangTungguSiswa({
   const jalankanTransisiMulai = useCallback(() => {
     if (isAnimatingRef.current) return;
     isAnimatingRef.current = true;
-    setIsStarting(true);
 
     const waitMs = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
     const rm = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     (async () => {
-      // 1. HITUNG MUNDUR 3 - 1 (Sebelum mengacak nama)
+      // 1. HITUNG MUNDUR 3 - 1 (Dengan latar solid bersih tanpa transparansi)
       setStatusText('Guru menekan Mulai! Bersiaplah…');
       setCountdownVal(3);
       await waitMs(900);
@@ -356,7 +355,8 @@ export default function RuangTungguSiswa({
         return;
       }
 
-      // 2. ACAK NAMA (Pool nama-nama asli dikocok lalu dibagi ke kelompok)
+      // 2. TAMPILKAN PAPAN ACAK NAMA (Pool nama-nama peserta dikocok sebelum dibagi ke kelompok)
+      setIsStarting(true);
       setAnimStage('SHUFFLING');
       setHeadingText('Mengacak nama…');
       setSubText(
@@ -367,45 +367,62 @@ export default function RuangTungguSiswa({
       setStatusText('Guru menekan Mulai! Mengacak nama…');
       setLandedIds([]);
 
-      // Tunggu mounting board
-      await waitMs(450);
+      // Tunggu mounting DOM papan dan pool
+      await waitMs(400);
 
-      // Kocok pool 3 kali (Animasi Shuffle FLIP)
+      // Kocok pool secara nyata (Animasi Shuffle)
       if (!rm && poolRef.current) {
         const pool = poolRef.current;
-        for (let round = 0; round < 3; round++) {
-          const children = Array.from(pool.children) as HTMLElement[];
-          if (children.length > 1) {
+        const children = Array.from(pool.children) as HTMLElement[];
+
+        if (children.length > 1) {
+          // Jika ada lebih dari 1 peserta: acak posisi DOM dan jalankan FLIP animation
+          for (let round = 0; round < 4; round++) {
             const oldRects = new Map(children.map((c) => [c, c.getBoundingClientRect()]));
-            // Acak urutan elemen DOM
             children.sort(() => Math.random() - 0.5).forEach((c) => pool.appendChild(c));
-            // Animasikan perpindahan posisi
+
             await Promise.all(
               children.map((c) => {
                 const oldR = oldRects.get(c)!;
                 const newR = c.getBoundingClientRect();
                 const dx = oldR.left - newR.left;
                 const dy = oldR.top - newR.top;
-                const rot = (Math.random() - 0.5) * 14;
+                const rot = (Math.random() - 0.5) * 16;
                 return c.animate(
                   [
                     { transform: `translate(${dx}px, ${dy}px)` },
                     {
-                      transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 14}px) rotate(${rot}deg) scale(1.08)`,
+                      transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 18}px) rotate(${rot}deg) scale(1.12)`,
                       offset: 0.5,
                     },
                     { transform: 'none' },
                   ],
-                  { duration: 400, easing: 'ease-in-out' }
+                  { duration: 420, easing: 'ease-in-out' }
                 ).finished;
               })
             );
+            await waitMs(120);
           }
-          await waitMs(100);
+        } else if (children.length === 1) {
+          // Jika hanya 1 peserta (misal saat tes solo): kocok dengan gerakan lompat & goyang
+          for (let round = 0; round < 3; round++) {
+            const rot = (round % 2 === 0 ? 1 : -1) * 12;
+            await children[0].animate(
+              [
+                { transform: 'none' },
+                { transform: `translateY(-20px) rotate(${rot}deg) scale(1.15)`, offset: 0.5 },
+                { transform: 'none' },
+              ],
+              { duration: 400, easing: 'ease-in-out' }
+            ).finished;
+            await waitMs(100);
+          }
         }
       }
 
-      // Masuk ke tahap Membagi Kelompok (Flying Token)
+      await waitMs(500);
+
+      // 3. MASUK KE TAHAP MEMBAGI KELOMPOK (Flying Token)
       setAnimStage('FLYING');
       setHeadingText('Membagi kelompok…');
       setSubText('Nama peserta sedang dibagi ke kelompok.');
@@ -519,9 +536,9 @@ export default function RuangTungguSiswa({
         setSubText(`Namamu sudah masuk ke ${myTeam.nama}. Siap-siap, game segera dimulai!`);
       }
 
-      await waitMs(1000);
+      await waitMs(1200);
 
-      // 3. BARU MASUK KE SOALNYA: Beri tahu server bahwa animasi selesai dan siswa siap menerima soal pertama
+      // 4. BARU MASUK KE SOALNYA: Beri tahu server bahwa animasi selesai dan siswa siap menerima soal pertama
       try {
         const socket = getSocket();
         socket.emit('siswa:siap_soal', {
@@ -629,19 +646,20 @@ export default function RuangTungguSiswa({
         /* REDESAIN ANIMASI PENGACAKAN & PEMBAGIAN TIM */
         .pool {
           width: 100%;
-          max-width: 620px;
-          margin: 4px auto 8px;
+          max-width: 680px;
+          margin: 6px auto 12px;
           display: flex;
           flex-wrap: wrap;
           justify-content: center;
-          gap: 6px;
-          padding: 8px 12px;
-          border: 2px dashed rgba(244, 236, 216, 0.35);
-          border-radius: 20px;
-          background: rgba(10, 32, 22, 0.35);
-          box-shadow: inset 0 4px 18px rgba(0, 0, 0, 0.3);
-          max-height: 120px;
-          overflow: hidden;
+          gap: 8px;
+          padding: 12px 16px;
+          border: 2px dashed rgba(244, 236, 216, 0.4);
+          border-radius: 26px;
+          background: rgba(10, 32, 22, 0.45);
+          box-shadow: inset 0 4px 18px rgba(0, 0, 0, 0.35);
+          min-height: 56px;
+          max-height: min(240px, 35vh);
+          overflow-y: auto;
           transition: max-height 0.5s ease, opacity 0.4s ease, margin 0.5s ease, padding 0.5s ease;
         }
         .pool.done {
@@ -997,12 +1015,12 @@ export default function RuangTungguSiswa({
                           className={`pl ${landedIds.includes(p.id) ? 'gone' : ''}`}
                         >
                           <span className={`pc ${isSelf ? 'me' : ''}`}>
-                            <span className="w-4 h-4 rounded-full overflow-hidden shrink-0 inline-block">
-                              <AvatarSvg id={p.id} name={p.nama} size={16} />
+                            <span className="w-5 h-5 sm:w-6 sm:h-6 rounded-full overflow-hidden shrink-0 inline-block">
+                              <AvatarSvg id={p.id} name={p.nama} size={24} />
                             </span>
-                            <span className="max-w-[70px] sm:max-w-[90px] truncate">{p.nama}</span>
+                            <span className="max-w-[85px] sm:max-w-[110px] truncate text-xs sm:text-[13px]">{p.nama}</span>
                             {isSelf && (
-                              <b className="bg-[#c8362f] text-white text-[7px] sm:text-[8px] px-1 py-0.2 rounded-full font-black">
+                              <b className="bg-[#c8362f] text-white text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded-full font-black">
                                 Kamu
                               </b>
                             )}
@@ -1028,7 +1046,7 @@ export default function RuangTungguSiswa({
                         const isDimmed = animStage === 'DONE' && !isMyTeam;
                         const isBumping = bumpingTeamId === team.id;
                         const landedInTeam = team.anggota.filter((m) =>
-                          animStage === 'IDLE' ? true : landedIds.includes(m.id)
+                          animStage === 'DONE' ? true : landedIds.includes(m.id)
                         );
 
                         return (
@@ -1059,8 +1077,8 @@ export default function RuangTungguSiswa({
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
                                 <span className="text-[9px] sm:text-[10px] bg-black/20 px-1.5 py-0.2 rounded-full font-extrabold">
-                                  {animStage === 'IDLE'
-                                    ? `${team.anggota.length}`
+                                  {animStage === 'DONE'
+                                    ? `${team.anggota.length}/${team.anggota.length}`
                                     : `${landedInTeam.length}/${team.anggota.length}`}
                                 </span>
                                 {isMyTeam && (
@@ -1076,7 +1094,7 @@ export default function RuangTungguSiswa({
                               {team.anggota.length > 0 ? (
                                 team.anggota.map((member, mIdx) => {
                                   const isSelf = member.id === pesertaId || member.nama === nama;
-                                  const hasLanded = animStage === 'IDLE' || landedIds.includes(member.id);
+                                  const hasLanded = animStage === 'DONE' || landedIds.includes(member.id);
 
                                   return (
                                     <span
@@ -1206,18 +1224,22 @@ export default function RuangTungguSiswa({
       {/* OVERLAY HITUNG MUNDUR 3 - 1 SAAT GURU KLIK MULAI            */}
       {/* ============================================================ */}
       {countdownVal !== null && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#0a2016]/92 backdrop-blur-xs text-[#f4ecd8] animate-[fadeIn_0.15s_ease-out]">
-          <div className="flex flex-col items-center gap-3">
-            <span className="font-bold text-xs sm:text-sm uppercase tracking-widest text-[#f2c230] animate-pulse">
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#163a2b] text-[#f4ecd8] animate-[fadeIn_0.15s_ease-out] select-none">
+          {/* Latar belakang papan tulis Discere solid */}
+          <div className="absolute inset-0 opacity-15 pointer-events-none bg-[radial-gradient(#f4ecd8_1px,transparent_1px)] [background-size:24px_24px]" />
+
+          <div className="relative z-10 flex flex-col items-center gap-3 px-8 py-7 rounded-3xl bg-[#1f4a37] border-3 sm:border-4 border-[#e8dfc8]/30 shadow-[0_16px_48px_rgba(0,0,0,0.55)] max-w-sm sm:max-w-md w-[88%] text-center">
+            <span className="font-black text-xs sm:text-sm uppercase tracking-widest text-[#f2c230] drop-shadow-sm flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[#f2c230] animate-ping" />
               Game Dimulai Dalam
             </span>
             <div
               key={countdownVal}
-              className="font-['Caveat',sans-serif] text-8xl sm:text-9xl font-black text-[#f2c230] animate-[popIn_0.35s_cubic-bezier(0.34,1.56,0.64,1)] drop-shadow-[0_4px_20px_rgba(242,194,48,0.65)] leading-none select-none"
+              className="font-['Caveat',sans-serif] text-8xl sm:text-9xl font-black text-[#f2c230] animate-[popIn_0.35s_cubic-bezier(0.34,1.56,0.64,1)] drop-shadow-[0_6px_24px_rgba(242,194,48,0.75)] leading-none my-1"
             >
               {countdownVal}
             </div>
-            <p className="text-xs sm:text-sm font-bold text-[#f4ecd8]/90 max-w-xs text-center">
+            <p className="text-xs sm:text-sm font-bold text-[#f4ecd8]/90 max-w-xs mx-auto">
               Bersiaplah! Nama peserta akan segera diacak...
             </p>
           </div>

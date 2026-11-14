@@ -140,13 +140,12 @@ export default function RuangTungguGuru({
   // Transisi Alur Mulai Guru: Hitung Mundur 3-1 -> Acak Nama -> Halaman Game
   const jalankanTransisiGuru = useCallback(() => {
     if (isTransitioning) return;
-    setIsTransitioning(true);
 
     const waitMs = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
     const rm = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     (async () => {
-      // 1. HITUNG MUNDUR 3 - 1
+      // 1. HITUNG MUNDUR 3 - 1 (Latar solid bersih tanpa transparansi tembus)
       setCountdownVal(3);
       await waitMs(900);
       setCountdownVal(2);
@@ -155,14 +154,16 @@ export default function RuangTungguGuru({
       await waitMs(900);
       setCountdownVal(null);
 
-      // 2. ACAK NAMA (FLIP animation kocok pool nama peserta)
+      // 2. ACAK NAMA (Tampilkan papan acak nama & kocok pool nama peserta)
+      setIsTransitioning(true);
       await waitMs(350);
 
       if (!rm && poolRef.current) {
         const pool = poolRef.current;
-        for (let round = 0; round < 3; round++) {
-          const children = Array.from(pool.children) as HTMLElement[];
-          if (children.length > 1) {
+        const children = Array.from(pool.children) as HTMLElement[];
+
+        if (children.length > 1) {
+          for (let round = 0; round < 4; round++) {
             const oldRects = new Map(children.map((c) => [c, c.getBoundingClientRect()]));
             children.sort(() => Math.random() - 0.5).forEach((c) => pool.appendChild(c));
             await Promise.all(
@@ -171,26 +172,39 @@ export default function RuangTungguGuru({
                 const newR = c.getBoundingClientRect();
                 const dx = oldR.left - newR.left;
                 const dy = oldR.top - newR.top;
-                const rot = (Math.random() - 0.5) * 14;
+                const rot = (Math.random() - 0.5) * 16;
                 return c.animate(
                   [
                     { transform: `translate(${dx}px, ${dy}px)` },
                     {
-                      transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 14}px) rotate(${rot}deg) scale(1.08)`,
+                      transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 18}px) rotate(${rot}deg) scale(1.12)`,
                       offset: 0.5,
                     },
                     { transform: 'none' },
                   ],
-                  { duration: 380, easing: 'ease-in-out' }
+                  { duration: 420, easing: 'ease-in-out' }
                 ).finished;
               })
             );
+            await waitMs(100);
           }
-          await waitMs(80);
+        } else if (children.length === 1) {
+          for (let round = 0; round < 3; round++) {
+            const rot = (round % 2 === 0 ? 1 : -1) * 12;
+            await children[0].animate(
+              [
+                { transform: 'none' },
+                { transform: `translateY(-20px) rotate(${rot}deg) scale(1.15)`, offset: 0.5 },
+                { transform: 'none' },
+              ],
+              { duration: 400, easing: 'ease-in-out' }
+            ).finished;
+            await waitMs(100);
+          }
         }
       }
 
-      await waitMs(1500);
+      await waitMs(1200);
 
       // 3. SELESAI -> Masuk ke arena game
       if (onTransisiSelesai) {
@@ -1007,18 +1021,22 @@ export default function RuangTungguGuru({
       {/* OVERLAY HITUNG MUNDUR 3 - 1 SAAT GURU KLIK MULAI            */}
       {/* ============================================================ */}
       {countdownVal !== null && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#0a2016]/92 backdrop-blur-xs text-[#f4ecd8] animate-[fadeIn_0.15s_ease-out]">
-          <div className="flex flex-col items-center gap-3">
-            <span className="font-bold text-xs sm:text-sm uppercase tracking-widest text-[#f2c230] animate-pulse">
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#163a2b] text-[#f4ecd8] animate-[fadeIn_0.15s_ease-out] select-none">
+          {/* Latar belakang papan tulis Discere solid */}
+          <div className="absolute inset-0 opacity-15 pointer-events-none bg-[radial-gradient(#f4ecd8_1px,transparent_1px)] [background-size:24px_24px]" />
+
+          <div className="relative z-10 flex flex-col items-center gap-3 px-8 py-7 rounded-3xl bg-[#1f4a37] border-3 sm:border-4 border-[#e8dfc8]/30 shadow-[0_16px_48px_rgba(0,0,0,0.55)] max-w-sm sm:max-w-md w-[88%] text-center">
+            <span className="font-black text-xs sm:text-sm uppercase tracking-widest text-[#f2c230] drop-shadow-sm flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[#f2c230] animate-ping" />
               Game Dimulai Dalam
             </span>
             <div
               key={countdownVal}
-              className="hand text-8xl sm:text-9xl font-black text-[#f2c230] animate-[popIn_0.35s_cubic-bezier(0.34,1.56,0.64,1)] drop-shadow-[0_4px_20px_rgba(242,194,48,0.65)] leading-none select-none"
+              className="font-['Caveat',sans-serif] text-8xl sm:text-9xl font-black text-[#f2c230] animate-[popIn_0.35s_cubic-bezier(0.34,1.56,0.64,1)] drop-shadow-[0_6px_24px_rgba(242,194,48,0.75)] leading-none my-1"
             >
               {countdownVal}
             </div>
-            <p className="text-xs sm:text-sm font-bold text-[#f4ecd8]/90 max-w-xs text-center">
+            <p className="text-xs sm:text-sm font-bold text-[#f4ecd8]/90 max-w-xs mx-auto">
               Bersiaplah! Nama peserta akan segera diacak...
             </p>
           </div>
