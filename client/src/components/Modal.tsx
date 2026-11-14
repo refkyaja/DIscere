@@ -54,7 +54,8 @@ export function Modal({
       role="dialog"
       aria-modal="true"
       aria-label={title || 'Dialog Modal'}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity"
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity"
+      style={{ zIndex: 999999 }}
       onClick={onClose}
     >
       <div
@@ -63,6 +64,7 @@ export function Modal({
             ? 'bg-[#fbf6e9] text-[#1d3b2e] rounded-[28px] border-2 border-[#e8dfc8] shadow-[0_10px_0_rgba(0,0,0,0.2),0_20px_30px_rgba(0,0,0,0.3)]'
             : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800'
         } overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-150`}
+        style={{ position: 'relative', zIndex: 1000000 }}
         onClick={(e) => e.stopPropagation()}
       >
         <div

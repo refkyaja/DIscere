@@ -334,13 +334,14 @@ export function PanjatPinangStage({
 
   return (
     <div
-      className={`relative w-full overflow-hidden select-none shadow-md ${className}`}
+      className={`relative isolate w-full overflow-hidden select-none shadow-md ${className}`}
       style={
         {
           '--H': '560px',
           '--hz': '230px',
           '--PH': '340px',
           height: '560px',
+          isolation: 'isolate',
           background: 'linear-gradient(180deg, #69c6ff 0%, #cdeeff 42%, #f4fbff 100%)',
           borderBottom: '4px solid #7a4e22',
         } as React.CSSProperties
@@ -725,7 +726,7 @@ export function PanjatPinangStage({
 
       {/* 10.5 PENONTON DI LAPANGAN LUMPUR (#cl di panjat-pinang-solo.html) */}
       <div
-        className={`panjat-crowd-ground ${crowdCheer ? 'panjat-cheer' : ''}`}
+        className={`panjat-crowd-ground absolute inset-0 ${crowdCheer ? 'panjat-cheer' : ''}`}
         style={{ zIndex: 6, pointerEvents: 'none' }}
       >
         {mudSpectators.map((sp) => {
@@ -737,7 +738,7 @@ export function PanjatPinangStage({
                 position: 'absolute',
                 left: `${sp.leftPct}%`,
                 top: `${sp.topPx}px`,
-                zIndex: Math.round(sp.topPx),
+                zIndex: Math.max(1, Math.min(20, Math.round((sp.topPx - 250) / 15))),
               }}
             >
               {hasSay && (

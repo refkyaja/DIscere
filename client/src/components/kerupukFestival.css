@@ -41,6 +41,7 @@
 
 .kp-stage {
   position: relative;
+  isolation: isolate;
   overflow: hidden;
   height: var(--H);
   background: linear-gradient(#69c6ff, #cdeeff 42%, #f4fbff);

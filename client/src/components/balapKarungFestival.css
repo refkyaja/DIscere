@@ -32,6 +32,7 @@
 /* Stadium Stage */
 .bk-stage {
   position: relative;
+  isolation: isolate;
   width: 100%;
   overflow: hidden;
   border-bottom: 4px solid #c99247;
@@ -1176,6 +1177,14 @@
 .cheer .panjat-person .sR,
 .panjat-cheer .panjat-person .sR {
   transform: rotate(-155deg);
+}
+
+/* Penonton Lapangan Lumpur Panjat Pinang */
+.panjat-crowd-ground {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
 }
 
 /* Balon Kata Sorak Penonton */
