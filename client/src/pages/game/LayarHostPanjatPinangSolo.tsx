@@ -1119,14 +1119,16 @@ export default function LayarHostPanjatPinangSolo() {
           <section className="bk-card space-y-6 mt-2">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4 border-b-2 border-dashed border-[#f0dfb4] pb-5">
               <div>
-                <span className="bk-chip blue">
+                <span className="inline-flex items-center gap-1.5 bk-chip blue">
                   {isDuelLokal ? (
                     <>
-                      <Users className="w-3.5 h-3.5" /> Duel Lokal • 2 Peserta di 1 Layar
+                      <Users className="w-3.5 h-3.5 shrink-0" />
+                      <span>Duel Lokal • 2 Peserta di 1 Layar</span>
                     </>
                   ) : (
                     <>
-                      <Bot className="w-3.5 h-3.5" /> Solo vs Bot AI • Tanpa HP Siswa
+                      <Bot className="w-3.5 h-3.5 shrink-0" />
+                      <span>Solo vs Bot AI • Tanpa HP Siswa</span>
                     </>
                   )}
                 </span>

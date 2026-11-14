@@ -565,15 +565,20 @@
 }
 
 .bk-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  vertical-align: middle;
   font-family: 'Baloo 2', cursive, sans-serif;
   font-size: 13px;
   font-weight: 800;
-  padding: 3px 11px;
+  padding: 3px 12px;
   border-radius: 999px;
   border: 1.5px solid #9fd4fa;
   background: #cfeaff;
   color: #0b4d7a;
   white-space: nowrap;
+  line-height: 1.3;
 }
 
 .bk-chip.live,
