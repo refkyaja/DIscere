@@ -169,6 +169,11 @@ export default function RuangTungguSiswa({
 
       // Mulai alur pembagian tim & countdown
       jalankanTransisiMulaiRef.current();
+
+      // Watchdog safety fallback: jika dalam 12 detik belum berpindah, paksa transisi
+      setTimeout(() => {
+        onMulaiPermainan();
+      }, 12000);
     };
 
     const handleDikick = () => {
@@ -343,22 +348,23 @@ export default function RuangTungguSiswa({
     const rm = isReducedMotion;
 
     (async () => {
-      // 0. Untuk game individu tanpa tim (Panjat Pinang dan Makan Kerupuk)
-      // Lewati seluruh tahap pool & shuffle langsung ke permainan
-      if ((gameType !== 'tarik_tambang' && gameType !== 'balap_karung') || teamGroups.length === 0) {
-        setStatusText('Mulai! Bersiaplah…');
-        await waitMs(200);
-        try {
-          const socket = getSocket();
-          socket.emit('siswa:siap_soal', { token, pesertaId });
-        } catch (err) {
-          console.error('[siswa:siap_soal error]', err);
+      try {
+        // 0. Untuk game individu tanpa tim (Panjat Pinang dan Makan Kerupuk)
+        // Lewati seluruh tahap pool & shuffle langsung ke permainan
+        if ((gameType !== 'tarik_tambang' && gameType !== 'balap_karung') || teamGroups.length === 0) {
+          setStatusText('Mulai! Bersiaplah…');
+          await waitMs(200);
+          try {
+            const socket = getSocket();
+            socket.emit('siswa:siap_soal', { token, pesertaId });
+          } catch (err) {
+            console.error('[siswa:siap_soal error]', err);
+          }
+          onMulaiPermainan();
+          return;
         }
-        onMulaiPermainan();
-        return;
-      }
 
-      // 1. TAHAP POOL & SLOT KOSONG: Render pool dan kartu tim terlebih dahulu agar DOM stabil
+        // 1. TAHAP POOL & SLOT KOSONG: Render pool dan kartu tim terlebih dahulu agar DOM stabil
       setIsStarting(true);
       setAnimStage('SHUFFLING');
       setHeadingText('Mengacak nama…');
@@ -640,6 +646,10 @@ export default function RuangTungguSiswa({
         console.error('[siswa:siap_soal error]', err);
       }
       onMulaiPermainan();
+    } catch (err) {
+      console.error('[transisi mulai error]', err);
+      onMulaiPermainan();
+    }
     })();
   }, [gameType, teamGroups, listPesertaTampil, detectedMyTeam, pesertaId, nama, token, onMulaiPermainan]);
 

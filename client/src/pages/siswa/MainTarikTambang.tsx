@@ -4,11 +4,10 @@ import { bindStudentReconnect, createAnswerWatchdogs } from '../../lib/socketRec
 import { QuestionTimerBar, computeInitialRemainingMs } from '../../components';
 import { isStaleQuestionErrorMessage } from '../../lib/soloSessionSync';
 import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
-import { TarikAvatarSvg } from '../../components/TarikTambangStadium';
 import RuangTungguSiswa from './RuangTungguSiswa';
 import '../../components/tarikTambangFestival.css';
+import '../../components/balapKarungFestival.css';
 import {
-  CheckCircle2,
   Clock,
   Flame,
   Loader2,
@@ -17,7 +16,6 @@ import {
   Trophy,
   Volume2,
   VolumeX,
-  XCircle,
   Zap,
 } from 'lucide-react';
 
@@ -204,6 +202,8 @@ export default function MainTarikTambang({
   stageRef.current = stage;
   const timeoutSentRef = useRef<string | null>(null);
   const watchdogsRef = useRef(createAnswerWatchdogs());
+  const myTimRef = useRef(myTim);
+  myTimRef.current = myTim;
 
   const namaTim1 = activeConfig.namaTim1 || 'Tim Merah';
   const namaTim2 = activeConfig.namaTim2 || 'Tim Biru';
@@ -224,6 +224,21 @@ export default function MainTarikTambang({
     const id = window.setInterval(updateClock, 250);
     return () => window.clearInterval(id);
   }, [stage, matchEndsAt, isPaused]);
+
+  // Jaminan anti-stuck: ketika siswa masuk tahap PLAYING tetapi soalAktif belum tiba
+  useEffect(() => {
+    if (stage !== 'PLAYING' || soalAktif) return;
+    const mintaSoal = () => {
+      try {
+        getSocket().emit('siswa:siap_soal', { sessionId, pesertaId, token });
+      } catch (err) {
+        console.error('[mintaSoal error]', err);
+      }
+    };
+    mintaSoal();
+    const interval = window.setInterval(mintaSoal, 2000);
+    return () => window.clearInterval(interval);
+  }, [stage, soalAktif, sessionId, pesertaId, token]);
 
   // Listen real-time Socket.IO events for Tarik Tambang
   useEffect(() => {
@@ -426,10 +441,17 @@ export default function MainTarikTambang({
       watchdogsRef.current.clearAll();
       if (data.hasil) setHasilAkhir(data.hasil);
       setStage('SELESAI');
+      const winSide = data.hasil?.timMenang || 'seri';
+      const curTim = myTimRef.current;
+      const isWinner = winSide !== 'seri' && winSide === curTim;
       if (data.hasil?.dihentikanManual || data.hasil?.alasanSelesai === 'manual') {
         soundEffects.stopAll();
-      } else {
+      } else if (isWinner) {
         soundEffects.playNaturalVictory();
+      } else if (winSide === 'seri') {
+        soundEffects.playNaturalVictory();
+      } else {
+        soundEffects.playSlip();
       }
       sessionStorage.removeItem('discere_multi_token');
       sessionStorage.removeItem('discere_multi_peserta_id');
@@ -459,6 +481,12 @@ export default function MainTarikTambang({
       }
     };
 
+    const handleMainLagiSiswa = (data: { sessionId: string; token: string }) => {
+      if (data?.token) {
+        window.location.href = `/main?token=${encodeURIComponent(data.token)}&nama=${encodeURIComponent(nama)}`;
+      }
+    };
+
     socket.on('lobi:update', handleLobiUpdate);
     socket.on('teams_assigned', handleTeamsAssigned);
     socket.on('game:mulai', handleGameMulai);
@@ -470,6 +498,7 @@ export default function MainTarikTambang({
     socket.on('sesi:dikick', handleDiKick);
     socket.on('game:jeda', handleGameJeda);
     socket.on('game:lanjut', handleGameLanjut);
+    socket.on('sesi:main_lagi', handleMainLagiSiswa);
 
     return () => {
       watchdogsRef.current.clearAll();
@@ -484,6 +513,7 @@ export default function MainTarikTambang({
       socket.off('sesi:dikick', handleDiKick);
       socket.off('game:jeda', handleGameJeda);
       socket.off('game:lanjut', handleGameLanjut);
+      socket.off('sesi:main_lagi', handleMainLagiSiswa);
     };
   }, [pesertaId, isMerah, defaultQuestionSec, namaTim1, namaTim2]);
 
@@ -642,7 +672,7 @@ export default function MainTarikTambang({
             className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
             style={{ background: myTeamColor }}
           />
-          <span className="tt-disp text-sm font-extrabold text-[#2b2a4a] truncate">{nama}</span>
+          <span className="bk-h text-sm font-extrabold text-[#2b2a4a] truncate">{nama}</span>
           <span
             className="text-[11px] font-extrabold px-2 py-0.5 rounded-full text-white"
             style={{ background: myTeamColor }}
@@ -660,17 +690,17 @@ export default function MainTarikTambang({
           <button
             type="button"
             onClick={toggleMute}
-            className="tt-ib"
+            className="p-2 rounded-xl bg-[#fff3d6] border border-[#f0dfb4] text-[#2b2a4a] cursor-pointer"
             aria-label={isMuted ? 'Nyalakan suara' : 'Bisukan suara'}
             title={isMuted ? 'Nyalakan Suara' : 'Bisukan Suara'}
           >
-            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            {isMuted ? <VolumeX className="w-4 h-4 text-[#d63b3b]" /> : <Volume2 className="w-4 h-4 text-[#1f9d55]" />}
           </button>
         )}
         <button
           type="button"
           onClick={() => onKeluar?.()}
-          className="tt-ib danger"
+          className="p-2 rounded-xl bg-[#fde0e0] border border-[#f4b6b6] text-[#8a1f1f] cursor-pointer"
           aria-label="Keluar sesi"
         >
           <LogOut className="w-4 h-4" />
@@ -702,14 +732,29 @@ export default function MainTarikTambang({
         templateJudul={templateJudul}
         config={activeConfig}
         daftarPeserta={daftarPeserta.map((p) => ({ id: p.id, nama: p.nama, tim: p.tim }))}
+        teams={[
+          {
+            id: 'merah',
+            nama: activeConfig?.namaTim1 || 'Tim Merah',
+            warna: '#e2312d',
+            anggota: daftarPeserta.filter((p) => p.tim === 'merah').map((p) => ({ id: p.id, nama: p.nama })),
+          },
+          {
+            id: 'putih',
+            nama: activeConfig?.namaTim2 || 'Tim Biru',
+            warna: '#1d8fe0',
+            anggota: daftarPeserta.filter((p) => p.tim === 'putih').map((p) => ({ id: p.id, nama: p.nama })),
+          },
+        ]}
         myTeamId={myTim}
         onKeluar={onKeluar}
         onMulaiPermainan={() => {
           try {
             getSocket().emit('siswa:siap_soal', { sessionId, pesertaId, token });
           } catch (err) {
-            console.error('[siswa:siap_soal error]', err);
+            console.error('[RuangTungguSiswa onMulaiPermainan error]', err);
           }
+          stageRef.current = 'PLAYING';
           setStage('PLAYING');
         }}
       />
@@ -839,201 +884,202 @@ export default function MainTarikTambang({
   // =========================================================================
   // 3. TAHAP BERMAIN (.tt-phone KONTINU REAL-TIME)
   // =========================================================================
-  const ratio = Math.max(-1, Math.min(1, taliPosition / batasMenang));
-  const dotLeftPct = Number((50 - ratio * 44).toFixed(2));
-  const isTimeWarning = matchRemainingSec > 0 && matchRemainingSec <= 15;
-
   return (
-    <div className="tt-festival min-h-screen p-3 sm:p-4 flex flex-col justify-between gap-3 select-none">
+    <div className="bk-festival p-3 sm:p-4 flex flex-col gap-3 select-none">
       {renderTopBar()}
 
-      <main className="w-full max-w-md mx-auto my-auto">
-        <div className="tt-phone">
-          <div className="tt-scr space-y-3">
-            {/* Baris Info Tim + Timer Lomba */}
-            <div className="flex items-center justify-between gap-2 pb-2 border-b-2 border-[#f0dfb4]">
-              <div className="flex items-center gap-2 min-w-0">
-                <TarikAvatarSvg
-                  color={myTeamColor}
-                  side={isMerah ? 'l' : 'r'}
-                  size={34}
-                />
-                <div className="min-w-0">
-                  <div className="tt-disp text-sm font-extrabold text-[#2b2a4a] truncate">
-                    {myTeamName}
-                  </div>
-                  <div className="text-[11px] font-bold text-[#6b6a85] flex items-center gap-2">
-                    <span>Benar: {pesertaStat.totalBenar}</span>
-                    {pesertaStat.streakSaatIni >= 2 && (
-                      <span className="inline-flex items-center gap-0.5 text-[#c2540a]">
-                        <Flame className="w-3 h-3" /> {pesertaStat.streakSaatIni}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
+      <main className="w-full max-w-md mx-auto flex-1 flex flex-col gap-3">
+        {/* Ringkasan Posisi Tim Mini (Gaya Balap Karung) */}
+        <div className="bg-[#fffdf6] border-2 border-[#f0dfb4] rounded-2xl p-3 space-y-1.5">
+          {/* Tim Merah */}
+          <div className="space-y-0.5">
+            <div className="flex items-center justify-between text-[11px] font-extrabold">
+              <span className="flex items-center gap-1.5 text-[#2b2a4a]">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#e2312d]" />
+                {namaTim1} {isMerah ? '★' : ''}
+              </span>
+              <span className="text-[#2b2a4a]">{skorMerah} m</span>
+            </div>
+            <div className="h-2 rounded-full bg-[#fff3d6] overflow-hidden border border-[#f0dfb4]">
+              <div
+                className="h-full rounded-full transition-all duration-300 bg-[#e2312d]"
+                style={{
+                  width: `${Math.max(0, Math.min(100, (taliPosition / batasMenang) * 100))}%`,
+                }}
+              />
+            </div>
+          </div>
 
-              <span className={`tt-chip flex items-center gap-1 ${isTimeWarning ? 'red' : 'gold'}`}>
-                <Clock className="w-3.5 h-3.5" />
+          {/* Tim Putih/Biru */}
+          <div className="space-y-0.5">
+            <div className="flex items-center justify-between text-[11px] font-extrabold">
+              <span className="flex items-center gap-1.5 text-[#2b2a4a]">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#1d8fe0]" />
+                {namaTim2} {!isMerah ? '★' : ''}
+              </span>
+              <span className="text-[#2b2a4a]">{skorPutih} m</span>
+            </div>
+            <div className="h-2 rounded-full bg-[#fff3d6] overflow-hidden border border-[#f0dfb4]">
+              <div
+                className="h-full rounded-full transition-all duration-300 bg-[#1d8fe0]"
+                style={{
+                  width: `${Math.max(0, Math.min(100, (-taliPosition / batasMenang) * 100))}%`,
+                }}
+              />
+            </div>
+          </div>
+
+          {matchEndsAt && matchRemainingSec > 0 && (
+            <div className="flex items-center justify-between pt-1 border-t border-[#f0dfb4]/60 text-[10px] font-extrabold text-[#6b6a85]">
+              <span>Sisa Waktu Lomba:</span>
+              <span className="font-mono text-[#2b2a4a] flex items-center gap-1">
+                <Clock className="w-3 h-3 text-[#e2312d]" />
                 {formatClock(matchRemainingSec)}
               </span>
             </div>
+          )}
 
-            {/* Indikator Tali Mini */}
-            <div className="bg-[#fff3d6] border border-[#f0dfb4] rounded-2xl px-3 py-2 space-y-1.5">
-              <div className="flex items-center justify-between text-[11px] font-extrabold">
-                <span className="text-[#e2312d]">
-                  {namaTim1}: {skorMerah}
-                </span>
-                <span className="text-[#6b6a85]">
-                  Posisi: {taliPosition > 0 ? `+${Math.round(taliPosition)}` : Math.round(taliPosition)}
-                </span>
-                <span className="text-[#1d8fe0]">
-                  {skorPutih} :{namaTim2}
-                </span>
-              </div>
-              <div className="relative h-2.5 rounded-full bg-[#e9dcc0] border border-white">
-                <span
-                  className="absolute top-1/2 -translate-y-1/2 -ml-2 w-4 h-4 rounded-full border-2 border-white shadow-xs transition-[left] duration-500"
-                  style={{ left: `${dotLeftPct}%`, background: '#e2312d' }}
-                />
-              </div>
-              {lastAksiToast && (
-                <div
-                  className={`text-[11px] font-bold text-center truncate ${
-                    lastAksiToast.ok ? 'text-[#166534]' : 'text-[#991b1b]'
-                  }`}
-                >
-                  {lastAksiToast.text}
+          {lastAksiToast && (
+            <div
+              className={`text-[11px] font-bold text-center truncate pt-1 border-t border-[#f0dfb4]/60 ${
+                lastAksiToast.ok ? 'text-[#166534]' : 'text-[#991b1b]'
+              }`}
+            >
+              {lastAksiToast.text}
+            </div>
+          )}
+        </div>
+
+        {/* Kartu Soal Kuis */}
+        <section
+          className="bk-card flex-1 flex flex-col justify-between border-[3px]"
+          style={{ borderColor: myTeamColor }}
+        >
+          {soalAktif ? (
+            <div>
+              <QuestionTimerBar
+                presentationKey={soalAktif.presentationId}
+                durationSec={Math.max(5, Number(soalAktif.duration || defaultQuestionSec))}
+                initialRemainingMs={initialSoalRemainingMs}
+                active={!isPaused && stage === 'PLAYING' && !sudahKirim && !feedback}
+                onTimeout={handleTimeoutSoal}
+                leftContent={<>Soal #{soalAktif.nomorSoal}</>}
+                rightSuffix={` • ${isMerah ? skorMerah : skorPutih} m`}
+              />
+
+              {errorBanner && (
+                <div className="mb-3 bg-[#fde0e0] border border-[#f4b6b6] text-[#991b1b] text-xs font-bold rounded-xl px-3 py-2">
+                  {errorBanner}
                 </div>
               )}
-            </div>
 
-            {/* Power-Up Tim Opsional (Jika Diaktifkan Guru) */}
-            {activeConfig.powerUpAktif && (powerUpTim.bank || powerUpTim.aktifBerikutnya) && (
-              <div className="flex items-center justify-between gap-2 bg-[#fef3c7] border border-[#fcd34d] rounded-xl px-3 py-1.5">
-                <span className="text-xs font-extrabold text-[#92400e] flex items-center gap-1.5">
-                  <Zap className="w-3.5 h-3.5" />
-                  {powerUpTim.aktifBerikutnya
-                    ? `Aktif: ${POWER_UP_LABELS[powerUpTim.aktifBerikutnya] || powerUpTim.aktifBerikutnya}`
-                    : `Power-Up Siap: ${POWER_UP_LABELS[powerUpTim.bank || ''] || powerUpTim.bank}`}
-                </span>
-                {powerUpTim.bank && !powerUpTim.aktifBerikutnya && (
-                  <button
-                    type="button"
-                    onClick={handleAktifkanPowerUp}
-                    className="tt-btn y sm"
-                  >
-                    Aktifkan
-                  </button>
-                )}
-              </div>
-            )}
-
-            {errorBanner && (
-              <div className="bg-[#fde0e0] border border-[#f4b6b6] text-[#991b1b] text-xs font-bold rounded-xl px-3 py-2">
-                {errorBanner}
-              </div>
-            )}
-
-            {/* Soal & Countdown 10 Detik */}
-            {soalAktif ? (
-              <div className="space-y-2.5">
-                <QuestionTimerBar
-                  variant="tt"
-                  presentationKey={soalAktif.presentationId}
-                  durationSec={Math.max(5, Number(soalAktif.duration || defaultQuestionSec))}
-                  initialRemainingMs={initialSoalRemainingMs}
-                  active={!isPaused && stage === 'PLAYING' && !sudahKirim && !feedback}
-                  onTimeout={handleTimeoutSoal}
-                  questionLabel={`Soal #${soalAktif.nomorSoal}`}
-                />
-
-                <div className="tt-q" style={{ minHeight: '2.2em', marginBottom: '10px' }}>
-                  {soalAktif.teks}
-                </div>
-
-                <div>
-                  {soalAktif.pilihan.map((opt) => {
-                    const isPicked = pickedChoiceId === opt.choiceId;
-                    const isCorrectOption =
-                      Boolean(feedback) &&
-                      (feedback?.correctChoiceId === opt.choiceId ||
-                        feedback?.jawabanBenarKode === opt.label);
-
-                    let cls = 'tt-op';
-                    if (feedback) {
-                      if (isCorrectOption) cls += ' ok';
-                      else if (isPicked && !feedback.benar) cls += ' no';
-                    }
-
-                    return (
-                      <button
-                        key={opt.choiceId}
-                        type="button"
-                        disabled={sudahKirim || Boolean(feedback) || isPaused}
-                        onClick={() => handlePilihJawaban(opt)}
-                        className={cls}
-                        style={{ '--c': myTeamColor } as React.CSSProperties}
-                      >
-                        <b>{opt.label}</b>
-                        <span className="flex-1 text-sm font-extrabold leading-snug">
-                          {opt.teks}
+              {(pesertaStat.streakSaatIni >= 2 ||
+                (activeConfig.powerUpAktif && (powerUpTim.bank || powerUpTim.aktifBerikutnya))) && (
+                <div className="flex flex-wrap items-center gap-1.5 mb-3 text-[11px] font-extrabold">
+                  {pesertaStat.streakSaatIni >= 2 && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-orange-50 border border-orange-200 text-orange-800 flex items-center gap-1">
+                      <Flame className="w-3 h-3 fill-current text-orange-500" />
+                      Streak: {pesertaStat.streakSaatIni}
+                    </span>
+                  )}
+                  {activeConfig.powerUpAktif &&
+                    (powerUpTim.bank || powerUpTim.aktifBerikutnya) && (
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800">
+                        <Zap className="w-3 h-3 text-amber-600" />
+                        <span>
+                          {powerUpTim.aktifBerikutnya
+                            ? `Aktif: ${POWER_UP_LABELS[powerUpTim.aktifBerikutnya] || powerUpTim.aktifBerikutnya}`
+                            : `Siap: ${POWER_UP_LABELS[powerUpTim.bank || ''] || powerUpTim.bank}`}
                         </span>
-                        {feedback && isCorrectOption && (
-                          <CheckCircle2 className="w-4 h-4 text-[#16a34a] shrink-0" />
+                        {powerUpTim.bank && !powerUpTim.aktifBerikutnya && (
+                          <button
+                            type="button"
+                            onClick={handleAktifkanPowerUp}
+                            className="ml-1 text-[10px] underline font-black text-amber-900 cursor-pointer"
+                          >
+                            Gunakan
+                          </button>
                         )}
-                        {feedback && isPicked && !feedback.benar && (
-                          <XCircle className="w-4 h-4 text-[#dc2626] shrink-0" />
-                        )}
-                      </button>
-                    );
-                  })}
+                      </div>
+                    )}
                 </div>
+              )}
 
+              <h2 className="bk-h text-lg sm:text-xl font-extrabold text-[#2b2a4a] leading-snug mb-3">
+                {soalAktif.teks}
+              </h2>
+
+              <div className="space-y-2">
+                {soalAktif.pilihan.map((opt) => {
+                  const isCorrectOption =
+                    Boolean(feedback) &&
+                    (feedback?.correctChoiceId === opt.choiceId ||
+                      feedback?.jawabanBenarKode === opt.label);
+                  const isWrongHighlight =
+                    Boolean(feedback) && !feedback?.benar && pickedChoiceId === opt.choiceId;
+
+                  return (
+                    <button
+                      key={opt.choiceId}
+                      type="button"
+                      disabled={sudahKirim || Boolean(feedback) || isPaused}
+                      onClick={() => handlePilihJawaban(opt)}
+                      className={`bk-opt w-full !p-3 ${
+                        isCorrectOption ? 'ok' : isWrongHighlight ? 'no' : ''
+                      }`}
+                    >
+                      <span className="bk-opt-k !w-7 !h-7 !text-xs">{opt.label}</span>
+                      <span className="text-sm leading-snug text-left flex-1">{opt.teks}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div
+                className={`min-h-[1.6em] mt-3 bk-h text-sm font-extrabold ${
+                  feedback
+                    ? feedback.benar
+                      ? 'text-[#1f9d55]'
+                      : 'text-[#d63b3b]'
+                    : 'text-[#6b6a85]'
+                }`}
+                aria-live="polite"
+              >
                 {feedback ? (
-                  <div
-                    className={`tt-fb rounded-xl px-3 py-2 text-xs ${
-                      feedback.benar
-                        ? 'bg-[#dcfce7] text-[#166534]'
-                        : 'bg-[#fee2e2] text-[#991b1b]'
-                    }`}
-                  >
-                    <div>
-                      {feedback.benar
-                        ? `Tarikan mantap untuk ${myTeamName}!`
-                        : feedback.timedOut
-                        ? `Waktu soal habis! Kunci jawaban: ${feedback.jawabanBenarKode || '-'}`
-                        : `${feedback.slipQuote || 'Terpeleset!'} Kunci: ${
-                            feedback.jawabanBenarKode || '-'
-                          }`}
-                    </div>
+                  <div>
+                    {feedback.benar
+                      ? `Tarikan mantap untuk ${myTeamName}! (+${feedback.deltaTali || 1} m)`
+                      : feedback.timedOut
+                      ? `Waktu habis! Jawaban benar: ${feedback.jawabanBenarKode || '-'}`
+                      : `${feedback.slipQuote || 'Terpeleset!'} Kunci: ${
+                          feedback.jawabanBenarKode || '-'
+                        }`}
                     {feedback.penjelasan && (
-                      <div className="text-[11px] font-bold opacity-90 mt-1">
+                      <div className="text-xs text-[#2b2a4a] font-normal mt-1 opacity-90">
                         {feedback.penjelasan}
                       </div>
                     )}
                   </div>
                 ) : sudahKirim ? (
-                  <div className="tt-fb text-[#6b6a85] text-xs flex items-center gap-1.5">
+                  <div className="text-[#6b6a85] text-xs flex items-center gap-1.5">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Mengirim jawaban...
+                    <span>Mengirim jawaban...</span>
                   </div>
                 ) : null}
               </div>
-            ) : (
-              <div className="py-10 flex flex-col items-center justify-center gap-2 text-xs font-extrabold text-[#6b6a85]">
-                <Loader2 className="w-6 h-6 animate-spin text-[#e2312d]" />
-                Menyiapkan soal pertama...
-              </div>
-            )}
-          </div>
-        </div>
-      </main>
 
-      <footer className="text-center text-[11px] font-bold text-[#6b6a85]">
-        Tarik menuju Zona {myTeamName} • Target ±{batasMenang}
-      </footer>
+              <div className="mt-3 text-center text-xs font-bold text-[#6b6a85]">
+                Jawab sebelum waktu habis!
+              </div>
+            </div>
+          ) : (
+            <div className="py-8 flex flex-col items-center justify-center gap-2 text-[#6b6a85]">
+              <Loader2 className="w-6 h-6 animate-spin text-[#e2312d]" />
+              <span className="text-sm font-extrabold">Menyiapkan soal berikutnya...</span>
+            </div>
+          )}
+        </section>
+      </main>
 
       {isPaused && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">

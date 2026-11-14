@@ -373,6 +373,12 @@ export default function MainBalapKarung({
       }
     };
 
+    const handleMainLagiSiswa = (data: { sessionId: string; token: string }) => {
+      if (data?.token) {
+        window.location.href = `/main?token=${encodeURIComponent(data.token)}&nama=${encodeURIComponent(nama)}`;
+      }
+    };
+
     socket.on('lobi:update', handleLobiUpdate);
     socket.on('game:mulai', handleGameMulai);
     socket.on('soal:tampil', handleSoalTampil);
@@ -382,6 +388,7 @@ export default function MainBalapKarung({
     socket.on('sesi:dikick', handleDiKick);
     socket.on('game:jeda', handleGameJeda);
     socket.on('game:lanjut', handleGameLanjut);
+    socket.on('sesi:main_lagi', handleMainLagiSiswa);
 
     return () => {
       watchdogsRef.current.clearAll();
@@ -394,6 +401,7 @@ export default function MainBalapKarung({
       socket.off('sesi:dikick', handleDiKick);
       socket.off('game:jeda', handleGameJeda);
       socket.off('game:lanjut', handleGameLanjut);
+      socket.off('sesi:main_lagi', handleMainLagiSiswa);
     };
   }, [pesertaId, defaultTimerDetik]);
 

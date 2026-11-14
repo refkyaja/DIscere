@@ -1,17 +1,13 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { getSocket } from '../../lib/socket';
-import { bindStudentReconnect } from '../../lib/socketReconnect';
+import { bindStudentReconnect, createAnswerWatchdogs } from '../../lib/socketReconnect';
+import { QuestionTimerBar, computeInitialRemainingMs } from '../../components';
+import { isStaleQuestionErrorMessage } from '../../lib/soloSessionSync';
 import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import RuangTungguSiswa from './RuangTungguSiswa';
-import KerupukVirtual, {
-  HasilGachaGigitanProps,
-  MoodKarakterKerupuk,
-} from './KerupukVirtual';
+import type { HasilGachaGigitanProps } from './KerupukVirtual';
+import '../../components/balapKarungFestival.css';
 import {
-  Trophy,
-  Clock,
-  CheckCircle2,
-  XCircle,
   Flame,
   Crown,
   Medal,
@@ -19,6 +15,9 @@ import {
   Volume2,
   VolumeX,
   Pause,
+  AlertTriangle,
+  Loader2,
+  LogOut,
 } from 'lucide-react';
 
 interface PilihanSoalKerupuk {
@@ -34,6 +33,10 @@ interface SoalKerupukMulti {
   totalSoalBank: number;
   teks: string;
   pilihan: PilihanSoalKerupuk[];
+  waktuPerSoalDetik?: number;
+  berakhirPadaMs?: number;
+  serverNowMs?: number;
+  serverOffsetMs?: number;
 }
 
 export interface PesertaKerupukMultiData {
@@ -114,8 +117,6 @@ export default function MainKerupuk({
   const [soalAktif, setSoalAktif] = useState<SoalKerupukMulti | null>(initialSoalAktif);
   const [dipilihChoiceId, setDipilihChoiceId] = useState<string | null>(null);
   const [sudahKirim, setSudahKirim] = useState(false);
-  const [mood, setMood] = useState<MoodKarakterKerupuk>('playing');
-  const [reactionNonce, setReactionNonce] = useState(0);
 
   const [feedback, setFeedback] = useState<{
     tampil: boolean;
@@ -132,30 +133,9 @@ export default function MainKerupuk({
   const [hasilAkhir, setHasilAkhir] = useState<any>(null);
   const [isPaused, setIsPaused] = useState(false);
 
-  const [detikElapsed, setDetikElapsed] = useState<number>(0);
-  const stopwatchRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const startStopwatch = useCallback(() => {
-    if (stopwatchRef.current) clearInterval(stopwatchRef.current);
-    const start = Date.now();
-    setDetikElapsed(0);
-    stopwatchRef.current = setInterval(() => {
-      setDetikElapsed(Math.round((Date.now() - start) / 100) / 10);
-    }, 100);
-  }, []);
-
-  const stopStopwatch = useCallback(() => {
-    if (stopwatchRef.current) {
-      clearInterval(stopwatchRef.current);
-      stopwatchRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (stopwatchRef.current) clearInterval(stopwatchRef.current);
-    };
-  }, []);
+  const [errorBanner, setErrorBanner] = useState<string | null>(null);
+  const timeoutSentRef = useRef<string | null>(null);
+  const watchdogsRef = useRef(createAnswerWatchdogs());
 
   useEffect(() => {
     const socket = getSocket();
@@ -173,7 +153,6 @@ export default function MainKerupuk({
 
     const handleGameMulai = (data: { game?: string }) => {
       if (data.game && data.game !== 'makan_kerupuk') return;
-      setMood('playing');
       soundEffects.startGame('whistle');
       if (stageRef.current !== 'LOBBY') {
         setStage('PLAYING');
@@ -182,6 +161,9 @@ export default function MainKerupuk({
 
     const handleSoalTampil = (data: any) => {
       if (data.game && data.game !== 'makan_kerupuk') return;
+      timeoutSentRef.current = null;
+      watchdogsRef.current.clearAck();
+      const serverOffsetMs = data.serverNowMs ? Date.now() - data.serverNowMs : 0;
       setSoalAktif({
         presentationId: data.presentationId,
         questionId: data.questionId,
@@ -189,11 +171,15 @@ export default function MainKerupuk({
         totalSoalBank: data.totalSoalBank,
         teks: data.teks,
         pilihan: data.pilihan || [],
+        waktuPerSoalDetik: data.waktuPerSoalDetik,
+        berakhirPadaMs: data.berakhirPadaMs,
+        serverNowMs: data.serverNowMs,
+        serverOffsetMs,
       });
       setDipilihChoiceId(null);
       setSudahKirim(false);
       setFeedback(null);
-      startStopwatch();
+      setErrorBanner(null);
       if (stageRef.current !== 'LOBBY') {
         setStage('PLAYING');
       }
@@ -209,24 +195,18 @@ export default function MainKerupuk({
 
     const handleJawabHasil = (res: any) => {
       if (!res?.success || (res.game && res.game !== 'makan_kerupuk')) return;
-      stopStopwatch();
+      watchdogsRef.current.clearAck();
+      setErrorBanner(null);
 
       if (res.benar) {
-        if (res.gacha && res.gacha.tipe !== 'zonk') {
-          setMood(res.gacha.tipe);
-        } else {
-          setMood('zonk');
-        }
         soundEffects.playKerupukAction({
           benar: true,
           gachaTipe: res.gacha?.tipe ?? 'zonk',
           hasStreakBonus: (res.bonusStreak || 0) > 0,
         });
       } else {
-        setMood('salah');
         soundEffects.playKerupukAction({ benar: false });
       }
-      setReactionNonce((n) => n + 1);
 
       if (res.pesertaUpdated) setMyState(res.pesertaUpdated);
 
@@ -245,8 +225,7 @@ export default function MainKerupuk({
 
     const handlePemainSelesai = (data: { game?: string; peserta?: PesertaKerupukMultiData }) => {
       if (data.game && data.game !== 'makan_kerupuk') return;
-      stopStopwatch();
-      setMood('win');
+      watchdogsRef.current.clearAck();
       setSoalAktif(null);
       if (data?.peserta) {
         setMyState(data.peserta);
@@ -263,7 +242,7 @@ export default function MainKerupuk({
 
     const handleSesiSelesai = (data: { game?: string; hasil: any }) => {
       if (data.game && data.game !== 'makan_kerupuk') return;
-      stopStopwatch();
+      watchdogsRef.current.clearAck();
       setHasilAkhir(data.hasil);
       setStage('SELESAI');
       if (data.hasil?.dihentikanManual) {
@@ -280,14 +259,16 @@ export default function MainKerupuk({
     const handleGameJeda = (data: { game?: string }) => {
       if (data?.game && data.game !== 'makan_kerupuk') return;
       setIsPaused(true);
-      stopStopwatch();
     };
 
     const handleGameLanjut = (data: { game?: string; pauseDuration?: number }) => {
       if (data?.game && data.game !== 'makan_kerupuk') return;
       setIsPaused(false);
-      if (!sudahKirim && !feedback) {
-        startStopwatch();
+    };
+
+    const handleMainLagiSiswa = (data: { sessionId: string; token: string }) => {
+      if (data?.token) {
+        window.location.href = `/main?token=${encodeURIComponent(data.token)}&nama=${encodeURIComponent(nama)}`;
       }
     };
 
@@ -301,6 +282,7 @@ export default function MainKerupuk({
     socket.on('sesi:dikick', handleDiKick);
     socket.on('game:jeda', handleGameJeda);
     socket.on('game:lanjut', handleGameLanjut);
+    socket.on('sesi:main_lagi', handleMainLagiSiswa);
 
     return () => {
       socket.off('lobi:update', handleLobiUpdate);
@@ -313,8 +295,9 @@ export default function MainKerupuk({
       socket.off('sesi:dikick', handleDiKick);
       socket.off('game:jeda', handleGameJeda);
       socket.off('game:lanjut', handleGameLanjut);
+      socket.off('sesi:main_lagi', handleMainLagiSiswa);
     };
-  }, [pesertaId, startStopwatch, stopStopwatch]);
+  }, [pesertaId]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -338,30 +321,120 @@ export default function MainKerupuk({
             );
           }
         } else if (res.status === 'selesai') {
-          stopStopwatch();
+          watchdogsRef.current.clearAck();
           if (res.hasil) setHasilAkhir(res.hasil);
           setStage('SELESAI');
         }
       },
     });
-  }, [token, nama, pesertaId, pesertaSecret, stopStopwatch]);
+  }, [token, nama, pesertaId, pesertaSecret]);
 
-  const handlePilihJawaban = (pil: PilihanSoalKerupuk) => {
-    if (sudahKirim || !soalAktif || isPaused) return;
-    setDipilihChoiceId(pil.choiceId);
+  const soalDurasiSec = Math.max(5, soalAktif?.waktuPerSoalDetik || 15);
+  const initialSoalRemainingMs = useMemo(
+    () =>
+      computeInitialRemainingMs(
+        soalAktif?.berakhirPadaMs,
+        soalDurasiSec,
+        soalAktif?.serverOffsetMs || 0
+      ),
+    [soalAktif?.presentationId, soalAktif?.berakhirPadaMs, soalDurasiSec, soalAktif?.serverOffsetMs]
+  );
+
+  const handleTimeoutSoal = useCallback(() => {
+    if (
+      stage !== 'PLAYING' ||
+      !soalAktif ||
+      sudahKirim ||
+      Boolean(feedback) ||
+      myState.selesaiKerupuk ||
+      isPaused
+    )
+      return;
+    if (timeoutSentRef.current === soalAktif.presentationId) return;
+    timeoutSentRef.current = soalAktif.presentationId;
     setSudahKirim(true);
-    stopStopwatch();
 
     const socket = getSocket();
-    socket.emit('jawab:kirim', {
-      sessionId,
-      pesertaId,
-      pesertaSecret,
-      presentationId: soalAktif.presentationId,
-      questionId: soalAktif.questionId,
-      choiceId: pil.choiceId,
-      jawaban: pil.label,
+    watchdogsRef.current.armAckTimeout(() => {
+      setSudahKirim(false);
+      setErrorBanner('Waktu habis, mencoba menyinkronkan soal berikutnya...');
+      if (socket.connected) {
+        socket.emit('soal:lanjut', { sessionId, pesertaId, pesertaSecret });
+      }
     });
+
+    socket.emit(
+      'jawab:kirim',
+      {
+        sessionId,
+        pesertaId,
+        pesertaSecret,
+        presentationId: soalAktif.presentationId,
+        questionId: soalAktif.questionId,
+        timedOut: true,
+      },
+      (res: any) => {
+        watchdogsRef.current.clearAck();
+        if (!res?.success) {
+          setSudahKirim(false);
+          if (res?.pesan && isStaleQuestionErrorMessage(res.pesan)) {
+            socket.emit('soal:lanjut', { sessionId, pesertaId, pesertaSecret });
+          }
+        }
+      }
+    );
+  }, [
+    stage,
+    soalAktif,
+    sudahKirim,
+    feedback,
+    myState.selesaiKerupuk,
+    isPaused,
+    sessionId,
+    pesertaId,
+    pesertaSecret,
+  ]);
+
+  const handlePilihJawaban = (pil: PilihanSoalKerupuk) => {
+    if (sudahKirim || Boolean(feedback) || !soalAktif || myState.selesaiKerupuk || isPaused) return;
+    setDipilihChoiceId(pil.choiceId);
+    setSudahKirim(true);
+    setErrorBanner(null);
+
+    const socket = getSocket();
+    watchdogsRef.current.armAckTimeout(() => {
+      setSudahKirim(false);
+      setDipilihChoiceId(null);
+      setErrorBanner('Koneksi lambat. Silakan pilih kembali.');
+      if (socket.connected) {
+        socket.emit('soal:lanjut', { sessionId, pesertaId, pesertaSecret });
+      }
+    });
+
+    socket.emit(
+      'jawab:kirim',
+      {
+        sessionId,
+        pesertaId,
+        pesertaSecret,
+        presentationId: soalAktif.presentationId,
+        questionId: soalAktif.questionId,
+        choiceId: pil.choiceId,
+        jawaban: pil.label,
+      },
+      (res: any) => {
+        watchdogsRef.current.clearAck();
+        if (!res?.success) {
+          setSudahKirim(false);
+          setDipilihChoiceId(null);
+          const pesan = res?.pesan || 'Jawaban belum dapat diproses.';
+          setErrorBanner(pesan);
+          if (isStaleQuestionErrorMessage(pesan)) {
+            socket.emit('soal:lanjut', { sessionId, pesertaId, pesertaSecret });
+          }
+        }
+      }
+    );
   };
 
   const handleLanjutSoalCepat = () => {
@@ -394,208 +467,259 @@ export default function MainKerupuk({
     );
   }
 
+  const renderTopBar = () => (
+    <header className="w-full max-w-md mx-auto flex items-center justify-between gap-2 bg-[#fffdf6] border-2 border-[#f0dfb4] rounded-2xl px-3.5 py-2.5 shadow-xs">
+      <div className="min-w-0">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0 bg-[#1f9d55]" />
+          <span className="bk-h text-sm font-extrabold text-[#2b2a4a] truncate">
+            {nama}
+          </span>
+          <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full text-white bg-[#1f9d55]">
+            Rank #{myRank || 1}
+          </span>
+        </div>
+        <p className="text-[11px] font-bold text-[#6b6a85] truncate mt-0.5">
+          {templateJudul} • PIN {token}
+        </p>
+      </div>
+
+      <div className="flex items-center gap-1.5 shrink-0">
+        {stage === 'PLAYING' && (
+          <button
+            type="button"
+            onClick={toggleMute}
+            className="p-2 rounded-xl bg-[#fff3d6] border border-[#f0dfb4] text-[#2b2a4a] cursor-pointer"
+            aria-label={isMuted ? 'Nyalakan suara' : 'Bisukan suara'}
+            title={isMuted ? 'Nyalakan Suara' : 'Bisukan Suara'}
+          >
+            {isMuted ? <VolumeX className="w-4 h-4 text-[#d63b3b]" /> : <Volume2 className="w-4 h-4 text-[#1f9d55]" />}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => onKeluar?.()}
+          className="p-2 rounded-xl bg-[#fde0e0] border border-[#f4b6b6] text-[#8a1f1f] cursor-pointer"
+          aria-label="Keluar sesi"
+        >
+          <LogOut className="w-4 h-4" />
+        </button>
+      </div>
+    </header>
+  );
+
   // 2. PLAYING
   if (stage === 'PLAYING') {
     if (myState.selesaiKerupuk || myState.sisaKerupuk === 0) {
       return (
-        <div className="min-h-screen bg-[#1d3b2e] text-[#f4ecd8] flex flex-col justify-between p-4 max-w-md mx-auto w-full">
-          <header className="flex items-center justify-between bg-white/10 rounded-2xl p-4 border border-white/15">
-            <div>
-              <span className="text-[10px] font-black uppercase text-[#f2c230] block">
-                Makan Kerupuk Challenge
-              </span>
-              <h2 className="text-sm font-bold line-clamp-1">{templateJudul}</h2>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={toggleMute}
-                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-[#f4ecd8] cursor-pointer"
-                aria-label={isMuted ? 'Nyalakan suara' : 'Bisukan suara'}
-                title={isMuted ? 'Nyalakan Suara' : 'Bisukan Suara'}
-              >
-                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-              </button>
-              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f2c230] text-[#1d3b2e] rounded-xl text-xs font-black">
-                <Trophy className="w-4 h-4" /> Rank #{myRank || 1}
-              </div>
-            </div>
-          </header>
+        <div className="bk-festival p-3 sm:p-4 flex flex-col gap-3 select-none">
+          {renderTopBar()}
 
-          <div className="my-auto text-center space-y-4">
-            <div className="bg-[#fcf8ed] text-[#1d3b2e] rounded-3xl p-6 shadow-xl border-2 border-[#f2c230] space-y-4">
-              <KerupukVirtual
-                size="md"
-                showCharacter
-                mood="win"
-                sisaKerupuk={0}
-                sisaPoin={0}
-                targetPoin={myState.targetKerupuk}
-              />
+          <main className="w-full max-w-md mx-auto flex-1 flex flex-col gap-3">
+            <div className="bk-card !border-[3px] !border-[#ffb81c] bg-gradient-to-b from-[#fffdf6] to-[#fff3d6] !p-5 sm:!p-6 space-y-4">
               <div>
-                <h1 className="text-2xl font-black text-emerald-700">Kerupukmu Ludes 100%!</h1>
-                <p className="text-xs text-[#6b7d6c] mt-1">
-                  Bonus penyelesaian +100 pt sudah tercatat. Menunggu teman sekelas menyelesaikan kerupuk masing-masing...
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-[#136837] bg-[#e9f9ef] border border-[#9de0b6] px-3 py-1 rounded-full mb-2">
+                  Lomba Selesai Untukmu
+                </span>
+                <h1 className="bk-h text-2xl font-extrabold text-[#2b2a4a]">
+                  Kerupukmu Ludes 100%!
+                </h1>
+                <p className="text-sm text-[#6b6a85] font-semibold mt-1">
+                  Hebat, <strong className="text-[#2b2a4a]">{myState.nama}</strong>! Bonus penyelesaian +100 pt sudah tercatat.
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="bg-[#f4ecd8] p-3 rounded-xl">
-                  <span className="text-[#6b7d6c] block font-bold">Total Skor</span>
-                  <span className="text-lg font-black font-mono">{myState.skorTotal} pt</span>
+
+              <div className="grid grid-cols-2 gap-2.5 text-left">
+                <div className="bg-white p-3 rounded-2xl border-2 border-[#f0dfb4]">
+                  <span className="text-[10px] uppercase font-extrabold text-[#6b6a85] block">
+                    Total Skor
+                  </span>
+                  <span className="text-base sm:text-lg font-black text-[#1f9d55] font-mono">
+                    {myState.skorTotal} pt
+                  </span>
                 </div>
-                <div className="bg-[#f4ecd8] p-3 rounded-xl">
-                  <span className="text-[#6b7d6c] block font-bold">Skor Pembelajaran</span>
-                  <span className="text-lg font-black font-mono">
+                <div className="bg-white p-3 rounded-2xl border-2 border-[#f0dfb4]">
+                  <span className="text-[10px] uppercase font-extrabold text-[#6b6a85] block">
+                    Skor Pembelajaran
+                  </span>
+                  <span className="text-base sm:text-lg font-black text-[#e6a100] font-mono">
                     {myState.skorPembelajaran ?? 0} pt
                   </span>
                 </div>
               </div>
-            </div>
-          </div>
 
-          <div className="text-center text-xs text-white/70 font-semibold py-2">
-            Menunggu host menampilkan podium juara akhir...
-          </div>
+              <div className="bg-[#fff3c4] border-2 border-[#ffb81c] rounded-2xl p-3 flex items-center gap-2.5 text-xs text-[#7a5200] font-extrabold">
+                <span className="w-2.5 h-2.5 bg-[#e2312d] rounded-full motion-safe:animate-ping shrink-0" />
+                <span>Menunggu teman sekelas selesai atau guru mengakhiri sesi...</span>
+              </div>
+            </div>
+          </main>
         </div>
       );
     }
 
     return (
-      <div className="min-h-screen bg-[#f4ecd8] text-[#1d3b2e] flex flex-col justify-between p-4 max-w-md mx-auto w-full select-none">
-        {/* Top Info */}
-        <div className="flex items-center justify-between bg-[#fcf8ed] rounded-2xl p-3 border-2 border-[#e0d5b8] shadow-xs">
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-1 bg-[#1d3b2e] text-[#f4ecd8] rounded-xl text-xs font-black font-mono">
-              #{soalAktif?.nomorSoal || myState.jumlahJawab || 1}
-            </span>
-            <span className="text-xs font-bold text-[#6b7d6c] flex items-center gap-1 font-mono">
-              <Clock className="w-3.5 h-3.5" /> {detikElapsed.toFixed(1)}s
-            </span>
-          </div>
+      <div className="bk-festival p-3 sm:p-4 flex flex-col gap-3 select-none">
+        {renderTopBar()}
 
-          <div className="flex items-center gap-2">
-            {myState.streakBenar >= 2 && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-800 border border-orange-300 rounded-full text-[11px] font-black">
-                <Flame className="w-3 h-3 fill-current" /> x{myState.streakBenar}
-              </span>
-            )}
-            <div className="text-right">
-              <span className="text-[10px] font-bold text-[#6b7d6c] block">Skor / Rank</span>
-              <span className="text-xs font-black font-mono">
-                {myState.skorTotal} pt • #{myRank || '-'}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={toggleMute}
-              className="p-2 rounded-xl bg-[#f4ecd8] border border-[#e0d5b8] text-[#1d3b2e] cursor-pointer shrink-0"
-              aria-label={isMuted ? 'Nyalakan suara' : 'Bisukan suara'}
-              title={isMuted ? 'Nyalakan Suara' : 'Bisukan Suara'}
-            >
-              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-            </button>
-          </div>
-        </div>
-
-        {/* Center Kerupuk + Feedback */}
-        <div className="my-auto flex flex-col items-center py-2">
-          <KerupukVirtual
-            size="md"
-            showCharacter
-            mood={mood}
-            reactionNonce={reactionNonce}
-            sisaKerupuk={myState.sisaPersen}
-            sisaPoin={myState.sisaKerupuk}
-            targetPoin={myState.targetKerupuk}
-            terakhirGigitan={feedback?.gacha || myState.terakhirGigitan}
-          />
-
-          {feedback?.tampil && (
-            <div
-              className={`mt-2 px-4 py-2.5 rounded-2xl text-xs font-bold w-full text-center border-2 ${
-                feedback.benar
-                  ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-                  : 'bg-red-50 border-red-300 text-red-900'
-              }`}
-            >
-              <div className="flex items-center justify-center gap-1.5">
-                {feedback.benar ? (
-                  <>
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span className="font-black">Benar! (+{feedback.poinDidapat} pt)</span>
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="w-4 h-4 text-red-600" />
-                    <span className="font-black">
-                      Salah! Kunci: {feedback.jawabanBenar}. {feedback.jawabanBenarTeks || ''}
-                    </span>
-                  </>
-                )}
-              </div>
-              {feedback.gacha && (
-                <p className="text-[11px] font-extrabold text-amber-800 mt-0.5">
-                  {feedback.gacha.label} (-{feedback.gacha.penguranganEfektifPoin ?? 0} pt kerupuk)
-                </p>
-              )}
-              {(feedback.bonusStreak ?? 0) > 0 && (
-                <p className="text-[10px] text-orange-700 font-black">
-                  Bonus Streak 3! +{feedback.bonusStreak} pt
-                </p>
-              )}
-              <button
-                type="button"
-                onClick={handleLanjutSoalCepat}
-                className="mt-2 w-full py-1.5 rounded-xl bg-[#1d3b2e] text-white font-black text-[11px] flex items-center justify-center gap-1 cursor-pointer"
-              >
-                <span>Lanjut Soal</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+        <main className="w-full max-w-md mx-auto flex-1 flex flex-col gap-3">
+          {/* Mini Ringkasan Progress Makan Kerupuk */}
+          {leaderboard.length > 0 && (
+            <div className="bg-[#fffdf6] border-2 border-[#f0dfb4] rounded-2xl p-3 space-y-1.5">
+              {leaderboard.slice(0, 5).map((p) => {
+                const pct = Math.min(100, Math.max(0, p.progresPersen ?? (100 - p.sisaPersen)));
+                const isMe = p.id === pesertaId;
+                return (
+                  <div key={p.id} className="space-y-0.5">
+                    <div className="flex items-center justify-between text-[11px] font-extrabold">
+                      <span className="flex items-center gap-1.5 text-[#2b2a4a]">
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#1f9d55]" />
+                        {p.nama} {isMe ? '★' : ''}
+                      </span>
+                      <span className="text-[#2b2a4a]">{pct}%</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-[#fff3d6] overflow-hidden border border-[#f0dfb4]">
+                      <div
+                        className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-amber-500 to-[#1f9d55]"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
-        </div>
 
-        {/* Pertanyaan & Pilihan A/B/C berbasis choiceId */}
-        <div className="space-y-2.5">
-          <div className="bg-[#fcf8ed] border-2 border-[#e0d5b8] rounded-2xl p-4 text-center shadow-xs">
-            <p className="text-sm sm:text-base font-black leading-snug">
-              {soalAktif?.teks || 'Menyiapkan soal berikutnya...'}
-            </p>
-          </div>
+          {/* Kartu Soal Siswa */}
+          <section className="bk-card flex-1 flex flex-col justify-between border-[3px] border-[#1f9d55]">
+            {soalAktif ? (
+              <div>
+                <QuestionTimerBar
+                  presentationKey={soalAktif.presentationId}
+                  durationSec={soalDurasiSec}
+                  initialRemainingMs={initialSoalRemainingMs}
+                  active={
+                    !isPaused &&
+                    stage === 'PLAYING' &&
+                    !sudahKirim &&
+                    !feedback &&
+                    !myState.selesaiKerupuk
+                  }
+                  onTimeout={handleTimeoutSoal}
+                  leftContent={
+                    <>
+                      Soal #{soalAktif.nomorSoal}
+                      {soalAktif.totalSoalBank ? ` / ${soalAktif.totalSoalBank}` : ''}
+                    </>
+                  }
+                  rightSuffix={` • ${myState.progresPersen}%`}
+                />
 
-          <div className="space-y-2">
-            {(soalAktif?.pilihan || []).map((pil) => {
-              const chosen = dipilihChoiceId === pil.choiceId;
-              const isKunci = feedback?.jawabanBenar === pil.label;
+                {errorBanner && (
+                  <div className="mb-3 bg-[#fde0e0] border border-[#f4b6b6] text-[#991b1b] text-xs font-bold rounded-xl px-3 py-2 flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{errorBanner}</span>
+                  </div>
+                )}
 
-              let cls = 'bg-white border-[#e0d5b8] text-[#1d3b2e] hover:border-[#c8362f]';
-              if (feedback?.tampil) {
-                if (isKunci) cls = 'bg-emerald-600 border-emerald-500 text-white';
-                else if (chosen && !feedback.benar) cls = 'bg-red-600 border-red-500 text-white';
-                else cls = 'bg-white/60 border-[#e0d5b8] text-[#6b7d6c] opacity-60';
-              } else if (chosen) {
-                cls = 'bg-[#1d3b2e] border-[#1d3b2e] text-white';
-              }
+                {myState.streakBenar >= 2 && (
+                  <div className="flex flex-wrap items-center gap-1.5 mb-3 text-[11px] font-extrabold">
+                    <span className="px-2.5 py-0.5 rounded-full bg-orange-50 border border-orange-200 text-orange-800 flex items-center gap-1">
+                      <Flame className="w-3 h-3 fill-current text-orange-500" />
+                      Streak: {myState.streakBenar}
+                    </span>
+                  </div>
+                )}
 
-              return (
-                <button
-                  key={pil.choiceId}
-                  type="button"
-                  disabled={sudahKirim || !soalAktif || isPaused}
-                  onClick={() => handlePilihJawaban(pil)}
-                  className={`w-full p-3.5 rounded-2xl border-2 flex items-center gap-3 text-left transition-all ${cls} ${
-                    sudahKirim ? 'cursor-not-allowed' : 'cursor-pointer active:scale-[0.98]'
+                <h2 className="bk-h text-lg sm:text-xl font-extrabold text-[#2b2a4a] leading-snug mb-3">
+                  {soalAktif.teks}
+                </h2>
+
+                <div className="space-y-2">
+                  {(soalAktif.pilihan || []).map((pil) => {
+                    const isPicked = dipilihChoiceId === pil.choiceId;
+                    const isCorrect = feedback && feedback.jawabanBenar === pil.label;
+                    const isWrongHighlight =
+                      feedback && !feedback.benar && isPicked;
+
+                    return (
+                      <button
+                        key={pil.choiceId}
+                        type="button"
+                        disabled={sudahKirim || Boolean(feedback) || isPaused}
+                        onClick={() => handlePilihJawaban(pil)}
+                        className={`bk-opt w-full !p-3 ${
+                          isCorrect ? 'ok' : isWrongHighlight ? 'no' : ''
+                        }`}
+                      >
+                        <span className="bk-opt-k !w-7 !h-7 !text-xs">{pil.label}</span>
+                        <span className="text-sm leading-snug text-left flex-1">{pil.teks}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div
+                  className={`min-h-[1.6em] mt-3 bk-h text-sm font-extrabold ${
+                    feedback
+                      ? feedback.benar
+                        ? 'text-[#1f9d55]'
+                        : 'text-[#d63b3b]'
+                      : 'text-[#6b6a85]'
                   }`}
+                  aria-live="polite"
                 >
-                  <span className="w-7 h-7 rounded-lg bg-[#f4ecd8] text-[#1d3b2e] font-black text-xs flex items-center justify-center shrink-0">
-                    {pil.label}
-                  </span>
-                  <span className="text-xs sm:text-sm font-bold flex-1">{pil.teks}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+                  {feedback ? (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span>
+                          {feedback.benar
+                            ? `Benar! (+${feedback.poinDidapat} pt)`
+                            : `Salah! Kunci: ${feedback.jawabanBenar}. ${feedback.jawabanBenarTeks || ''}`}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleLanjutSoalCepat}
+                          className="bk-btn alt !py-1 !px-2.5 !text-xs ml-2 shrink-0 flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>Lanjut</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {feedback.gacha && (
+                        <div className="text-xs text-[#b45309] font-bold">
+                          {feedback.gacha.label} (-{feedback.gacha.penguranganEfektifPoin ?? 0} pt kerupuk)
+                        </div>
+                      )}
+
+                      {(feedback.bonusStreak ?? 0) > 0 && (
+                        <div className="text-xs text-[#c2540a] font-bold">
+                          Bonus Streak 3! +{feedback.bonusStreak} pt
+                        </div>
+                      )}
+
+                      {feedback.penjelasan && (
+                        <div className="text-xs text-[#2b2a4a] font-normal opacity-90 mt-1">
+                          {feedback.penjelasan}
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="mt-3 text-center text-xs font-bold text-[#6b6a85]">
+                  Jawab sebelum waktu habis!
+                </div>
+              </div>
+            ) : (
+              <div className="py-8 flex flex-col items-center justify-center gap-2 text-[#6b6a85]">
+                <Loader2 className="w-6 h-6 animate-spin text-[#1f9d55]" />
+                <span className="text-sm font-extrabold">Menyiapkan soal berikutnya...</span>
+              </div>
+            )}
+          </section>
+        </main>
 
         {/* Overlay Jeda oleh Guru */}
         {isPaused && (
@@ -604,16 +728,10 @@ export default function MainKerupuk({
               <div className="w-16 h-16 rounded-2xl bg-[#fff3c4] border-2 border-[#ffb81c] flex items-center justify-center mx-auto text-[#d97706] shadow-inner">
                 <Pause className="w-8 h-8 fill-current" />
               </div>
-              <h2 className="bk-h text-xl font-extrabold text-[#2b2a4a]">
-                Permainan Dijeda
-              </h2>
+              <h2 className="bk-h text-xl font-extrabold text-[#2b2a4a]">Permainan Dijeda</h2>
               <p className="text-xs font-bold text-[#6b6a85] leading-relaxed">
                 Guru sedang menjeda permainan untuk sementara waktu. Waktu kuis dan gigitan kerupuk dihentikan sejenak.
               </p>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#f4ebd0] text-[#7a5200] text-[11px] font-extrabold">
-                <span className="w-2 h-2 rounded-full bg-[#d97706] animate-pulse" />
-                Menunggu guru melanjutkan...
-              </div>
             </div>
           </div>
         )}
@@ -709,9 +827,17 @@ export default function MainKerupuk({
             </span>
           </div>
           <div className="bg-white p-2.5 rounded-xl border border-[#e0d5b8]">
-            <span className="text-[#6b7d6c] text-[10px] block font-bold">Sisa Kerupuk</span>
-            <span className="font-black font-mono">
-              {myFinal.sisaKerupuk === 0 ? '0 pt (Habis!)' : `${myFinal.sisaKerupuk} pt`}
+            <span className="text-[#6b7d6c] text-[10px] block font-bold">Status Kerupuk</span>
+            <span
+              className={`font-black font-mono inline-block px-2 py-0.5 rounded text-[11px] mt-0.5 ${
+                myFinal.selesaiKerupuk || myFinal.sisaKerupuk === 0
+                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                  : 'bg-amber-100 text-amber-800 border border-amber-300'
+              }`}
+            >
+              {myFinal.selesaiKerupuk || myFinal.sisaKerupuk === 0
+                ? '✓ Ludes 100%'
+                : `Sisa ${myFinal.sisaKerupuk} pt`}
             </span>
           </div>
         </div>
