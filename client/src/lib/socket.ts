@@ -4,9 +4,10 @@ let socket: Socket | null = null;
 
 export function getSocket(): Socket {
   if (!socket) {
-    // Di mode dev Vite (port 5173), hubungkan ke server backend port 3000
-    const serverUrl =
-      window.location.port === '5173'
+    const envUrl = (import.meta as any).env?.VITE_API_URL;
+    const serverUrl = envUrl
+      ? envUrl.replace(/\/+$/, '')
+      : window.location.port === '5173'
         ? `${window.location.protocol}//${window.location.hostname}:3000`
         : window.location.origin;
 

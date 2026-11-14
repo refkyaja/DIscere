@@ -21,10 +21,11 @@ function isSecureRequest(req: Request): boolean {
 }
 
 function buildAuthCookieOptions(req: Request) {
+  const isHttps = isSecureRequest(req);
   return {
     httpOnly: true,
-    secure: isSecureRequest(req),
-    sameSite: 'lax' as const,
+    secure: isHttps,
+    sameSite: (isHttps ? 'none' : 'lax') as 'none' | 'lax',
     path: '/',
   };
 }

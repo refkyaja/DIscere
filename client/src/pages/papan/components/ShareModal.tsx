@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { apiRequest } from '../../../lib/api';
 
 export interface PesertaItem {
   id: string;
@@ -90,11 +91,8 @@ export function ShareModal({
     let isMounted = true;
     setLoading(true);
 
-    fetch(`/api/papan/${boardId}/bagikan`, {
-      headers: { 'Content-Type': 'application/json' },
-    })
-      .then((res) => res.json())
-      .then((data) => {
+    apiRequest(`/papan/${boardId}/bagikan`)
+      .then((data: any) => {
         if (!isMounted) return;
         if (data.aktif && data.token) {
           setIsAktif(true);
@@ -126,13 +124,10 @@ export function ShareModal({
     const targetPeran = newPeran || peran;
     setLoading(true);
     try {
-      const res = await fetch(`/api/papan/${boardId}/bagikan`, {
+      const data = await apiRequest(`/papan/${boardId}/bagikan`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ peran: targetPeran }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.pesan || 'Gagal membuat tautan');
 
       setIsAktif(true);
       setToken(data.share.token);
@@ -172,11 +167,9 @@ export function ShareModal({
     if (!token) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/papan/bagi/${token}`, {
+      await apiRequest(`/papan/bagi/${token}`, {
         method: 'DELETE',
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.pesan || 'Gagal mencabut tautan');
 
       setIsAktif(false);
       setToken(null);

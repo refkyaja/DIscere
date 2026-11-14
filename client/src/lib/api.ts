@@ -14,7 +14,10 @@ export async function apiRequest<T = any>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const url = path.startsWith('/api') ? path : `/api${path.startsWith('/') ? path : `/${path}`}`;
+  const envUrl = (import.meta as any).env?.VITE_API_URL;
+  const cleanBaseUrl = envUrl ? envUrl.replace(/\/+$/, '') : '';
+  const normalizedPath = path.startsWith('/api') ? path : `/api${path.startsWith('/') ? path : `/${path}`}`;
+  const url = cleanBaseUrl ? `${cleanBaseUrl}${normalizedPath}` : normalizedPath;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',

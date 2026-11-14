@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router';
 import './papan.css';
 import { getSocket } from '../../lib/socket';
+import { apiRequest } from '../../lib/api';
 import { Board } from './engine/board';
 import {
   CanvasObj,
@@ -113,15 +114,8 @@ export default function KolaborasiPublik() {
     }
 
     let isMounted = true;
-    fetch(`/api/papan/share/${token}`)
-      .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.pesan || 'Tautan tidak valid atau telah dicabut.');
-        }
-        return data;
-      })
-      .then((data) => {
+    apiRequest(`/papan/share/${token}`)
+      .then((data: any) => {
         if (!isMounted) return;
         setShareInfo({
           boardId: data.share.boardId,
