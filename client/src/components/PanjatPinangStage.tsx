@@ -111,6 +111,15 @@ function PanjatPerson({
   );
 }
 
+function mulberry32(seed: number) {
+  return function () {
+    let t = (seed += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 export function PanjatPinangStage({
   tiangList,
   crowdCheer = false,
@@ -149,56 +158,65 @@ export function PanjatPinangStage({
     []
   );
 
-  // 7 genangan air lumpur alami memantul kilau air
+  // 7 genangan air lumpur memantul kilau air (persis foto referensi desain)
   const puddles = useMemo(
     () => [
-      { left: 12, top: 28, w: 90 },
-      { left: 48, top: 18, w: 110 },
-      { left: 84, top: 32, w: 95 },
-      { left: 23, top: 55, w: 125 },
-      { left: 72, top: 60, w: 130 },
-      { left: 45, top: 75, w: 100 },
-      { left: 88, top: 80, w: 85 },
+      { left: 15, top: 40, w: 90 },
+      { left: 20, top: 68, w: 110 },
+      { left: 51, top: 34, w: 95 },
+      { left: 48, top: 82, w: 105 },
+      { left: 74, top: 70, w: 120 },
+      { left: 78, top: 43, w: 100 },
+      { left: 90, top: 84, w: 85 },
     ],
     []
   );
 
-  // 6 rumpun rumput alami di tanah lumpur
+  // 6 rumpun rumput alami di tanah lumpur (.gt)
   const grassTufts = useMemo(
     () => [
-      { left: 10, top: 35, w: 70 },
-      { left: 22, top: 65, w: 80 },
-      { left: 46, top: 25, w: 60 },
-      { left: 58, top: 82, w: 90 },
-      { left: 80, top: 40, w: 75 },
-      { left: 90, top: 72, w: 65 },
+      { left: 11, top: 47, w: 55 },
+      { left: 22, top: 76, w: 65 },
+      { left: 47, top: 41, w: 50 },
+      { left: 58, top: 88, w: 60 },
+      { left: 75, top: 51, w: 55 },
+      { left: 88, top: 78, w: 50 },
     ],
     []
   );
 
-  // 12 bercak lumpur pekat
+  // 12 bercak lumpur pekat (.mdd)
   const mudDrops = useMemo(
     () => [
-      { left: 8, top: 20, w: 14, h: 8 },
-      { left: 18, top: 40, w: 18, h: 9 },
-      { left: 35, top: 15, w: 12, h: 6 },
-      { left: 54, top: 30, w: 16, h: 8 },
-      { left: 66, top: 18, w: 20, h: 10 },
-      { left: 80, top: 22, w: 14, h: 7 },
-      { left: 15, top: 78, w: 18, h: 9 },
-      { left: 38, top: 65, w: 22, h: 11 },
-      { left: 62, top: 72, w: 16, h: 8 },
-      { left: 78, top: 85, w: 15, h: 7 },
-      { left: 94, top: 55, w: 20, h: 10 },
-      { left: 50, top: 90, w: 14, h: 7 },
+      { left: 9, top: 30, w: 14, h: 8 },
+      { left: 26, top: 50, w: 18, h: 9 },
+      { left: 42, top: 38, w: 12, h: 6 },
+      { left: 63, top: 32, w: 16, h: 8 },
+      { left: 68, top: 78, w: 20, h: 10 },
+      { left: 84, top: 62, w: 14, h: 7 },
+      { left: 14, top: 84, w: 18, h: 9 },
+      { left: 34, top: 76, w: 22, h: 11 },
+      { left: 58, top: 68, w: 16, h: 8 },
+      { left: 87, top: 38, w: 15, h: 7 },
+      { left: 95, top: 65, w: 20, h: 10 },
+      { left: 50, top: 92, w: 14, h: 7 },
     ],
     []
   );
 
-  // Penonton di lapangan lumpur (#cl persis panjat-pinang-solo.html)
-  // Tersebar di 5 kedalaman perspektif dan otomatis menghindari tiang-tiang
+  // Penonton di lapangan lumpur (#cl persis fitCrowd() di panjat-pinang-solo.html)
+  // Berpencar secara acak & alami tanpa baris lurus / banjar, dan memberi ruang bebas di tiang
   const mudSpectators = useMemo(() => {
-    const polesX = tiangList.map((t) => t.xPct);
+    const W = 1000;
+    const H = 560;
+    const hz = 230;
+    const Z = tiangList.map((t) => (t.xPct / 100) * W);
+    const y0 = hz + 58;
+    const y1 = H - 16;
+    const rows = [0, 1, 2, 3, 4].map((k) => [y0 + (k * (y1 - y0)) / 4, 24 + k * 4]);
+
+    const R = mulberry32(88421); // seed stabil agar posisi tidak melompat antar re-render
+
     const skColors = ['#ffd9a8', '#e8b27d', '#c58c5a', '#f3c99b'];
     const hrColors = ['#2b2a4a', '#4a2c17', '#111111', '#6b3b1e'];
     const shirtColors = [
@@ -212,21 +230,10 @@ export function PanjatPinangStage({
       '#7a3fd0',
     ];
 
-    // 5 baris kedalaman dari atas tanah lumpur sampai bagian bawah panggung
-    const depthRows = [
-      { topPct: 47, baseW: 24 },
-      { topPct: 58, baseW: 28 },
-      { topPct: 69, baseW: 32 },
-      { topPct: 80, baseW: 36 },
-      { topPct: 91, baseW: 40 },
-    ];
-
-    const isNearPole = (x: number) => polesX.some((px) => Math.abs(x - px) < 8.5);
-
-    const list: Array<{
+    const P: Array<{
       id: string;
       leftPct: number;
-      topPct: number;
+      topPx: number;
       w: number;
       c: string;
       sk: string;
@@ -234,45 +241,43 @@ export function PanjatPinangStage({
       flag: boolean;
       animDelay: string;
       idx: number;
+      y: number;
     }> = [];
 
-    let count = 0;
-    depthRows.forEach((row, rowIdx) => {
-      const step = 4.8;
-      for (let x = 3; x <= 97; x += step) {
-        const jitterX = ((count * 7) % 5) - 2;
-        const actualX = Math.max(2, Math.min(98, x + jitterX));
+    const N = 48; // jumlah penonton yang ramai tapi tidak berdesakan
+    for (let a = 0; a < 1500 && P.length < N; a++) {
+      const ri = Math.floor(R() * 5);
+      const w = rows[ri][1] + Math.round(R() * 4);
+      const x = R() * (W - w);
+      const y = rows[ri][0] + (R() * 24 - 12);
+      const cx = x + w / 2;
 
-        if (isNearPole(actualX)) continue;
+      // Jarak bebas dari tiang (tidak menghalangi peserta & tiang)
+      if (Z.some((z) => Math.abs(cx - z) < 70 + w / 2)) continue;
 
-        const tooClose = list.some(
-          (p) => Math.abs(p.topPct - row.topPct) < 3 && Math.abs(p.leftPct - actualX) < 4.2
-        );
-        if (tooClose) continue;
-
-        const jitterW = (count * 3) % 4;
-        const w = row.baseW + jitterW;
-        const jitterY = (((count * 11) % 5) - 2) * 0.8;
-        const finalTop = Math.max(46, Math.min(94, row.topPct + jitterY));
-
-        list.push({
-          id: `mud-spec-${rowIdx}-${count}`,
-          leftPct: actualX,
-          topPct: finalTop,
-          w,
-          c: shirtColors[(count * 3) % shirtColors.length],
-          sk: skColors[count % skColors.length],
-          hr: hrColors[(count * 2) % hrColors.length],
-          flag: count % 3 === 0,
-          animDelay: `-${((count * 0.23) % 1.6).toFixed(2)}s`,
-          idx: count,
-        });
-
-        count++;
+      // Jarak antar penonton agar berpencar alami dan tidak bertumpuk
+      if (P.some((p) => Math.abs((p.leftPct / 100) * W - x) < (p.w + w) * 0.44 && Math.abs(p.y - y) < 24)) {
+        continue;
       }
-    });
 
-    return list;
+      const count = P.length;
+      P.push({
+        id: `mud-spec-${count}`,
+        leftPct: +((x / W) * 100).toFixed(2),
+        topPx: Math.round(y - w * 2.3),
+        w,
+        c: shirtColors[Math.floor(R() * shirtColors.length)],
+        sk: skColors[Math.floor(R() * skColors.length)],
+        hr: hrColors[Math.floor(R() * hrColors.length)],
+        flag: R() < 0.28,
+        animDelay: `-${(R() * 1.6).toFixed(2)}s`,
+        idx: count,
+        y,
+      });
+    }
+
+    P.sort((a, b) => a.y - b.y);
+    return P;
   }, [tiangList]);
 
   // Sorak penonton berkala yang hidup
@@ -731,9 +736,8 @@ export function PanjatPinangStage({
               style={{
                 position: 'absolute',
                 left: `${sp.leftPct}%`,
-                top: `${sp.topPct}%`,
-                transform: 'translate(-50%, -100%)',
-                zIndex: Math.round(sp.topPct),
+                top: `${sp.topPx}px`,
+                zIndex: Math.round(sp.topPx),
               }}
             >
               {hasSay && (
