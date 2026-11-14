@@ -521,60 +521,6 @@ export default function LayarHostPanjatPinang() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="bk-festival flex flex-col items-center justify-center p-6">
-        <Loader2 className="w-10 h-10 animate-spin text-[#e2312d] mb-3" />
-        <p className="font-extrabold text-[#2b2a4a]">Menyiapkan Arena Panjat Pinang...</p>
-      </div>
-    );
-  }
-
-  if (errorPesan) {
-    return (
-      <div className="bk-festival flex items-center justify-center p-4">
-        <div className="bk-card max-w-md w-full text-center space-y-4">
-          <h2 className="bk-h text-2xl font-extrabold">Sesi Tidak Tersedia</h2>
-          <p className="text-sm text-[#6b6a85]">{errorPesan}</p>
-          <button
-            type="button"
-            onClick={() => navigate(returnUrl)}
-            className="bk-btn w-full justify-center"
-          >
-            {returnUrl.includes('panjat-pinang') ? 'Kembali ke Pengaturan' : 'Kembali ke Dashboard'}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const ruleSummaryText = config
-    ? `Benar +${config.naikBenar}% • Salah -${config.turunSalah}%`
-    : 'Benar = memanjat • Salah = meluncur';
-
-  const stadiumHeader = (
-    <FestivalStadiumShell
-      title="Panjat Pinang Kuis"
-      subtitle={`Multiplayer Individu (${templateJudul})`}
-      statusLabel={
-        status === 'lobi'
-          ? 'Menunggu siswa'
-          : status === 'jalan'
-          ? 'Berlangsung'
-          : 'Selesai'
-      }
-      statusTone={status === 'jalan' ? 'live' : status === 'selesai' ? 'done' : 'idle'}
-      targetLabel="Target Puncak 100%"
-      ruleSummary={ruleSummaryText}
-      crowdCheer={crowdCheer || status === 'selesai'}
-      isMuted={isMuted}
-      onToggleMute={status === 'jalan' ? toggleMute : undefined}
-      onBack={handleKembaliClick}
-      backLabel={returnUrl.includes('panjat-pinang') ? 'Pengaturan' : 'Dashboard'}
-      onStop={status === 'jalan' ? () => setModalAkhiriOpen(true) : undefined}
-    />
-  );
-
   const teamsData = useMemo(() => {
     const defWarna = [
       { id: 'merah', nama: 'Tim Merah', warna: '#e2312d' },
@@ -671,6 +617,60 @@ export default function LayarHostPanjatPinang() {
       ekspresi: ekspresiMap[p.id],
     }));
   }, [teamsData, leaderboard, bubbleMap, jatuhBebasMap, ekspresiMap]);
+
+  if (loading) {
+    return (
+      <div className="bk-festival flex flex-col items-center justify-center p-6">
+        <Loader2 className="w-10 h-10 animate-spin text-[#e2312d] mb-3" />
+        <p className="font-extrabold text-[#2b2a4a]">Menyiapkan Arena Panjat Pinang...</p>
+      </div>
+    );
+  }
+
+  if (errorPesan) {
+    return (
+      <div className="bk-festival flex items-center justify-center p-4">
+        <div className="bk-card max-w-md w-full text-center space-y-4">
+          <h2 className="bk-h text-2xl font-extrabold">Sesi Tidak Tersedia</h2>
+          <p className="text-sm text-[#6b6a85]">{errorPesan}</p>
+          <button
+            type="button"
+            onClick={() => navigate(returnUrl)}
+            className="bk-btn w-full justify-center"
+          >
+            {returnUrl.includes('panjat-pinang') ? 'Kembali ke Pengaturan' : 'Kembali ke Dashboard'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const ruleSummaryText = config
+    ? `Benar +${config.naikBenar}% • Salah -${config.turunSalah}%`
+    : 'Benar = memanjat • Salah = meluncur';
+
+  const stadiumHeader = (
+    <FestivalStadiumShell
+      title="Panjat Pinang Kuis"
+      subtitle={`Multiplayer Individu (${templateJudul})`}
+      statusLabel={
+        status === 'lobi'
+          ? 'Menunggu siswa'
+          : status === 'jalan'
+          ? 'Berlangsung'
+          : 'Selesai'
+      }
+      statusTone={status === 'jalan' ? 'live' : status === 'selesai' ? 'done' : 'idle'}
+      targetLabel="Target Puncak 100%"
+      ruleSummary={ruleSummaryText}
+      crowdCheer={crowdCheer || status === 'selesai'}
+      isMuted={isMuted}
+      onToggleMute={status === 'jalan' ? toggleMute : undefined}
+      onBack={handleKembaliClick}
+      backLabel={returnUrl.includes('panjat-pinang') ? 'Pengaturan' : 'Dashboard'}
+      onStop={status === 'jalan' ? () => setModalAkhiriOpen(true) : undefined}
+    />
+  );
 
   // -------------------------------------------------------------------------
   // FASE 1: LOBI PROYEKTOR (TEMA FESTIVAL 17 AGUSTUS)

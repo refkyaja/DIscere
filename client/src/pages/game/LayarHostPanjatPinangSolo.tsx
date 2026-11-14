@@ -799,6 +799,34 @@ export default function LayarHostPanjatPinangSolo() {
     return () => window.clearInterval(intervalId);
   }, [id, sesi?.state, sesi?.isBotLawan, triggerFeedbackVisuals]);
 
+  const tiangStageSolo: TiangStageItem[] = useMemo(() => {
+    if (!sesi) return [];
+    return [
+      {
+        id: 'pemain1',
+        label: sesi.pemain1.nama || 'Pemain 1',
+        warna: '#e2312d',
+        posisiPersen: sesi.pemain1.posisi,
+        jatuhBebas: Boolean(jatuhBebasMap.pemain1),
+        bubbleText: bubbleMap.pemain1,
+        isPuncak: sesi.pemain1.posisi >= 100,
+        ekspresi: ekspresiMap.pemain1,
+        xPct: 30,
+      },
+      {
+        id: 'pemain2',
+        label: sesi.isBotLawan ? 'Lawan Bot' : sesi.pemain2.nama || 'Pemain 2',
+        warna: '#1d8fe0',
+        posisiPersen: sesi.pemain2.posisi,
+        jatuhBebas: Boolean(jatuhBebasMap.pemain2),
+        bubbleText: bubbleMap.pemain2,
+        isPuncak: sesi.pemain2.posisi >= 100,
+        ekspresi: ekspresiMap.pemain2,
+        xPct: 70,
+      },
+    ];
+  }, [sesi, jatuhBebasMap, bubbleMap, ekspresiMap]);
+
   if (loading) {
     return (
       <div className="bk-festival flex flex-col items-center justify-center p-6">
@@ -856,34 +884,6 @@ export default function LayarHostPanjatPinangSolo() {
         </span>
       )}
     </div>
-  );
-
-  const tiangStageSolo: TiangStageItem[] = useMemo(
-    () => [
-      {
-        id: 'pemain1',
-        label: sesi.pemain1.nama || 'Pemain 1',
-        warna: '#e2312d',
-        posisiPersen: sesi.pemain1.posisi,
-        jatuhBebas: Boolean(jatuhBebasMap.pemain1),
-        bubbleText: bubbleMap.pemain1,
-        isPuncak: sesi.pemain1.posisi >= 100,
-        ekspresi: ekspresiMap.pemain1,
-        xPct: 30,
-      },
-      {
-        id: 'pemain2',
-        label: sesi.isBotLawan ? 'Lawan Bot' : sesi.pemain2.nama || 'Pemain 2',
-        warna: '#1d8fe0',
-        posisiPersen: sesi.pemain2.posisi,
-        jatuhBebas: Boolean(jatuhBebasMap.pemain2),
-        bubbleText: bubbleMap.pemain2,
-        isPuncak: sesi.pemain2.posisi >= 100,
-        ekspresi: ekspresiMap.pemain2,
-        xPct: 70,
-      },
-    ],
-    [sesi, jatuhBebasMap, bubbleMap, ekspresiMap]
   );
 
   const renderBotPanel = () => {
