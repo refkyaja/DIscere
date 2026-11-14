@@ -6,7 +6,7 @@ import { isStaleQuestionErrorMessage } from '../../lib/soloSessionSync';
 import { soundEffects, useGameSoundLifecycle } from '../../lib/soundEffects';
 import { BalapSackSvg } from '../../components/BalapKarungStadium';
 import RuangTungguSiswa from './RuangTungguSiswa';
-import { LogOut, Trophy, Volume2, VolumeX, Loader2 } from 'lucide-react';
+import { LogOut, Trophy, Volume2, VolumeX, Loader2, Pause } from 'lucide-react';
 
 export type KodeTimBalapSiswa = 'merah' | 'biru' | 'hijau' | 'kuning';
 
@@ -170,6 +170,7 @@ export default function MainBalapKarung({
   const [feedback, setFeedback] = useState<FeedbackSiswaState | null>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [hasilAkhir, setHasilAkhir] = useState<any>(null);
+  const [isPaused, setIsPaused] = useState(false);
   const { isMuted, toggleMute } = useGameSoundLifecycle(stage === 'PLAYING', sessionId);
 
   const timeoutSentRef = useRef<string | null>(null);
@@ -355,6 +356,23 @@ export default function MainBalapKarung({
       onKeluar(data?.pesan || 'Anda telah dikeluarkan dari lobi oleh guru.');
     };
 
+    const handleGameJeda = (data: { game?: string }) => {
+      if (data?.game && data.game !== 'balap_karung') return;
+      setIsPaused(true);
+    };
+
+    const handleGameLanjut = (data: { game?: string; pauseDuration?: number }) => {
+      if (data?.game && data.game !== 'balap_karung') return;
+      setIsPaused(false);
+      if (data?.pauseDuration && soalAktif?.berakhirPadaMs) {
+        setSoalAktif((prev) =>
+          prev && prev.berakhirPadaMs
+            ? { ...prev, berakhirPadaMs: prev.berakhirPadaMs + data.pauseDuration! }
+            : prev
+        );
+      }
+    };
+
     socket.on('lobi:update', handleLobiUpdate);
     socket.on('game:mulai', handleGameMulai);
     socket.on('soal:tampil', handleSoalTampil);
@@ -362,6 +380,8 @@ export default function MainBalapKarung({
     socket.on('jawab:hasil', handleJawabHasil);
     socket.on('sesi:selesai', handleSesiSelesai);
     socket.on('sesi:dikick', handleDiKick);
+    socket.on('game:jeda', handleGameJeda);
+    socket.on('game:lanjut', handleGameLanjut);
 
     return () => {
       watchdogsRef.current.clearAll();
@@ -372,6 +392,8 @@ export default function MainBalapKarung({
       socket.off('jawab:hasil', handleJawabHasil);
       socket.off('sesi:selesai', handleSesiSelesai);
       socket.off('sesi:dikick', handleDiKick);
+      socket.off('game:jeda', handleGameJeda);
+      socket.off('game:lanjut', handleGameLanjut);
     };
   }, [pesertaId, defaultTimerDetik]);
 
@@ -453,7 +475,7 @@ export default function MainBalapKarung({
   }, [stage, soalAktif, sudahKirim, feedback, sessionId, pesertaId, pesertaSecret]);
 
   const handlePilihJawaban = (opsi: PilihanBalap) => {
-    if (sudahKirim || Boolean(feedback) || !soalAktif) return;
+    if (sudahKirim || Boolean(feedback) || !soalAktif || isPaused) return;
 
     setChoiceDipilih(opsi.choiceId);
     setSudahKirim(true);
@@ -732,7 +754,7 @@ export default function MainBalapKarung({
                 presentationKey={soalAktif.presentationId}
                 durationSec={soalDurasiSec}
                 initialRemainingMs={initialSoalRemainingMs}
-                active={stage === 'PLAYING' && !sudahKirim && !feedback}
+                active={!isPaused && stage === 'PLAYING' && !sudahKirim && !feedback}
                 onTimeout={handleTimeoutSoal}
                 leftContent={
                   <>
@@ -795,7 +817,7 @@ export default function MainBalapKarung({
                     <button
                       key={opt.choiceId}
                       type="button"
-                      disabled={sudahKirim || Boolean(feedback)}
+                      disabled={sudahKirim || Boolean(feedback) || isPaused}
                       onClick={() => handlePilihJawaban(opt)}
                       className={`bk-opt w-full !p-3 ${
                         isCorrectHighlight ? 'ok' : isWrongHighlight ? 'no' : ''
@@ -868,6 +890,27 @@ export default function MainBalapKarung({
           )}
         </section>
       </main>
+
+      {/* Overlay Jeda oleh Guru */}
+      {isPaused && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 select-none animate-in fade-in duration-200">
+          <div className="bg-[#fffdf6] border-[3px] border-[#ffb81c] rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl space-y-3">
+            <div className="w-16 h-16 rounded-2xl bg-[#fff3c4] border-2 border-[#ffb81c] flex items-center justify-center mx-auto text-[#d97706] shadow-inner">
+              <Pause className="w-8 h-8 fill-current" />
+            </div>
+            <h2 className="bk-h text-xl font-extrabold text-[#2b2a4a]">
+              Permainan Dijeda
+            </h2>
+            <p className="text-xs font-bold text-[#6b6a85] leading-relaxed">
+              Guru sedang menjeda permainan untuk sementara waktu. Waktu kuis dan langkah perlombaan dihentikan sejenak.
+            </p>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#f4ebd0] text-[#7a5200] text-[11px] font-extrabold">
+              <span className="w-2 h-2 rounded-full bg-[#d97706] animate-pulse" />
+              Menunggu guru melanjutkan...
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

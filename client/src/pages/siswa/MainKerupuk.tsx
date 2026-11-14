@@ -18,6 +18,7 @@ import {
   ArrowRight,
   Volume2,
   VolumeX,
+  Pause,
 } from 'lucide-react';
 
 interface PilihanSoalKerupuk {
@@ -129,6 +130,7 @@ export default function MainKerupuk({
   } | null>(null);
 
   const [hasilAkhir, setHasilAkhir] = useState<any>(null);
+  const [isPaused, setIsPaused] = useState(false);
 
   const [detikElapsed, setDetikElapsed] = useState<number>(0);
   const stopwatchRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -275,6 +277,20 @@ export default function MainKerupuk({
       onKeluar(data?.pesan || 'Anda telah dikeluarkan dari lobi oleh guru.');
     };
 
+    const handleGameJeda = (data: { game?: string }) => {
+      if (data?.game && data.game !== 'makan_kerupuk') return;
+      setIsPaused(true);
+      stopStopwatch();
+    };
+
+    const handleGameLanjut = (data: { game?: string; pauseDuration?: number }) => {
+      if (data?.game && data.game !== 'makan_kerupuk') return;
+      setIsPaused(false);
+      if (!sudahKirim && !feedback) {
+        startStopwatch();
+      }
+    };
+
     socket.on('lobi:update', handleLobiUpdate);
     socket.on('game:mulai', handleGameMulai);
     socket.on('soal:tampil', handleSoalTampil);
@@ -283,6 +299,8 @@ export default function MainKerupuk({
     socket.on('pemain:selesai', handlePemainSelesai);
     socket.on('sesi:selesai', handleSesiSelesai);
     socket.on('sesi:dikick', handleDiKick);
+    socket.on('game:jeda', handleGameJeda);
+    socket.on('game:lanjut', handleGameLanjut);
 
     return () => {
       socket.off('lobi:update', handleLobiUpdate);
@@ -293,6 +311,8 @@ export default function MainKerupuk({
       socket.off('pemain:selesai', handlePemainSelesai);
       socket.off('sesi:selesai', handleSesiSelesai);
       socket.off('sesi:dikick', handleDiKick);
+      socket.off('game:jeda', handleGameJeda);
+      socket.off('game:lanjut', handleGameLanjut);
     };
   }, [pesertaId, startStopwatch, stopStopwatch]);
 
@@ -311,6 +331,7 @@ export default function MainKerupuk({
         }
         if (res.status === 'jalan') {
           setStage('PLAYING');
+          if (res.isPaused) setIsPaused(true);
           if (res.soalAktif) {
             setSoalAktif((prev) =>
               prev && prev.presentationId === res.soalAktif.presentationId ? prev : res.soalAktif
@@ -326,7 +347,7 @@ export default function MainKerupuk({
   }, [token, nama, pesertaId, pesertaSecret, stopStopwatch]);
 
   const handlePilihJawaban = (pil: PilihanSoalKerupuk) => {
-    if (sudahKirim || !soalAktif) return;
+    if (sudahKirim || !soalAktif || isPaused) return;
     setDipilihChoiceId(pil.choiceId);
     setSudahKirim(true);
     stopStopwatch();
@@ -361,7 +382,14 @@ export default function MainKerupuk({
         templateJudul={templateJudul}
         daftarPeserta={leaderboard.map((p) => ({ id: p.id, nama: p.nama }))}
         onKeluar={onKeluar}
-        onMulaiPermainan={() => setStage('PLAYING')}
+        onMulaiPermainan={() => {
+          try {
+            getSocket().emit('siswa:siap_soal', { sessionId, pesertaId, token });
+          } catch (err) {
+            console.error('[siswa:siap_soal error]', err);
+          }
+          setStage('PLAYING');
+        }}
       />
     );
   }
@@ -553,7 +581,7 @@ export default function MainKerupuk({
                 <button
                   key={pil.choiceId}
                   type="button"
-                  disabled={sudahKirim || !soalAktif}
+                  disabled={sudahKirim || !soalAktif || isPaused}
                   onClick={() => handlePilihJawaban(pil)}
                   className={`w-full p-3.5 rounded-2xl border-2 flex items-center gap-3 text-left transition-all ${cls} ${
                     sudahKirim ? 'cursor-not-allowed' : 'cursor-pointer active:scale-[0.98]'
@@ -568,6 +596,27 @@ export default function MainKerupuk({
             })}
           </div>
         </div>
+
+        {/* Overlay Jeda oleh Guru */}
+        {isPaused && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 select-none animate-in fade-in duration-200">
+            <div className="bg-[#fffdf6] border-[3px] border-[#ffb81c] rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl space-y-3">
+              <div className="w-16 h-16 rounded-2xl bg-[#fff3c4] border-2 border-[#ffb81c] flex items-center justify-center mx-auto text-[#d97706] shadow-inner">
+                <Pause className="w-8 h-8 fill-current" />
+              </div>
+              <h2 className="bk-h text-xl font-extrabold text-[#2b2a4a]">
+                Permainan Dijeda
+              </h2>
+              <p className="text-xs font-bold text-[#6b6a85] leading-relaxed">
+                Guru sedang menjeda permainan untuk sementara waktu. Waktu kuis dan gigitan kerupuk dihentikan sejenak.
+              </p>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#f4ebd0] text-[#7a5200] text-[11px] font-extrabold">
+                <span className="w-2 h-2 rounded-full bg-[#d97706] animate-pulse" />
+                Menunggu guru melanjutkan...
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

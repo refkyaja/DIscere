@@ -93,7 +93,7 @@ interface SesiMultiInfo {
   token: string;
   qrDataUrl?: string;
   joinUrl?: string;
-  status: 'lobi' | 'jalan' | 'selesai';
+  status: 'lobi' | 'jalan' | 'jeda' | 'selesai';
   taliPosition: number;
   skorMerah: number;
   skorPutih: number;
@@ -276,10 +276,30 @@ export default function LayarHostMulti() {
       );
     };
 
+    const onGameJeda = (payload: any) => {
+      if (payload?.game && payload.game !== 'tarik_tambang') return;
+      setSesi((prev) => (prev ? { ...prev, status: 'jeda' } : prev));
+    };
+
+    const onGameLanjut = (payload: any) => {
+      if (payload?.game && payload.game !== 'tarik_tambang') return;
+      setSesi((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: 'jalan',
+              matchEndsAt: payload?.matchEndsAt ?? prev.matchEndsAt,
+            }
+          : prev
+      );
+    };
+
     socket.on('lobi:update', onLobbyUpdate);
     socket.on('game:mulai', onGameMulai);
     socket.on('tali:update', onTaliUpdate);
     socket.on('sesi:selesai', onSesiSelesai);
+    socket.on('game:jeda', onGameJeda);
+    socket.on('game:lanjut', onGameLanjut);
 
     return () => {
       cleanupReconnect();
@@ -287,12 +307,15 @@ export default function LayarHostMulti() {
       socket.off('game:mulai', onGameMulai);
       socket.off('tali:update', onTaliUpdate);
       socket.off('sesi:selesai', onSesiSelesai);
+      socket.off('game:jeda', onGameJeda);
+      socket.off('game:lanjut', onGameLanjut);
     };
   }, [id]);
 
   // Countdown Jam Lomba (3:00 -> 0:00)
   useEffect(() => {
     if (!sesi) return;
+    if (sesi.status === 'jeda') return;
     if (sesi.status !== 'jalan' || !sesi.matchEndsAt) {
       setSisaDetik(sesi.status === 'selesai' ? 0 : sesi.durasiLombaDetik || 180);
       return;
@@ -462,6 +485,24 @@ export default function LayarHostMulti() {
     }
   };
 
+  const handleTogglePause = () => {
+    if (!id || busyAction || !sesi) return;
+    const socket = getSocket();
+    if (sesi.status === 'jeda') {
+      socket.emit('sesi:lanjut', { sessionId: id }, (res: any) => {
+        if (res && !res.success) {
+          setErrorPesan(res.pesan || 'Gagal melanjutkan lomba.');
+        }
+      });
+    } else {
+      socket.emit('sesi:jeda', { sessionId: id }, (res: any) => {
+        if (res && !res.success) {
+          setErrorPesan(res.pesan || 'Gagal menjeda lomba.');
+        }
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="tt-festival flex items-center justify-center min-h-screen p-6 text-center">
@@ -513,7 +554,8 @@ export default function LayarHostMulti() {
   const currentSesi = sesi;
   const namaTim1 = currentSesi.config?.namaTim1 || 'Tim Merah';
   const namaTim2 = currentSesi.config?.namaTim2 || 'Tim Biru';
-  const isPlaying = currentSesi.status === 'jalan';
+  const isPlaying = currentSesi.status === 'jalan' || currentSesi.status === 'jeda';
+  const isPaused = currentSesi.status === 'jeda';
   const isFinished = currentSesi.status === 'selesai';
   const winnerSide = isFinished ? currentSesi.hasil?.timMenang || 'seri' : null;
   const pinDigits = (currentSesi.token || '').split('');
@@ -524,7 +566,7 @@ export default function LayarHostMulti() {
         title={sesi.templateJudul || 'Tarik Tambang Kuis'}
         subtitle="MULTIPLAYER TIM • LIVE"
         modeChip={`${sesi.daftarPeserta.length}/${sesi.config?.maxPeserta || 40} Siswa`}
-        statusLabel={sesi.status === 'jalan' ? 'BERLANGSUNG' : 'SELESAI'}
+        statusLabel={sesi.status === 'jeda' ? 'DIJEDA' : sesi.status === 'jalan' ? 'BERLANGSUNG' : 'SELESAI'}
         timeText={formatClock(sisaDetik)}
         timeWarning={isPlaying && sisaDetik <= 15}
         taliPosition={sesi.taliPosition}
@@ -539,10 +581,12 @@ export default function LayarHostMulti() {
         rightPullerCount={Math.max(1, anggotaBiru.length)}
         variant="multi"
         isPlaying={isPlaying}
+        isPaused={isPaused}
         winnerSide={winnerSide}
         actionPulse={actionPulse}
         isMuted={muted}
         onToggleMute={isPlaying ? toggleMute : undefined}
+        onTogglePause={isPlaying ? handleTogglePause : undefined}
         onStop={isPlaying ? handleAkhiriManual : undefined}
         onBack={handleKembaliClick}
       />

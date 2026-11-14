@@ -8,6 +8,7 @@ import { getNetworkBaseUrl } from '../utils/network.js';
 import { mapDbQuestionForGame, SoalRecordForGame } from '../utils/questionOptions.js';
 import { authMiddleware, AuthRequest } from '../middleware/auth.js';
 import { roleMiddleware } from '../middleware/role.js';
+import { getSesiIO } from '../realtime/sesi.js';
 import { soloManager } from '../games/soloManager.js';
 import { multiManager } from '../games/multiManager.js';
 import {
@@ -1509,10 +1510,121 @@ sesiRouter.post('/:id/state', async (req: AuthRequest, res: Response) => {
       });
     }
 
+    if (resolved?.kind === 'balap_multi') {
+      const io = getSesiIO();
+      if (state === 'PAUSED') {
+        balapKarungManager.jedaPermainan(id, req.user!.id);
+        io?.to(`session:${id}`).emit('game:jeda', {
+          game: 'balap_karung',
+          sessionId: id,
+          status: 'jeda',
+          serverTime: Date.now(),
+          pesan: 'Permainan dijeda oleh Guru.',
+        });
+      } else {
+        const { pauseDuration } = balapKarungManager.lanjutPermainan(id, req.user!.id);
+        io?.to(`session:${id}`).emit('game:lanjut', {
+          game: 'balap_karung',
+          sessionId: id,
+          status: 'jalan',
+          pauseDuration,
+          serverTime: Date.now(),
+          pesan: 'Permainan dilanjutkan.',
+        });
+      }
+      return res.json({
+        pesan: `Permainan berhasil di-${state === 'PAUSED' ? 'jeda' : 'lanjutkan'}.`,
+        status: state === 'PAUSED' ? 'jeda' : 'jalan',
+        isPaused: state === 'PAUSED',
+      });
+    }
+
+    if (resolved?.kind === 'panjat_multi') {
+      const io = getSesiIO();
+      if (state === 'PAUSED') {
+        panjatPinangManager.jedaPermainan(id, req.user!.id);
+        io?.to(`session:${id}`).emit('game:jeda', {
+          game: 'panjat_pinang',
+          sessionId: id,
+          status: 'jeda',
+          serverTime: Date.now(),
+          pesan: 'Permainan dijeda oleh Guru.',
+        });
+      } else {
+        const { pauseDuration } = panjatPinangManager.lanjutPermainan(id, req.user!.id);
+        io?.to(`session:${id}`).emit('game:lanjut', {
+          game: 'panjat_pinang',
+          sessionId: id,
+          status: 'jalan',
+          pauseDuration,
+          serverTime: Date.now(),
+          pesan: 'Permainan dilanjutkan.',
+        });
+      }
+      return res.json({
+        pesan: `Permainan berhasil di-${state === 'PAUSED' ? 'jeda' : 'lanjutkan'}.`,
+        status: state === 'PAUSED' ? 'jeda' : 'jalan',
+        isPaused: state === 'PAUSED',
+      });
+    }
+
+    if (resolved?.kind === 'kerupuk_multi') {
+      const io = getSesiIO();
+      if (state === 'PAUSED') {
+        kerupukMultiManager.jedaPermainan(id, req.user!.id);
+        io?.to(`session:${id}`).emit('game:jeda', {
+          game: 'makan_kerupuk',
+          sessionId: id,
+          status: 'jeda',
+          serverTime: Date.now(),
+          pesan: 'Permainan dijeda oleh Guru.',
+        });
+      } else {
+        const { pauseDuration } = kerupukMultiManager.lanjutPermainan(id, req.user!.id);
+        io?.to(`session:${id}`).emit('game:lanjut', {
+          game: 'makan_kerupuk',
+          sessionId: id,
+          status: 'jalan',
+          pauseDuration,
+          serverTime: Date.now(),
+          pesan: 'Permainan dilanjutkan.',
+        });
+      }
+      return res.json({
+        pesan: `Permainan berhasil di-${state === 'PAUSED' ? 'jeda' : 'lanjutkan'}.`,
+        status: state === 'PAUSED' ? 'jeda' : 'jalan',
+        isPaused: state === 'PAUSED',
+      });
+    }
+
     if (resolved?.kind === 'tarik_multi') {
-      return res
-        .status(400)
-        .json({ pesan: 'Sesi Multiplayer dikendalikan melalui ruang lobi realtime.' });
+      const io = getSesiIO();
+      if (state === 'PAUSED') {
+        multiManager.jedaPermainan(id, req.user!.id);
+        io?.to(`session:${id}`).emit('game:jeda', {
+          game: 'tarik_tambang',
+          sessionId: id,
+          status: 'jeda',
+          serverTime: Date.now(),
+          pesan: 'Permainan dijeda oleh Guru.',
+        });
+      } else {
+        const { pauseDuration } = multiManager.lanjutPermainan(id, req.user!.id);
+        io?.to(`session:${id}`).emit('game:lanjut', {
+          game: 'tarik_tambang',
+          sessionId: id,
+          status: 'jalan',
+          pauseDuration,
+          matchEndsAt: resolved.session.matchEndsAtMs,
+          serverTime: Date.now(),
+          pesan: 'Permainan dilanjutkan.',
+        });
+      }
+      return res.json({
+        pesan: `Permainan berhasil di-${state === 'PAUSED' ? 'jeda' : 'lanjutkan'}.`,
+        status: state === 'PAUSED' ? 'jeda' : 'jalan',
+        isPaused: state === 'PAUSED',
+      });
     }
 
     const sesi = soloManager.ubahStateSesi(id, req.user!.id, state);

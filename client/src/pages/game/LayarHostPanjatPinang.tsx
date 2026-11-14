@@ -157,7 +157,7 @@ export default function LayarHostPanjatPinang() {
   const [token, setToken] = useState('');
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [, setJoinUrl] = useState('');
-  const [status, setStatus] = useState<'lobi' | 'jalan' | 'selesai'>('lobi');
+  const [status, setStatus] = useState<'lobi' | 'jalan' | 'jeda' | 'selesai'>('lobi');
   const [, setTotalSoal] = useState(0);
   const [config, setConfig] = useState<KonfigurasiPanjatHost | null>(null);
 
@@ -180,7 +180,7 @@ export default function LayarHostPanjatPinang() {
   const [isStarting, setIsStarting] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
   const [isMainLagi, setIsMainLagi] = useState(false);
-  useGameSoundLifecycle(status === 'jalan', id);
+  useGameSoundLifecycle(status === 'jalan' || status === 'jeda', id);
   const [crowdCheer, setCrowdCheer] = useState(false);
 
   const fetchSesi = useCallback(async () => {
@@ -239,14 +239,31 @@ export default function LayarHostPanjatPinang() {
 
     const handleLobiUpdate = (data: {
       game?: string;
-      totalPeserta: number;
+      status?: 'lobi' | 'jalan' | 'jeda' | 'selesai';
+      isPaused?: boolean;
+      totalPeserta?: number;
+      config?: KonfigurasiPanjatHost;
       leaderboard?: LeaderboardItemHost[];
       daftarPeserta?: LeaderboardItemHost[];
+      hasil?: LaporanAkhirHost;
     }) => {
       if (data.game && data.game !== 'panjat_pinang') return;
-      setTotalPeserta(data.totalPeserta);
+      if (data.status) setStatus(data.status);
+      if (typeof data.totalPeserta === 'number') setTotalPeserta(data.totalPeserta);
+      if (data.config) setConfig(data.config);
       const list = data.leaderboard || data.daftarPeserta;
       if (list) setLeaderboard(list);
+      if (data.hasil) setHasilAkhir(data.hasil);
+    };
+
+    const handleGameJeda = (data: { game?: string }) => {
+      if (data?.game && data.game !== 'panjat_pinang') return;
+      setStatus('jeda');
+    };
+
+    const handleGameLanjut = (data: { game?: string }) => {
+      if (data?.game && data.game !== 'panjat_pinang') return;
+      setStatus('jalan');
     };
 
     const handleGameMulai = (data: {
@@ -445,6 +462,8 @@ export default function LayarHostPanjatPinang() {
     socket.on('game:mulai', handleGameMulai);
     socket.on('panjat:update', handlePanjatUpdate);
     socket.on('sesi:selesai', handleSesiSelesai);
+    socket.on('game:jeda', handleGameJeda);
+    socket.on('game:lanjut', handleGameLanjut);
 
     return () => {
       unbindHost();
@@ -452,6 +471,8 @@ export default function LayarHostPanjatPinang() {
       socket.off('game:mulai', handleGameMulai);
       socket.off('panjat:update', handlePanjatUpdate);
       socket.off('sesi:selesai', handleSesiSelesai);
+      socket.off('game:jeda', handleGameJeda);
+      socket.off('game:lanjut', handleGameLanjut);
     };
   }, [id]);
 
@@ -1047,9 +1068,23 @@ export default function LayarHostPanjatPinang() {
         crowdCheer={crowdCheer || totalSelesaiCount > 0}
         title="Panjat Pinang Kuis"
         subtitle={`Multiplayer Individu (${templateJudul})`}
-        statusLabel="Berlangsung"
+        statusLabel={status === 'jeda' ? 'Dijeda' : 'Berlangsung'}
         targetLabel="Target Puncak 100%"
         ruleSummary={ruleSummaryText}
+        isPaused={status === 'jeda'}
+        onTogglePause={
+          status === 'jalan' || status === 'jeda'
+            ? () => {
+                if (!id) return;
+                const socket = getSocket();
+                if (status === 'jeda') {
+                  socket.emit('sesi:lanjut', { sessionId: id });
+                } else {
+                  socket.emit('sesi:jeda', { sessionId: id });
+                }
+              }
+            : undefined
+        }
         onBack={handleKembaliClick}
         backLabel={returnUrl.includes('panjat-pinang') ? 'Pengaturan' : 'Dashboard'}
         onStop={() => setModalAkhiriOpen(true)}

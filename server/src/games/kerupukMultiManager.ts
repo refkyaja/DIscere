@@ -108,7 +108,8 @@ export interface SesiKerupukMultiActive {
   templateJudul: string;
   hostId: string;
   hostSocketId?: string;
-  status: 'lobi' | 'jalan' | 'selesai';
+  status: 'lobi' | 'jalan' | 'jeda' | 'selesai';
+  pausedAtMs?: number | null;
   mulaiPadaMs?: number | null;
   config: KonfigurasiKerupukMulti;
   questions: SoalKerupuk[];
@@ -223,6 +224,7 @@ export const kerupukMultiManager = {
       templateJudul: template.judul,
       hostId,
       status: 'lobi',
+      pausedAtMs: null,
       mulaiPadaMs: null,
       config: configSnapshot,
       questions: [...questions],
@@ -465,6 +467,49 @@ export const kerupukMultiManager = {
     return sesi;
   },
 
+  /**
+   * Menjeda permainan Makan Kerupuk Multiplayer oleh host/guru.
+   */
+  jedaPermainan(sessionId: string, hostId?: string): SesiKerupukMultiActive {
+    const sesi = sesiMultiMap.get(sessionId);
+    if (!sesi) throw new Error('Sesi Makan Kerupuk tidak ditemukan.');
+    if (hostId && sesi.hostId !== hostId) {
+      throw new Error('Hanya guru pemilik sesi yang berhak menjeda.');
+    }
+    if (sesi.status !== 'jalan') {
+      throw new Error('Hanya permainan yang sedang berlangsung yang dapat dijeda.');
+    }
+    sesi.status = 'jeda';
+    sesi.pausedAtMs = Date.now();
+    return sesi;
+  },
+
+  /**
+   * Melanjutkan permainan Makan Kerupuk Multiplayer setelah dijeda.
+   */
+  lanjutPermainan(
+    sessionId: string,
+    hostId?: string
+  ): { sesi: SesiKerupukMultiActive; pauseDuration: number } {
+    const sesi = sesiMultiMap.get(sessionId);
+    if (!sesi) throw new Error('Sesi Makan Kerupuk tidak ditemukan.');
+    if (hostId && sesi.hostId !== hostId) {
+      throw new Error('Hanya guru pemilik sesi yang berhak melanjutkan.');
+    }
+    if (sesi.status !== 'jeda') {
+      throw new Error('Permainan tidak sedang dalam kondisi jeda.');
+    }
+    const pauseDuration = Math.max(0, Date.now() - (sesi.pausedAtMs || Date.now()));
+    for (const p of sesi.peserta.values()) {
+      if (p.activePresentation) {
+        p.activePresentation.tampilPadaMs += pauseDuration;
+      }
+    }
+    sesi.status = 'jalan';
+    sesi.pausedAtMs = null;
+    return { sesi, pauseDuration };
+  },
+
   dapatkanSoalAktifPeserta(sessionId: string, pesertaId: string): SoalTampilKerupuk | null {
     const sesi = sesiMultiMap.get(sessionId);
     if (!sesi || sesi.status !== 'jalan') return null;
@@ -529,6 +574,9 @@ export const kerupukMultiManager = {
   } {
     const sesi = sesiMultiMap.get(sessionId);
     if (!sesi) throw new Error('Sesi Makan Kerupuk tidak ditemukan.');
+    if (sesi.status === 'jeda') {
+      throw new Error('Permainan sedang dijeda oleh Guru.');
+    }
     if (sesi.status !== 'jalan') {
       throw new Error('Permainan tidak sedang berjalan atau sudah selesai.');
     }

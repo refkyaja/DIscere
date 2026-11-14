@@ -13,6 +13,7 @@ import {
   Flame,
   Loader2,
   LogOut,
+  Pause,
   Trophy,
   Volume2,
   VolumeX,
@@ -195,6 +196,7 @@ export default function MainTarikTambang({
   } | null>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [hasilAkhir, setHasilAkhir] = useState<any>(initialHasil);
+  const [isPaused, setIsPaused] = useState(false);
   const { isMuted, toggleMute } = useGameSoundLifecycle(stage === 'PLAYING', sessionId);
 
   const defaultQuestionSec = Math.max(5, Number(activeConfig.waktuPerSoalDetik) || 10);
@@ -213,7 +215,7 @@ export default function MainTarikTambang({
 
   // Sync match countdown clock smoothly (updates state only when integer second changes)
   useEffect(() => {
-    if (stage !== 'PLAYING' || !matchEndsAt) return;
+    if (stage !== 'PLAYING' || !matchEndsAt || isPaused) return;
     const updateClock = () => {
       const remSec = Math.max(0, Math.ceil((matchEndsAt - Date.now()) / 1000));
       setMatchRemainingSec((prev) => (prev === remSec ? prev : remSec));
@@ -221,7 +223,7 @@ export default function MainTarikTambang({
     updateClock();
     const id = window.setInterval(updateClock, 250);
     return () => window.clearInterval(id);
-  }, [stage, matchEndsAt]);
+  }, [stage, matchEndsAt, isPaused]);
 
   // Listen real-time Socket.IO events for Tarik Tambang
   useEffect(() => {
@@ -439,6 +441,24 @@ export default function MainTarikTambang({
       onKeluar(data?.pesan || 'Anda telah dikeluarkan dari lobi oleh guru.');
     };
 
+    const handleGameJeda = (data: { game?: string }) => {
+      if (data?.game && data.game !== 'tarik_tambang') return;
+      setIsPaused(true);
+    };
+
+    const handleGameLanjut = (data: { game?: string; matchEndsAt?: number; pauseDuration?: number }) => {
+      if (data?.game && data.game !== 'tarik_tambang') return;
+      setIsPaused(false);
+      if (data?.matchEndsAt) {
+        setMatchEndsAt(data.matchEndsAt);
+      } else if (data?.pauseDuration && matchEndsAt) {
+        setMatchEndsAt((prev) => (prev ? prev + data.pauseDuration! : prev));
+      }
+      if (data?.pauseDuration && soalAktif?.endsAt) {
+        setSoalAktif((prev) => (prev && prev.endsAt ? { ...prev, endsAt: prev.endsAt + data.pauseDuration! } : prev));
+      }
+    };
+
     socket.on('lobi:update', handleLobiUpdate);
     socket.on('teams_assigned', handleTeamsAssigned);
     socket.on('game:mulai', handleGameMulai);
@@ -448,6 +468,8 @@ export default function MainTarikTambang({
     socket.on('jawab:hasil', handleJawabHasil);
     socket.on('sesi:selesai', handleSesiSelesai);
     socket.on('sesi:dikick', handleDiKick);
+    socket.on('game:jeda', handleGameJeda);
+    socket.on('game:lanjut', handleGameLanjut);
 
     return () => {
       watchdogsRef.current.clearAll();
@@ -460,6 +482,8 @@ export default function MainTarikTambang({
       socket.off('jawab:hasil', handleJawabHasil);
       socket.off('sesi:selesai', handleSesiSelesai);
       socket.off('sesi:dikick', handleDiKick);
+      socket.off('game:jeda', handleGameJeda);
+      socket.off('game:lanjut', handleGameLanjut);
     };
   }, [pesertaId, isMerah, defaultQuestionSec, namaTim1, namaTim2]);
 
@@ -548,7 +572,7 @@ export default function MainTarikTambang({
   }, [stage, soalAktif, sudahKirim, feedback, sessionId, pesertaId, pesertaSecret]);
 
   const handlePilihJawaban = (opsi: PilihanTarikSiswa) => {
-    if (sudahKirim || Boolean(feedback) || !soalAktif) return;
+    if (sudahKirim || Boolean(feedback) || !soalAktif || isPaused) return;
 
     setPickedChoiceId(opsi.choiceId);
     setSudahKirim(true);
@@ -920,7 +944,7 @@ export default function MainTarikTambang({
                   presentationKey={soalAktif.presentationId}
                   durationSec={Math.max(5, Number(soalAktif.duration || defaultQuestionSec))}
                   initialRemainingMs={initialSoalRemainingMs}
-                  active={stage === 'PLAYING' && !sudahKirim && !feedback}
+                  active={!isPaused && stage === 'PLAYING' && !sudahKirim && !feedback}
                   onTimeout={handleTimeoutSoal}
                   questionLabel={`Soal #${soalAktif.nomorSoal}`}
                 />
@@ -947,7 +971,7 @@ export default function MainTarikTambang({
                       <button
                         key={opt.choiceId}
                         type="button"
-                        disabled={sudahKirim || Boolean(feedback)}
+                        disabled={sudahKirim || Boolean(feedback) || isPaused}
                         onClick={() => handlePilihJawaban(opt)}
                         className={cls}
                         style={{ '--c': myTeamColor } as React.CSSProperties}
@@ -1010,6 +1034,20 @@ export default function MainTarikTambang({
       <footer className="text-center text-[11px] font-bold text-[#6b6a85]">
         Tarik menuju Zona {myTeamName} • Target ±{batasMenang}
       </footer>
+
+      {isPaused && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="bg-[#fffdf6] border-4 border-[#2b2a4a] rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl space-y-3">
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-[#fff0c9] border-2 border-[#f3d37a] flex items-center justify-center text-[#7a5200]">
+              <Pause className="w-7 h-7" />
+            </div>
+            <h3 className="text-xl font-extrabold text-[#2b2a4a]">Permainan Dijeda Guru</h3>
+            <p className="text-xs font-bold text-[#6b6a85] leading-relaxed">
+              Guru sedang menjeda permainan untuk sementara waktu. Harap tunggu hingga guru melanjutkan lomba.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

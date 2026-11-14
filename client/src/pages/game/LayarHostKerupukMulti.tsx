@@ -94,7 +94,7 @@ export default function LayarHostKerupukMulti({
   const effectiveReturnUrl = resolveGuruReturnUrl(returnUrl);
   const id = initialSession.sessionId;
 
-  const [status, setStatus] = useState<'lobi' | 'jalan' | 'selesai'>(initialSession.status);
+  const [status, setStatus] = useState<'lobi' | 'jalan' | 'jeda' | 'selesai'>(initialSession.status);
   const [leaderboard, setLeaderboard] = useState<PesertaMultiHost[]>(
     initialSession.leaderboard || initialSession.daftarPeserta || []
   );
@@ -119,7 +119,7 @@ export default function LayarHostKerupukMulti({
   const [isRematching, setIsRematching] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const { isMuted, toggleMute } = useGameSoundLifecycle(status === 'jalan', id);
+  const { isMuted, toggleMute } = useGameSoundLifecycle(status === 'jalan' || status === 'jeda', id);
   const modeSelectUrl = `/guru/makan-kerupuk?templateId=${encodeURIComponent(
     initialSession.templateId
   )}&kembali=${encodeURIComponent('/guru?tab=template')}`;
@@ -161,18 +161,33 @@ export default function LayarHostKerupukMulti({
 
     const handleLobiUpdate = (data: {
       game?: string;
-      totalPeserta: number;
+      status?: 'lobi' | 'jalan' | 'jeda' | 'selesai';
+      isPaused?: boolean;
+      totalPeserta?: number;
       leaderboard?: PesertaMultiHost[];
       daftarPeserta?: PesertaMultiHost[];
       config?: any;
+      hasil?: any;
     }) => {
       if (data.game && data.game !== 'makan_kerupuk') return;
-      setTotalPeserta(data.totalPeserta);
+      if (data.status) setStatus(data.status);
+      if (typeof data.totalPeserta === 'number') setTotalPeserta(data.totalPeserta);
       const list = data.leaderboard || data.daftarPeserta;
       if (list) setLeaderboard(list);
       if (data.config?.jumlahTim) {
         setJumlahTim(data.config.jumlahTim === 4 ? 4 : 3);
       }
+      if (data.hasil) setHasilAkhir(data.hasil);
+    };
+
+    const handleGameJeda = (data: { game?: string }) => {
+      if (data?.game && data.game !== 'makan_kerupuk') return;
+      setStatus('jeda');
+    };
+
+    const handleGameLanjut = (data: { game?: string }) => {
+      if (data?.game && data.game !== 'makan_kerupuk') return;
+      setStatus('jalan');
     };
 
     const handleGameMulai = (data: { game?: string }) => {
@@ -250,6 +265,8 @@ export default function LayarHostKerupukMulti({
     socket.on('game:mulai', handleGameMulai);
     socket.on('kerupuk:update', handleKerupukUpdate);
     socket.on('sesi:selesai', handleSesiSelesai);
+    socket.on('game:jeda', handleGameJeda);
+    socket.on('game:lanjut', handleGameLanjut);
 
     return () => {
       unbindHost();
@@ -257,6 +274,8 @@ export default function LayarHostKerupukMulti({
       socket.off('game:mulai', handleGameMulai);
       socket.off('kerupuk:update', handleKerupukUpdate);
       socket.off('sesi:selesai', handleSesiSelesai);
+      socket.off('game:jeda', handleGameJeda);
+      socket.off('game:lanjut', handleGameLanjut);
     };
   }, [id, activeTeamDefs, leaderboard, numTeams]);
 
@@ -591,9 +610,23 @@ export default function LayarHostKerupukMulti({
       <KerupukStadium
         title={initialSession.templateJudul}
         subtitle="MAKAN KERUPUK • MODE MULTIPLAYER"
-        statusLabel={status === 'jalan' ? 'BERLANGSUNG' : 'SELESAI'}
-        statusTone={status === 'jalan' ? 'live' : status === 'selesai' ? 'done' : 'idle'}
-        timerText={status === 'jalan' ? formatDetik(timeRemaining) : '3:00'}
+        statusLabel={status === 'jeda' ? 'DIJEDA' : status === 'jalan' ? 'BERLANGSUNG' : 'SELESAI'}
+        statusTone={status === 'jalan' ? 'live' : status === 'jeda' ? 'idle' : status === 'selesai' ? 'done' : 'idle'}
+        timerText={status === 'jalan' || status === 'jeda' ? formatDetik(timeRemaining) : '3:00'}
+        isPaused={status === 'jeda'}
+        onTogglePause={
+          status === 'jalan' || status === 'jeda'
+            ? () => {
+                if (!id) return;
+                const socket = getSocket();
+                if (status === 'jeda') {
+                  socket.emit('sesi:lanjut', { sessionId: id });
+                } else {
+                  socket.emit('sesi:jeda', { sessionId: id });
+                }
+              }
+            : undefined
+        }
         lanes={lanes}
         actionPulse={actionPulse}
         crowdCheer={crowdCheer}
@@ -601,7 +634,7 @@ export default function LayarHostKerupukMulti({
         onToggleMute={toggleMute}
         onBack={handleKembaliClick}
         backLabel="Kembali"
-        onStop={status === 'jalan' ? () => setModalAkhiriOpen(true) : undefined}
+        onStop={status === 'jalan' || status === 'jeda' ? () => setModalAkhiriOpen(true) : undefined}
         stopLabel="Akhiri"
       />
 

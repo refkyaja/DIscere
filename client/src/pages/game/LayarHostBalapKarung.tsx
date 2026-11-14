@@ -111,7 +111,7 @@ export default function LayarHostBalapKarung() {
   const [token, setToken] = useState('');
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [joinUrl, setJoinUrl] = useState('');
-  const [status, setStatus] = useState<'lobi' | 'jalan' | 'selesai'>('lobi');
+  const [status, setStatus] = useState<'lobi' | 'jalan' | 'jeda' | 'selesai'>('lobi');
   const [totalPeserta, setTotalPeserta] = useState(0);
   const [config, setConfig] = useState<KonfigurasiBalapHost>({
     presetJarak: 'normal',
@@ -221,14 +221,29 @@ export default function LayarHostBalapKarung() {
 
     const handleLobiUpdate = (data: {
       game?: string;
-      totalPeserta: number;
+      status?: 'lobi' | 'jalan' | 'jeda' | 'selesai';
+      isPaused?: boolean;
+      totalPeserta?: number;
       config?: KonfigurasiBalapHost;
       teams?: RingkasanTimClient[];
+      hasil?: LaporanAkhirBalapHost;
     }) => {
       if (data.game && data.game !== 'balap_karung') return;
+      if (data.status) setStatus(data.status);
       if (typeof data.totalPeserta === 'number') setTotalPeserta(data.totalPeserta);
       if (data.config) setConfig(data.config);
       if (data.teams) setTeams(data.teams);
+      if (data.hasil) setHasilAkhir(data.hasil);
+    };
+
+    const handleGameJeda = (data: { game?: string }) => {
+      if (data?.game && data.game !== 'balap_karung') return;
+      setStatus('jeda');
+    };
+
+    const handleGameLanjut = (data: { game?: string }) => {
+      if (data?.game && data.game !== 'balap_karung') return;
+      setStatus('jalan');
     };
 
     const handleGameMulai = (data: {
@@ -392,6 +407,8 @@ export default function LayarHostBalapKarung() {
     socket.on('game:mulai', handleGameMulai);
     socket.on('balap:update', handleBalapUpdate);
     socket.on('sesi:selesai', handleSesiSelesai);
+    socket.on('game:jeda', handleGameJeda);
+    socket.on('game:lanjut', handleGameLanjut);
 
     return () => {
       unbindHost();
@@ -399,6 +416,8 @@ export default function LayarHostBalapKarung() {
       socket.off('game:mulai', handleGameMulai);
       socket.off('balap:update', handleBalapUpdate);
       socket.off('sesi:selesai', handleSesiSelesai);
+      socket.off('game:jeda', handleGameJeda);
+      socket.off('game:lanjut', handleGameLanjut);
     };
   }, [id, scheduleTimer]);
 
@@ -688,8 +707,8 @@ export default function LayarHostBalapKarung() {
       <BalapKarungStadium
         title="Balap Karung Kuis"
         subtitle={`Multiplayer Tim (${templateJudul})`}
-        statusLabel={status === 'jalan' ? 'Berlangsung' : 'Selesai'}
-        statusTone={status === 'jalan' ? 'live' : status === 'selesai' ? 'done' : 'idle'}
+        statusLabel={status === 'jeda' ? 'Dijeda' : status === 'jalan' ? 'Berlangsung' : 'Selesai'}
+        statusTone={status === 'jalan' ? 'live' : status === 'jeda' ? 'idle' : status === 'selesai' ? 'done' : 'idle'}
         targetJarak={targetJarak}
         ruleSummary={`Benar +${config.lompatBenar ?? 10}m · ${
           config.turunSalah ? `Salah −${config.turunSalah}m` : 'Salah tersandung'
@@ -698,9 +717,23 @@ export default function LayarHostBalapKarung() {
         crowdCheer={crowdCheer || status === 'selesai'}
         compactLanes={activeTeams.length >= 4}
         isMuted={isMuted}
-        onToggleMute={status === 'jalan' ? toggleMute : undefined}
+        onToggleMute={status === 'jalan' || status === 'jeda' ? toggleMute : undefined}
+        onTogglePause={
+          status === 'jalan' || status === 'jeda'
+            ? () => {
+                if (!id) return;
+                const socket = getSocket();
+                if (status === 'jeda') {
+                  socket.emit('sesi:lanjut', { sessionId: id });
+                } else {
+                  socket.emit('sesi:jeda', { sessionId: id });
+                }
+              }
+            : undefined
+        }
+        isPaused={status === 'jeda'}
         onBack={handleKembaliClick}
-        onStop={status === 'jalan' ? () => setModalAkhiriOpen(true) : undefined}
+        onStop={status === 'jalan' || status === 'jeda' ? () => setModalAkhiriOpen(true) : undefined}
       />
 
       <main className="bk-wrap">

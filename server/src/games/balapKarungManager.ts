@@ -216,7 +216,8 @@ export interface SesiBalapKarungActive {
   templateJudul: string;
   hostId: string;
   hostSocketId?: string;
-  status: 'lobi' | 'jalan' | 'selesai';
+  status: 'lobi' | 'jalan' | 'jeda' | 'selesai';
+  pausedAtMs?: number | null;
   config: KonfigurasiBalapKarung;
   teams: Map<KodeTimBalap, TeamBalapState>;
   timPemenang: KodeTimBalap | null;
@@ -745,6 +746,7 @@ export const balapKarungManager = {
       totalSoal: questions.length,
       questions,
       gameMulaiPadaMs: null,
+      pausedAtMs: null,
       processedPresentations: new Set(),
     };
 
@@ -1231,6 +1233,49 @@ export const balapKarungManager = {
   },
 
   /**
+   * Menjeda jalannya permainan Balap Karung oleh guru (host).
+   */
+  jedaPermainan(sessionId: string, hostId?: string): SesiBalapKarungActive {
+    const sesi = this.dapatkanSesi(sessionId);
+    if (!sesi) throw new Error('Sesi Balap Karung tidak ditemukan.');
+    if (hostId && sesi.hostId !== hostId) {
+      throw new Error('Hanya guru pemilik sesi yang berhak menjeda.');
+    }
+    if (sesi.status !== 'jalan') {
+      throw new Error('Hanya permainan yang sedang berlangsung yang dapat dijeda.');
+    }
+    sesi.status = 'jeda';
+    sesi.pausedAtMs = Date.now();
+    return sesi;
+  },
+
+  /**
+   * Melanjutkan permainan Balap Karung setelah dijeda.
+   */
+  lanjutPermainan(
+    sessionId: string,
+    hostId?: string
+  ): { sesi: SesiBalapKarungActive; pauseDuration: number } {
+    const sesi = this.dapatkanSesi(sessionId);
+    if (!sesi) throw new Error('Sesi Balap Karung tidak ditemukan.');
+    if (hostId && sesi.hostId !== hostId) {
+      throw new Error('Hanya guru pemilik sesi yang berhak melanjutkan.');
+    }
+    if (sesi.status !== 'jeda') {
+      throw new Error('Permainan tidak sedang dalam kondisi jeda.');
+    }
+    const pauseDuration = Math.max(0, Date.now() - (sesi.pausedAtMs || Date.now()));
+    for (const p of sesi.peserta.values()) {
+      if (p.presentasiAktif) {
+        p.presentasiAktif.ditampilkanPadaMs += pauseDuration;
+      }
+    }
+    sesi.status = 'jalan';
+    sesi.pausedAtMs = null;
+    return { sesi, pauseDuration };
+  },
+
+  /**
    * Mengambil soal berikutnya untuk seorang siswa dari antrean acaknya.
    */
   ambilSoalBerikutnyaUntukPeserta(
@@ -1345,6 +1390,10 @@ export const balapKarungManager = {
     const sesi = this.dapatkanSesi(sessionId);
     if (!sesi) {
       throw new Error('Sesi Balap Karung tidak ditemukan.');
+    }
+
+    if (sesi.status === 'jeda') {
+      throw new Error('Permainan sedang dijeda oleh Guru.');
     }
 
     if (sesi.status !== 'jalan') {
