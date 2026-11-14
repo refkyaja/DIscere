@@ -1,616 +1,556 @@
 # Discere
 
-**Platform Pembelajaran Interaktif: Papan Tulis Digital dan Game Edukasi Berbasis Web**
+**Platform Pembelajaran Interaktif: Papan Tulis Digital Kolaboratif dan Game Edukasi Bertema Tradisional Indonesia**
 
-Dikembangkan untuk **LOGICODIX 2026 Hackathon Competition** dengan subtema **Smart & Fun Education**.
+Dikembangkan oleh **Tim Timber** dari **SMKN 13 Bandung** untuk ajang **LOGICODIX 2026 Hackathon Competition** dengan subtema **Smart & Fun Education**.
 
 **Tagline:** *Belajar Serius, Bermain Gembira!*
 
 ---
 
-## Informasi Proyek
+## 1. Project Title
 
-| Informasi | Keterangan |
+# Discere
+
+Nama **Discere** diambil dari bahasa Latin yang berarti *"belajar"*. Discere dirancang sebagai ekosistem pembelajaran modern yang menyatukan media penyampaian materi visual berbasis papan tulis digital dengan sistem evaluasi interaktif berbasis gamifikasi perlombaan tradisional nusantara.
+
+| Informasi Proyek | Keterangan |
 |---|---|
-| Nama Proyek | Discere |
-| Nama Tim | Timber |
-| Institusi | SMKN 13 Bandung |
-| Kategori | Web Application |
-| Subtema | Smart & Fun Education |
-| Tahun | 2026 |
-
-## Tentang Discere
-
-Discere merupakan platform pembelajaran interaktif yang menggabungkan papan tulis digital dan permainan edukatif dalam satu aplikasi berbasis web.
-
-Platform ini dirancang untuk membantu guru menyampaikan materi dan melakukan evaluasi pembelajaran dengan cara yang lebih menarik.
-
-Melalui Discere, guru dapat membuat materi menggunakan papan tulis digital, menyusun soal dengan bantuan AI, serta menjalankan berbagai permainan edukatif bertema perlombaan tradisional 17 Agustus.
-
-Siswa dapat mengikuti permainan melalui satu layar proyektor maupun perangkat masing-masing tanpa harus membuat akun.
-
-## Latar Belakang dan Permasalahan
-
-### Permasalahan
-
-1. **Kejenuhan dalam Pembelajaran**
-
-   Evaluasi pembelajaran sering kali masih menggunakan soal pilihan ganda konvensional sehingga kurang memberikan pengalaman belajar yang interaktif.
-
-2. **Fragmentasi Media Pembelajaran**
-
-   Guru membutuhkan beberapa platform berbeda untuk menyampaikan materi, menggunakan papan tulis digital, dan menjalankan kuis.
-
-3. **Hambatan Akses Siswa**
-
-   Sebagian platform pembelajaran mengharuskan siswa melakukan registrasi atau mengunduh aplikasi sebelum dapat mengikuti kegiatan.
-
-### Solusi yang Ditawarkan
-
-Discere menghadirkan platform terpadu yang menyediakan:
-
-- Papan tulis digital untuk membantu guru menyampaikan materi.
-- Berbagai game edukasi sebagai media evaluasi pembelajaran.
-- Mode Solo dan Multiplayer sesuai kebutuhan kegiatan belajar.
-- Akses siswa menggunakan PIN atau QR Code tanpa registrasi akun.
-- Fitur AI untuk membantu pembuatan soal dan penjelasan materi.
-
-## Target Pengguna
-
-**Guru / Tenaga Pendidik**
-
-Guru SD, SMP, SMA, dan SMK yang membutuhkan media pembelajaran interaktif, alat bantu penyampaian materi, serta evaluasi pembelajaran yang lebih menarik.
-
-**Siswa / Peserta Didik**
-
-Siswa yang ingin mengikuti kegiatan pembelajaran dan evaluasi melalui permainan edukatif menggunakan perangkat komputer maupun ponsel.
+| **Nama Aplikasi** | Discere |
+| **Kategori** | Web Application (Full-Stack Monorepo) |
+| **Subtema** | Smart & Fun Education |
+| **Kompetisi** | LOGICODIX 2026 Hackathon Competition |
+| **Institusi** | SMKN 13 Bandung |
+| **Tahun Pengembangan** | 2026 |
+| **Status Repositori** | Aktif / Siap Diuji (*Production Ready*) |
 
 ---
 
-## Fitur Utama
+## 2. Deskripsi Project
 
-### 1. Papan Tulis Digital Interaktif
+Discere adalah platform pembelajaran berbasis web yang menjembatani kebutuhan guru dalam menyampaikan materi secara visual sekaligus mengadakan asesmen formatif yang menyenangkan di dalam kelas.
 
-Discere menyediakan papan tulis digital dengan kanvas luas yang dapat digunakan guru untuk menyampaikan materi secara visual.
+Platform ini mengintegrasikan dua pilar utama dalam satu atap:
+1. **Papan Tulis Digital Real-Time**: Kanvas vektor nirbatas (*infinite-like 2D canvas*) yang mendukung berbagai alat gambar, bentuk geometris, pengetikan teks, tabel interaktif, sisip gambar, autosave otomatis, serta kolaborasi antar-pengguna secara langsung (*multi-cursor live collaboration*).
+2. **Game Edukasi Bertema Perlombaan 17 Agustus**: Sistem kuis interaktif yang mengadaptasi 4 permainan tradisional Indonesia: **Tarik Tambang**, **Balap Karung**, **Panjat Pinang**, dan **Makan Kerupuk**. Permainan dapat dimainkan dalam mode **Solo (Duel 1 vs 1)** langsung di satu layar proyektor melawan AI Bot atau pemain lokal, maupun mode **Multiplayer Kelas** di mana hingga 40 siswa bergabung serentak menggunakan ponsel pintar mereka melalui token PIN atau pemindaian QR Code tanpa perlu mendaftar akun.
 
-Fitur yang tersedia:
-
-- Menggambar dan menulis menggunakan berbagai jenis pena.
-- Membuat berbagai bentuk geometris.
-- Menambahkan teks, tabel, dan gambar.
-- Menggeser serta memperbesar dan memperkecil kanvas.
-- Undo dan Redo.
-- Autosave secara otomatis.
-- Mode presentasi dan layar penuh.
-- Ekspor hasil papan ke format PNG dan JSON.
-- Kolaborasi beberapa pengguna secara real-time.
-- Pembagian akses Editor dan Viewer melalui tautan.
-
-### 2. Game Edukasi Bertema 17 Agustus
-
-Discere menghadirkan berbagai permainan yang terinspirasi dari perlombaan tradisional Indonesia.
-
-Permainan ini menggabungkan soal pembelajaran dengan mekanisme kompetisi sehingga siswa dapat belajar sambil bermain.
-
-**Pilihan permainan:**
-
-- **Balap Karung:** Permainan edukatif yang mengadaptasi perlombaan balap karung.
-- **Tarik Tambang:** Permainan kompetisi dua tim yang menggunakan jawaban benar untuk menggerakkan tali menuju kemenangan.
-- **Makan Kerupuk:** Permainan individu dengan mekanisme menjawab soal dan mendapatkan kesempatan menggigit kerupuk virtual.
-- **Panjat Pinang:** Permainan edukatif yang mengadaptasi perlombaan panjat pinang.
-
-### 3. Mode Solo dan Multiplayer
-
-Setiap permainan menyediakan pilihan mode sesuai kebutuhan pembelajaran.
-
-**Mode Solo**
-
-Permainan dijalankan melalui satu layar komputer atau proyektor yang digunakan bersama di dalam kelas. Guru mengatur jalannya permainan dan siswa berpartisipasi melalui layar tersebut.
-
-**Mode Multiplayer**
-
-Siswa dapat mengikuti permainan menggunakan perangkat masing-masing.
-
-Cara bergabung:
-
-1. Guru memulai permainan melalui dashboard.
-2. Sistem menampilkan kode PIN dan QR Code.
-3. Siswa membuka halaman bergabung.
-4. Siswa memasukkan PIN dan nama panggilan.
-5. Siswa mengikuti permainan secara langsung.
-
-Komunikasi permainan menggunakan Socket.IO untuk menyinkronkan aktivitas peserta secara real-time.
-
-### 4. Generator Soal AI
-
-Guru dapat membuat soal pilihan ganda secara otomatis berdasarkan materi pembelajaran.
-
-Fitur ini memungkinkan guru untuk:
-
-- Memasukkan teks materi.
-- Menentukan jumlah soal.
-- Memilih jenjang pendidikan.
-- Menghasilkan soal menggunakan AI.
-- Meninjau dan mengedit hasil sebelum disimpan.
-
-### 5. Asisten AI Papan Tulis
-
-Guru dapat menggunakan bantuan AI langsung melalui papan tulis digital.
-
-Fitur yang tersedia:
-
-- Tanya AI berdasarkan area soal yang dipilih.
-- Mendapatkan jawaban dan penjelasan.
-- Mendapatkan rumus serta langkah penyelesaian.
-- Obrolan AI mengenai materi pembelajaran.
-- Melampirkan gambar, dokumen, dan berkas pendukung.
-
-### 6. Dashboard Guru
-
-Dashboard guru menyediakan pengelolaan kegiatan pembelajaran dalam satu tempat.
-
-Fitur yang tersedia:
-
-- Ringkasan aktivitas.
-- Pembuatan dan pengelolaan template soal.
-- Pustaka template resmi.
-- Pengelolaan sesi permainan.
-- Pengelolaan papan tulis.
-- Riwayat permainan.
-- Hasil dan evaluasi jawaban siswa.
-
-### 7. Dashboard Administrator
-
-Dashboard administrator digunakan untuk mengelola platform.
-
-Fitur yang tersedia:
-
-- Statistik penggunaan platform.
-- Pengelolaan akun guru.
-- Aktivasi dan nonaktivasi akun.
-- Pengelolaan pustaka template resmi.
-- Monitoring penggunaan AI.
-- Audit trail aktivitas administrator.
-
-Administrator tidak memiliki akses untuk melihat konten privat papan tulis dan template milik guru.
+Platform ini juga dilengkapi dengan integrasi **Kecerdasan Buatan (Google Gemini API)** untuk membantu guru memproduksi bank soal pilihan ganda secara instan dari dokumen materi serta asisten papan tulis pintar untuk membedah langkah penyelesaian soal secara otomatis.
 
 ---
 
-## Teknologi yang Digunakan
+## 3. Latar Belakang dan Tujuan
 
-| Kategori | Teknologi | Kegunaan |
+### Latar Belakang Permasalahan
+1. **Kejenuhan Evaluasi Konvensional**: Asesmen formatif di kelas sering kali masih didominasi lembar kerja statis atau kuis digital monoton yang menurunkan atensi dan motivasi belajar peserta didik.
+2. **Fragmentasi Alat Bantu Mengajar**: Guru kerap kali harus berpindah-pindah platform—satu aplikasi untuk mencorat-coret materi visual, aplikasi lain untuk kuis, dan platform lain untuk analisis nilai siswa.
+3. **Friksi Akses Peserta Didik**: Banyak platform evaluasi mengharuskan siswa mengunduh aplikasi terpisah atau melalui proses registrasi akun yang menyita waktu jam pelajaran.
+4. **Beban Kerja Penyusunan Asesmen**: Guru membutuhkan waktu signifikan untuk merumuskan variasi soal evaluasi yang kontekstual dan berkualitas setiap pertemuan kelas.
+
+### Tujuan Pengembangan
+- **Meningkatkan Keterlibatan Siswa**: Mengubah evaluasi belajar menjadi ajang kolaboratif yang menggugah semangat kebersamaan dan sportivitas melalui tema festival tradisional Indonesia.
+- **Efisiensi Kerja Pendidik**: Menyediakan satu wadah terpadu untuk menerangkan materi (*Whiteboard*), membuat bank soal (*AI Generator*), menyelenggarakan lomba kelas (*Live Games*), hingga melihat rekapitulasi analitik ketuntasan belajar (*Heatmap & Leaderboard*).
+- **Aksesibilitas Tanpa Batas**: Memberikan kemudahan bagi siswa untuk langsung bergabung dalam hitungan detik hanya dengan memindai QR Code atau mengetik PIN 6-digit tanpa batasan perangkat dan tanpa registrasi akun.
+
+---
+
+## 4. Fitur Utama
+
+### A. Papan Tulis Digital Kolaboratif (Interactive Whiteboard)
+- **Engine Vektor HTML5 Canvas 2D**: Responsif, presisi tinggi, dan mulus untuk perangkat layar sentuh, stylus, maupun mouse desktop.
+- **Peralatan Lengkap**: Pena biasa, kuas kaligrafi, penghapus (*eraser*), bentuk dasar geometris (garis, persegi, lingkaran, panah), blok teks bebas, tabel matriks data, dan pengunggah gambar (*image insert*).
+- **Kolaborasi Multi-Pengguna Real-Time**: Sinkronisasi jalur coretan, perpindahan elemen, dan visualisasi kursor kolaborator secara langsung menggunakan Socket.IO.
+- **Sistem Hak Akses Berbagi**: Guru dapat membagikan tautan papan dengan peran **Editor** (dapat mengedit bersama) atau **Viewer** (hanya melihat tampilan guru secara langsung).
+- **Manajemen Riwayat & Ekspor**: Mendukung *Undo/Redo stack*, penyimpanan otomatis (*debounced autosave*), ekspor visual ke format gambar PNG kualitas tinggi, serta ekspor struktur dokumen JSON.
+
+### B. Empat Permainan Edukasi Tradisional (Dual Mode: Solo & Multi)
+
+| Permainan | Mekanika Permainan | Mode Solo (1 vs 1) | Mode Multiplayer (Kelas) |
+|---|---|---|---|
+| **Tarik Tambang** | Setiap jawaban benar menghasilkan gaya tarikan tali menuju sisi tim. Tim dengan tarikan terkuat atau yang berhasil menarik bendera melewati batas menang. | Duel layar terbelah (*split-screen*) melawan AI Bot atau kawan sebangku pada 1 perangkat guru. | Kelas dibagi menjadi 2 tim seimbang (Merah vs Biru). Seluruh siswa menjawab cepat di HP masing-masing untuk mengakumulasikan tarikan tali. |
+| **Balap Karung** | Karung melompat maju saat menjawab benar dan terkena penalti mundur/tersandung jika salah atau kehabisan waktu. | Adu cepat 2 peserta melintasi lintasan meteran hingga mencapai garis finis. | Siswa dibagi ke dalam 3 atau 4 tim lintasan balap karung serempak dengan papan peringkat tim *real-time*. |
+| **Panjat Pinang** | Peserta memanjat tiang pinang licin. Terdapat rintangan licin (*oli/lumpur*) dan hadiah kejutan (*power-up bonus*) di ketinggian tertentu. | Dua pemanjat berlomba mencapai puncak tiang 100% terlebih dahulu pada layar proyektor. | Adu ketangkasan antar-regu kelas dalam menaklukkan puncak tiang pinang dengan heatmap ketepatan jawaban. |
+| **Makan Kerupuk** | Kerupuk virtual tergantung pada tali bergoyang. Jawaban benar memberikan gigitan sukses untuk menghabiskan kerupuk lebih cepat. | Menghabiskan kerupuk kepingan demi kepingan melawan ritme kecerdasan Bot AI. | Seluruh siswa di kelas berkompetisi individu/tim untuk menghabiskan kerupuk tercepat dengan animasi gigitan dinamis. |
+
+### C. Kecerdasan Buatan (Google Gemini API)
+- **AI Soal Generator**: Menghasilkan 1 hingga 20 soal pilihan ganda secara terstruktur (teks pertanyaan, opsi A–E, kunci jawaban, dan pembahasan) hanya dari input teks ringkasan materi pelajaran.
+- **Tanya AI Papan Tulis**: Guru dapat menyeleksi bidang tertentu pada kanvas papan tulis dan meminta AI membedah rumus, menerjemahkan bahasa, atau memberikan uraian materi pendukung.
+- **Obrolan Asisten Pembelajaran**: Asisten percakapan interaktif bagi guru untuk berkonsultasi seputar silabus atau inspirasi metode mengajar.
+- **Optimalisasi Token & Cache**: Setiap permintaan AI dilengkapi hashing SHA-256 untuk mendeteksi *cache hit*, meminimalkan latensi, serta menghemat kuota harian.
+
+### D. Portal Guru (Teacher Dashboard)
+- Pengelolaan pustaka template kuis pribadi dan template resmi bawaan sistem.
+- Monitoring ruang tunggu (*waiting room*), penguncian ruangan (*lock lobby*), dan kontrol pelepasan siswa (*kick participant*).
+- Riwayat sesi tanding lengkap dengan podium juara, persentase akurasi, dan matriks *heatmap* analisis butir soal untuk mengidentifikasi materi yang belum dikuasai kelas.
+
+### E. Portal Administrator (Supervision & Governance)
+- Pengawasan kesehatan sistem dan statistik agregat penggunaan platform.
+- Manajemen status akun guru (aktivasi, penangguhan, atau nonaktivasi).
+- Pengelolaan template kuis resmi yang dapat diakses oleh seluruh pendidik.
+- Log audit keamanan aktivitas administratif dan pemantauan utilisasi kuota AI harian.
+
+---
+
+## 5. Tech Stack
+
+Discere dibangun menggunakan arsitektur modern berbasis monorepo TypeScript dengan standar performa dan skalabilitas tinggi:
+
+### Frontend (`client/`)
+| Teknologi | Versi | Peran & Kegunaan |
 |---|---|---|
-| Frontend | React 18 | Membangun antarmuka aplikasi |
-| Build Tool | Vite | Menjalankan dan membangun frontend |
-| Styling | Tailwind CSS | Mengatur tampilan aplikasi |
-| Icons | Lucide React | Ikon antarmuka |
-| Backend | Node.js | Lingkungan eksekusi server |
-| Backend Framework | Express.js | REST API |
-| Real-time | Socket.IO | Komunikasi real-time |
-| Database | SQLite | Penyimpanan data |
-| ORM | Prisma ORM | Pengelolaan database |
-| Validation | Zod | Validasi data |
-| Authentication | JWT | Autentikasi pengguna |
-| Password Hashing | bcryptjs | Pengamanan kata sandi |
-| AI | Google Gemini API | Generator soal dan asisten AI |
-| Audio | Web Audio API | Efek suara permainan |
+| **React** | `^19.3.1` | Pustaka antarmuka deklaratif berbasis komponen terbaru |
+| **Vite** | `^8.3.6` | Frontend build tool berkecapatan tinggi dengan HMR instan |
+| **React Router** | `^7.18.5` | Manajemen routing aplikasi SPA |
+| **TailwindCSS** | `^4.3.5` | Framework styling utilitas terkini via `@tailwindcss/vite` |
+| **Socket.IO Client** | `^4.8.4` | Klien komunikasi dua arah berbasis WebSocket |
+| **Lucide React** | `^1.70.0` | Ikonografi modern dan konsisten |
+| **Zod** | `^4.6.7` | Validasi skema tipe data runtime |
+| **Web Audio API** | Native Browser | Audio synthesizer prosedural untuk efek suara game tanpa aset audio eksternal |
+
+### Backend (`server/`)
+| Teknologi | Versi | Peran & Kegunaan |
+|---|---|---|
+| **Node.js** | `>=20.x` (LTS) | Lingkungan runtime server asynchronous |
+| **Express.js** | `^5.3.0` | Framework RESTful API minimalis dan tangguh versi terbaru |
+| **Socket.IO** | `^4.8.4` | Engine komunikasi real-time untuk sinkronisasi game dan papan tulis |
+| **Prisma ORM** | `^7.10.1` | ORM modern dengan schema declarations & automated migrations |
+| **Database Adapter** | `@prisma/adapter-better-sqlite3`<br>`@prisma/adapter-pg` | Driver adapter fleksibel untuk SQLite lokal maupun PostgreSQL produksi |
+| **Keamanan & Auth** | `bcryptjs` `^3.0.3`<br>`jsonwebtoken` `^9.0.3` | Hashing kata sandi searah dan otorisasi sesi berbasis JWT via HTTP-only cookie |
+| **AI Integration** | Google Gemini API | Model `gemini-2.5-flash` untuk kuis generator dan analisis kontekstual |
+| **Utility** | `qrcode` `^1.5.4`<br>`express-rate-limit` `^8.7.3` | Pembuatan QR Code otomatis dan perlindungan brute-force API |
+
+### Pengujian & Kualitas (`root`)
+| Alat | Versi | Peran |
+|---|---|---|
+| **Playwright Test** | `^1.65.1` | Automated End-to-End (E2E) testing lintas viewport |
+| **Concurrently** | `^9.1.2` | Menjalankan klien dan server secara paralel dalam pengembangan |
+| **TypeScript** | `~5.8.0` / `^7.0.2` | Static type checking end-to-end |
 
 ---
 
-## Struktur Tim
+## 6. Arsitektur Sistem
 
-**Nama Tim: Timber**
+Discere menerapkan pemisahan tugas (*separation of concerns*) yang jelas antara penyajian grafis di sisi peramban, *in-memory state machine* real-time di server, dan lapisan penyimpanan data terstruktur.
 
-**Institusi: SMKN 13 Bandung**
+```mermaid
+flowchart TD
+    subgraph Frontend_Klien ["Frontend (React 19, Vite, TailwindCSS v4)"]
+        UI_PUBLIC["Halaman Publik: Beranda, Gabung Siswa, Masuk"]
+        UI_GURU["Portal Guru: Dashboard, Pengaturan Game, Riwayat"]
+        UI_ADMIN["Portal Admin: Statistik, Kelola Guru, Template Pustaka"]
+        UI_CANVAS["Engine Papan Tulis: HTML5 Canvas 2D & Collaborative Sync"]
+        UI_HOST["Layar Host Game: Proyektor Tarik Tambang, Balap Karung, Pinang, Kerupuk"]
+        UI_PLAYER["Layar Kuis Siswa: PIN Token, Kartu Soal Real-Time di Ponsel"]
+    end
 
-### Refky ([@refkyaja](https://github.com/refkyaja))
+    subgraph Backend_Server ["Backend Server (Node.js & Express 5)"]
+        REST_ROUTER["REST API Gateway (/api/auth, /api/template, /api/sesi, /api/papan)"]
+        AI_ENGINE["AI Processing Service (Prompting, Output Validation, SHA Cache)"]
+        SOCKET_HUB["Socket.IO Hub (Connection Recovery, Event Dispatcher)"]
 
-Bertanggung jawab mengerjakan landing page dan fitur papan tulis digital (Canvas), serta membantu desain antarmuka dashboard admin dan guru.
+        subgraph In_Memory_State ["In-Memory Game & Session Managers"]
+            MGR_SOLO["Solo Game Managers (Tarik, Balap, Pinang, Kerupuk 1 vs 1)"]
+            MGR_MULTI["Multiplayer Game Managers (40 Siswa, Tim Balance, Timer Otoritatif)"]
+            MGR_BOARD["Board Room Manager (Live Cursor & Stroke Broadcast)"]
+        end
+    end
 
-### Kaka ([@Kalzz76](https://github.com/Kalzz76))
+    subgraph Storage_Layer ["Penyimpanan Data & AI"]
+        PRISMA_CLIENT["Prisma ORM Client (Driver Adapters)"]
+        DB_SQLITE[("SQLite Database (dev.db) / PostgreSQL (Supabase)")]
+        GEMINI_CLOUD["Google Gemini AI API (gemini-2.5-flash)"]
+    end
 
-Bertanggung jawab mengerjakan tampilan dashboard admin dan guru, mengembangkan logika serta alur sistem pada kedua dashboard, dan mendesain halaman game.
+    UI_PUBLIC -->|HTTP Fetch / JSON| REST_ROUTER
+    UI_GURU -->|HTTP Fetch / Cookies| REST_ROUTER
+    UI_ADMIN -->|HTTP Fetch / Cookies| REST_ROUTER
+    UI_CANVAS <-->|WebSocket: papan:ubah, kursor| MGR_BOARD
+    UI_CANVAS -->|Autosave REST| REST_ROUTER
+    UI_HOST <-->|WebSocket: sesi:mulai, update game, akhiri| SOCKET_HUB
+    UI_PLAYER <-->|WebSocket: jawab:kirim, status ronde| SOCKET_HUB
 
-### Alip ([@lemonade199](https://github.com/lemonade199))
+    SOCKET_HUB --> MGR_SOLO
+    SOCKET_HUB --> MGR_MULTI
+    SOCKET_HUB --> MGR_BOARD
+    REST_ROUTER --> AI_ENGINE
+    AI_ENGINE <-->|HTTPS API & Caching| GEMINI_CLOUD
 
-Bertanggung jawab mengerjakan desain dan logika permainan, serta mengurus kebutuhan administrasi tim.
-
----
-
-## Cara Menjalankan Aplikasi
-
-### 1. Persyaratan Sistem
-
-Pastikan perangkat sudah memiliki:
-
-- Node.js v22 atau versi LTS yang kompatibel.
-- npm.
-- Git.
-
-### 2. Clone Repository
-
-```bash
-git clone https://github.com/refkyaja/DIscere.git
+    REST_ROUTER --> PRISMA_CLIENT
+    MGR_SOLO -->|Simpan Laporan & Hasil| PRISMA_CLIENT
+    MGR_MULTI -->|Simpan Laporan & Hasil| PRISMA_CLIENT
+    AI_ENGINE -->|Catat Log Penggunaan & Cache| PRISMA_CLIENT
+    PRISMA_CLIENT --> DB_SQLITE
 ```
 
-Masuk ke direktori proyek:
+---
 
+## 7. Struktur Folder Project
+
+Monorepo Discere ditata dengan struktur yang rapi dan terisolasi:
+
+```text
+DIscere/
+├── .github/                     # Konfigurasi workflow CI/CD
+├── client/                      # Aplikasi Frontend (React 19 + Vite)
+│   ├── public/                  # Aset publik statis (favicon, logo, manifest)
+│   ├── src/
+│   │   ├── assets/              # Gambar ilustrasi dan ikon lokal
+│   │   ├── components/          # Komponen antarmuka (GameConfig, Stadium, Modal, Papan)
+│   │   ├── pages/               # Halaman aplikasi
+│   │   │   ├── admin/           # Dashboard administrator
+│   │   │   ├── game/            # Layar Host pertandingan (Solo & Multiplayer)
+│   │   │   ├── guru/            # Dashboard guru, form template, pemilih mode game
+│   │   │   ├── papan/           # Halaman kanvas papan tulis interaktif
+│   │   │   ├── publik/          # Landing page, halaman masuk & daftar
+│   │   │   └── siswa/           # Halaman ruang tunggu & layar jawab soal siswa
+│   │   ├── App.tsx              # Router deklaratif React Router v7
+│   │   └── main.tsx             # Entry point klien
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── vite.config.ts
+├── server/                      # Aplikasi Backend (Express 5 + Prisma)
+│   ├── prisma/
+│   │   ├── migrations/          # Berkas riwayat migrasi skema database
+│   │   ├── schema.prisma        # Skema Prisma untuk PostgreSQL
+│   │   ├── schema.sqlite.prisma # Skema Prisma untuk SQLite lokal
+│   │   └── seed.ts              # Script pengisian data awal (Admin, Guru, Template Kuis)
+│   ├── src/
+│   │   ├── ai/                  # Logika prompt & integrasi Google Gemini API
+│   │   ├── games/               # Mesin aturan dan state manager 4 game
+│   │   ├── middleware/          # Middleware autentikasi JWT, validasi role, & error handler
+│   │   ├── realtime/            # Handler event WebSocket Socket.IO (sesi & papan)
+│   │   ├── routes/              # Controller REST API (auth, template, sesi, papan, ai, admin)
+│   │   ├── utils/               # Helper jaringan lokal IP, kalkulasi skor, filter pencarian
+│   │   ├── config.ts            # Manajemen konfigurasi environment
+│   │   ├── db.ts                # Inisialisasi Prisma Client & driver adapter dinamis
+│   │   └── index.ts             # Server entry point HTTP & Socket.IO
+│   ├── package.json
+│   └── tsconfig.json
+├── tests/                       # Automated End-to-End Testing (Playwright)
+│   ├── e2e/                     # Test spec (homepage, settings, 4 gameplay, hasil, responsif)
+│   ├── fixtures/                # Custom auth fixture (guruPage)
+│   └── utils/                   # Test helper fungsi login & pemilihan template kuis
+├── .env.example                 # Template variabel lingkungan
+├── .gitignore                   # Daftar pengabaian berkas Git
+├── Claude.md                    # Pedoman rekayasa & konvensi tim
+├── package.json                 # Monorepo root package & script orchestrator
+├── playwright.config.ts         # Konfigurasi pengujian Playwright
+├── PLAYWRIGHT_TESTING.md        # Panduan teknis lengkap E2E testing
+└── README.md                    # Dokumentasi utama proyek
+```
+
+---
+
+## 8. Prasyarat Instalasi
+
+Sebelum memulai instalasi, pastikan lingkungan komputer Anda telah memenuhi persyaratan berikut:
+
+| Komponen | Versi yang Direkomendasikan | Catatan |
+|---|---|---|
+| **Node.js** | `>= 20.18.0` (LTS) atau `v22.x` | Diuji kompatibel hingga Node.js v24 |
+| **npm** | `>= 10.x` | Bawaan Node.js |
+| **Git** | Versi terbaru | Untuk kloning repositori |
+| **Peramban Web** | Google Chrome / Chromium / Edge | Untuk menjalankan aplikasi & automated test |
+
+---
+
+## 9. Panduan Instalasi dan Setup
+
+Ikuti tahapan berikut secara berurutan untuk memasang project di komputer lokal:
+
+### 1. Kloning Repositori
 ```bash
+git clone https://github.com/refkyaja/DIscere.git
 cd DIscere
 ```
 
-### 3. Instalasi Dependensi
-
+### 2. Pasang Seluruh Dependensi
+Jalankan perintah instalasi di root direktori (npm workspaces akan secara otomatis memasang dependensi root, client, dan server):
 ```bash
 npm install
 ```
 
-### 4. Konfigurasi Environment
+### 3. Siapkan Konfigurasi Environment
+Salin template variabel lingkungan:
+- **Linux / macOS:**
+  ```bash
+  cp .env.example .env
+  ```
+- **Windows (PowerShell / Command Prompt):**
+  ```powershell
+  copy .env.example .env
+  ```
 
-Salin file `.env.example` menjadi `.env`.
-
+### 4. Setup Database dan Seed Data
+Jalankan migrasi Prisma dan seed data awal:
 ```bash
-cp .env.example .env
-```
-
-Pada Windows Command Prompt, dapat menggunakan:
-
-```cmd
-copy .env.example .env
-```
-
-Sesuaikan konfigurasi berikut dengan kebutuhan aplikasi:
-
-| Variabel | Keterangan |
-|---|---|
-| PORT | Port server backend |
-| DATABASE_URL | Lokasi database SQLite |
-| JWT_SECRET | Kunci autentikasi JWT |
-| AI_API_KEY | API Key layanan AI |
-| AI_MODEL | Model AI yang digunakan |
-| AI_BATAS_HARIAN | Batas penggunaan AI harian |
-| AI_BATAS_OBROL | Batas penggunaan obrolan AI harian |
-
-**Catatan:** Jangan membagikan API Key atau kredensial pribadi melalui repository publik.
-
-### 5. Migrasi Database
-
-Jalankan perintah berikut untuk menyiapkan database:
-
-```bash
+# Menyiapkan skema database lokal
 npm run db:migrate
-```
 
-### 6. Mengisi Data Awal
-
-Jalankan perintah berikut untuk membuat data awal aplikasi:
-
-```bash
+# Mengisi akun demo (Admin & Guru) serta materi kuis 4 permainan
 npm run db:seed
 ```
 
-### 7. Menjalankan Mode Pengembangan
+---
 
+## 10. Konfigurasi Environment Variables
+
+Konfigurasi aplikasi disimpan di file `.env` pada direktori root project. Berikut adalah daftar variabel yang tersedia:
+
+```env
+# ===================================================================
+# 1. Konfigurasi Server
+# ===================================================================
+PORT=3000
+
+# ===================================================================
+# 2. Konfigurasi Basis Data
+# ===================================================================
+# Opsi A: SQLite Lokal (Direkomendasikan untuk pengembangan offline)
+DATABASE_URL="file:./dev.db"
+
+# Opsi B: PostgreSQL / Supabase (Untuk pengujian lingkungan produksi)
+# DATABASE_URL="postgresql://postgres.[REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?pgbouncer=true"
+
+# ===================================================================
+# 3. Kunci Rahasia Autentikasi JWT
+# ===================================================================
+JWT_SECRET="ganti_dengan_string_acak_panjang_dan_rahasia_minimal_32_karakter"
+
+# ===================================================================
+# 4. Integrasi Google Gemini AI (Opsional pada saat offline)
+# ===================================================================
+AI_API_KEY=""
+AI_MODEL="gemini-2.5-flash"
+AI_BATAS_HARIAN=30
+AI_BATAS_OBROL=40
+
+# ===================================================================
+# 5. Kredensial Akun Demonstrasi (Digunakan oleh script db:seed)
+# ===================================================================
+SEED_ADMIN_EMAIL="admin@discere.local"
+SEED_ADMIN_PASSWORD="AdminDiscere2026!"
+SEED_GURU_EMAIL="guru@discere.local"
+SEED_GURU_PASSWORD="GuruDiscere2026!"
+```
+
+> [!IMPORTANT]
+> **Keamanan Kredensial:** Jangan pernah melakukan commit file `.env` yang memuat API Key asli atau kredensial produksi ke repositori publik.
+
+---
+
+## 11. Cara Menjalankan Frontend dan Backend
+
+### A. Mode Pengembangan (Development)
+Untuk menjalankan frontend (Vite) dan backend (Express) secara serentak dalam satu terminal:
 ```bash
 npm run dev
 ```
 
-Aplikasi dapat diakses melalui:
+Layanan akan aktif pada alamat:
+- **Frontend Klien:** `http://localhost:5173`
+- **Backend REST API & WebSocket:** `http://localhost:3000`
+- **Health Check API:** `http://localhost:3000/api/health`
 
-- Frontend: `http://localhost:5173`
-- Backend API: `http://localhost:3000`
+*(Vite dev server pada port 5173 telah dikonfigurasi dengan reverse-proxy internal untuk otomatis meneruskan rute `/api` dan `/socket.io` ke port 3000).*
 
-### 8. Menjalankan Mode Produksi
+### B. Mode Produksi (Production Build & Run)
+1. Lakukan kompilasi seluruh aset frontend dan backend:
+   ```bash
+   npm run build
+   ```
+2. Jalankan server produksi:
+   ```bash
+   npm start
+   ```
+   Aplikasi akan melayani API dan antarmuka terpadu pada `http://localhost:3000`.
 
-Build aplikasi:
-
+### C. Menjalankan Automated End-to-End Testing (Playwright)
+Discere dilengkapi dengan 18 skenario E2E test yang menguji fungsionalitas seluruh fitur dan 4 gameplay secara otomatis:
 ```bash
-npm run build
+# Jalankan seluruh test suite (headless)
+npm run test:e2e
+
+# Jalankan Playwright dalam mode antarmuka visual interaktif
+npm run test:e2e:ui
+
+# Tampilkan laporan HTML hasil pengetesan
+npm run test:e2e:report
 ```
 
-Jalankan server:
+---
 
+## 12. Informasi Database dan Migrasi
+
+Discere menggunakan **Prisma 7** yang dikombinasikan dengan driver adapter dinamis (`@prisma/adapter-better-sqlite3` dan `@prisma/adapter-pg`). Arsitektur ini memungkinkan aplikasi bekerja secara luring (*offline*) dengan SQLite saat demonstrasi, maupun beralih ke PostgreSQL terdistribusi tanpa mengubah satu baris pun kode logika bisnis.
+
+### Skema Entitas Utama (ERD Ringkas)
+- **`User`**: Menyimpan kredensial guru dan admin dengan role-based access control.
+- **`Template` & `Question`**: Menyimpan pustaka kuis, pilihan ganda A–E, bobot, dan pembahasan.
+- **`Session` & `SessionPlayer`**: Mengelola status sesi aktif, konfigurasi permainan, peserta yang tergabung, dan alokasi tim.
+- **`SessionResult` & `QuestionStat`**: Rekapitulasi podium pemenang, akurasi, waktu penyelesaian, dan analisis butir soal.
+- **`Board` & `BoardShare`**: Menyimpan dokumen vektor kanvas papan tulis serta token izin berbagi kolaborator.
+- **`AiCache`, `AiUsage`, & `AdminLog`**: Caching respons AI berbasis hash SHA-256, batas kuota harian, dan audit trail aksi admin.
+
+### Perintah Pengelolaan Database
 ```bash
-npm start
+# Melakukan migrasi skema database di server
+npm run db:migrate
+
+# Mengisi data awal (akun demo & contoh materi kuis)
+npm run db:seed
+
+# Menghasilkan ulang Prisma Client setelah perubahan skema
+npm --prefix server run db:generate
 ```
 
-Aplikasi dapat diakses melalui:
+---
 
-`http://localhost:3000`
+## 13. Dokumentasi API (Endpoints)
 
-### 9. Akun Demonstrasi (Pengujian Juri)
+Backend Discere mengekspos endpoint RESTful yang terstruktur:
 
-Untuk memudahkan evaluasi oleh dewan juri, data awal (`seed`) telah menyediakan akun demonstrasi berikut:
-
-| Peran Akun | Email Login | Kata Sandi | Keterangan |
+### 1. Autentikasi (`/api/auth`)
+| Method | Endpoint | Akses | Deskripsi |
 |---|---|---|---|
-| **Administrator** | `admin@discere.local` | `AdminDiscere2026!` | Pengawasan platform, manajemen guru, & audit trail |
-| **Guru Demo** | `guru@discere.local` | `GuruDiscere2026!` | Dilengkapi template kuis siap main |
+| `POST` | `/api/auth/register` | Publik | Mendaftarkan akun guru baru |
+| `POST` | `/api/auth/login` | Publik | Masuk dengan email & password (mengembalikan cookie JWT) |
+| `GET` | `/api/auth/me` | Autentikasi | Mendapatkan data profil sesi saat ini |
+| `POST` | `/api/auth/logout` | Autentikasi | Menghapus cookie sesi autentikasi |
+
+### 2. Template Kuis (`/api/template`)
+| Method | Endpoint | Akses | Deskripsi |
+|---|---|---|---|
+| `GET` | `/api/template` | Guru | Mengambil seluruh template kuis milik guru yang login |
+| `GET` | `/api/template/pustaka` | Guru | Mengambil daftar template resmi bawaan sistem |
+| `GET` | `/api/template/:id` | Guru | Mengambil detail template dan daftar pertanyaan |
+| `POST` | `/api/template` | Guru | Membuat template kuis baru beserta butir soal |
+| `PUT` | `/api/template/:id` | Guru | Memperbarui isi dan konfigurasi template |
+| `DELETE` | `/api/template/:id` | Guru | Menghapus template kuis |
+
+### 3. Sesi Permainan (`/api/sesi`)
+| Method | Endpoint | Akses | Deskripsi |
+|---|---|---|---|
+| `POST` | `/api/sesi` | Guru | Membuka sesi baru (Solo / Multiplayer untuk salah satu dari 4 game) |
+| `GET` | `/api/sesi/:id` | Guru / Publik | Mengambil data dan status permainan sesi |
+| `GET` | `/api/sesi/token/:token` | Siswa | Memvalidasi token PIN 6-digit untuk bergabung ke lobi |
+| `POST` | `/api/sesi/:id/mulai` | Guru | Mengubah status sesi menjadi `PLAYING` dan memulai ronde |
+| `POST` | `/api/sesi/:id/jeda` | Guru | Menjeda sementara pertandingan |
+| `POST` | `/api/sesi/:id/lanjut` | Guru | Melanjutkan pertandingan yang dijeda |
+| `POST` | `/api/sesi/:id/selesai` | Guru | Mengakhiri pertandingan dan menghitung rekapitulasi nilai |
+| `POST` | `/api/sesi/:id/jawab` | Guru | Mengirimkan jawaban peserta pada mode Solo (Duel 1 vs 1) |
+
+### 4. Papan Tulis Digital (`/api/papan`)
+| Method | Endpoint | Akses | Deskripsi |
+|---|---|---|---|
+| `GET` | `/api/papan` | Guru | Mengambil daftar seluruh papan tulis milik guru |
+| `GET` | `/api/papan/:id` | Guru / Editor | Memuat data elemen kanvas papan tulis |
+| `POST` | `/api/papan` | Guru | Membuat lembar papan tulis baru |
+| `PUT` | `/api/papan/:id` | Guru / Editor | Menyimpan data elemen kanvas (*autosave debounced*) |
+| `DELETE` | `/api/papan/:id` | Guru | Menghapus papan tulis |
+| `POST` | `/api/papan/:id/share` | Guru | Membuat tautan token kolaborasi (Editor / Viewer) |
+| `GET` | `/api/papan/shared/:token` | Publik | Membuka papan tulis kolaboratif melalui tautan berbagi |
+
+### 5. Kecerdasan Buatan (`/api/ai`)
+| Method | Endpoint | Akses | Deskripsi |
+|---|---|---|---|
+| `POST` | `/api/ai/generate-soal` | Guru | Menghasilkan kumpulan soal otomatis dari teks materi |
+| `POST` | `/api/ai/tanya-papan` | Guru | Menganalisis potongan gambar kanvas papan tulis |
+| `POST` | `/api/ai/chat` | Guru | Konsultasi materi interaktif dengan asisten AI |
+| `GET` | `/api/ai/quota` | Guru | Menampilkan sisa limit kuota harian guru |
+
+### 6. Layanan Admin & Sistem
+| Method | Endpoint | Akses | Deskripsi |
+|---|---|---|---|
+| `GET` | `/api/health` | Publik | Health-check status server |
+| `GET` | `/api/info/server` | Guru | Mendapatkan informasi IP lokal LAN untuk QR Code |
+| `GET` | `/api/admin/stats` | Admin | Ringkasan statistik pengguna, sesi, dan aktivitas |
+| `GET` | `/api/admin/users` | Admin | Daftar dan kontrol status aktif pengguna |
 
 ---
 
-## Pengujian Otomatis
+## 14. Panduan Penggunaan
 
-Discere menyediakan pengujian otomatis untuk memeriksa fungsi utama aplikasi.
+### Akun Demonstrasi (Evaluasi Dewan Juri)
+Untuk mempermudah peninjauan langsung, script seed menyediakan dua akun terverifikasi:
 
-Jalankan pengujian logika permainan:
+| Akun | Email | Kata Sandi | Kegunaan |
+|---|---|---|---|
+| **Administrator** | `admin@discere.local` | `AdminDiscere2026!` | Pengawasan platform, manajemen guru, dan pustaka template |
+| **Guru Demo** | `guru@discere.local` | `GuruDiscere2026!` | Dilengkapi contoh papan tulis dan template kuis 4 game siap main |
 
-```bash
-npm --prefix server test
-```
+### Skenario 1: Menjalankan Game Solo (1 vs 1) di Kelas
+1. Guru login melalui halaman `/masuk` dengan akun guru.
+2. Pada Dashboard Guru, pilih materi kuis pada kartu salah satu game (misal: *Tarik Tambang*).
+3. Di halaman Pengaturan Game, klik opsi **"Solo Mode (1 vs 1)"**, tentukan lawan (AI Bot atau Pemain Lokal), lalu klik **"Buka Arena Solo"**.
+4. Guru menekan tombol **"Mulai Lomba"** di layar proyektor.
+5. Pemain 1 dan Pemain 2 (atau Bot) menjawab pertanyaan yang muncul di layar proyektor secara bergantian/adu cepat.
+6. Permainan berakhir otomatis jika batas waktu habis atau target menang tercapai, menampilkan podium juara dan opsi *Main lagi*.
 
----
+### Skenario 2: Menjalankan Game Multiplayer Massal (Ponsel Siswa)
+1. Guru memilih materi kuis dan memilih opsi **"Multiplayer Tim"** pada halaman Pengaturan Game.
+2. Klik tombol **"Buat Sesi Multiplayer & Buka Lobi PIN"**.
+3. Layar proyektor akan menampilkan **6-digit PIN** dan **QR Code**.
+4. Siswa membuka menu **Gabung Permainan** (`/join`), mengetik PIN atau memindai QR Code, lalu memasukkan nama panggilan mereka.
+5. Guru melihat daftar siswa yang bergabung pada denah kelas virtual di layar proyektor.
+6. Guru mengklik **"Mulai Game"**. Soal akan mengalir langsung ke layar ponsel masing-masing siswa secara *real-time*.
 
-## Diagram Arsitektur Sistem dan Alur Data
-
-### 1. Diagram Arsitektur Sistem Global
-
-```mermaid
-flowchart TD
-    subgraph Klien_Frontend [Frontend - React 18, Vite & Tailwind CSS]
-        UI_PUBLIC["Halaman Publik (Beranda, /main, /masuk)"]
-        UI_DASH["Dashboard Guru & Admin (/guru, /admin)"]
-        UI_CANVAS["Papan Tulis (Native HTML5 Canvas 2D)"]
-        UI_GAME["Arena Game (Host Proyektor & Siswa Mobile)"]
-        AUDIO_SYNTH["Web Audio API (Procedural Sound Engine)"]
-    end
-
-    subgraph Server_Backend [Backend - Node.js v22 & Express 5]
-        REST_API["REST API Router (/api/auth, /api/sesi, /api/papan, /api/admin)"]
-        AI_GATEWAY["AI Gateway & Caching (/api/ai/soal, /api/ai/jawab, /api/ai/obrol)"]
-        SOCKET_GATEWAY["Socket.IO Gateway (Real-Time Bi-Directional)"]
-        
-        subgraph Realtime_Managers [In-Memory State Managers]
-            SESI_ROUTER["Realtime Session Router (sesi.ts)"]
-            BOARD_ROOMS["Realtime Collaborative Rooms (papan.ts)"]
-            GAME_ENGINES["Game Engines: Balap Karung, Tarik Tambang, Makan Kerupuk, Panjat Pinang"]
-        end
-    end
-
-    subgraph Database_External [Basis Data & Layanan Eksternal]
-        PRISMA_ORM["Prisma ORM (Schema & Client)"]
-        SQLITE_DB[(Basis Data SQLite: users, boards, templates, sessions)]
-        GEMINI_API["Google Gemini API (gemini-1.5-flash)"]
-    end
-
-    UI_DASH -->|HTTP / JSON via fetch| REST_API
-    UI_CANVAS -->|REST Autosave & Share| REST_API
-    UI_CANVAS <-->|papan:ubah, papan:geser_live, kursor| BOARD_ROOMS
-    UI_GAME <-->|Socket.IO events: sesi, soal, jawaban, tali, kerupuk| SESI_ROUTER
-    UI_CANVAS -->|Tanya AI / Obrol AI| AI_GATEWAY
-
-    REST_API --> PRISMA_ORM
-    BOARD_ROOMS --> PRISMA_ORM
-    SESI_ROUTER --> GAME_ENGINES
-    GAME_ENGINES -->|Simpan Hasil & Statistik| PRISMA_ORM
-    PRISMA_ORM --> SQLITE_DB
-    AI_GATEWAY <-->|SHA-256 Cache Check & Usage| PRISMA_ORM
-    AI_GATEWAY -->|HTTPS Prompting| GEMINI_API
-```
-
-### 2. Diagram Alur Game Edukasi (Solo & Multiplayer)
-
-```mermaid
-flowchart TD
-    subgraph Layar_Guru [Layar Host / Proyektor Kelas]
-        HOST_LOBBY["Lobi Game (PIN & QR Code)"]
-        HOST_ARENA["Arena Pertandingan (Visualisasi Game Live)"]
-        HOST_RESULT["Layar Hasil & Evaluasi"]
-    end
-
-    subgraph Layar_Siswa [Perangkat Siswa / Ponsel Pintar]
-        SISWA_JOIN["Bergabung (/main via PIN & Nama)"]
-        SISWA_GAME["Layar Soal Interaktif (Tombol Jawaban A/B/C)"]
-        SISWA_FEEDBACK["Umpan Balik Live & Skor Personal"]
-    end
-
-    subgraph Backend_Game [Server Real-Time Game Engine]
-        SOCKET_IO((Socket.IO Gateway))
-        ROUTER_SESI["Session State Controller"]
-        TIMER_AUTH["Timer Otoritatif Server"]
-        
-        subgraph Engine_Lomba [Mesin Logika 4 Game]
-            ENG_BALAP["Balap Karung (Sprint Acak & Multi-Lompatan)"]
-            ENG_TARIK["Tarik Tambang (Pergeseran Vektor Tali)"]
-            ENG_KERUPUK["Makan Kerupuk (Gacha Crypto-Safe & Chomp SVG)"]
-            ENG_PINANG["Panjat Pinang (Tingkat Ketinggian & Rintangan)"]
-        end
-    end
-
-    subgraph Database_Penyimpanan [Database SQLite via Prisma]
-        DB_SESS[(sessions)]
-        DB_RES[(session_results)]
-        DB_STAT[(question_stats)]
-    end
-
-    HOST_LOBBY -->|sesi:mulai| SOCKET_IO
-    SISWA_JOIN -->|sesi:gabung| SOCKET_IO
-    SOCKET_IO --> ROUTER_SESI
-    ROUTER_SESI --> TIMER_AUTH
-    ROUTER_SESI --> Engine_Lomba
-
-    SISWA_GAME -->|jawab:kirim| SOCKET_IO
-    Engine_Lomba -->|Kalkulasi Jawaban & Update Skor| ROUTER_SESI
-    ROUTER_SESI -->|Broadcast State Game & Animasi| HOST_ARENA
-    ROUTER_SESI -->|Kirim Status Jawaban & Soal Baru| SISWA_FEEDBACK
-
-    ROUTER_SESI -->|Permainan Berakhir: Simpan Data| DB_SESS
-    ROUTER_SESI -->|Rekapitulasi Pemenang & Skor| DB_RES
-    ROUTER_SESI -->|Statistik Jawaban Benar / Salah Per Soal| DB_STAT
-```
-
-### 3. Diagram Alur Papan Tulis Kolaboratif & Sinkronisasi Real-Time
-
-```mermaid
-flowchart TD
-    subgraph Kolaborator [Pengguna Papan Tulis]
-        GURU["Guru (Pemilik Papan) /papan/:id"]
-        EDITOR["Kolaborator Editor /b/:token"]
-        VIEWER["Penonton / Siswa /b/:token (Read-Only)"]
-    end
-
-    subgraph Native_Kanvas [Native HTML5 Canvas 2D Engine di Klien]
-        CANVAS["Canvas: Vektor, Pen, Bentuk Geometris, Teks, Tabel, Gambar"]
-        LIVE_SYNC["Live Interaction Tracker (Drag, Resize, Erase)"]
-        AUTOSAVE["Debounced Autosave (1.5 Detik ke REST API)"]
-        SIDEBAR["Drawer Template Game & Soal"]
-        UNDO_REDO["Undo / Redo History Stack"]
-        CANVAS --- UNDO_REDO
-        CANVAS --> AUTOSAVE
-        CANVAS --- LIVE_SYNC
-        CANVAS --- SIDEBAR
-    end
-
-    subgraph Server_Papan [Server Kolaborasi Socket.IO & REST]
-        BOARD_GATEWAY((Socket.IO: boardRooms))
-        PERM_CHECK{"Validasi Hak Akses (Owner / Editor / Viewer)"}
-        REST_PAPAN["REST API /api/papan & /api/papan/share"]
-        
-        BOARD_GATEWAY --> PERM_CHECK
-        PERM_CHECK -->|Izin Sah| BROADCAST["Siarkan Pembaruan Objek & Kursor ke Room"]
-        PERM_CHECK -->|Viewer Mengubah Objek| REJECT["Tolak Aksi (403 Forbidden)"]
-    end
-
-    subgraph Database_Papan [Database SQLite Prisma]
-        TBL_BOARD[(boards: Data Vektor Kanvas JSON)]
-        TBL_SHARE[(board_shares: Token & Role Hak Akses)]
-    end
-
-    GURU -->|Akses Penuh & Bagikan Tautan| CANVAS
-    EDITOR -->|Gambar Bersama & Manipulasi Objek| CANVAS
-    CANVAS -->|Tontonan Real-Time Tanpa Tool Bar| VIEWER
-
-    CANVAS <-->|papan:ubah, papan:geser_live, papan:hapus_live| BOARD_GATEWAY
-    CANVAS <-->|papan:kursor, nama kolaborator aktif| BOARD_GATEWAY
-
-    AUTOSAVE -->|PUT /api/papan/:id| REST_PAPAN
-    REST_PAPAN -->|Persistensi Kanvas Berkala| TBL_BOARD
-    REST_PAPAN -->|Manajemen Token Berbagi| TBL_SHARE
-```
+### Skenario 3: Menggunakan Papan Tulis Kolaboratif & Asisten AI
+1. Pada menu dashboard guru, buka tab **Papan Tulis** dan buat lembar kerja baru.
+2. Gunakan berbagai alat gambar, penulisan rumus, dan bentuk geometri pada kanvas.
+3. Klik tombol **Bagikan** untuk menyalin tautan kolaborasi bagi siswa atau guru mitra.
+4. Gunakan fitur **Tanya AI** untuk menanyakan langkah penyelesaian soal matematika/sains langsung pada materi yang ditulis di kanvas.
 
 ---
 
-## Penggunaan Artificial Intelligence
+## 15. Deployment
 
-Penggunaan AI dalam Discere dibagi menjadi dua bagian.
+### Status Deployment Saat Ini
+Saat ini repositori Discere dioptimalkan untuk pengujian lokal terpadu (*Local Full-Stack Monorepo*) dengan dukungan SQLite nir-konfigurasi serta opsi beralih ke PostgreSQL terdistribusi (misalnya melalui Supabase).
 
-### 1. AI sebagai Alat Bantu Pengembangan
+### Langkah Menyiapkan Server Produksi Mandiri (Self-Hosted VPS)
+1. **Build Klien dan Server:**
+   ```bash
+   npm run build
+   ```
+2. **Konfigurasi Lingkungan Produksi:**
+   - Atur `NODE_ENV=production`
+   - Gunakan `DATABASE_URL` PostgreSQL yang telah terkonfigurasi connection pooler.
+   - Atur `JWT_SECRET` yang kuat (minimal 32 karakter acak).
+3. **Jalankan Aplikasi:**
+   ```bash
+   npm start
+   ```
+   *Rekomendasi:* Gunakan process manager seperti **PM2** (`pm2 start server/dist/index.js --name discere-backend`) dan reverse proxy **Nginx** dengan sertifikat SSL/TLS (Let's Encrypt).
 
-Tim menggunakan AI Coding Assistant sebagai alat bantu selama proses pengembangan aplikasi.
-
-AI dimanfaatkan untuk membantu:
-
-- Eksplorasi dan penyusunan struktur kode.
-- Pengembangan logika fitur.
-- Implementasi komponen antarmuka.
-- Penyusunan pengujian otomatis.
-- Pemeriksaan dan perbaikan kode.
-
-Seluruh hasil pengembangan tetap ditinjau, diuji, dan menjadi tanggung jawab tim.
-
-### 2. AI sebagai Fitur Aplikasi
-
-Discere menggunakan Google Gemini API untuk mendukung beberapa fitur utama.
-
-**Generator Soal AI**
-
-Membantu guru menghasilkan soal pilihan ganda berdasarkan materi pembelajaran yang dimasukkan.
-
-**Tanya AI**
-
-Menganalisis area soal atau materi pada papan tulis dan memberikan jawaban beserta langkah penyelesaian.
-
-**Obrolan Asisten AI**
-
-Membantu guru mendapatkan informasi dan penjelasan tambahan seputar materi pembelajaran.
-
-Hasil yang dihasilkan AI tetap perlu diperiksa oleh guru sebelum digunakan dalam kegiatan pembelajaran.
-
-### 3. Pengelolaan Penggunaan AI
-
-Discere menerapkan beberapa mekanisme untuk mengelola penggunaan AI:
-
-- Validasi hasil AI menggunakan Zod.
-- Penyimpanan cache menggunakan SHA-256.
-- Pembatasan penggunaan AI harian.
-- API Key dikelola melalui backend.
-- Guru diingatkan untuk tidak memasukkan data pribadi siswa ke dalam prompt.
+> [!NOTE]
+> **Rencana Pengembangan Deployment (TODO):**
+> - Penambahan `Dockerfile` dan `docker-compose.yml` multi-stage untuk orkestrasi container backend dan frontend otomatis.
+> - Konfigurasi pipeline deployment otomatis via GitHub Actions menuju cloud provider seperti Vercel / Railway / VPS.
 
 ---
 
-## Privasi dan Keamanan
+## 16. Tim Pengembang
 
-Discere menerapkan beberapa mekanisme untuk menjaga keamanan dan privasi pengguna.
+Proyek ini dirancang dan dikembangkan dengan dedikasi tinggi oleh **Tim Timber** dari **SMKN 13 Bandung**:
 
-- Siswa dapat mengikuti permainan tanpa membuat akun.
-- Nama peserta permainan digunakan selama sesi berlangsung.
-- Data peserta multiplayer dikelola dalam memori server selama sesi aktif.
-- Autentikasi guru dan administrator menggunakan JWT.
-- Cookie autentikasi menggunakan atribut `httpOnly`.
-- Validasi data dilakukan pada sisi klien dan server.
-- Pembatasan permintaan menggunakan rate limiting.
-- Hak akses papan tulis diperiksa melalui server.
-- Administrator tidak dapat mengakses konten privat milik guru.
-
-Pengembangan fitur privasi mengacu pada prinsip perlindungan data pribadi sesuai UU No. 27 Tahun 2022.
+| Anggota Tim | Peran & Tanggung Jawab Utama | Kontak / GitHub |
+|---|---|---|
+| **Refky** | **Lead Frontend & Canvas Architect**<br>- Perancangan antarmuka Landing Page & Halaman Publik.<br>- Pengembangan engine Papan Tulis Digital (HTML5 Canvas 2D) & sinkronisasi live cursor.<br>- Desain antarmuka Portal Guru dan Admin. | [@refkyaja](https://github.com/refkyaja) |
+| **Kaka** | **Full-Stack Logic & Dashboard Lead**<br>- Arsitektur logika sistem dan alur state pada Dashboard Guru & Admin.<br>- Perancangan form konfigurasi game dan sistem pembagian tim.<br>- Manajemen skema database Prisma dan otentikasi JWT. | [@Kalzz76](https://github.com/Kalzz76) |
+| **Alip** | **Game Engine & Audio Designer**<br>- Pengembangan logika 4 mesin game (Tarik Tambang, Balap Karung, Panjat Pinang, Makan Kerupuk).<br>- Sintesis efek audio prosedural dengan Web Audio API.<br>- Koordinasi administrasi tim dan pengujian skenario lomba. | [@lemonade199](https://github.com/lemonade199) |
 
 ---
 
-## Atribusi dan Pihak Ketiga
+## 17. Atribusi & Lisensi
 
-Berikut daftar teknologi, pustaka, dan layanan pihak ketiga yang digunakan dalam pengembangan Discere.
-
-### Framework dan Library
-
-- React
-- Vite
-- Tailwind CSS
-- Express.js
-- Socket.IO
-- Prisma ORM
-- SQLite
-- Zod
-- JWT
-- bcryptjs
-
-### Artificial Intelligence
-
-- Google Gemini API
-
-### Ikonografi
-
-- Lucide Icons melalui paket `lucide-react`.
-- Lisensi ISC.
-
-### Tipografi
-
-- Baloo 2 melalui `@fontsource/baloo-2`.
-- Inter melalui `@fontsource/inter`.
-- Plus Jakarta Sans melalui `@fontsource/plus-jakarta-sans`.
-- Lisensi SIL Open Font License 1.1.
-
-### Audio
-
-Seluruh efek suara permainan dihasilkan secara prosedural menggunakan Web Audio API bawaan browser tanpa menggunakan sampel rekaman audio eksternal.
-
-### Desain Antarmuka
-
-Komponen antarmuka dan animasi dikembangkan menggunakan React dan Tailwind CSS sesuai kebutuhan desain Discere.
+- **Lisensi Proyek**: Dikembangkan khusus untuk keperluan kompetisi **LOGICODIX 2026 Hackathon Competition**. Hak cipta kode sumber melekat pada Tim Timber, SMKN 13 Bandung.
+- **Tipografi**: Font *Baloo 2*, *Inter*, dan *Plus Jakarta Sans* dilisensikan di bawah [SIL Open Font License 1.1](https://scripts.sil.org/OFL).
+- **Ikon**: Disediakan oleh [Lucide Icons](https://lucide.dev) di bawah lisensi ISC.
+- **Audio**: 100% disintesis secara prosedural melalui Web Audio API bawaan peramban web tanpa menggunakan berkas sampel audio berhak cipta pihak ketiga.
 
 ---
 
-## Lisensi
-
-Discere merupakan proyek yang dikembangkan oleh Tim Timber dari SMKN 13 Bandung untuk LOGICODIX 2026 Hackathon Competition.
-
-Penggunaan library dan aset pihak ketiga mengikuti lisensi masing-masing pemiliknya.
-
----
-
-**Discere**
-
-*Belajar Serius, Bermain Gembira!*
-
-Developed by **Tim Timber**
-
-SMKN 13 Bandung | LOGICODIX 2026
+<p align="center">
+  <b>Discere — Belajar Serius, Bermain Gembira!</b><br>
+  <i>Tim Timber • SMKN 13 Bandung • LOGICODIX 2026</i>
+</p>
