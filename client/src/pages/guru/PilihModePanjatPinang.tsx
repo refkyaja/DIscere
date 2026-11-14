@@ -518,12 +518,31 @@ export default function PilihModePanjatPinang() {
                   tagColor="green"
                 />
 
-                <div className="max-w-md">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                   <KapasitasPesertaControl
                     value={maxPeserta}
                     onChange={setMaxPeserta}
                     label="Maksimal Peserta (1–45 Siswa)"
                   />
+
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-[#6b7d6c] block mb-1">
+                      Format Pertandingan
+                    </label>
+                    <div className="p-2.5 rounded-xl border border-[#e0d5b8] bg-[#fbf8ef] flex items-center justify-between gap-3 text-xs">
+                      <div className="min-w-0">
+                        <div className="font-extrabold text-[#1d3b2e] truncate">
+                          Kompetisi Panjat Individu
+                        </div>
+                        <div className="text-[11px] text-[#6b7d6c] truncate">
+                          Semua peserta berlomba memanjat di 1 tiang
+                        </div>
+                      </div>
+                      <span className="shrink-0 px-2.5 py-1 rounded-lg bg-[#1d3b2e]/10 text-[#1d3b2e] font-extrabold text-[11px] font-mono">
+                        Individu
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

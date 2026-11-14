@@ -485,12 +485,33 @@ export default function PilihModeTarikTambang() {
 
               {playMode === 'MULTIPLAYER' && (
                 <div className="pt-3 border-t border-dashed border-[#e0d5b8]">
-                  <div className="max-w-md">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                    {/* Kolom Kiri: Kapasitas Peserta */}
                     <KapasitasPesertaControl
                       value={maxPeserta}
                       onChange={setMaxPeserta}
                       label="Kapasitas Peserta (1–45 Siswa)"
                     />
+
+                    {/* Kolom Kanan: Informasi Pembagian Tim */}
+                    <div>
+                      <label className="text-xs font-bold uppercase tracking-wider text-[#6b7d6c] block mb-1">
+                        Pembagian Tim di Lobi
+                      </label>
+                      <div className="p-2.5 rounded-xl border border-[#e0d5b8] bg-[#fbf8ef] flex items-center justify-between gap-3 text-xs">
+                        <div className="min-w-0">
+                          <div className="font-extrabold text-[#1d3b2e] truncate">
+                            Maksimal ±{Math.ceil(maxPeserta / 2)} Siswa / Tim
+                          </div>
+                          <div className="text-[11px] text-[#6b7d6c] truncate">
+                            Acak Seimbang otomatis saat mulai
+                          </div>
+                        </div>
+                        <span className="shrink-0 px-2.5 py-1 rounded-lg bg-[#1d3b2e]/10 text-[#1d3b2e] font-extrabold text-[11px] font-mono">
+                          2 Tim
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
