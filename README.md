@@ -272,7 +272,6 @@ DIscere/
 ├── .dockerignore                 # Konfigurasi pengecualian image Docker
 ├── .env.example                 # Template variabel lingkungan
 ├── .gitignore                   # Daftar pengabaian berkas Git
-├── CLEANUP_REPORT.md            # Laporan audit & verifikasi pembersihan repository
 ├── Dockerfile                   # Konfigurasi containerized deployment
 ├── package.json                 # Monorepo root package & script orchestrator
 ├── playwright.config.ts         # Konfigurasi pengujian Playwright
